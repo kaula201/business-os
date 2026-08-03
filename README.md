@@ -1,35 +1,35 @@
 # Business OS — ქართული ERP სისტემა
 
-სრულად ფუნქციონირებს Business OS — საოპერაციო სისტემა ქართული ბიზნესებისთვის. მოიცავს საწყობის მართვას, შეკვეთებს, CRM-ს, დავალებებს, რეპორტებს და AI ასისტენტს.
+[![CI](https://github.com/kaula201/business-os/actions/workflows/ci.yml/badge.svg)](https://github.com/kaula201/business-os/actions/workflows/ci.yml)
+
+სრულად ფუნქციონირებს Business OS — საოპერაციო სისტემა ქართული ბიზნესებისთვის. 34 მოდული, მოიცავს ფინანსებს (GL, ინვოისები, ბანკი), HR-ს, ფლოტს, საწყობს, CRM-ს, შეკვეთებს, რეპორტებს და AI ასისტენტს.
 
 ## ტექნოლოგიები
 
 ### Backend
 - **Python 3.12** + **FastAPI**
-- **PostgreSQL** + **SQLAlchemy** (async) + **asyncpg**
-- **Redis** (caching/sessions)
+- **PostgreSQL** (pgvector) + **SQLAlchemy** (async) + **asyncpg**
+- **Redis** (caching/sessions/rate limiting)
 - **JWT** authentication (python-jose + passlib)
-- **Alembic** migrations
-- **ReportLab** (PDF generation)
-- **OpenPyXL** (Excel export)
-- **OpenAI API** (AI assistant)
+- **Alembic** migrations (61)
+- **ReportLab** (PDF), **OpenPyXL** (Excel)
+- **OpenAI API** (AI ასისტენტი)
 
 ### Frontend
 - **React 18** + **TypeScript**
 - **Vite** (build tool)
-- **Tailwind CSS** (styling)
-- **React Router** (routing)
-- **Zustand** (state management)
-- **TanStack Query** (data fetching)
-- **Recharts** (charts)
-- **Lucide React** (icons)
+- **Tailwind CSS**, **Zustand**, **TanStack Query**
+- **Recharts**, **Lucide React**
 
 ### Infrastructure
 - **Docker** + **Docker Compose**
+- **GitHub Actions** CI (backend tests + frontend build)
+- ავტომატური **PostgreSQL backup** ყოველ ღამეს (3:00)
 
 ## სწრაფი დაწყება (Docker)
 
 ```bash
+git clone https://github.com/kaula201/business-os.git
 cd business-os
 docker compose up --build
 ```
@@ -40,6 +40,8 @@ docker compose up --build
 - **Email:** admin@demo.ge
 - **პაროლი:** admin123
 
+> ⚠️ `.env.example`-დან დააკოპირეთ და შეავსეთ `backend/.env` რეალური secret-ებით (SECRET_KEY, OPENAI_API_KEY). სტანდარტული `secret` პაროლები მხოლოდ ლოკალური განვითარებისთვისაა.
+
 ## ლოკალური გაშვება (Development)
 
 ### Backend
@@ -49,8 +51,9 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Database (PostgreSQL უნდა იყოს გაშვებული)
-python -m app.seed
+# PostgreSQL უნდა იყოს გაშვებული (docker compose up postgres redis)
+python -m app.migrate_schema
+python seed.py
 uvicorn app.main:app --reload
 ```
 
@@ -61,81 +64,75 @@ npm install
 npm run dev
 ```
 
-## პროექტის სტრუქტურა
-
-```
-business-os/
-├── docker-compose.yml
-├── backend/
-│   ├── app/
-│   │   ├── api/v1/endpoints/    # API endpoints
-│   │   │   ├── auth.py          # ავტორიზაცია
-│   │   │   ├── products.py      # საწყობი
-│   │   │   ├── orders.py        # შეკვეთები
-│   │   │   ├── clients.py       # კლიენტები
-│   │   │   ├── tasks.py         # დავალებები
-│   │   │   ├── dashboard.py     # დაშბორდი
-│   │   │   ├── ai.py            # AI ასისტენტი
-│   │   │   ├── export.py        # Excel ექსპორტი
-│   │   │   └── invoices.py      # ინვოისები (PDF)
-│   │   ├── models/              # SQLAlchemy models
-│   │   ├── schemas/             # Pydantic schemas
-│   │   ├── core/                # Config, database, security
-│   │   └── utils/               # PDF, Excel utilities
-│   ├── tests/                   # Pytest tests
-│   ├── seed.py                  # Database seed script
-│   ├── requirements.txt
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── pages/               # Page components
-│   │   ├── components/          # UI components
-│   │   ├── services/            # API client
-│   │   ├── store/               # Zustand stores
-│   │   └── types/               # TypeScript types
-│   ├── .env
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── Dockerfile
-└── README.md
-```
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/v1/auth/register | რეგისტრაცია |
-| POST | /api/v1/auth/login | შესვლა |
-| GET | /api/v1/products/ | პროდუქტების სია |
-| POST | /api/v1/products/ | პროდუქტის შექმნა |
-| PATCH | /api/v1/products/{id} | პროდუქტის განახლება |
-| POST | /api/v1/products/adjust-stock | ნაშთის კორექტირება |
-| GET | /api/v1/orders/ | შეკვეთების სია |
-| POST | /api/v1/orders/ | შეკვეთის შექმნა |
-| PATCH | /api/v1/orders/{id}/status | სტატუსის ცვლილება |
-| GET | /api/v1/clients/ | კლიენტების სია |
-| GET | /api/v1/dashboard/summary | დაშბორდის სტატისტიკა |
-| POST | /api/v1/ai/chat | AI ასისტენტი |
-| GET | /api/v1/export/products | Excel ექსპორტი |
-| POST | /api/v1/invoices/{order_id}/generate | PDF ინვოისი |
-
 ## ტესტები
 
 ```bash
 cd backend
-pytest tests/ -v
+pytest -q          # სრული სუიტა (PostgreSQL test DB მოითხოვს)
+```
+
+CI-ში ტესტები ავტომატურად ეშვება ყოველ push-ზე main-ზე.
+
+## მოდულები (34)
+
+| კატეგორია | მოდულები |
+|---|---|
+| **ფინანსები** | GL (Chart of Accounts, Journal Entries, Trial Balance, P&L, Balance Sheet), ინვოისები, მომწოდებლები/კლიენტების ფინანსები, ბანკი + რეკონსილაცია, ხელფასები, ბიუჯეტი, სალარო, ანალიტიკური აღრიცხვა, ვალუტა, ძირითადი საშუალებები |
+| **ოპერაციები** | საწყობი, შეკვეთები, შესყიდვები, ხარჯები, წარმოება, პროექტები, POS |
+| **კომერცია** | CRM, კლიენტები, მომწოდებლები, მარკეტინგი, აბონემენტები |
+| **ადამიანური რესურსები** | თანამშრომლები, დასწრება, შვებულებები, რეკრუტინგი |
+| **ორგანიზაცია** | დავალებები, helpdesk, დამტკიცებები (approvals), კონტრაქტები, დოკუმენტები |
+| **სხვა** | ფლოტი, ანგარიშგებები, AI ასისტენტი, პარამეტრები, მომხმარებლები, პორტალი |
+
+## API Endpoints
+
+სრული დოკუმენტაცია ხელმისაწვდომია გაშვებულ backend-ზე:
+
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- OpenAPI JSON: `http://localhost:8000/openapi.json`
+
+## პროექტის სტრუქტურა
+
+```
+business-os/
+├── docker-compose.yml          # postgres, redis, backend, frontend, backup
+├── .github/workflows/ci.yml    # GitHub Actions CI
+├── backend/
+│   ├── app/
+│   │   ├── api/v1/endpoints/   # API endpoints (34 მოდული)
+│   │   ├── models/             # SQLAlchemy models
+│   │   ├── schemas/            # Pydantic schemas
+│   │   ├── core/               # Config, database, security, GL posting
+│   │   └── services/           # ბიზნეს ლოგიკა
+│   ├── migrations/             # Alembic migrations (61)
+│   ├── tests/                  # Pytest tests
+│   ├── seed.py                 # დემო მონაცემები
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── pages/              # 37 page component
+│   │   ├── components/         # UI components
+│   │   ├── services/           # API client
+│   │   ├── store/              # Zustand stores
+│   │   └── types/              # TypeScript types
+│   └── package.json
+└── scripts/
+    └── backup.sh               # ავტომატური backup
 ```
 
 ## ფუნქციონალი
 
-- 📦 **საწყობი** — პროდუქტების CRUD, ნაშთის მართვა, კატეგორიები
-- 🛒 **შეკვეთები** — შეკვეთების შექმნა, სტატუსის მართვა, ინვოისები
-- 👥 **CRM** — კლიენტების მართვა, კონტაქტი
-- ✅ **დავალებები** — Kanban დოსკა, კომენტარები
-- 📊 **რეპორტები** — გაყიდვები, სტატისტიკა, Excel ექსპორტი
-- 🤖 **AI ასისტენტი** — ბიზნეს ანალიზი, რჩევები
-- 📄 **ინვოისები** — PDF გენერაცია
-- 🔐 **ავტორიზაცია** — JWT token, role-based access
+- 📦 **საწყობი** — პროდუქტების CRUD, ნაშთის მართვა, კატეგორიები, barcode/GTIN
+- 🛒 **შეკვეთები** — სასიცოცხლო ციკლი, მარაგის კონტროლი, ფინანსური დეტალები
+- 📊 **GL** — გეგმა, ჟურნალის ჩანაწერები, საცდელი ბალანსი, P&L, ბალანსი
+- 👥 **CRM** — ლიდები, pipeline, კონვერსია, stale lead alerts
+- ✅ **დავალებები** — Kanban, კომენტარები
+- 🤖 **AI ასისტენტი** — ბიზნეს ანალიზი (RAG)
+- 📄 **ინვოისები** — PDF გენერაცია, VAT
+- 🚗 **ფლოტი** — მანქანები, საწვავი, სერვისები, რუკა
+- 👔 **HR** — თანამშრომლები, დასწრება, ხელფასები, ანალიტიკა
+- 🔐 **ავტორიზაცია** — JWT, role-based access, rate limiting
 
 ## ლიცენზია
 
