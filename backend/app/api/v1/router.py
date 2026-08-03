@@ -1,0 +1,133 @@
+# backend/app/api/v1/router.py
+from fastapi import APIRouter
+from app.api.v1.endpoints import (
+    ai,
+    accounting_periods,
+    accounting_periods_enhanced,
+    analytic,
+    approvals,
+    assets,
+    auth,
+    banking,
+    budgeting,
+    cash,
+    company,
+    currency,
+    customer_portal,
+    crm,
+    crm_enhanced,
+    crm_export,
+    customer_finance,
+    dashboard,
+    dashboard_enhanced,
+    deferred,
+    documents,
+    ecommerce,
+    clients,
+    contracts,
+    subscriptions,
+    email_marketing,
+    export,
+    expenses,
+    fleet,
+    fleet_enhanced,
+    gl,
+    gl_enhanced,
+    helpdesk,
+    hr,
+    hr_enhanced,
+    integrations,
+    import_data,
+    invoices,
+    invoices_enhanced,
+    leaves,
+    live_chat,
+    modules,
+    orders,
+    orders_enhanced,
+    pos,
+    production,
+    products,
+    projects,
+    reports,
+    purchase_orders,
+    purchase_costs,
+    purchase_approvals,
+    quality_control,
+    recruitment,
+    srs,
+    suppliers,
+    supplier_finance,
+    settings_enhanced,
+    tasks,
+    tasks_enhanced,
+    users,
+    warehouses,
+    warehouses_enhanced,
+)
+
+api_router = APIRouter(prefix="/api/v1")
+
+api_router.include_router(auth.router)
+api_router.include_router(banking.router)
+api_router.include_router(customer_finance.router)
+api_router.include_router(users.router)
+api_router.include_router(clients.router)
+api_router.include_router(contracts.router)
+api_router.include_router(subscriptions.router)
+api_router.include_router(email_marketing.router)
+api_router.include_router(crm.router)
+api_router.include_router(crm_enhanced.router)
+api_router.include_router(crm_export.router)
+api_router.include_router(customer_portal.router)
+api_router.include_router(orders.router)
+api_router.include_router(orders_enhanced.router)
+api_router.include_router(pos.router)
+api_router.include_router(products.router)
+api_router.include_router(tasks.router)
+api_router.include_router(tasks_enhanced.router)
+api_router.include_router(dashboard.router)
+api_router.include_router(dashboard_enhanced.router)
+api_router.include_router(ai.router)
+api_router.include_router(accounting_periods.router)
+api_router.include_router(accounting_periods_enhanced.router)
+api_router.include_router(analytic.router)
+api_router.include_router(approvals.router)
+api_router.include_router(deferred.router)
+api_router.include_router(documents.router)
+api_router.include_router(ecommerce.router)
+api_router.include_router(export.router)
+api_router.include_router(invoices.router)
+api_router.include_router(invoices_enhanced.router)
+api_router.include_router(leaves.router)
+api_router.include_router(live_chat.router)
+api_router.include_router(warehouses.router)
+api_router.include_router(warehouses_enhanced.router)
+api_router.include_router(suppliers.router)
+api_router.include_router(purchase_orders.router)
+api_router.include_router(purchase_costs.router)
+api_router.include_router(purchase_approvals.router)
+api_router.include_router(supplier_finance.router)
+api_router.include_router(gl.router)
+api_router.include_router(gl_enhanced.router)
+api_router.include_router(company.router)
+api_router.include_router(currency.router)
+api_router.include_router(fleet.router)
+api_router.include_router(fleet_enhanced.router)
+api_router.include_router(integrations.router)
+api_router.include_router(cash.router)
+api_router.include_router(assets.router)
+api_router.include_router(budgeting.router)
+api_router.include_router(srs.router)
+api_router.include_router(expenses.router)
+api_router.include_router(helpdesk.router)
+api_router.include_router(import_data.router)
+api_router.include_router(modules.router)
+api_router.include_router(settings_enhanced.router)
+api_router.include_router(hr.router)
+api_router.include_router(hr_enhanced.router)
+api_router.include_router(production.router)
+api_router.include_router(projects.router)
+api_router.include_router(reports.router)
+api_router.include_router(recruitment.router)
+api_router.include_router(quality_control.router)

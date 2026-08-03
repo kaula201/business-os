@@ -1,0 +1,105 @@
+# backend/app/core/dependencies.py
+from fastapi import Depends, HTTPException, Request
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.core.database import get_db
+from app.core.security import decode_token
+from app.models.user import User
+from app.models.module import AppModule, ModulePermission
+
+
+async def get_current_user(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="ავტორიზაცია არ არის მოწოდებული")
+
+    token = auth_header.split(" ")[1]
+    payload = decode_token(token)
+    if not payload or payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="არასწორი ან ვადაგასული token")
+
+    user_id = payload.get("sub")
+    # Keep as string for SQLite compatibility (PostgreSQL UUID works with string comparison)
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="მომხმარებელი არ მოიძებნა ან დეაქტივირებულია")
+
+    return user
+
+
+async def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != User.Role.ADMIN:
+        raise HTTPException(status_code=403, detail="მხოლოდ ადმინისტრატორს შეუძლია")
+    return current_user
+
+
+def require_any_role(
+    current_user: User,
+    *allowed_roles: User.Role,
+    detail: str = "ამ მოქმედების უფლება არ გაქვთ",
+) -> None:
+    """Coarse backend authorization guard used until module permissions land."""
+    if current_user.role not in allowed_roles:
+        raise HTTPException(status_code=403, detail=detail)
+
+
+def require_module(module_code: str, permission: str = "can_access"):
+    """Factory: returns a FastAPI dependency that checks module-level permission.
+
+    Usage in endpoint:
+        current_user: User = Depends(require_module("cash", "can_create"))
+    """
+    async def _check(
+        db: AsyncSession = Depends(get_db),
+        current_user: User = Depends(get_current_user),
+    ) -> User:
+        # Admin always has full access
+        if current_user.role == User.Role.ADMIN:
+            return current_user
+
+        # Find the module
+        mod_result = await db.execute(
+            select(AppModule).where(AppModule.code == module_code, AppModule.is_active == True)
+        )
+        module = mod_result.scalar_one_or_none()
+        if not module:
+            raise HTTPException(status_code=403, detail="მოდული არ არის რეგისტრირებული")
+
+        # Check if company has this module enabled
+        from app.models.module import CompanyModule
+        cm_result = await db.execute(
+            select(CompanyModule).where(
+                CompanyModule.company_id == current_user.company_id,
+                CompanyModule.module_id == module.id,
+                CompanyModule.enabled == True,
+            )
+        )
+        if not cm_result.scalar_one_or_none():
+            raise HTTPException(status_code=403, detail="მოდული გამორთულია კომპანიისთვის")
+
+        # Check permission for this role
+        perm_result = await db.execute(
+            select(ModulePermission).where(
+                ModulePermission.module_id == module.id,
+                ModulePermission.role == current_user.role,
+            )
+        )
+        perm = perm_result.scalar_one_or_none()
+
+        if perm:
+            allowed = getattr(perm, permission, False)
+            if not allowed:
+                raise HTTPException(status_code=403, detail="ამ მოქმედების უფლება არ გაქვთ")
+        else:
+            # No explicit permission row — employee can only access
+            if permission != "can_access" and current_user.role == User.Role.EMPLOYEE:
+                raise HTTPException(status_code=403, detail="ამ მოქმედების უფლება არ გაქვთ")
+
+        return current_user
+
+    return _check

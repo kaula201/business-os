@@ -1,0 +1,63 @@
+# backend/app/schemas/dashboard.py
+from pydantic import BaseModel
+from typing import Optional, List
+from datetime import datetime
+
+
+class KPICards(BaseModel):
+    active_clients: int
+    active_orders: int
+    overdue_tasks: int
+    low_stock_products: int
+
+
+class KPITooltip(BaseModel):
+    """Formula and source explanation for each KPI."""
+    key: str
+    label: str
+    formula: str
+    source: str
+
+
+class RevenueChart(BaseModel):
+    period: str  # 7d, 30d, 90d
+    data: List["RevenueDataPoint"]
+
+
+class RevenueDataPoint(BaseModel):
+    date: str
+    amount: float
+    order_count: int
+
+
+class OrderStatusDistribution(BaseModel):
+    status: str
+    count: int
+    color: str
+
+
+class RecentActivity(BaseModel):
+    id: str
+    type: str  # order_created, order_status_changed, client_added, task_completed
+    description: str
+    timestamp: datetime
+    entity_id: Optional[str] = None
+
+
+class DashboardSummary(BaseModel):
+    kpi: KPICards
+    revenue_chart: RevenueChart
+    order_status_distribution: List[OrderStatusDistribution]
+    recent_activity: List[RecentActivity]
+    ai_summary: Optional[str] = None
+    critical_alerts: List["CriticalAlert"]
+    total_revenue: float = 0.0
+    kpi_tooltips: List[KPITooltip] = []
+
+
+class CriticalAlert(BaseModel):
+    type: str  # low_stock, overdue_task, overdue_payment
+    severity: str  # high, medium
+    title: str
+    description: str
+    entity_id: Optional[str] = None

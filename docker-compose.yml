@@ -1,0 +1,84 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: business_os_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: business_os
+      POSTGRES_USER: business_os
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U business_os"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: business_os_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: business_os_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://business_os:secret@postgres:5432/business_os
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "python -m app.core.migrate_schema && python -c 'import asyncio; from seed import seed; asyncio.run(seed())' && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  frontend:
+    build: ./frontend
+    container_name: business_os_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      backend:
+        condition: service_started
+
+  backup:
+    image: postgres:16-alpine
+    container_name: business_os_backup
+    restart: unless-stopped
+    entrypoint: |
+      sh -c "
+        echo '0 3 * * * /scripts/backup.sh' > /etc/crontabs/root &&
+        crond -f -l 2
+      "
+    environment:
+      PGPASSWORD: secret
+      RETENTION_DAYS: 30
+    volumes:
+      - ./scripts/backup.sh:/scripts/backup.sh:ro
+      - backup_data:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  backup_data:

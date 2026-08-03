@@ -1,0 +1,367 @@
+"""Projects API — enhanced with milestones, owner, progress, profitability, budget integration."""
+from uuid import UUID
+from decimal import Decimal
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from app.core.database import get_db
+from app.core.dependencies import get_current_user, require_module
+from app.models.user import User
+from app.models.projects import Project, ProjectMilestone
+from app.models.task import Task
+from app.models.budgeting import BudgetPlan
+from app.schemas.common import ResponseBase, PaginatedResponse
+from app.schemas.projects import (
+    ProjectCreate, ProjectUpdate, ProjectResponse, ProjectDetailResponse,
+    MilestoneCreate, MilestoneUpdate, MilestoneResponse,
+)
+from datetime import date, datetime
+from typing import Optional
+
+router = APIRouter(prefix="/projects", tags=["პროექტები"])
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Project Endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/", response_model=ResponseBase[PaginatedResponse[ProjectResponse]])
+async def list_projects(
+    page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
+    status: str | None = None,
+    search: str | None = None,
+    manager_id: UUID | None = None,
+    owner_id: UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_access")),
+):
+    query = (
+        select(Project)
+        .where(Project.company_id == current_user.company_id)
+        .options(selectinload(Project.manager), selectinload(Project.owner), selectinload(Project.budget_plan))
+    )
+    if status:
+        query = query.where(Project.status == status)
+    if search:
+        query = query.where(
+            Project.name.ilike(f"%{search}%") | Project.code.ilike(f"%{search}%")
+        )
+    if manager_id:
+        query = query.where(Project.manager_id == manager_id)
+    if owner_id:
+        query = query.where(Project.owner_id == owner_id)
+
+    total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar()
+    query = query.order_by(Project.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(query)
+    projects = result.scalars().all()
+
+    items = []
+    for p in projects:
+        resp = ProjectResponse.model_validate(p)
+        resp.manager_name = p.manager.full_name if p.manager else None
+        resp.owner_name = p.owner.full_name if p.owner else None
+        resp.budget_plan_name = p.budget_plan.name if p.budget_plan else None
+        items.append(resp)
+
+    return ResponseBase(data=PaginatedResponse(
+        items=items, total=total, page=page, page_size=page_size,
+        total_pages=(total + page_size - 1) // page_size
+    ))
+
+
+@router.post("/", response_model=ResponseBase[ProjectResponse], status_code=201)
+async def create_project(
+    data: ProjectCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_create")),
+):
+    proj = Project(company_id=current_user.company_id, **data.model_dump())
+    db.add(proj)
+    await db.flush()
+    await db.refresh(proj, ["manager", "owner", "budget_plan"])
+    resp = ProjectResponse.model_validate(proj)
+    resp.manager_name = proj.manager.full_name if proj.manager else None
+    resp.owner_name = proj.owner.full_name if proj.owner else None
+    resp.budget_plan_name = proj.budget_plan.name if proj.budget_plan else None
+    return ResponseBase(data=resp)
+
+
+@router.get("/{project_id}", response_model=ResponseBase[ProjectDetailResponse])
+async def get_project(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_access")),
+):
+    result = await db.execute(
+        select(Project)
+        .where(Project.id == project_id, Project.company_id == current_user.company_id)
+        .options(
+            selectinload(Project.manager),
+            selectinload(Project.owner),
+            selectinload(Project.budget_plan),
+            selectinload(Project.milestones).selectinload(ProjectMilestone.owner),
+            selectinload(Project.tasks),
+        )
+    )
+    proj = result.scalar_one_or_none()
+    if not proj:
+        raise HTTPException(status_code=404, detail="პროექტი არ მოიძებნა")
+
+    resp = ProjectDetailResponse.model_validate(proj)
+    resp.manager_name = proj.manager.full_name if proj.manager else None
+    resp.owner_name = proj.owner.full_name if proj.owner else None
+    resp.budget_plan_name = proj.budget_plan.name if proj.budget_plan else None
+
+    # Milestones
+    resp.milestones = []
+    for m in sorted(proj.milestones, key=lambda x: x.sort_order):
+        ms = MilestoneResponse.model_validate(m)
+        ms.owner_name = m.owner.full_name if m.owner else None
+        resp.milestones.append(ms)
+
+    # Task counts
+    all_tasks = proj.tasks
+    resp.task_count = len(all_tasks)
+    resp.completed_task_count = sum(1 for t in all_tasks if t.status == "done")
+
+    # Profitability
+    resp.profitability = proj.budget_amount - proj.spent_amount
+    if proj.budget_amount and proj.budget_amount > 0:
+        resp.profitability_percent = (resp.profitability / proj.budget_amount * 100).quantize(Decimal("0.01"))
+
+    return ResponseBase(data=resp)
+
+
+@router.patch("/{project_id}", response_model=ResponseBase[ProjectResponse])
+async def update_project(
+    project_id: UUID,
+    data: ProjectUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_create")),
+):
+    result = await db.execute(
+        select(Project)
+        .where(Project.id == project_id, Project.company_id == current_user.company_id)
+        .options(selectinload(Project.manager), selectinload(Project.owner), selectinload(Project.budget_plan))
+    )
+    proj = result.scalar_one_or_none()
+    if not proj:
+        raise HTTPException(status_code=404, detail="პროექტი არ მოიძებნა")
+
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(proj, field, value)
+
+    await db.flush()
+    await db.refresh(proj, ["manager", "owner", "budget_plan"])
+    resp = ProjectResponse.model_validate(proj)
+    resp.manager_name = proj.manager.full_name if proj.manager else None
+    resp.owner_name = proj.owner.full_name if proj.owner else None
+    resp.budget_plan_name = proj.budget_plan.name if proj.budget_plan else None
+    return ResponseBase(data=resp)
+
+
+@router.delete("/{project_id}", response_model=ResponseBase)
+async def delete_project(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_create")),
+):
+    result = await db.execute(
+        select(Project).where(Project.id == project_id, Project.company_id == current_user.company_id)
+    )
+    proj = result.scalar_one_or_none()
+    if not proj:
+        raise HTTPException(status_code=404, detail="პროექტი არ მოიძებნა")
+    await db.delete(proj)
+    return ResponseBase(message="პროექტი წაიშალა")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Milestone Endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/{project_id}/milestones", response_model=ResponseBase[list[MilestoneResponse]])
+async def list_milestones(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_access")),
+):
+    # Verify project exists and belongs to company
+    proj_result = await db.execute(
+        select(Project).where(Project.id == project_id, Project.company_id == current_user.company_id)
+    )
+    if not proj_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="პროექტი არ მოიძებნა")
+
+    result = await db.execute(
+        select(ProjectMilestone)
+        .where(ProjectMilestone.project_id == project_id)
+        .options(selectinload(ProjectMilestone.owner))
+        .order_by(ProjectMilestone.sort_order, ProjectMilestone.created_at)
+    )
+    milestones = result.scalars().all()
+    items = []
+    for m in milestones:
+        resp = MilestoneResponse.model_validate(m)
+        resp.owner_name = m.owner.full_name if m.owner else None
+        items.append(resp)
+    return ResponseBase(data=items)
+
+
+@router.post("/{project_id}/milestones", response_model=ResponseBase[MilestoneResponse], status_code=201)
+async def create_milestone(
+    project_id: UUID,
+    data: MilestoneCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_create")),
+):
+    proj_result = await db.execute(
+        select(Project).where(Project.id == project_id, Project.company_id == current_user.company_id)
+    )
+    if not proj_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="პროექტი არ მოიძებნა")
+
+    milestone = ProjectMilestone(project_id=project_id, **data.model_dump())
+    db.add(milestone)
+    await db.flush()
+    await db.refresh(milestone, ["owner"])
+    resp = MilestoneResponse.model_validate(milestone)
+    resp.owner_name = milestone.owner.full_name if milestone.owner else None
+    return ResponseBase(data=resp)
+
+
+@router.patch("/{project_id}/milestones/{milestone_id}", response_model=ResponseBase[MilestoneResponse])
+async def update_milestone(
+    project_id: UUID,
+    milestone_id: UUID,
+    data: MilestoneUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_create")),
+):
+    result = await db.execute(
+        select(ProjectMilestone)
+        .where(ProjectMilestone.id == milestone_id, ProjectMilestone.project_id == project_id)
+        .options(selectinload(ProjectMilestone.owner))
+    )
+    milestone = result.scalar_one_or_none()
+    if not milestone:
+        raise HTTPException(status_code=404, detail="ეტაპი არ მოიძებნა")
+
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(milestone, field, value)
+
+    # Auto-set completed_date when status changes to completed
+    if data.status == ProjectMilestone.Status.COMPLETED and not milestone.completed_date:
+        milestone.completed_date = date.today()
+    # Auto-set completion_percent to 100 when completed
+    if data.status == ProjectMilestone.Status.COMPLETED:
+        milestone.completion_percent = Decimal("100")
+
+    await db.flush()
+    await db.refresh(milestone, ["owner"])
+    resp = MilestoneResponse.model_validate(milestone)
+    resp.owner_name = milestone.owner.full_name if milestone.owner else None
+    return ResponseBase(data=resp)
+
+
+@router.delete("/{project_id}/milestones/{milestone_id}", response_model=ResponseBase)
+async def delete_milestone(
+    project_id: UUID,
+    milestone_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_create")),
+):
+    result = await db.execute(
+        select(ProjectMilestone).where(
+            ProjectMilestone.id == milestone_id,
+            ProjectMilestone.project_id == project_id,
+        )
+    )
+    milestone = result.scalar_one_or_none()
+    if not milestone:
+        raise HTTPException(status_code=404, detail="ეტაპი არ მოიძებნა")
+    await db.delete(milestone)
+    return ResponseBase(message="ეტაპი წაიშალა")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Progress & Profitability Endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/{project_id}/progress", response_model=ResponseBase)
+async def get_project_progress(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_access")),
+):
+    """Get detailed progress breakdown for a project."""
+    result = await db.execute(
+        select(Project)
+        .where(Project.id == project_id, Project.company_id == current_user.company_id)
+        .options(selectinload(Project.tasks), selectinload(Project.milestones))
+    )
+    proj = result.scalar_one_or_none()
+    if not proj:
+        raise HTTPException(status_code=404, detail="პროექტი არ მოიძებნა")
+
+    all_tasks = proj.tasks
+    total_tasks = len(all_tasks)
+    completed_tasks = sum(1 for t in all_tasks if t.status == "done")
+    in_progress_tasks = sum(1 for t in all_tasks if t.status == "in_progress")
+    todo_tasks = sum(1 for t in all_tasks if t.status == "todo")
+
+    all_milestones = proj.milestones
+    total_milestones = len(all_milestones)
+    completed_milestones = sum(1 for m in all_milestones if m.status == "completed")
+
+    return ResponseBase(data={
+        "completion_percent": float(proj.completion_percent),
+        "tasks": {
+            "total": total_tasks,
+            "completed": completed_tasks,
+            "in_progress": in_progress_tasks,
+            "todo": todo_tasks,
+            "completion_percent": round(completed_tasks / total_tasks * 100, 2) if total_tasks > 0 else 0,
+        },
+        "milestones": {
+            "total": total_milestones,
+            "completed": completed_milestones,
+            "completion_percent": round(completed_milestones / total_milestones * 100, 2) if total_milestones > 0 else 0,
+        },
+    })
+
+
+@router.get("/{project_id}/profitability", response_model=ResponseBase)
+async def get_project_profitability(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_access")),
+):
+    """Get profitability analysis for a project."""
+    result = await db.execute(
+        select(Project)
+        .where(Project.id == project_id, Project.company_id == current_user.company_id)
+        .options(selectinload(Project.budget_plan))
+    )
+    proj = result.scalar_one_or_none()
+    if not proj:
+        raise HTTPException(status_code=404, detail="პროექტი არ მოიძებნა")
+
+    budget = proj.budget_amount
+    spent = proj.spent_amount
+    remaining = budget - spent
+    profit_pct = (remaining / budget * 100).quantize(Decimal("0.01")) if budget and budget > 0 else Decimal("0")
+
+    return ResponseBase(data={
+        "budget_amount": float(budget),
+        "spent_amount": float(spent),
+        "remaining_amount": float(remaining),
+        "profitability": float(remaining),
+        "profitability_percent": float(profit_pct),
+        "budget_plan_id": str(proj.budget_plan_id) if proj.budget_plan_id else None,
+        "budget_plan_name": proj.budget_plan.name if proj.budget_plan else None,
+    })

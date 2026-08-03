@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environment
+.venv/
+.venv*/
+venv/
+env/
+
+# Environment files
+.env
+.env.local
+.env.production
+backend/.env
+frontend/.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Database / data files
+*.db
+*.sqlite3
+*.sqlite
+*.local.sqlite
+artifacts/
+uploads/
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker-compose.override.yml
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Code generator scratch files
+_gen*.py
+_master_gen*.py
+_write*.py
+_*_gen.py
+
+# OS
+.DS_Store
+Thumbs.db
