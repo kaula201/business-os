@@ -42,17 +42,17 @@ export default function DeferredPage() {
 
   return <div className="space-y-6">
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <div><h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">გადავადებული ოპერაციები</h1><p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">შემოსავლისა და ხარჯის პერიოდული აღიარება</p></div>
+      <div><h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100 dark:text-gray-200">გადავადებული ოპერაციები</h1><p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400 dark:text-gray-500">შემოსავლისა და ხარჯის პერიოდული აღიარება</p></div>
       <div className="flex flex-wrap gap-2"><input type="date" className="input w-auto" value={asOfDate} onChange={e=>setAsOfDate(e.target.value)}/><button className="btn-secondary flex items-center gap-2" onClick={()=>recognizeDue.mutate()} disabled={recognizeDue.isPending}><CalendarClock size={17}/>{recognizeDue.isPending?'მუშავდება...':'ვადამოსული პერიოდების აღიარება'}</button><button className="btn-primary flex items-center gap-2" onClick={openCreate}><Plus size={17}/>ახალი გრაფიკი</button></div>
     </div>
 
     <div className="grid gap-4 md:grid-cols-3">
-      <div className="card p-5 dark:bg-dark-200 dark:border-dark-50"><div className="flex items-center gap-3"><CalendarClock className="text-primary-600"/><div><div className="text-sm text-brandgray-500 dark:text-gray-400">სრული თანხა</div><div className="text-2xl font-semibold">{money(total)}</div></div></div></div>
-      <div className="card p-5 dark:bg-dark-200 dark:border-dark-50"><div className="flex items-center gap-3"><CheckCircle2 className="text-green-600"/><div><div className="text-sm text-brandgray-500 dark:text-gray-400">აღიარებული</div><div className="text-2xl font-semibold">{money(recognized)}</div></div></div></div>
-      <div className="card p-5 dark:bg-dark-200 dark:border-dark-50"><div className="flex items-center gap-3"><Clock3 className="text-amber-600"/><div><div className="text-sm text-brandgray-500 dark:text-gray-400">დარჩენილი</div><div className="text-2xl font-semibold">{money(total-recognized)}</div></div></div></div>
+      <div className="card p-5 dark:bg-dark-200 dark:border-dark-50"><div className="flex items-center gap-3"><CalendarClock className="text-primary-600"/><div><div className="text-sm text-brandgray-500 dark:text-gray-400 dark:text-gray-500">სრული თანხა</div><div className="text-2xl font-semibold">{money(total)}</div></div></div></div>
+      <div className="card p-5 dark:bg-dark-200 dark:border-dark-50"><div className="flex items-center gap-3"><CheckCircle2 className="text-green-600"/><div><div className="text-sm text-brandgray-500 dark:text-gray-400 dark:text-gray-500">აღიარებული</div><div className="text-2xl font-semibold">{money(recognized)}</div></div></div></div>
+      <div className="card p-5 dark:bg-dark-200 dark:border-dark-50"><div className="flex items-center gap-3"><Clock3 className="text-amber-600"/><div><div className="text-sm text-brandgray-500 dark:text-gray-400 dark:text-gray-500">დარჩენილი</div><div className="text-2xl font-semibold">{money(total-recognized)}</div></div></div></div>
     </div>
 
-    <div className="relative max-w-xs"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/><input className="input pl-10" value={search} onChange={e=>setSearch(e.target.value)} placeholder="გრაფიკის ძებნა..."/></div>
+    <div className="relative max-w-xs"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"/><input className="input pl-10" value={search} onChange={e=>setSearch(e.target.value)} placeholder="გრაფიკის ძებნა..."/></div>
     <DataTable columns={[
       {key:'name',label:'დასახელება',render:(s:DeferredSchedule)=><button className="font-semibold text-primary-700 dark:text-primary-300" onClick={()=>setSelectedId(s.id)}>{s.name}</button>},
       {key:'deferral_type',label:'ტიპი',render:(s:DeferredSchedule)=><span className={`badge ${s.deferral_type==='revenue'?'badge-green':'badge-blue'}`}>{s.deferral_type==='revenue'?'შემოსავალი':'ხარჯი'}</span>},
@@ -63,12 +63,12 @@ export default function DeferredPage() {
     ]} data={visible} isLoading={schedulesQuery.isLoading} emptyMessage="გადავადებული გრაფიკები არ არის"/>
 
     {selected&&<section className="card p-0 overflow-hidden dark:bg-dark-200 dark:border-dark-50">
-      <div className="flex flex-col gap-2 border-b px-5 py-4 dark:border-dark-50 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold">{selected.name} — აღიარების გრაფიკი</h2><p className="text-xs text-brandgray-500">{selected.source_gl_account_code} {selected.source_gl_account_name} → {selected.recognition_gl_account_code} {selected.recognition_gl_account_name}</p></div><button className="btn-secondary text-sm" onClick={()=>setSelectedId(null)}>დახურვა</button></div>
+      <div className="flex flex-col gap-2 border-b px-5 py-4 dark:border-dark-50 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold">{selected.name} — აღიარების გრაფიკი</h2><p className="text-xs text-brandgray-500 dark:text-gray-400">{selected.source_gl_account_code} {selected.source_gl_account_name} → {selected.recognition_gl_account_code} {selected.recognition_gl_account_name}</p></div><button className="btn-secondary text-sm" onClick={()=>setSelectedId(null)}>დახურვა</button></div>
       <DataTable columns={[
         {key:'period_no',label:'#'}, {key:'recognition_date',label:'აღიარების თარიღი'},
         {key:'amount',label:'თანხა',render:(r:DeferredRecognition)=>money(r.amount)},
         {key:'status',label:'სტატუსი',render:(r:DeferredRecognition)=><span className={`badge ${r.status==='recognized'?'badge-green':'badge-yellow'}`}>{r.status==='recognized'?'აღიარებული':'მოლოდინში'}</span>},
-        {key:'action',label:'',render:(r:DeferredRecognition)=>r.status==='pending'?<button className="btn-secondary py-1 text-xs" disabled={recognize.isPending} onClick={()=>recognize.mutate(r.id)}>აღიარება</button>:<span className="text-xs text-brandgray-500">GL შექმნილია</span>},
+        {key:'action',label:'',render:(r:DeferredRecognition)=>r.status==='pending'?<button className="btn-secondary py-1 text-xs" disabled={recognize.isPending} onClick={()=>recognize.mutate(r.id)}>აღიარება</button>:<span className="text-xs text-brandgray-500 dark:text-gray-400">GL შექმნილია</span>},
       ]} data={selected.recognitions} emptyMessage="პერიოდები არ არის"/>
     </section>}
     {error&&<p className="text-sm text-red-600 dark:text-red-400">{error}</p>}

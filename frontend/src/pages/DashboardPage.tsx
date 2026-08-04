@@ -16,7 +16,7 @@ export default function DashboardPage() {
     queryFn: () => dashboardApi.getSummary(period).then(r => r.data.data),
   })
 
-  if (isLoading) return <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">ჩატვირთვა...</div>
+  if (isLoading) return <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400 dark:text-gray-500">ჩატვირთვა...</div>
 
   const kpi = data?.kpi
   const revenueData: any[] = data?.revenue_chart?.data || []
@@ -26,8 +26,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">მიმოხილვა</h1>
-        <div className="flex gap-2 bg-white rounded-lg border border-gray-200 p-1 dark:bg-dark-200 dark:border-dark-50">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200">მიმოხილვა</h1>
+        <div className="flex gap-2 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-50 p-1 dark:bg-dark-200 dark:border-dark-50">
           {[
             { key: '7d', label: '7 დღე' },
             { key: '30d', label: '30 დღე' },
@@ -36,7 +36,7 @@ export default function DashboardPage() {
             <button
               key={p.key}
               onClick={() => setPeriod(p.key)}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${period === p.key ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-dark-100'}`}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${period === p.key ? 'bg-primary-600 text-white' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 dark:text-gray-400 dark:text-gray-500 dark:hover:bg-dark-100'}`}
             >
               {p.label}
             </button>
@@ -55,7 +55,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue Chart */}
         <div className="lg:col-span-2 card">
-          <h3 className="font-semibold text-gray-900 mb-4">შემოსავლების დინამიკა</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200 mb-4">შემოსავლების დინამიკა</h3>
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={revenueData.filter((d: any) => d.amount > 0)}>
               <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
@@ -68,7 +68,7 @@ export default function DashboardPage() {
 
         {/* Order Distribution */}
         <div className="card">
-          <h3 className="font-semibold text-gray-900 mb-4">შეკვეთების სტატუსები</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200 mb-4">შეკვეთების სტატუსები</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={orderDist} dataKey="count" nameKey="status" cx="50%" cy="50%" innerRadius={50} outerRadius={80}>
@@ -96,7 +96,7 @@ export default function DashboardPage() {
       {/* Alerts */}
       {alerts.length > 0 && (
         <div className="card">
-          <h3 className="font-semibold text-gray-900 mb-4">გაფრთხილებები</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200 mb-4">გაფრთხილებები</h3>
           <div className="space-y-2">
             {alerts.map((alert: any, i: number) => (
               <div key={i} className={`flex items-center gap-3 p-3 rounded-lg ${
@@ -115,11 +115,11 @@ export default function DashboardPage() {
 
       {/* Low stock products */}
       {kpi?.low_stock_products > 0 && (
-        <div className="card bg-brandgray-50 border-brandgray-200">
+        <div className="card bg-brandgray-50 dark:bg-dark-100 border-brandgray-200 dark:border-dark-50">
           <div className="flex items-center gap-3">
             <Package size={20} className="text-primary-600" />
             <div>
-              <p className="font-medium text-brandgray-800">{kpi.low_stock_products} პროდუქტს აქვს დაბალი ნაშთი</p>
+              <p className="font-medium text-brandgray-800 dark:text-gray-200">{kpi.low_stock_products} პროდუქტს აქვს დაბალი ნაშთი</p>
               <p className="text-sm text-primary-700">გადადით საწყობში შესავსებად</p>
             </div>
           </div>
@@ -134,7 +134,7 @@ function KPICard({ icon: Icon, label, value, change, color }: { icon: any; label
     blue: 'bg-primary-50 text-primary-700',
     green: 'bg-accent-50 text-accent-700',
     red: 'bg-red-50 text-red-600',
-    gray: 'bg-brandgray-100 text-brandgray-700',
+    gray: 'bg-brandgray-100 dark:bg-dark-100 text-brandgray-700 dark:text-gray-300',
   }
 
   return (
@@ -143,8 +143,8 @@ function KPICard({ icon: Icon, label, value, change, color }: { icon: any; label
         <Icon size={24} />
       </div>
       <div className="flex-1">
-        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
+        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200">{value}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{label}</p>
         {change !== undefined && (
           <span className={`text-xs flex items-center gap-1 mt-0.5 ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {change >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}

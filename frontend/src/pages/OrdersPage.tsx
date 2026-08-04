@@ -175,7 +175,7 @@ export default function OrdersPage() {
   }
 
   const columns = [
-    { key: 'order_number', label: 'შეკვეთა', render: (o: OrderSummary) => <span className="font-mono font-medium text-gray-900">{o.order_number}</span> },
+    { key: 'order_number', label: 'შეკვეთა', render: (o: OrderSummary) => <span className="font-mono font-medium text-gray-900 dark:text-gray-100 dark:text-gray-200">{o.order_number}</span> },
     { key: 'client_name', label: 'კლიენტი', render: (o: OrderSummary) => o.client_name || '—', hideOnMobile: true },
     { key: 'status', label: 'სტატუსი', render: (o: OrderSummary) => <StatusBadge status={o.status} map={orderStatusMap} /> },
     { key: 'total', label: 'თანხა', render: (o: OrderSummary) => `${o.total?.toLocaleString()} ₾`, className: 'font-medium' },
@@ -183,8 +183,8 @@ export default function OrdersPage() {
     {
       key: 'actions', label: '',
       render: (o: OrderSummary) => (
-        <button onClick={(e) => { e.stopPropagation(); setViewOrderId(o.id) }} className="p-1.5 hover:bg-gray-100 rounded">
-          <Eye size={16} className="text-gray-500" />
+        <button onClick={(e) => { e.stopPropagation(); setViewOrderId(o.id) }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded">
+          <Eye size={16} className="text-gray-500 dark:text-gray-400 dark:text-gray-500" />
         </button>
       ),
     },
@@ -193,7 +193,7 @@ export default function OrdersPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-gray-900">გაყიდვის შეკვეთები</h1><p className="mt-1 text-sm text-gray-500">კლიენტის შეკვეთები, მარაგის რეზერვაცია და მიწოდების პროცესი</p></div>
+        <div><h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200">გაყიდვის შეკვეთები</h1><p className="mt-1 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">კლიენტის შეკვეთები, მარაგის რეზერვაცია და მიწოდების პროცესი</p></div>
         <button onClick={openCreate} className="btn-primary flex items-center gap-2">
           <Plus size={18} /> ახალი გაყიდვის შეკვეთა
         </button>
@@ -201,7 +201,7 @@ export default function OrdersPage() {
 
       <div className="card flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ძებნა ნომრით, კლიენტით..." className="input pl-10" />
         </div>
         <button onClick={() => setStatusFilter('')} className={`btn-secondary text-sm ${!statusFilter ? 'ring-2 ring-primary-500' : ''}`}>ყველა</button>
@@ -218,7 +218,7 @@ export default function OrdersPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <div className="mb-1.5 flex items-center justify-between gap-3">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">კლიენტი <span className="text-red-500">*</span></label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-400">კლიენტი <span className="text-red-500">*</span></label>
                 <button
                   type="button"
                   onClick={() => { setClientPanelOpen(!clientPanelOpen); setClientError('') }}
@@ -308,12 +308,12 @@ export default function OrdersPage() {
           {/* Order Items */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-gray-700">პროდუქტები</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-400">პროდუქტები</label>
               <button type="button" onClick={addItem} className="text-sm text-primary-600 hover:underline">+ დამატება</button>
             </div>
             <div className="space-y-2">
               {form.items.map((item, idx) => (
-                <div key={idx} className="flex gap-2 items-start p-3 bg-gray-50 rounded-lg">
+                <div key={idx} className="flex gap-2 items-start p-3 bg-gray-50 dark:bg-dark-100 rounded-lg">
                   <div className="flex-1">
                     <Select
                       value={item.product_id || ''}
@@ -351,7 +351,7 @@ export default function OrdersPage() {
             <textarea value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="input" rows={2} />
           </FormField>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
             <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">გაუქმება</button>
             <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
               {createMutation.isPending ? 'იქმნება...' : 'შეკვეთის შექმნა'}
@@ -362,26 +362,26 @@ export default function OrdersPage() {
 
       {/* View Order Modal */}
       <Modal open={!!viewOrderId} onClose={() => setViewOrderId(null)} title="შეკვეთის დეტალები" size="xl">
-        {isOrderDetailLoading && <div className="py-10 text-center text-gray-500">იტვირთება...</div>}
+        {isOrderDetailLoading && <div className="py-10 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500">იტვირთება...</div>}
         {viewOrder && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 font-mono">{viewOrder.order_number}</h3>
-                <p className="text-sm text-gray-500">{viewOrder.client_name} • {new Date(viewOrder.created_at).toLocaleDateString('ka-GE')}</p>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200 font-mono">{viewOrder.order_number}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{viewOrder.client_name} • {new Date(viewOrder.created_at).toLocaleDateString('ka-GE')}</p>
               </div>
               <StatusBadge status={viewOrder.status} map={orderStatusMap} />
             </div>
 
             {viewOrder.status !== 'cancelled' && viewOrder.status !== 'returned' ? (
-              <div className="flex items-center gap-2 overflow-x-auto rounded-lg bg-gray-50 p-3">
+              <div className="flex items-center gap-2 overflow-x-auto rounded-lg bg-gray-50 dark:bg-dark-100 p-3">
                 {lifecycleStages.map((stage, index) => {
                   const currentIndex = lifecycleStages.findIndex(item => item.status === viewOrder.status)
                   const reached = index <= currentIndex
                   return (
                     <div key={stage.status} className="flex min-w-fit items-center gap-2">
-                      <span className={`rounded-full px-3 py-1 text-xs font-medium ${reached ? 'bg-primary-600 text-white' : 'bg-white text-gray-400'}`}>{stage.label}</span>
-                      {index < lifecycleStages.length - 1 && <ArrowRight size={14} className="text-gray-300" />}
+                      <span className={`rounded-full px-3 py-1 text-xs font-medium ${reached ? 'bg-primary-600 text-white' : 'bg-white dark:bg-dark-200 text-gray-400 dark:text-gray-500'}`}>{stage.label}</span>
+                      {index < lifecycleStages.length - 1 && <ArrowRight size={14} className="text-gray-300 dark:text-gray-400" />}
                     </div>
                   )
                 })}
@@ -400,10 +400,10 @@ export default function OrdersPage() {
             )}
 
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-y border-gray-200">
-                <tr><th className="text-left px-4 py-2 font-medium text-gray-500">პროდუქტი</th><th className="text-right px-4 py-2 font-medium text-gray-500">რაოდ.</th><th className="text-right px-4 py-2 font-medium text-gray-500">ფასი</th><th className="text-right px-4 py-2 font-medium text-gray-500">ფასდ.</th><th className="text-right px-4 py-2 font-medium text-gray-500">ჯამი</th></tr>
+              <thead className="bg-gray-50 dark:bg-dark-100 border-y border-gray-200 dark:border-dark-50">
+                <tr><th className="text-left px-4 py-2 font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500">პროდუქტი</th><th className="text-right px-4 py-2 font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500">რაოდ.</th><th className="text-right px-4 py-2 font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500">ფასი</th><th className="text-right px-4 py-2 font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500">ფასდ.</th><th className="text-right px-4 py-2 font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500">ჯამი</th></tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 dark:divide-dark-50">
                 {viewOrder.items.map((item, i) => (
                   <tr key={i}>
                     <td className="px-4 py-2">{item.product_name}</td>
@@ -414,28 +414,28 @@ export default function OrdersPage() {
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="border-t-2 border-gray-200">
-                <tr><td colSpan={4} className="px-4 py-2 text-right text-sm text-gray-500">ქვე-ჯამი</td><td className="px-4 py-2 text-right font-medium">{viewOrder.subtotal?.toFixed(2)} ₾</td></tr>
-                <tr><td colSpan={4} className="px-4 py-2 text-right text-sm text-gray-500">დღგ</td><td className="px-4 py-2 text-right font-medium">{viewOrder.vat_amount?.toFixed(2)} ₾</td></tr>
+              <tfoot className="border-t-2 border-gray-200 dark:border-dark-50">
+                <tr><td colSpan={4} className="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">ქვე-ჯამი</td><td className="px-4 py-2 text-right font-medium">{viewOrder.subtotal?.toFixed(2)} ₾</td></tr>
+                <tr><td colSpan={4} className="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">დღგ</td><td className="px-4 py-2 text-right font-medium">{viewOrder.vat_amount?.toFixed(2)} ₾</td></tr>
                 <tr><td colSpan={4} className="px-4 py-2 text-right text-sm font-bold">სულ</td><td className="px-4 py-2 text-right font-bold text-lg">{viewOrder.total?.toFixed(2)} ₾</td></tr>
               </tfoot>
             </table>
 
             {viewOrder.delivery_address && (
-              <div className="p-3 bg-gray-50 rounded-lg text-sm"><span className="text-gray-500">მიწოდება:</span> {viewOrder.delivery_address}</div>
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg text-sm"><span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">მიწოდება:</span> {viewOrder.delivery_address}</div>
             )}
             {viewOrder.notes && (
-              <div className="p-3 bg-gray-50 rounded-lg text-sm"><span className="text-gray-500">შენიშვნა:</span> {viewOrder.notes}</div>
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg text-sm"><span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">შენიშვნა:</span> {viewOrder.notes}</div>
             )}
 
             {reservations.length > 0 && (
-              <div className="rounded-lg border border-gray-200 p-4">
-                <h4 className="mb-3 flex items-center gap-2 font-semibold text-gray-900"><PackageCheck size={17} /> მარაგის reservation</h4>
+              <div className="rounded-lg border border-gray-200 dark:border-dark-50 p-4">
+                <h4 className="mb-3 flex items-center gap-2 font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200"><PackageCheck size={17} /> მარაგის reservation</h4>
                 <div className="space-y-2">
                   {reservations.map(reservation => (
                     <div key={reservation.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                       <span>{reservation.product_name} — {reservation.quantity} ერთ.</span>
-                      <span className="text-gray-500">{reservation.warehouse_name} • {reservationLabels[reservation.status]}</span>
+                      <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">{reservation.warehouse_name} • {reservationLabels[reservation.status]}</span>
                     </div>
                   ))}
                 </div>
@@ -443,16 +443,16 @@ export default function OrdersPage() {
             )}
 
             {orderHistory.length > 0 && (
-              <div className="rounded-lg border border-gray-200 p-4">
-                <h4 className="mb-3 font-semibold text-gray-900">ცვლილებების ისტორია</h4>
+              <div className="rounded-lg border border-gray-200 dark:border-dark-50 p-4">
+                <h4 className="mb-3 font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200">ცვლილებების ისტორია</h4>
                 <div className="space-y-3">
                   {orderHistory.map(entry => (
                     <div key={entry.id} className="flex gap-3 text-sm">
                       <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary-500" />
                       <div>
                         <StatusBadge status={entry.status} map={orderStatusMap} />
-                        <span className="ml-2 text-gray-400">{new Date(entry.created_at).toLocaleString('ka-GE')}</span>
-                        {entry.notes && <p className="mt-1 text-gray-600">{entry.notes}</p>}
+                        <span className="ml-2 text-gray-400 dark:text-gray-500">{new Date(entry.created_at).toLocaleString('ka-GE')}</span>
+                        {entry.notes && <p className="mt-1 text-gray-600 dark:text-gray-400 dark:text-gray-500">{entry.notes}</p>}
                       </div>
                     </div>
                   ))}
@@ -462,7 +462,7 @@ export default function OrdersPage() {
 
             {actionError && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</div>}
 
-            <div className="flex flex-wrap justify-end gap-3 pt-4 border-t border-gray-200">
+            <div className="flex flex-wrap justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
               {(nextStatusActions[viewOrder.status] || []).map(action => (
                 <button
                   key={action.status}
