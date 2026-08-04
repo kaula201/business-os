@@ -3,8 +3,8 @@ import json
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -14,7 +14,7 @@ from app.core.time import utc_now
 from app.models.audit import AuditLog
 from app.models.expenses import Expense, ExpenseCategory
 from app.models.user import User
-from app.schemas.common import ResponseBase
+from app.schemas.common import ResponseBase, PaginatedResponse
 from app.services.accounting_periods import ensure_period_open
 from app.schemas.expenses import (
     ExpenseCategoryCreate,
@@ -57,9 +57,11 @@ async def create_category(
 
 # ── Expenses ─────────────────────────────────────────────────────────
 
-@router.get("/", response_model=ResponseBase[list[ExpenseResponse]])
+@router.get("/", response_model=ResponseBase[PaginatedResponse[ExpenseResponse]])
 async def list_expenses(
     status: str | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -75,7 +77,12 @@ async def list_expenses(
         query = query.where(Expense.status == status)
     query = query.order_by(Expense.expense_date.desc(), Expense.created_at.desc())
 
-    result = await db.execute(query)
+    total = (
+        await db.execute(
+            select(func.count()).select_from(query.subquery())
+        )
+    ).scalar() or 0
+    result = await db.execute(query.offset((page - 1) * page_size).limit(page_size))
     expenses = result.unique().scalars().all()
 
     data = []
@@ -102,7 +109,12 @@ async def list_expenses(
             created_at=e.created_at,
             updated_at=e.updated_at,
         ))
-    return ResponseBase(data=data)
+    return ResponseBase(data=PaginatedResponse(
+        total=total,
+        page=page,
+        page_size=page_size,
+        items=data,
+    ))
 
 
 @router.post("/", response_model=ResponseBase[ExpenseResponse], status_code=201)

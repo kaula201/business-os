@@ -2,7 +2,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -15,7 +15,7 @@ from app.schemas.approval import (
     ApprovalRequestResponse,
     ApprovalRequestUpdate,
 )
-from app.schemas.common import ResponseBase
+from app.schemas.common import ResponseBase, PaginatedResponse
 
 router = APIRouter(prefix="/approvals", tags=["Approvals"])
 
@@ -54,9 +54,11 @@ def _to_response(req: ApprovalRequest) -> ApprovalRequestResponse:
     )
 
 
-@router.get("/", response_model=ResponseBase[list[ApprovalRequestResponse]])
+@router.get("/", response_model=ResponseBase[PaginatedResponse[ApprovalRequestResponse]])
 async def list_approvals(
     status: str | None = Query(default=None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
     current_user: User = Depends(require_module("approvals", "can_access")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -70,8 +72,18 @@ async def list_approvals(
         query = query.where(ApprovalRequest.status == status)
     query = query.order_by(ApprovalRequest.created_at.desc())
 
-    result = await db.execute(query)
-    return ResponseBase(data=[_to_response(r) for r in result.scalars().all()])
+    total = (
+        await db.execute(
+            select(func.count()).select_from(query.subquery())
+        )
+    ).scalar() or 0
+    result = await db.execute(query.offset((page - 1) * page_size).limit(page_size))
+    return ResponseBase(data=PaginatedResponse(
+        total=total,
+        page=page,
+        page_size=page_size,
+        items=[_to_response(r) for r in result.scalars().all()],
+    ))
 
 
 @router.get("/{request_id}", response_model=ResponseBase[ApprovalRequestResponse])
