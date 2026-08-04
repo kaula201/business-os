@@ -61,7 +61,6 @@ async def test_srs_balance_form_balances(
     client, auth_headers, test_company, db_session
 ):
     """Balance form: total assets should equal liabilities + equity."""
-    from datetime import datetime
 
     # Create a simple balanced journal entry via GL accounts directly.
     accounts = (
@@ -77,7 +76,7 @@ async def test_srs_balance_form_balances(
     je = JournalEntry(
         company_id=test_company.id,
         entry_number=f"JE-TEST-{test_company.id.hex[:6]}",
-        entry_date=datetime.utcnow().date(),
+        entry_date=date.today(),
         reference_type="manual",
         reference_id=test_company.id,
         description="test",
