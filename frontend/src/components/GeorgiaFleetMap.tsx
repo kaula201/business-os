@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { divIcon, latLngBounds } from 'leaflet'
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 
@@ -33,6 +33,40 @@ function FitVehicleBounds({ vehicles }: { vehicles: Vehicle[] }) {
   }, [map, vehicles])
 
   return null
+}
+
+/** Follow the app-wide dark class so map tiles match the theme. */
+function useDarkMode(): boolean {
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setDark(document.documentElement.classList.contains('dark'))
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
+  return dark
+}
+
+/** Renders the correct tile set: light OSM by day, CartoDB dark_matter at night. */
+function DarkModeTileLayer() {
+  const dark = useDarkMode()
+  if (dark) {
+    return (
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      />
+    )
+  }
+  return (
+    <TileLayer
+      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+    />
+  )
 }
 
 interface GeorgiaFleetMapProps {
@@ -70,10 +104,7 @@ export default function GeorgiaFleetMap({ vehicles, onSelectVehicle }: GeorgiaFl
           <p className="mt-1 text-sm text-gray-500">OpenStreetMap — ქალაქები, გზები და ავტომობილების დაფიქსირებული მდებარეობები</p>
         </div>
         <MapContainer center={GEORGIA_CENTER} zoom={7} minZoom={6} maxZoom={18} scrollWheelZoom className="h-[560px] w-full">
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+          <DarkModeTileLayer />
           <FitVehicleBounds vehicles={locatedVehicles} />
           {locatedVehicles.map((vehicle) => (
             <Marker
