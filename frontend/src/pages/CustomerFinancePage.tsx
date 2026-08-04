@@ -12,11 +12,11 @@ const money = (value: number, currency = 'GEL') =>
   new Intl.NumberFormat('ka-GE', { style: 'currency', currency }).format(value)
 
 const statuses: Record<string, { label: string; classes: string }> = {
-  unpaid: { label: 'გადასახდელი', classes: 'bg-amber-50 text-amber-700' },
-  partially_paid: { label: 'ნაწილობრივ გადახდილი', classes: 'bg-blue-50 text-blue-700' },
-  paid: { label: 'გადახდილი', classes: 'bg-green-50 text-green-700' },
-  overdue: { label: 'ვადაგადაცილებული', classes: 'bg-red-50 text-red-700' },
-  credited: { label: 'Credit Note-ით დახურული', classes: 'bg-purple-50 text-purple-700' },
+  unpaid: { label: 'გადასახდელი', classes: 'bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+  partially_paid: { label: 'ნაწილობრივ გადახდილი', classes: 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+  paid: { label: 'გადახდილი', classes: 'bg-green-50 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+  overdue: { label: 'ვადაგადაცილებული', classes: 'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+  credited: { label: 'Credit Note-ით დახურული', classes: 'bg-purple-50 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
 }
 
 const paymentMethods = [
@@ -134,9 +134,9 @@ export default function CustomerFinancePage() {
   function actionButtons(row: CustomerReceivable) {
     if (row.outstanding_amount <= 0) return null
     return <div className="flex gap-1">
-      <button title="გადახდა" aria-label="გადახდის დაფიქსირება" onClick={() => openPayment(row)} className="rounded p-2 text-green-700 hover:bg-green-50"><Banknote size={17} /></button>
-      <button title="Credit Note" aria-label="Credit Note-ის შექმნა" onClick={() => openCredit(row)} className="rounded p-2 text-purple-700 hover:bg-purple-50"><FileMinus2 size={17} /></button>
-      <button title="საბანკო შეჯერება" aria-label="საბანკო ჩარიცხვის შეჯერება" onClick={() => openBank(row)} className="rounded p-2 text-blue-700 hover:bg-blue-50"><CreditCard size={17} /></button>
+      <button title="გადახდა" aria-label="გადახდის დაფიქსირება" onClick={() => openPayment(row)} className="rounded p-2 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/30"><Banknote size={17} /></button>
+      <button title="Credit Note" aria-label="Credit Note-ის შექმნა" onClick={() => openCredit(row)} className="rounded p-2 text-purple-700 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/30"><FileMinus2 size={17} /></button>
+      <button title="საბანკო შეჯერება" aria-label="საბანკო ჩარიცხვის შეჯერება" onClick={() => openBank(row)} className="rounded p-2 text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30"><CreditCard size={17} /></button>
     </div>
   }
 
@@ -184,7 +184,7 @@ export default function CustomerFinancePage() {
         </tr></thead>
         <tbody className="divide-y dark:divide-dark-50">{isLoading ? <tr><td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">იტვირთება...</td></tr> : visible.length === 0 ?
           <tr><td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">დებიტორული დავალიანება არ მოიძებნა</td></tr> : visible.map((row) => <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
-            <td className="px-4 py-3"><button onClick={() => setSelected(row)} className="text-left font-semibold text-primary-700 hover:underline">{row.invoice_number}</button><div className="text-xs text-gray-500">{row.client_name}</div></td>
+            <td className="px-4 py-3"><button onClick={() => setSelected(row)} className="text-left font-semibold text-primary-700 hover:underline dark:text-primary-400">{row.invoice_number}</button><div className="text-xs text-gray-500">{row.client_name}</div></td>
             <td className="px-4 py-3">{row.due_date}{row.overdue_days > 0 && <div className="text-xs text-red-600">{row.overdue_days} დღე</div>}</td>
             <td className="px-4 py-3 text-right">{money(row.original_amount, row.currency)}</td><td className="px-4 py-3 text-right text-green-700">{money(row.paid_amount, row.currency)}</td>
             <td className="px-4 py-3 text-right font-semibold">{money(row.outstanding_amount, row.currency)}</td>
@@ -201,7 +201,7 @@ export default function CustomerFinancePage() {
           ['ინვოისის თანხა', selected.original_amount], ['მიღებული', selected.paid_amount], ['Credit Note', selected.credited_amount], ['დავალიანება', selected.outstanding_amount],
         ].map(([label, value]) => <div key={String(label)} className="rounded-lg bg-gray-50 p-3 dark:bg-dark-100"><p className="text-xs text-gray-500 dark:text-gray-400">{label}</p><p className="mt-1 font-semibold dark:text-gray-200">{money(Number(value), selected.currency)}</p></div>)}</div>
         <h3 className="mt-6 font-semibold dark:text-gray-100">გადახდების ისტორია</h3><div className="mt-2 space-y-2">{selected.payments.length === 0 ? <p className="text-sm text-gray-500 dark:text-gray-400">გადახდა ჯერ არ დაფიქსირებულა</p> : selected.payments.map((p) => <div key={p.id} className="flex items-center justify-between rounded-lg border p-3 text-sm dark:border-dark-50">...
-          <div><div className="flex items-center gap-2"><p className={p.status === 'reversed' ? 'line-through text-gray-400' : 'font-medium'}>{money(p.amount, selected.currency)} · {p.payment_date}</p>{p.status === 'reversed' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">გაუქმებული</span>}</div><p className="text-xs text-gray-500">{p.reference || p.payment_method}{p.reversal_reason ? ` · ${p.reversal_reason}` : ''}</p></div>
+          <div><div className="flex items-center gap-2"><p className={p.status === 'reversed' ? 'line-through text-gray-400' : 'font-medium'}>{money(p.amount, selected.currency)} · {p.payment_date}</p>{p.status === 'reversed' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-dark-100 dark:text-gray-400">გაუქმებული</span>}</div><p className="text-xs text-gray-500">{p.reference || p.payment_method}{p.reversal_reason ? ` · ${p.reversal_reason}` : ''}</p></div>
           {p.status === 'active' && <button aria-label="გადახდის გაუქმება" onClick={() => window.confirm('ნამდვილად გსურთ გადახდის გაუქმება?') && reversalMutation.mutate(p.id)} className="rounded p-2 text-red-600 hover:bg-red-50" title="გაუქმება"><RotateCcw size={17} /></button>}
         </div>)}</div>
         <h3 className="mt-6 font-semibold dark:text-gray-100">Credit Note-ები</h3><div className="mt-2 space-y-2">{selected.credit_notes.length === 0 ? <p className="text-sm text-gray-500 dark:text-gray-400">Credit Note არ არის</p> : selected.credit_notes.map((c) => <div key={c.id} className="rounded-lg border p-3 text-sm dark:border-dark-50"><p className="font-medium dark:text-gray-200">{c.credit_note_number} · {money(c.amount, selected.currency)}</p><p className="text-xs text-gray-500 dark:text-gray-400">{c.credit_date} · {c.reason}</p></div>)}</div>
@@ -215,31 +215,31 @@ export default function CustomerFinancePage() {
 
     <Modal open={action === 'payment'} onClose={closeAction} title="კლიენტის გადახდის დაფიქსირება">
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); paymentMutation.mutate() }}>
-        <label className="block text-sm">თანხა<input required min="0.01" step="0.01" type="number" value={payment.amount || ''} onChange={(e) => setPayment({ ...payment, amount: Number(e.target.value) })} className="mt-1 w-full rounded-lg border p-2" /></label>
-        <label className="block text-sm">თარიღი<input required type="date" value={payment.payment_date} onChange={(e) => setPayment({ ...payment, payment_date: e.target.value })} className="mt-1 w-full rounded-lg border p-2" /></label>
-        <label className="block text-sm">გადახდის მეთოდი<select value={payment.payment_method} onChange={(e) => setPayment({ ...payment, payment_method: e.target.value as CustomerPaymentCreate['payment_method'] })} className="mt-1 w-full rounded-lg border p-2">{paymentMethods.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
-        <label className="block text-sm">გადახდის მითითება<input value={payment.reference} onChange={(e) => setPayment({ ...payment, reference: e.target.value })} className="mt-1 w-full rounded-lg border p-2" /></label>
-        {error && <p className="text-sm text-red-600">{error}</p>}<button disabled={paymentMutation.isPending} className="w-full rounded-lg bg-primary-600 py-2 text-white disabled:opacity-50">{paymentMutation.isPending ? 'ინახება...' : 'გადახდის შენახვა'}</button>
+        <label className="block text-sm">თანხა<input required min="0.01" step="0.01" type="number" value={payment.amount || ''} onChange={(e) => setPayment({ ...payment, amount: Number(e.target.value) })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
+        <label className="block text-sm">თარიღი<input required type="date" value={payment.payment_date} onChange={(e) => setPayment({ ...payment, payment_date: e.target.value })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
+        <label className="block text-sm">გადახდის მეთოდი<select value={payment.payment_method} onChange={(e) => setPayment({ ...payment, payment_method: e.target.value as CustomerPaymentCreate['payment_method'] })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">{paymentMethods.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+        <label className="block text-sm">გადახდის მითითება<input value={payment.reference} onChange={(e) => setPayment({ ...payment, reference: e.target.value })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}<button disabled={paymentMutation.isPending} className="w-full rounded-lg bg-primary-600 py-2 text-white disabled:opacity-50">{paymentMutation.isPending ? 'ინახება...' : 'გადახდის შენახვა'}</button>
       </form>
     </Modal>
 
     <Modal open={action === 'credit'} onClose={closeAction} title="კლიენტის Credit Note">
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); creditMutation.mutate() }}>
-        <label className="block text-sm">Credit Note-ის ნომერი<input required value={credit.credit_note_number} onChange={(e) => setCredit({ ...credit, credit_note_number: e.target.value })} className="mt-1 w-full rounded-lg border p-2" /></label>
-        <label className="block text-sm">თანხა<input required min="0.01" step="0.01" type="number" value={credit.amount || ''} onChange={(e) => setCredit({ ...credit, amount: Number(e.target.value) })} className="mt-1 w-full rounded-lg border p-2" /></label>
-        <label className="block text-sm">თარიღი<input required type="date" value={credit.credit_date} onChange={(e) => setCredit({ ...credit, credit_date: e.target.value })} className="mt-1 w-full rounded-lg border p-2" /></label>
-        <label className="block text-sm">მიზეზი<textarea required value={credit.reason} onChange={(e) => setCredit({ ...credit, reason: e.target.value })} className="mt-1 w-full rounded-lg border p-2" /></label>
-        {error && <p className="text-sm text-red-600">{error}</p>}<button disabled={creditMutation.isPending} className="w-full rounded-lg bg-purple-600 py-2 text-white disabled:opacity-50">{creditMutation.isPending ? 'იქმნება...' : 'Credit Note-ის შექმნა'}</button>
+        <label className="block text-sm">Credit Note-ის ნომერი<input required value={credit.credit_note_number} onChange={(e) => setCredit({ ...credit, credit_note_number: e.target.value })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
+        <label className="block text-sm">თანხა<input required min="0.01" step="0.01" type="number" value={credit.amount || ''} onChange={(e) => setCredit({ ...credit, amount: Number(e.target.value) })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
+        <label className="block text-sm">თარიღი<input required type="date" value={credit.credit_date} onChange={(e) => setCredit({ ...credit, credit_date: e.target.value })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
+        <label className="block text-sm">მიზეზი<textarea required value={credit.reason} onChange={(e) => setCredit({ ...credit, reason: e.target.value })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}<button disabled={creditMutation.isPending} className="w-full rounded-lg bg-purple-600 py-2 text-white disabled:opacity-50">{creditMutation.isPending ? 'იქმნება...' : 'Credit Note-ის შექმნა'}</button>
       </form>
     </Modal>
 
     <Modal open={action === 'bank'} onClose={closeAction} title="საბანკო ჩარიცხვის შეჯერება">
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); bankMutation.mutate() }}>
-        <label className="block text-sm">საბანკო ჩარიცხვა<select required value={bank.transaction_id} onChange={(e) => { const t = bankCredits.find((x) => x.id === e.target.value); setBank({ ...bank, transaction_id: e.target.value, amount: Math.min(t?.unmatched_amount || 0, selected?.outstanding_amount || 0) }) }} className="mt-1 w-full rounded-lg border p-2"><option value="">აირჩიეთ ჩარიცხვა</option>{bankCredits.map((t) => <option key={t.id} value={t.id}>{t.transaction_date} · {t.counterparty} · {money(t.unmatched_amount, t.currency)}</option>)}</select></label>
-        <label className="block text-sm">შესაჯერებელი თანხა<input required min="0.01" step="0.01" type="number" value={bank.amount || ''} onChange={(e) => setBank({ ...bank, amount: Number(e.target.value) })} className="mt-1 w-full rounded-lg border p-2" /></label>
-        <label className="block text-sm">შენიშვნა<textarea value={bank.notes} onChange={(e) => setBank({ ...bank, notes: e.target.value })} className="mt-1 w-full rounded-lg border p-2" /></label>
-        {bankCredits.length === 0 && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">შეუჯერებელი შემოსული საბანკო ტრანზაქცია არ არის.</p>}
-        {error && <p className="text-sm text-red-600">{error}</p>}<button disabled={bankMutation.isPending || !bank.transaction_id} className="w-full rounded-lg bg-blue-600 py-2 text-white disabled:opacity-50">{bankMutation.isPending ? 'მუშავდება...' : 'შეჯერება'}</button>
+        <label className="block text-sm">საბანკო ჩარიცხვა<select required value={bank.transaction_id} onChange={(e) => { const t = bankCredits.find((x) => x.id === e.target.value); setBank({ ...bank, transaction_id: e.target.value, amount: Math.min(t?.unmatched_amount || 0, selected?.outstanding_amount || 0) }) }} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200"><option value="">აირჩიეთ ჩარიცხვა</option>{bankCredits.map((t) => <option key={t.id} value={t.id}>{t.transaction_date} · {t.counterparty} · {money(t.unmatched_amount, t.currency)}</option>)}</select></label>
+        <label className="block text-sm">შესაჯერებელი თანხა<input required min="0.01" step="0.01" type="number" value={bank.amount || ''} onChange={(e) => setBank({ ...bank, amount: Number(e.target.value) })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
+        <label className="block text-sm">შენიშვნა<textarea value={bank.notes} onChange={(e) => setBank({ ...bank, notes: e.target.value })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
+        {bankCredits.length === 0 && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">შეუჯერებელი შემოსული საბანკო ტრანზაქცია არ არის.</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}<button disabled={bankMutation.isPending || !bank.transaction_id} className="w-full rounded-lg bg-blue-600 py-2 text-white disabled:opacity-50">{bankMutation.isPending ? 'მუშავდება...' : 'შეჯერება'}</button>
       </form>
     </Modal>
   </div>
