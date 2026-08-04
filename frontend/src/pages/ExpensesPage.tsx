@@ -147,7 +147,7 @@ export default function ExpensesPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-xs">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ძებნა..." className="input pl-10" />
         </div>
         <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} options={[
@@ -192,8 +192,8 @@ export default function ExpensesPage() {
                     </button>
                   </>
                 )}
-                <button onClick={(e2) => { e2.stopPropagation(); setSelected(e); setEditForm({ description: e.description, amount: e.amount, notes: e.notes || '' }); setError(''); setModal('edit') }} className="p-1.5 hover:bg-gray-100 rounded-lg">
-                  <Pencil size={16} className="text-gray-400" />
+                <button onClick={(e2) => { e2.stopPropagation(); setSelected(e); setEditForm({ description: e.description, amount: e.amount, notes: e.notes || '' }); setError(''); setModal('edit') }} className="p-1.5 hover:bg-gray-100 rounded-lg dark:hover:bg-dark-100">
+                  <Pencil size={16} className="text-gray-400 dark:text-gray-500" />
                 </button>
               </div>
             ),

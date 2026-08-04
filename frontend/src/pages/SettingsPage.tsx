@@ -228,7 +228,7 @@ export default function SettingsPage() {
               <FormField label="დღგ-ს გადამხდელი">
                 <label className="flex items-center gap-2 mt-2">
                   <input type="checkbox" checked={companyForm.is_vat_payer} onChange={(e) => setCompanyForm({ ...companyForm, is_vat_payer: e.target.checked })} className="rounded" />
-                  <span className="text-sm text-gray-700">დიახ</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">დიახ</span>
                 </label>
               </FormField>
               <div className="md:col-span-2">
@@ -238,7 +238,7 @@ export default function SettingsPage() {
               </div>
             </div>
             {companyMessage && <p className={`rounded-lg p-3 text-sm ${companyMessage.includes('შენახულია') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{companyMessage}</p>}
-            <div className="flex justify-end border-t border-gray-200 pt-4">
+            <div className="flex justify-end border-t border-gray-200 pt-4 dark:border-dark-50">
               <button type="submit" className="btn-primary" disabled={companyMutation.isPending}>
                 {companyMutation.isPending ? 'ინახება...' : 'შენახვა'}
               </button>
@@ -269,7 +269,7 @@ export default function SettingsPage() {
                     className="input pr-12"
                     required
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">GEL</span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 dark:text-gray-400">GEL</span>
                 </div>
               </FormField>
             </div>
@@ -279,7 +279,7 @@ export default function SettingsPage() {
               <p className="mt-1">თანამშრომელსა და ბუღალტერს შესყიდვის შეკვეთის დამტკიცება არ შეუძლიათ.</p>
             </div>
             {approvalMessage && <p className={`rounded-lg p-3 text-sm ${approvalMessage.includes('შენახულია') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{approvalMessage}</p>}
-            <div className="flex justify-end border-t border-gray-200 pt-4">
+            <div className="flex justify-end border-t border-gray-200 pt-4 dark:border-dark-50">
               <button type="submit" className="btn-primary" disabled={approvalMutation.isPending}>
                 {approvalMutation.isPending ? 'ინახება...' : 'Approval ზღვრის შენახვა'}
               </button>
@@ -327,24 +327,24 @@ export default function SettingsPage() {
 
           <div className="space-y-2">
             {users.map((u: UserType) => (
-              <div key={u.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 border border-gray-100">
+              <div key={u.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 border border-gray-100 dark:border-dark-50 dark:hover:bg-dark-100">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-sm font-bold">
                     {u.full_name?.charAt(0) || '?'}
                   </div>
                   <div>
-                    <p className="font-medium text-sm text-gray-900">{u.full_name}</p>
-                    <p className="text-xs text-gray-500 flex items-center gap-1"><Mail size={11} /> {u.email}</p>
+                    <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{u.full_name}</p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1 dark:text-gray-400"><Mail size={11} /> {u.email}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="badge badge-blue text-xs">{u.role}</span>
                   {!u.is_active && <span className="badge badge-red text-xs">დეაქტივირებული</span>}
-                  <span className="text-xs text-gray-400 flex items-center gap-1"><Clock size={11} /> {new Date(u.created_at).toLocaleDateString('ka-GE')}</span>
+                  <span className="text-xs text-gray-400 flex items-center gap-1 dark:text-gray-500"><Clock size={11} /> {new Date(u.created_at).toLocaleDateString('ka-GE')}</span>
                 </div>
               </div>
             ))}
-            {users.length === 0 && <p className="text-sm text-gray-400 text-center py-8">მომხმარებლები არ მოიძებნა</p>}
+            {users.length === 0 && <p className="text-sm text-gray-400 text-center py-8 dark:text-gray-500">მომხმარებლები არ მოიძებნა</p>}
           </div>
         </div>
       )}
@@ -365,7 +365,7 @@ export default function SettingsPage() {
               { value: 'accountant', label: 'ბუღალტერი' },
             ]} />
           </FormField>
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
             <button type="button" onClick={() => setInviteModal(false)} className="btn-secondary">გაუქმება</button>
             <button type="submit" className="btn-primary">მოწვევა</button>
           </div>

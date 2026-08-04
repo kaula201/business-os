@@ -176,7 +176,7 @@ export default function CashPage() {
       {/* Accounts Table */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-xs">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="სალაროს ძებნა..."
@@ -215,9 +215,9 @@ export default function CashPage() {
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setSelectedAccount(a); setAccountEditForm({ name: a.name, is_active: a.is_active, notes: a.notes || '' }); setError(''); setAccountModal('edit') }}
-                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors dark:hover:bg-dark-100"
                 >
-                  <Pencil size={16} className="text-gray-400" />
+                  <Pencil size={16} className="text-gray-400 dark:text-gray-500" />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); if (confirm('წავშალოთ სალარო?')) deleteAccount.mutate(a.id) }}

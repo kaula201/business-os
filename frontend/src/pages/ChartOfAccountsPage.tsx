@@ -64,7 +64,7 @@ export default function ChartOfAccountsPage() {
     )},
     { key: 'is_active', label: 'სტატუსი', render: (a: GLAccount) => a.is_active
       ? <span className="inline-flex items-center gap-1 text-green-600"><Check size={14} />აქტიური</span>
-      : <span className="inline-flex items-center gap-1 text-gray-400"><X size={14} />არააქტიური</span>
+      : <span className="inline-flex items-center gap-1 text-gray-400 dark:text-gray-500"><X size={14} />არააქტიური</span>
     },
     { key: 'actions', label: '', render: (a: GLAccount) => (
       <button onClick={e => { e.stopPropagation(); openEdit(a) }} className="rounded px-3 py-1 text-sm text-primary-600 hover:bg-primary-50">რედაქტირება</button>
@@ -85,7 +85,7 @@ export default function ChartOfAccountsPage() {
 
       <div className="card">
         <div className="relative max-w-xl">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
           <input value={search} onChange={e => setSearch(e.target.value)} className="input pl-10" placeholder="ძებნა კოდით ან სახელით..." />
         </div>
       </div>

@@ -92,7 +92,7 @@ export default function ClientsPage() {
           </div>
           <div>
             <span className="font-medium text-gray-900 dark:text-gray-100">{c.name}</span>
-            <span className="block text-xs text-gray-400">{c.identification_code}</span>
+            <span className="block text-xs text-gray-400 dark:text-gray-500">{c.identification_code}</span>
           </div>
         </div>
       ),
@@ -103,7 +103,7 @@ export default function ClientsPage() {
       render: (c: Client) => (
         <div>
           {c.phone && <span className="block text-xs">{c.phone}</span>}
-          {c.email && <span className="block text-xs text-gray-400">{c.email}</span>}
+          {c.email && <span className="block text-xs text-gray-400 dark:text-gray-500">{c.email}</span>}
         </div>
       ),
     },
@@ -145,7 +145,7 @@ export default function ClientsPage() {
 
       <div className="card">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ძებნა სახელით, კოდით, ტელეფონით..." className="input pl-10" />
         </div>
       </div>
@@ -249,7 +249,7 @@ export default function ClientsPage() {
               onChange={(e) => setImportFile(e.target.files?.[0] || null)}
               className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
             />
-            {importFile && <p className="text-xs text-gray-400">არჩეულია: {importFile.name}</p>}
+            {importFile && <p className="text-xs text-gray-400 dark:text-gray-500">არჩეულია: {importFile.name}</p>}
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => setImportModal(false)} className="btn-secondary">გაუქმება</button>
               <button

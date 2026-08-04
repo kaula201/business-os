@@ -184,7 +184,7 @@ export default function AssetsPage() {
       {/* Search */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-xs">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="ძებნა სახელით..."
@@ -231,9 +231,9 @@ export default function AssetsPage() {
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setSelectedAsset(a); setAssetEditForm({ name: a.name, status: a.status, location: a.location, notes: a.notes, serial_number: a.serial_number }); setError(''); setAssetModal('edit') }}
-                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors dark:hover:bg-dark-100"
                 >
-                  <Pencil size={16} className="text-gray-400" />
+                  <Pencil size={16} className="text-gray-400 dark:text-gray-500" />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); if (confirm('წავშალოთ აქტივი?')) deleteAsset.mutate(a.id) }}

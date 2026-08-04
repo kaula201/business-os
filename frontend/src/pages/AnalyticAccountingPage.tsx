@@ -41,7 +41,7 @@ export default function AnalyticAccountingPage() {
     <div className="grid gap-4 md:grid-cols-3">
       {[['შემოსავალი',income,TrendingUp,'text-green-600'],['ხარჯი',expense,TrendingDown,'text-red-600'],['შედეგი',income-expense,BarChart3,'text-primary-600']].map(([label,value,Icon,cls]:any)=><div key={label} className="card p-5 dark:bg-dark-200 dark:border-dark-50"><div className="flex items-center gap-3"><Icon className={cls}/><div><div className="text-sm text-brandgray-500 dark:text-gray-400">{label}</div><div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(value)}</div></div></div></div>)}
     </div>
-    <div className="relative max-w-xs"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/><input className="input pl-10" placeholder="ცენტრის ძებნა..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
+    <div className="relative max-w-xs"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"/><input className="input pl-10" placeholder="ცენტრის ძებნა..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
     <DataTable columns={[
       {key:'code',label:'კოდი'},{key:'name',label:'დასახელება'},
       {key:'income_total',label:'შემოსავალი',render:(a:AnalyticAccount)=>money(a.income_total)},

@@ -80,7 +80,7 @@ export default function SrsPage() {
         <>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <Calendar size={18} className="text-gray-400" />
+              <Calendar size={18} className="text-gray-400 dark:text-gray-500" />
               <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input w-28">
                 {Array.from({ length: 10 }, (_, i) => currentYear - 5 + i).map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -163,7 +163,7 @@ export default function SrsPage() {
         <>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <Calendar size={18} className="text-gray-400" />
+              <Calendar size={18} className="text-gray-400 dark:text-gray-500" />
               <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input w-28">
                 {Array.from({ length: 10 }, (_, i) => currentYear - 5 + i).map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -255,7 +255,7 @@ export default function SrsPage() {
         <>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <Calendar size={18} className="text-gray-400" />
+              <Calendar size={18} className="text-gray-400 dark:text-gray-500" />
               <input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} className="input w-44" />
             </div>
           </div>

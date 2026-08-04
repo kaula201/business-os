@@ -282,7 +282,7 @@ export default function PurchasesPage() {
 
       <div className="card flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           <input className="input pl-10" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="შესყიდვის შეკვეთის ნომერი" />
         </div>
         <Select className="sm:w-60" value={status} onChange={(e) => setStatus(e.target.value)} options={statusFilters} />

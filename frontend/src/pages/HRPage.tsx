@@ -216,7 +216,7 @@ export default function HRPage() {
         <>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <Calendar size={18} className="text-gray-400" />
+              <Calendar size={18} className="text-gray-400 dark:text-gray-500" />
               <select value={payrollYear} onChange={e => setPayrollYear(Number(e.target.value))} className="input w-28 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
                 {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => <option key={y} value={y}>{y}</option>)}
               </select>

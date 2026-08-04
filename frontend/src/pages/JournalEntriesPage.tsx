@@ -68,7 +68,7 @@ export default function JournalEntriesPage() {
 
       <div className="card">
         <div className="relative max-w-xl">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
           <input value={search} onChange={e => setSearch(e.target.value)} className="input pl-10" placeholder="თარიღით ძებნა (YYYY-MM-DD)..." />
         </div>
       </div>

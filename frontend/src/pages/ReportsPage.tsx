@@ -96,7 +96,7 @@ export default function ReportsPage() {
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-gray-400 text-center py-56">მონაცემები არ არის</p>
+            <p className="text-gray-400 text-center py-56 dark:text-gray-500">მონაცემები არ არის</p>
           )}
           <div className="mt-4 grid grid-cols-3 gap-4">
             <div className="p-3 bg-blue-50 rounded-lg text-center">
@@ -192,7 +192,7 @@ export default function ReportsPage() {
                 <div key={p.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-dark-100 rounded-lg text-sm">
                   <div>
                     <span className="font-medium">{p.name}</span>
-                    <span className="text-xs text-gray-400 ml-2">{p.sku}</span>
+                    <span className="text-xs text-gray-400 ml-2 dark:text-gray-500">{p.sku}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className={`badge ${p.stock_status === 'good' ? 'badge-green' : p.stock_status === 'low' ? 'badge-yellow' : 'badge-red'} text-xs`}>

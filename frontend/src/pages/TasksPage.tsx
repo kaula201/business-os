@@ -104,7 +104,7 @@ export default function TasksPage() {
     {
       key: 'due_date', label: 'ვადა', hideOnMobile: true,
       render: (t: Task) => {
-        if (!t.due_date) return <span className="text-gray-400">—</span>
+        if (!t.due_date) return <span className="text-gray-400 dark:text-gray-500">—</span>
         const d = new Date(t.due_date)
         const isOverdue = d < new Date() && t.status !== 'done' && t.status !== 'cancelled'
         return <span className={isOverdue ? 'text-red-600 font-medium' : ''}>{d.toLocaleDateString('ka-GE')}</span>
@@ -144,7 +144,7 @@ export default function TasksPage() {
 
       <div className="card flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ძებნა სათაურით..." className="input pl-10" />
         </div>
         <div className="flex gap-1 flex-wrap">
@@ -171,7 +171,7 @@ export default function TasksPage() {
               <div key={status} className="bg-gray-50 dark:bg-dark-100 rounded-xl p-3 min-h-[300px]">
                 <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 px-2 flex items-center justify-between">
                   {label}
-                  <span className="text-xs text-gray-400 bg-white dark:bg-dark-200 px-2 py-0.5 rounded-full">{columnTasks.length}</span>
+                  <span className="text-xs text-gray-400 bg-white dark:bg-dark-200 px-2 py-0.5 rounded-full dark:text-gray-500">{columnTasks.length}</span>
                 </h3>
                 <div className="space-y-2">
                   {columnTasks.map(task => (
@@ -186,7 +186,7 @@ export default function TasksPage() {
                         <span className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-2">{task.title}</span>
                         <StatusBadge status={task.priority} map={priorityMap} />
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
                         {task.due_date && (
                           <span className="flex items-center gap-1">
                             <Clock size={12} />
@@ -202,7 +202,7 @@ export default function TasksPage() {
                     </div>
                   ))}
                   {columnTasks.length === 0 && (
-                    <div className="text-center text-gray-400 text-xs py-8">ცარიელია</div>
+                    <div className="text-center text-gray-400 text-xs py-8 dark:text-gray-500">ცარიელია</div>
                   )}
                 </div>
               </div>

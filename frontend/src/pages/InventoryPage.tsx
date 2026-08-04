@@ -486,7 +486,7 @@ export default function InventoryPage() {
                 </div>
               </div>
               <p className="mt-3 font-semibold text-gray-900 dark:text-gray-100">{warehouse.name}</p>
-              <p className="text-xs font-medium text-gray-400">{warehouse.code}</p>
+              <p className="text-xs font-medium text-gray-400 dark:text-gray-500">{warehouse.code}</p>
               <div className="mt-3 flex items-end justify-between">
                 <span className="text-sm text-gray-500 dark:text-gray-400">ჯამური ერთეული</span>
                 <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{(warehouseTotals[warehouse.id] || 0).toLocaleString()}</span>
@@ -517,7 +517,7 @@ export default function InventoryPage() {
 
       <div className="card">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
           <input
             type="text"
             value={search}
@@ -555,9 +555,9 @@ export default function InventoryPage() {
             <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">ისტორია იტვირთება...</p>
           ) : costHistory.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-200 dark:border-dark-50 py-10 text-center">
-              <History className="mx-auto text-gray-300" size={28} />
+              <History className="mx-auto text-gray-300 dark:text-gray-400" size={28} />
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Goods Receipt-ით მიღების ისტორია ჯერ არ არსებობს.</p>
-              <p className="mt-1 text-xs text-gray-400">ხელით მითითებული purchase price საწყის average cost-ად გამოიყენება.</p>
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">ხელით მითითებული purchase price საწყის average cost-ად გამოიყენება.</p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-dark-50">
@@ -585,7 +585,7 @@ export default function InventoryPage() {
                       <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{entry.previous_stock.toLocaleString('ka-GE')} → {entry.new_stock.toLocaleString('ka-GE')}</td>
                       <td className="px-4 py-3 text-right">
                         <span className="text-gray-500 dark:text-gray-400">{entry.previous_average_cost.toLocaleString('ka-GE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
-                        <span className="mx-1 text-gray-300">→</span>
+                        <span className="mx-1 text-gray-300 dark:text-gray-400">→</span>
                         <span className="font-semibold text-amber-700">{entry.new_average_cost.toLocaleString('ka-GE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ₾</span>
                       </td>
                     </tr>
@@ -630,7 +630,7 @@ export default function InventoryPage() {
 
       <Modal open={!!stockProduct} onClose={() => setStockProduct(null)} title={`საწყობის ოპერაცია — ${stockProduct?.name || ''}`} size="md">
         <form onSubmit={(event) => { event.preventDefault(); stockMutation.mutate(stockForm) }} className="space-y-4">
-          <div className="flex items-center gap-3 rounded-lg bg-gray-50 dark:bg-dark-100 p-3"><Package size={20} className="text-gray-400" /><div><p className="text-xs text-gray-500 dark:text-gray-400">ჯამური ნაშთი</p><p className="text-lg font-bold">{stockProduct?.current_stock || 0}</p></div></div>
+          <div className="flex items-center gap-3 rounded-lg bg-gray-50 dark:bg-dark-100 p-3"><Package size={20} className="text-gray-400 dark:text-gray-500" /><div><p className="text-xs text-gray-500 dark:text-gray-400">ჯამური ნაშთი</p><p className="text-lg font-bold">{stockProduct?.current_stock || 0}</p></div></div>
           <FormField label="საწყობი" required><Select value={stockForm.warehouse_id} onChange={(e) => setStockForm({ ...stockForm, warehouse_id: e.target.value })} placeholder="აირჩიეთ საწყობი" options={activeWarehouses.map((warehouse) => ({ value: warehouse.id, label: `${warehouse.name} (${warehouse.code})` }))} /></FormField>
           <FormField label="ოპერაცია" required><Select value={stockForm.movement_type} onChange={(e) => setStockForm({ ...stockForm, movement_type: e.target.value as WarehouseStockAdjustment['movement_type'] })} options={[{ value: 'in', label: 'მიღება' }, { value: 'out', label: 'გაცემა' }, { value: 'adjustment', label: 'ინვენტარიზაციის კორექტირება' }]} /></FormField>
           <FormField label="რაოდენობა" required><input type="number" value={stockForm.quantity} onChange={(e) => setStockForm({ ...stockForm, quantity: Number(e.target.value) })} className="input" min={0} step="0.001" required /></FormField>
@@ -689,7 +689,7 @@ export default function InventoryPage() {
               onChange={(e) => setImportFile(e.target.files?.[0] || null)}
               className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
             />
-            {importFile && <p className="text-xs text-gray-400">არჩეულია: {importFile.name}</p>}
+            {importFile && <p className="text-xs text-gray-400 dark:text-gray-500">არჩეულია: {importFile.name}</p>}
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => setImportModal(false)} className="btn-secondary">გაუქმება</button>
               <button

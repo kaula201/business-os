@@ -152,7 +152,7 @@ export default function AIPage() {
             ))}
           </div>
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-dark-50">
-            <div className="text-xs text-gray-400 space-y-2">
+            <div className="text-xs text-gray-400 space-y-2 dark:text-gray-500">
               <p className="flex items-center gap-1"><TrendingUp size={12} /> შემოსავლების ანალიზი</p>
               <p className="flex items-center gap-1"><Package size={12} /> ნაშთების მართვა</p>
               <p className="flex items-center gap-1"><Clock size={12} /> დავალებების ტრეკინგი</p>
