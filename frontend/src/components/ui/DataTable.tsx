@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, AlertCircle, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Search, ChevronRight as ChevronRightIcon, FileQuestion, Plus, ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -33,6 +33,8 @@ interface DataTableProps<T> {
   pageSizeOptions?: number[]
   onPageSizeChange?: (size: number) => void
   pageSize?: number
+  /** Opt-in pagination for endpoints that return a complete small/reference list */
+  clientPageSize?: number
   /** Show mobile card layout below md breakpoint */
   mobileCards?: boolean
   /** Empty-state props — shown instead of the plain "no data" message */
@@ -48,13 +50,18 @@ export default function DataTable<T extends Record<string, any>>({
   columns, data, isLoading, error, emptyMessage = 'მონაცემები არ მოიძებნა',
   onRetry, onRowClick, page, totalPages, total, onPageChange,
   searchable, searchPlaceholder = 'ძებნა...', onSearch, searchValue,
-  pageSizeOptions, onPageSizeChange, pageSize,
+  pageSizeOptions, onPageSizeChange, pageSize, clientPageSize,
   mobileCards = true, emptyTitle, emptyIcon,
   emptyActionLabel, emptyActionTo, emptyOnAction,
 }: DataTableProps<T>) {
   const navigate = useNavigate()
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [clientPage, setClientPage] = useState(1)
+
+  useEffect(() => {
+    if (clientPageSize) setClientPage(1)
+  }, [data, clientPageSize])
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -76,6 +83,17 @@ export default function DataTable<T extends Record<string, any>>({
       return sortDir === 'asc' ? cmp : -cmp
     })
   }, [data, sortKey, sortDir])
+
+  const usesClientPagination = Boolean(clientPageSize && page === undefined)
+  const effectivePage = usesClientPagination ? clientPage : (page || 1)
+  const effectiveTotal = usesClientPagination ? data.length : total
+  const effectiveTotalPages = usesClientPagination
+    ? Math.max(1, Math.ceil(data.length / (clientPageSize || 20)))
+    : totalPages
+  const displayedData = usesClientPagination
+    ? sortedData.slice((effectivePage - 1) * (clientPageSize || 20), effectivePage * (clientPageSize || 20))
+    : sortedData
+  const changePage = usesClientPagination ? setClientPage : onPageChange
 
   if (isLoading) {
     return (
@@ -146,7 +164,7 @@ export default function DataTable<T extends Record<string, any>>({
 
   const renderMobileCards = () => (
     <div className="space-y-3 md:hidden">
-      {sortedData.map((item, idx) => (
+      {displayedData.map((item, idx) => (
         <div
           key={item.id || idx}
           onClick={() => onRowClick?.(item)}
@@ -250,7 +268,7 @@ export default function DataTable<T extends Record<string, any>>({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-dark-50">
-              {sortedData.map((item, idx) => (
+              {displayedData.map((item, idx) => (
                 <tr
                   key={item.id || idx}
                   onClick={() => onRowClick?.(item)}
@@ -272,22 +290,22 @@ export default function DataTable<T extends Record<string, any>>({
       </div>
 
       {/* Pagination */}
-      {totalPages && totalPages > 1 && (
+      {effectiveTotalPages && effectiveTotalPages > 1 && (
         <div className="flex items-center justify-between px-6 py-3 bg-gray-50 border-t border-gray-200 dark:bg-dark-100 dark:border-dark-50">
-          <span className="text-sm text-gray-500 dark:text-gray-400">სულ: {total}</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">სულ: {effectiveTotal}</span>
           <nav aria-label="გვერდების ნავიგაცია" className="flex items-center gap-2">
             <button
-              disabled={!page || page <= 1}
-              onClick={() => onPageChange?.((page || 1) - 1)}
+              disabled={effectivePage <= 1}
+              onClick={() => changePage?.(effectivePage - 1)}
               className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 dark:hover:bg-dark-50"
               aria-label="წინა გვერდი"
             >
               <ChevronLeft size={18} />
             </button>
-            <span className="text-sm text-gray-700 dark:text-gray-300" aria-current="page">{page || 1} / {totalPages}</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300" aria-current="page">{effectivePage} / {effectiveTotalPages}</span>
             <button
-              disabled={page === totalPages}
-              onClick={() => onPageChange?.((page || 1) + 1)}
+              disabled={effectivePage === effectiveTotalPages}
+              onClick={() => changePage?.(effectivePage + 1)}
               className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 dark:hover:bg-dark-50"
               aria-label="შემდეგი გვერდი"
             >

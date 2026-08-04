@@ -4,7 +4,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -427,6 +427,7 @@ async def list_supplier_invoices(
     page_size: int = Query(20, ge=1, le=100),
     status: str | None = None,
     supplier_id: UUID | None = None,
+    search: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -435,6 +436,14 @@ async def list_supplier_invoices(
         filters.append(SupplierInvoice.status == status)
     if supplier_id:
         filters.append(SupplierInvoice.supplier_id == supplier_id)
+    if search:
+        term = f"%{search.strip()}%"
+        filters.append(or_(
+            SupplierInvoice.internal_invoice_number.ilike(term),
+            SupplierInvoice.supplier_invoice_number.ilike(term),
+            SupplierInvoice.supplier.has(Supplier.name.ilike(term)),
+            SupplierInvoice.purchase_order.has(PurchaseOrder.purchase_order_number.ilike(term)),
+        ))
     total = (await db.execute(select(func.count(SupplierInvoice.id)).where(*filters))).scalar_one()
     invoices = (
         await db.execute(
@@ -719,12 +728,22 @@ async def list_supplier_payables(
     page_size: int = Query(20, ge=1, le=100),
     status: str | None = None,
     supplier_id: UUID | None = None,
+    search: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     filters = [SupplierPayable.company_id == current_user.company_id]
     if supplier_id:
         filters.append(SupplierPayable.supplier_id == supplier_id)
+    if search:
+        term = f"%{search.strip()}%"
+        filters.append(or_(
+            SupplierPayable.supplier.has(Supplier.name.ilike(term)),
+            SupplierPayable.supplier_invoice.has(or_(
+                SupplierInvoice.internal_invoice_number.ilike(term),
+                SupplierInvoice.supplier_invoice_number.ilike(term),
+            )),
+        ))
     payables = (
         await db.execute(
             select(SupplierPayable)

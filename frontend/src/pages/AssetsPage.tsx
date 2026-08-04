@@ -246,6 +246,7 @@ export default function AssetsPage() {
           },
         ]}
         data={visible}
+        clientPageSize={20}
         isLoading={isLoading}
         emptyMessage="ძირითადი საშუალებები არ მოიძებნა"
       />

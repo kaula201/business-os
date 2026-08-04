@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Plus, Search, X } from 'lucide-react'
 
@@ -18,6 +18,8 @@ const accountTypes: Record<string, string> = {
 export default function ChartOfAccountsPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -25,12 +27,19 @@ export default function ChartOfAccountsPage() {
     code: '', name: '', account_type: 'asset', description: '',
   })
 
+  useEffect(() => {
+    const timer = setTimeout(() => { setSearch(searchInput); setPage(1) }, 400)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['gl-accounts', search],
-    queryFn: () => glApi.listAccounts({ page_size: 200, search: search || undefined }).then(r => r.data.data),
+    queryKey: ['gl-accounts', search, page],
+    queryFn: () => glApi.listAccounts({ page, page_size: 20, search: search || undefined }).then(r => r.data.data),
   })
 
   const accounts: GLAccount[] = data?.items || []
+  const total = data?.total || 0
+  const totalPages = Math.max(1, Math.ceil(total / 20))
 
   function resetForm() {
     setForm({ code: '', name: '', account_type: 'asset', description: '' })
@@ -86,12 +95,12 @@ export default function ChartOfAccountsPage() {
       <div className="card">
         <div className="relative max-w-xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
-          <input value={search} onChange={e => setSearch(e.target.value)} className="input pl-10" placeholder="ძებნა კოდით ან სახელით..." />
+          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} className="input pl-10" placeholder="ძებნა კოდით ან სახელით..." />
         </div>
       </div>
 
       {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-      <DataTable columns={columns} data={accounts} isLoading={isLoading} emptyMessage="ანგარიშები ჯერ არ არის შექმნილი" />
+      <DataTable columns={columns} data={accounts} isLoading={isLoading} emptyMessage="ანგარიშები ჯერ არ არის შექმნილი" page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
 
       <Modal open={showForm} onClose={() => { setShowForm(false); resetForm() }} title={editId ? 'ანგარიშის რედაქტირება' : 'ახალი ანგარიში'}>
         <div className="space-y-4">

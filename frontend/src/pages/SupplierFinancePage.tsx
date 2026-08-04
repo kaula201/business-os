@@ -79,6 +79,9 @@ export default function SupplierFinancePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [tab, setTab] = useState<'invoices' | 'payables'>('invoices')
   const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [invoicePage, setInvoicePage] = useState(1)
+  const [payablePage, setPayablePage] = useState(1)
   const [status, setStatus] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<SupplierInvoice | null>(null)
@@ -113,13 +116,22 @@ export default function SupplierFinancePage() {
     reason: '',
   })
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput)
+      setInvoicePage(1)
+      setPayablePage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
   const { data: invoicesData, isLoading: invoicesLoading } = useQuery({
-    queryKey: ['supplier-invoices', status],
-    queryFn: () => supplierFinanceApi.listInvoices({ status: status || undefined, page_size: 100 }).then((r) => r.data.data),
+    queryKey: ['supplier-invoices', status, search, invoicePage],
+    queryFn: () => supplierFinanceApi.listInvoices({ status: status || undefined, search: search || undefined, page: invoicePage, page_size: 20 }).then((r) => r.data.data),
   })
   const { data: payablesData, isLoading: payablesLoading } = useQuery({
-    queryKey: ['supplier-payables', status],
-    queryFn: () => supplierFinanceApi.listPayables({ status: status || undefined, page_size: 100 }).then((r) => r.data.data),
+    queryKey: ['supplier-payables', status, search, payablePage],
+    queryFn: () => supplierFinanceApi.listPayables({ status: status || undefined, search: search || undefined, page: payablePage, page_size: 20 }).then((r) => r.data.data),
   })
   const { data: purchasesData } = useQuery({
     queryKey: ['purchase-orders', 'finance-options'],
@@ -132,28 +144,17 @@ export default function SupplierFinancePage() {
 
   const invoices: SupplierInvoice[] = invoicesData?.items || []
   const payables: SupplierPayable[] = payablesData?.items || []
+  const invoicesTotal = invoicesData?.total || 0
+  const payablesTotal = payablesData?.total || 0
+  const invoiceTotalPages = Math.max(1, Math.ceil(invoicesTotal / 20))
+  const payableTotalPages = Math.max(1, Math.ceil(payablesTotal / 20))
   const purchaseOrders: PurchaseOrder[] = (purchasesData?.items || []).filter(
     (order: PurchaseOrder) => ['partially_received', 'received'].includes(order.status),
   )
   const suppliers: Supplier[] = suppliersData?.items || []
 
-  const visibleInvoices = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return invoices
-    return invoices.filter((invoice) =>
-      [invoice.internal_invoice_number, invoice.supplier_invoice_number, invoice.supplier_name, invoice.purchase_order_number]
-        .some((value) => value.toLowerCase().includes(term)),
-    )
-  }, [invoices, search])
-
-  const visiblePayables = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return payables
-    return payables.filter((payable) =>
-      [payable.internal_invoice_number, payable.supplier_invoice_number, payable.supplier_name]
-        .some((value) => value.toLowerCase().includes(term)),
-    )
-  }, [payables, search])
+  const visibleInvoices = invoices
+  const visiblePayables = payables
 
   const invoiceDraftTotal = useMemo(() => form.items.reduce((sum, item) => {
     const gross = item.quantity * item.unit_price
@@ -377,14 +378,14 @@ export default function SupplierFinancePage() {
       </div>
 
       <div className="card flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" /><input className="input pl-10" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ნომერი ან მომწოდებელი" /></div>
-        <Select className="sm:w-64" value={status} onChange={(e) => setStatus(e.target.value)} options={tab === 'invoices' ? invoiceFilters : payableFilters} />
+        <div className="relative flex-1"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" /><input className="input pl-10" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="ნომერი ან მომწოდებელი" /></div>
+        <Select className="sm:w-64" value={status} onChange={(e) => { setStatus(e.target.value); setInvoicePage(1); setPayablePage(1) }} options={tab === 'invoices' ? invoiceFilters : payableFilters} />
       </div>
 
       {tab === 'invoices' ? (
-        <DataTable columns={invoiceColumns} data={visibleInvoices} isLoading={invoicesLoading} onRowClick={setSelectedInvoice} emptyMessage="მომწოდებლის ინვოისი ჯერ არ არის შექმნილი" />
+        <DataTable columns={invoiceColumns} data={visibleInvoices} isLoading={invoicesLoading} onRowClick={setSelectedInvoice} emptyMessage="მომწოდებლის ინვოისი ჯერ არ არის შექმნილი" page={invoicePage} totalPages={invoiceTotalPages} total={invoicesTotal} onPageChange={setInvoicePage} />
       ) : (
-        <DataTable columns={payableColumns} data={visiblePayables} isLoading={payablesLoading} onRowClick={setSelectedPayable} emptyMessage="მომწოდებლის დავალიანება ჯერ არ არის" />
+        <DataTable columns={payableColumns} data={visiblePayables} isLoading={payablesLoading} onRowClick={setSelectedPayable} emptyMessage="მომწოდებლის დავალიანება ჯერ არ არის" page={payablePage} totalPages={payableTotalPages} total={payablesTotal} onPageChange={setPayablePage} />
       )}
 
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="ახალი მომწოდებლის ინვოისი" size="xl">

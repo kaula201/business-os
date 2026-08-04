@@ -93,7 +93,10 @@ function PartyCard({ title, name, code, address }: { title: string; name: string
 export default function InvoicesPage() {
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
-  const [search, setSearch] = useState(searchParams.get('search') || '')
+  const initialSearch = searchParams.get('search') || ''
+  const [search, setSearch] = useState(initialSearch)
+  const [searchInput, setSearchInput] = useState(initialSearch)
+  const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'issued'>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
@@ -111,12 +114,27 @@ export default function InvoicesPage() {
     if (previewUrl) window.URL.revokeObjectURL(previewUrl)
   }, [previewUrl])
 
+  useEffect(() => {
+    const timer = setTimeout(() => { setSearch(searchInput); setPage(1) }, 400)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
   const listQuery = useQuery({
-    queryKey: ['customer-invoices', search],
+    queryKey: ['customer-invoices', search, statusFilter, page],
     queryFn: () => invoicesApi.list({
-      page_size: 100,
+      page,
+      page_size: 20,
       search: search || undefined,
+      status: statusFilter === 'all' ? undefined : statusFilter,
     }).then(response => response.data.data),
+  })
+  const draftCountQuery = useQuery({
+    queryKey: ['customer-invoices-count', 'draft'],
+    queryFn: () => invoicesApi.list({ page: 1, page_size: 1, status: 'draft' }).then(response => response.data.data.total as number),
+  })
+  const issuedCountQuery = useQuery({
+    queryKey: ['customer-invoices-count', 'issued'],
+    queryFn: () => invoicesApi.list({ page: 1, page_size: 1, status: 'issued' }).then(response => response.data.data.total as number),
   })
   const detailQuery = useQuery<CustomerInvoice>({
     queryKey: ['customer-invoice', selectedId],
@@ -124,14 +142,20 @@ export default function InvoicesPage() {
     enabled: !!selectedId,
   })
   const allInvoices: CustomerInvoiceSummary[] = listQuery.data?.items || []
-  const invoices = statusFilter === 'all' ? allInvoices : allInvoices.filter(invoice => invoice.status === statusFilter)
+  const invoices = allInvoices
+  const total = listQuery.data?.total || 0
+  const totalPages = Math.max(1, Math.ceil(total / 20))
   const selected = detailQuery.data
-  const draftCount = allInvoices.filter(invoice => invoice.status === 'draft').length
+  const draftCount = draftCountQuery.data || 0
   const issuedInvoices = allInvoices.filter(invoice => invoice.status === 'issued')
+  const issuedCount = issuedCountQuery.data || 0
   const issuedTotal = issuedInvoices.reduce((sum, invoice) => sum + invoice.total, 0)
 
   const refresh = async (id?: string) => {
-    await queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] }),
+      queryClient.invalidateQueries({ queryKey: ['customer-invoices-count'] }),
+    ])
     if (id) await queryClient.invalidateQueries({ queryKey: ['customer-invoice', id] })
   }
 
@@ -262,7 +286,7 @@ export default function InvoicesPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div><h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">გაყიდვის ინვოისები</h1><p className="mt-1 text-sm text-gray-500 dark:text-gray-400">მყიდველისთვის გასაცემი Invoice-ების მომზადება, გადამოწმება და დადასტურება</p></div>
-        <div className="flex gap-2"><div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 dark:border-amber-900/50 dark:bg-amber-900/20"><div className="text-xs text-amber-700 dark:text-amber-300">შესავსები</div><div className="text-xl font-bold text-amber-900 dark:text-amber-200">{draftCount}</div></div><div className="rounded-xl border border-primary-100 bg-primary-50 px-4 py-2.5 dark:border-primary-900/50 dark:bg-primary-900/20"><div className="text-xs text-primary-700 dark:text-primary-300">დადასტურებული</div><div className="text-xl font-bold text-primary-900 dark:text-primary-200">{issuedInvoices.length}</div></div></div>
+        <div className="flex gap-2"><div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 dark:border-amber-900/50 dark:bg-amber-900/20"><div className="text-xs text-amber-700 dark:text-amber-300">შესავსები</div><div className="text-xl font-bold text-amber-900 dark:text-amber-200">{draftCount}</div></div><div className="rounded-xl border border-primary-100 bg-primary-50 px-4 py-2.5 dark:border-primary-900/50 dark:bg-primary-900/20"><div className="text-xs text-primary-700 dark:text-primary-300">დადასტურებული</div><div className="text-xl font-bold text-primary-900 dark:text-primary-200">{issuedCount}</div></div></div>
       </div>
 
       <StatusSteps />
@@ -270,11 +294,11 @@ export default function InvoicesPage() {
       {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">{error}</div>}
 
       <div className="card flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="relative w-full max-w-xl"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} /><input value={search} onChange={event => setSearch(event.target.value)} className="input pl-10" placeholder="ინვოისის ნომერი, შეკვეთა ან მყიდველი" /></div>
-        <div className="flex rounded-lg bg-gray-100 p-1 dark:bg-dark-100">{([['all', 'ყველა'], ['draft', 'შესავსები'], ['issued', 'დადასტურებული']] as const).map(([value, label]) => <button key={value} onClick={() => setStatusFilter(value)} className={`rounded-md px-3 py-2 text-sm transition-colors ${statusFilter === value ? 'bg-white font-medium text-gray-900 shadow-sm dark:bg-dark-200' : 'text-gray-500 hover:text-gray-800'}`}>{label}</button>)}</div>
+        <div className="relative w-full max-w-xl"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} /><input value={searchInput} onChange={event => setSearchInput(event.target.value)} className="input pl-10" placeholder="ინვოისის ნომერი, შეკვეთა ან მყიდველი" /></div>
+        <div className="flex rounded-lg bg-gray-100 p-1 dark:bg-dark-100">{([['all', 'ყველა'], ['draft', 'შესავსები'], ['issued', 'დადასტურებული']] as const).map(([value, label]) => <button key={value} onClick={() => { setStatusFilter(value); setPage(1) }} className={`rounded-md px-3 py-2 text-sm transition-colors ${statusFilter === value ? 'bg-white font-medium text-gray-900 shadow-sm dark:bg-dark-200' : 'text-gray-500 hover:text-gray-800'}`}>{label}</button>)}</div>
       </div>
-      <DataTable columns={columns} data={invoices} isLoading={listQuery.isLoading} emptyMessage="არჩეული სტატუსით ინვოისი არ მოიძებნა" onRowClick={invoice => void openInvoice(invoice)} />
-      {statusFilter === 'all' && issuedInvoices.length > 0 && <div className="text-right text-sm text-gray-500 dark:text-gray-400">დადასტურებული ინვოისების ჯამი: <span className="font-semibold text-gray-800 dark:text-gray-200">{money(issuedTotal)}</span></div>}
+      <DataTable columns={columns} data={invoices} isLoading={listQuery.isLoading} emptyMessage="არჩეული სტატუსით ინვოისი არ მოიძებნა" onRowClick={invoice => void openInvoice(invoice)} page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
+      {statusFilter === 'all' && issuedInvoices.length > 0 && <div className="text-right text-sm text-gray-500 dark:text-gray-400">მიმდინარე გვერდზე დადასტურებული ინვოისების ჯამი: <span className="font-semibold text-gray-800 dark:text-gray-200">{money(issuedTotal)}</span></div>}
 
       <Modal open={!!selectedId && !editorOpen && !previewUrl} onClose={() => setSelectedId(null)} title="გაყიდვის ინვოისის ნახვა" size="xl">
         {detailQuery.isLoading && <div className="py-10 text-center text-gray-500 dark:text-gray-400">იტვირთება...</div>}

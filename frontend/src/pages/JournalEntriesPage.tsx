@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Search } from 'lucide-react'
 
@@ -29,11 +29,18 @@ const refTypes: Record<string, string> = {
 
 export default function JournalEntriesPage() {
   const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
+  useEffect(() => {
+    const timer = setTimeout(() => { setSearch(searchInput); setPage(1) }, 400)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['gl-journal-entries', search],
-    queryFn: () => glApi.listJournalEntries({ page_size: 100, date_from: search || undefined }).then(r => r.data.data),
+    queryKey: ['gl-journal-entries', search, page],
+    queryFn: () => glApi.listJournalEntries({ page, page_size: 20, date_from: search || undefined }).then(r => r.data.data),
   })
 
   const { data: selected, isLoading: detailLoading } = useQuery({
@@ -43,6 +50,8 @@ export default function JournalEntriesPage() {
   })
 
   const entries: JournalEntrySummary[] = data?.items || []
+  const total = data?.total || 0
+  const totalPages = Math.max(1, Math.ceil(total / 20))
 
   const columns = [
     { key: 'entry_number', label: 'ნომერი', render: (e: JournalEntrySummary) => <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{e.entry_number}</span> },
@@ -69,11 +78,11 @@ export default function JournalEntriesPage() {
       <div className="card">
         <div className="relative max-w-xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
-          <input value={search} onChange={e => setSearch(e.target.value)} className="input pl-10" placeholder="თარიღით ძებნა (YYYY-MM-DD)..." />
+          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} className="input pl-10" placeholder="თარიღით ძებნა (YYYY-MM-DD)..." />
         </div>
       </div>
 
-      <DataTable columns={columns} data={entries} isLoading={isLoading} emptyMessage="საჟურნალო ჩანაწერები ჯერ არ არის" onRowClick={e => setSelectedId(e.id)} />
+      <DataTable columns={columns} data={entries} isLoading={isLoading} emptyMessage="საჟურნალო ჩანაწერები ჯერ არ არის" onRowClick={e => setSelectedId(e.id)} page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
 
       <Modal open={!!selectedId} onClose={() => setSelectedId(null)} title={selected ? `ჩანაწერი ${selected.entry_number}` : ''}>
         {detailLoading ? <p className="text-gray-500 dark:text-gray-400">იტვირთება...</p> : selected && (

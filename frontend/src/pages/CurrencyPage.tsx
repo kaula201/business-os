@@ -158,6 +158,7 @@ export default function CurrencyPage() {
           { key: 'actions', label: '', render: (rate: CurrencyRate) => <button title="წაშლა" className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => { if (confirm('წავშალოთ კურსი?')) deleteRate.mutate(rate.id) }}><Trash2 size={16} className="text-red-500" /></button> },
         ]}
         data={visible}
+        clientPageSize={20}
         isLoading={isLoading}
         emptyMessage="ვალუტის კურსები არ არის"
       />

@@ -60,7 +60,7 @@ export default function DeferredPage() {
       {key:'recognized_amount',label:'აღიარებული',render:(s:DeferredSchedule)=>money(s.recognized_amount)},
       {key:'remaining_amount',label:'დარჩენილი',render:(s:DeferredSchedule)=>money(s.remaining_amount)},
       {key:'status',label:'სტატუსი',render:(s:DeferredSchedule)=><span className={`badge ${s.status==='completed'?'badge-green':'badge-yellow'}`}>{s.status==='completed'?'დასრულებული':'აქტიური'}</span>},
-    ]} data={visible} isLoading={schedulesQuery.isLoading} emptyMessage="გადავადებული გრაფიკები არ არის"/>
+    ]} data={visible} clientPageSize={20} isLoading={schedulesQuery.isLoading} emptyMessage="გადავადებული გრაფიკები არ არის"/>
 
     {selected&&<section className="card p-0 overflow-hidden dark:bg-dark-200 dark:border-dark-50">
       <div className="flex flex-col gap-2 border-b px-5 py-4 dark:border-dark-50 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold">{selected.name} — აღიარების გრაფიკი</h2><p className="text-xs text-brandgray-500 dark:text-gray-400">{selected.source_gl_account_code} {selected.source_gl_account_name} → {selected.recognition_gl_account_code} {selected.recognition_gl_account_name}</p></div><button className="btn-secondary text-sm" onClick={()=>setSelectedId(null)}>დახურვა</button></div>
@@ -69,7 +69,7 @@ export default function DeferredPage() {
         {key:'amount',label:'თანხა',render:(r:DeferredRecognition)=>money(r.amount)},
         {key:'status',label:'სტატუსი',render:(r:DeferredRecognition)=><span className={`badge ${r.status==='recognized'?'badge-green':'badge-yellow'}`}>{r.status==='recognized'?'აღიარებული':'მოლოდინში'}</span>},
         {key:'action',label:'',render:(r:DeferredRecognition)=>r.status==='pending'?<button className="btn-secondary py-1 text-xs" disabled={recognize.isPending} onClick={()=>recognize.mutate(r.id)}>აღიარება</button>:<span className="text-xs text-brandgray-500 dark:text-gray-400">GL შექმნილია</span>},
-      ]} data={selected.recognitions} emptyMessage="პერიოდები არ არის"/>
+      ]} data={selected.recognitions} clientPageSize={20} emptyMessage="პერიოდები არ არის"/>
     </section>}
     {error&&<p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 

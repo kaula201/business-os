@@ -234,13 +234,13 @@ export const purchaseApprovalApi = {
 
 // Supplier invoices, 3-way matching & payables API
 export const supplierFinanceApi = {
-  listInvoices: (params?: { page?: number; page_size?: number; status?: string; supplier_id?: string }) =>
+  listInvoices: (params?: { page?: number; page_size?: number; status?: string; supplier_id?: string; search?: string }) =>
     api.get('/supplier-invoices/', { params }),
   getInvoice: (id: string) => api.get(`/supplier-invoices/${id}`),
   createInvoice: (data: any) => api.post('/supplier-invoices/', data),
   changeInvoiceStatus: (id: string, status: 'approved' | 'cancelled', notes?: string) =>
     api.patch(`/supplier-invoices/${id}/status`, { status, notes }),
-  listPayables: (params?: { page?: number; page_size?: number; status?: string; supplier_id?: string }) =>
+  listPayables: (params?: { page?: number; page_size?: number; status?: string; supplier_id?: string; search?: string }) =>
     api.get('/supplier-payables/', { params }),
   getPayable: (id: string) => api.get(`/supplier-payables/${id}`),
   postPayment: (id: string, data: any) => api.post(`/supplier-payables/${id}/payments`, data),

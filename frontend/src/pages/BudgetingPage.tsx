@@ -145,6 +145,7 @@ export default function BudgetingPage() {
           },
         ]}
         data={visible}
+        clientPageSize={20}
         isLoading={isLoading}
         emptyMessage="ბიუჯეტები არ მოიძებნა"
       />

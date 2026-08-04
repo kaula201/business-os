@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, Building2, Pencil, Plus, Search } from 'lucide-react'
 
@@ -26,6 +26,8 @@ const emptySupplier: SupplierCreate = {
 export default function SuppliersPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
   const [showInactive, setShowInactive] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Supplier | null>(null)
@@ -33,12 +35,20 @@ export default function SuppliersPage() {
   const [form, setForm] = useState<SupplierCreate>(emptySupplier)
   const [formError, setFormError] = useState('')
 
+  // Debounce: search იგზავნება server-ზე მხოლოდ აკრეფის შეწყვეტის შემდეგ
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1) }, 400)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['suppliers', search, showInactive],
-    queryFn: () => suppliersApi.list({ search: search || undefined, include_inactive: showInactive, page_size: 100 }).then((r) => r.data.data),
+    queryKey: ['suppliers', search, showInactive, page],
+    queryFn: () => suppliersApi.list({ search: search || undefined, include_inactive: showInactive, page, page_size: 20 }).then((r) => r.data.data),
   })
 
   const suppliers: Supplier[] = data?.items || []
+  const suppliersTotal = data?.total || 0
+  const suppliersTotalPages = Math.max(1, Math.ceil(suppliersTotal / 20))
 
   const saveMutation = useMutation({
     mutationFn: () => editing
@@ -153,14 +163,14 @@ export default function SuppliersPage() {
       <div className="card flex flex-col sm:flex-row gap-3 items-center">
         <div className="relative flex-1 w-full">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-          <input className="input pl-10" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="სახელი, კოდი ან საიდენტიფიკაციო ნომერი" />
+          <input className="input pl-10" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="სახელი, კოდი ან საიდენტიფიკაციო ნომერი" />
         </div>
         <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
           <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> არააქტიურების ჩვენება
         </label>
       </div>
 
-      <DataTable columns={columns} data={suppliers} isLoading={isLoading} emptyMessage="მომწოდებელი ჯერ არ არის დამატებული" />
+      <DataTable columns={columns} data={suppliers} isLoading={isLoading} emptyMessage="მომწოდებელი ჯერ არ არის დამატებული" page={page} totalPages={suppliersTotalPages} total={suppliersTotal} onPageChange={setPage} />
 
       <Modal open={modalOpen} onClose={closeModal} title={editing ? 'მომწოდებლის რედაქტირება' : 'ახალი მომწოდებელი'} size="lg">
         <form onSubmit={submit} className="space-y-5">

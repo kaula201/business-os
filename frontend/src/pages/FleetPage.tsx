@@ -434,6 +434,7 @@ export default function FleetPage() {
               },
             ]}
             data={visibleVehicles}
+            clientPageSize={20}
             isLoading={vehiclesLoading}
             emptyMessage="ავტომობილები არ მოიძებნა"
           />
@@ -482,6 +483,7 @@ export default function FleetPage() {
                 },
               ]}
               data={fuelLogs}
+              clientPageSize={20}
               isLoading={fuelLoading}
               emptyMessage="საწვავის ჩანაწერები არ მოიძებნა"
             />
@@ -528,6 +530,7 @@ export default function FleetPage() {
                 },
               ]}
               data={services}
+              clientPageSize={20}
               isLoading={serviceLoading}
               emptyMessage="მომსახურების ჩანაწერები არ მოიძებნა"
             />
@@ -594,6 +597,7 @@ export default function FleetPage() {
                 },
               ]}
               data={drivers}
+              clientPageSize={20}
               isLoading={driverLoading}
               emptyMessage="მძღოლები არ მოიძებნა"
             />

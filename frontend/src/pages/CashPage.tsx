@@ -230,6 +230,7 @@ export default function CashPage() {
           },
         ]}
         data={visibleAccounts}
+        clientPageSize={20}
         isLoading={accountsLoading}
         emptyMessage="სალაროები არ მოიძებნა"
       />
