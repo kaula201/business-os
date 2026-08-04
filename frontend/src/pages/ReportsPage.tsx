@@ -54,7 +54,7 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">რეპორტები</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">რეპორტები</h1>
         {currentTab?.exportFn && (
           <button onClick={currentTab.exportFn} className="btn-primary flex items-center gap-2 text-sm">
             <Download size={16} /> Excel ექსპორტი
@@ -68,7 +68,7 @@ export default function ReportsPage() {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === tab.id ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+              activeTab === tab.id ? 'bg-primary-600 text-white' : 'bg-white dark:bg-dark-200 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 border border-gray-200 dark:border-dark-50'
             }`}
           >
             <tab.icon size={16} />
@@ -81,7 +81,7 @@ export default function ReportsPage() {
       {activeTab === 'sales' && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">შემოსავლები (90 დღე)</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">შემოსავლები (90 დღე)</h3>
             <button onClick={() => downloadBlob(exportsApi.orders(), 'orders.xlsx')} className="btn-secondary flex items-center gap-2 text-sm">
               <Download size={14} /> ექსპორტი
             </button>
@@ -100,15 +100,15 @@ export default function ReportsPage() {
           )}
           <div className="mt-4 grid grid-cols-3 gap-4">
             <div className="p-3 bg-blue-50 rounded-lg text-center">
-              <p className="text-xs text-gray-500">ჯამური შემოსავალი</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">ჯამური შემოსავალი</p>
               <p className="text-xl font-bold text-blue-700">{revenueData.reduce((s: number, d: any) => s + (d.amount || 0), 0).toLocaleString()} ₾</p>
             </div>
             <div className="p-3 bg-green-50 rounded-lg text-center">
-              <p className="text-xs text-gray-500">საშუალო დღიური</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">საშუალო დღიური</p>
               <p className="text-xl font-bold text-green-700">{revenueData.length ? Math.round(revenueData.reduce((s: number, d: any) => s + (d.amount || 0), 0) / revenueData.length).toLocaleString() : 0} ₾</p>
             </div>
             <div className="p-3 bg-purple-50 rounded-lg text-center">
-              <p className="text-xs text-gray-500">დღეები</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">დღეები</p>
               <p className="text-xl font-bold text-purple-700">{revenueData.length}</p>
             </div>
           </div>
@@ -120,7 +120,7 @@ export default function ReportsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">შეკვეთების სტატისტიკა</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">შეკვეთების სტატისტიკა</h3>
               <button onClick={() => downloadBlob(exportsApi.orders(), 'orders.xlsx')} className="btn-secondary flex items-center gap-2 text-xs">
                 <Download size={12} /> Excel
               </button>
@@ -130,8 +130,8 @@ export default function ReportsPage() {
                 const count = orders.filter((o: any) => o.status === status).length
                 return (
                   <div key={status} className="flex items-center gap-3">
-                    <span className="w-24 text-sm text-gray-600">{status}</span>
-                    <div className="flex-1 bg-gray-100 rounded-full h-2.5">
+                    <span className="w-24 text-sm text-gray-600 dark:text-gray-400">{status}</span>
+                    <div className="flex-1 bg-gray-100 dark:bg-dark-100 rounded-full h-2.5">
                       <div className="h-2.5 rounded-full bg-primary-500" style={{ width: `${orders.length ? (count / orders.length) * 100 : 0}%` }} />
                     </div>
                     <span className="text-sm font-medium w-10 text-right">{count}</span>
@@ -139,10 +139,10 @@ export default function ReportsPage() {
                 )
               })}
             </div>
-            <p className="text-sm text-gray-500 mt-4">სულ შეკვეთები: {orders.length}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">სულ შეკვეთები: {orders.length}</p>
           </div>
           <div className="card">
-            <h3 className="font-semibold text-gray-900 mb-4">შეკვეთების განაწილება</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">შეკვეთების განაწილება</h3>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie data={['new', 'confirmed', 'preparing', 'shipping', 'completed', 'cancelled'].map((s, i) => ({ name: s, value: orders.filter((o: any) => o.status === s).length })).filter(d => d.value > 0)} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, value }) => `${name}: ${value}`}>
@@ -160,7 +160,7 @@ export default function ReportsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">ნაშთების სტატუსი</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">ნაშთების სტატუსი</h3>
               <button onClick={() => downloadBlob(exportsApi.products(), 'products.xlsx')} className="btn-secondary flex items-center gap-2 text-xs">
                 <Download size={12} /> Excel
               </button>
@@ -174,8 +174,8 @@ export default function ReportsPage() {
                 const count = products.filter((p: any) => p.stock_status === s.status).length
                 return (
                   <div key={s.status} className="flex items-center gap-3">
-                    <span className="w-20 text-sm text-gray-600">{s.label}</span>
-                    <div className="flex-1 bg-gray-100 rounded-full h-2.5">
+                    <span className="w-20 text-sm text-gray-600 dark:text-gray-400">{s.label}</span>
+                    <div className="flex-1 bg-gray-100 dark:bg-dark-100 rounded-full h-2.5">
                       <div className={`h-2.5 rounded-full ${s.color}`} style={{ width: `${products.length ? (count / products.length) * 100 : 0}%` }} />
                     </div>
                     <span className="text-sm font-medium">{count}</span>
@@ -183,13 +183,13 @@ export default function ReportsPage() {
                 )
               })}
             </div>
-            <p className="text-sm text-gray-500 mt-4">სულ პროდუქტები: {products.length}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">სულ პროდუქტები: {products.length}</p>
           </div>
           <div className="card">
-            <h3 className="font-semibold text-gray-900 mb-4">პროდუქტების სია</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">პროდუქტების სია</h3>
             <div className="max-h-[300px] overflow-y-auto space-y-2">
               {products.slice(0, 10).map((p: any) => (
-                <div key={p.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-sm">
+                <div key={p.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-dark-100 rounded-lg text-sm">
                   <div>
                     <span className="font-medium">{p.name}</span>
                     <span className="text-xs text-gray-400 ml-2">{p.sku}</span>
@@ -211,7 +211,7 @@ export default function ReportsPage() {
       {activeTab === 'clients' && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">კლიენტების სტატისტიკა</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">კლიენტების სტატისტიკა</h3>
             <button onClick={() => downloadBlob(exportsApi.clients(), 'clients.xlsx')} className="btn-secondary flex items-center gap-2 text-xs">
               <Download size={12} /> Excel
             </button>
@@ -219,18 +219,18 @@ export default function ReportsPage() {
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="p-4 bg-green-50 rounded-xl text-center">
               <p className="text-3xl font-bold text-green-700">{clients.filter((c: any) => c.status === 'active').length}</p>
-              <p className="text-sm text-gray-500">აქტიური</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">აქტიური</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-xl text-center">
-              <p className="text-3xl font-bold text-gray-700">{clients.filter((c: any) => c.status === 'potential').length}</p>
-              <p className="text-sm text-gray-500">პოტენციური</p>
+            <div className="p-4 bg-gray-50 dark:bg-dark-100 rounded-xl text-center">
+              <p className="text-3xl font-bold text-gray-700 dark:text-gray-300">{clients.filter((c: any) => c.status === 'potential').length}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">პოტენციური</p>
             </div>
             <div className="p-4 bg-red-50 rounded-xl text-center">
               <p className="text-3xl font-bold text-red-700">{clients.filter((c: any) => c.status === 'inactive').length}</p>
-              <p className="text-sm text-gray-500">არააქტიური</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">არააქტიური</p>
             </div>
           </div>
-          <p className="text-sm text-gray-500">სულ კლიენტები: {clients.length}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">სულ კლიენტები: {clients.length}</p>
         </div>
       )}
 
@@ -238,7 +238,7 @@ export default function ReportsPage() {
       {activeTab === 'tasks' && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">დავალებების სტატისტიკა</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">დავალებების სტატისტიკა</h3>
             <button onClick={() => downloadBlob(exportsApi.tasks(), 'tasks.xlsx')} className="btn-secondary flex items-center gap-2 text-xs">
               <Download size={12} /> Excel
             </button>
@@ -246,7 +246,7 @@ export default function ReportsPage() {
           <div className="grid grid-cols-4 gap-4 mb-6">
             {['todo', 'in_progress', 'done', 'cancelled'].map(status => {
               const labels: Record<string, string> = { todo: 'საჭიროებს', in_progress: 'პროცესში', done: 'დასრულებული', cancelled: 'გაუქმებული' }
-              const colors: Record<string, string> = { todo: 'bg-gray-50 text-gray-700', in_progress: 'bg-blue-50 text-blue-700', done: 'bg-green-50 text-green-700', cancelled: 'bg-red-50 text-red-700' }
+              const colors: Record<string, string> = { todo: 'bg-gray-50 dark:bg-dark-100 text-gray-700 dark:text-gray-300', in_progress: 'bg-blue-50 text-blue-700', done: 'bg-green-50 text-green-700', cancelled: 'bg-red-50 text-red-700' }
               const count = tasks.filter((t: any) => t.status === status).length
               return (
                 <div key={status} className={`p-4 rounded-xl text-center ${colors[status]}`}>
@@ -256,7 +256,7 @@ export default function ReportsPage() {
               )
             })}
           </div>
-          <p className="text-sm text-gray-500">სულ დავალებები: {tasks.length}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">სულ დავალებები: {tasks.length}</p>
         </div>
       )}
     </div>

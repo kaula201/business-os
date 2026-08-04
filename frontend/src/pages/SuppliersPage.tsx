@@ -110,15 +110,15 @@ export default function SuppliersPage() {
             <Building2 size={18} />
           </div>
           <div>
-            <p className="font-medium text-gray-900">{supplier.name}</p>
-            <p className="text-xs text-gray-500">{supplier.code}</p>
+            <p className="font-medium text-gray-900 dark:text-gray-100">{supplier.name}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{supplier.code}</p>
           </div>
         </div>
       ),
     },
     { key: 'identification_code', label: 'საიდენტიფიკაციო', render: (supplier: Supplier) => supplier.identification_code || '—' },
     { key: 'contact', label: 'კონტაქტი', hideOnMobile: true, render: (supplier: Supplier) => (
-      <div><p>{supplier.contact_name || '—'}</p><p className="text-xs text-gray-500">{supplier.phone || supplier.email || ''}</p></div>
+      <div><p>{supplier.contact_name || '—'}</p><p className="text-xs text-gray-500 dark:text-gray-400">{supplier.phone || supplier.email || ''}</p></div>
     ) },
     { key: 'terms', label: 'გადახდის ვადა', hideOnMobile: true, render: (supplier: Supplier) => `${supplier.payment_terms_days} დღე` },
     { key: 'status', label: 'სტატუსი', render: (supplier: Supplier) => (
@@ -126,7 +126,7 @@ export default function SuppliersPage() {
     ) },
     { key: 'actions', label: '', render: (supplier: Supplier) => (
       <div className="flex justify-end gap-1">
-        <button className="p-2 rounded-lg hover:bg-gray-100 text-gray-500" title="რედაქტირება" onClick={(e) => { e.stopPropagation(); openEdit(supplier) }}>
+        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 text-gray-500 dark:text-gray-400" title="რედაქტირება" onClick={(e) => { e.stopPropagation(); openEdit(supplier) }}>
           <Pencil size={16} />
         </button>
         {supplier.is_active && (
@@ -142,8 +142,8 @@ export default function SuppliersPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">მომწოდებლები</h1>
-          <p className="text-sm text-gray-500 mt-1">შესყიდვების პარტნიორები და გადახდის პირობები</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">მომწოდებლები</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">შესყიდვების პარტნიორები და გადახდის პირობები</p>
         </div>
         <button className="btn-primary flex items-center gap-2" onClick={openCreate}><Plus size={18} /> ახალი მომწოდებელი</button>
       </div>
@@ -155,7 +155,7 @@ export default function SuppliersPage() {
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input className="input pl-10" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="სახელი, კოდი ან საიდენტიფიკაციო ნომერი" />
         </div>
-        <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+        <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
           <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> არააქტიურების ჩვენება
         </label>
       </div>
@@ -177,7 +177,7 @@ export default function SuppliersPage() {
           </div>
           <FormField label="მისამართი"><input className="input" value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} /></FormField>
           <FormField label="შენიშვნა"><textarea className="input min-h-20" value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></FormField>
-          <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={form.is_vat_payer || false} onChange={(e) => setForm({ ...form, is_vat_payer: e.target.checked })} /> დღგ-ის გადამხდელი</label>
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input type="checkbox" checked={form.is_vat_payer || false} onChange={(e) => setForm({ ...form, is_vat_payer: e.target.checked })} /> დღგ-ის გადამხდელი</label>
           <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={closeModal}>გაუქმება</button><button className="btn-primary" disabled={saveMutation.isPending}>{saveMutation.isPending ? 'ინახება...' : 'შენახვა'}</button></div>
         </form>
       </Modal>

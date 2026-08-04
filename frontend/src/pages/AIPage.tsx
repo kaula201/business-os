@@ -21,11 +21,11 @@ function renderMarkdown(text: string): React.ReactNode[] {
         parts.push(line.slice(lastIndex, match.index))
       }
     if (match[0] === '---') {
-      parts.push(<hr key={`hr-${lineIdx}-${match.index}`} className="my-2 border-gray-300" />)
+      parts.push(<hr key={`hr-${lineIdx}-${match.index}`} className="my-2 border-gray-300 dark:border-dark-50" />)
     } else if (match[1]) {
       parts.push(<b key={`b-${lineIdx}-${match.index}`} className="font-semibold">{match[1]}</b>)
     } else if (match[2]) {
-      parts.push(<code key={`c-${lineIdx}-${match.index}`} className="bg-gray-200 text-gray-700 px-1 py-0.5 rounded text-xs">{match[2]}</code>)
+      parts.push(<code key={`c-${lineIdx}-${match.index}`} className="bg-gray-200 text-gray-700 dark:text-gray-300 px-1 py-0.5 rounded text-xs">{match[2]}</code>)
     }
     lastIndex = match.index + match[0].length
     }
@@ -83,8 +83,8 @@ export default function AIPage() {
       <div className="flex items-center gap-3 mb-4">
         <Bot size={28} className="text-primary-600" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">AI ასისტენტი</h1>
-          <p className="text-sm text-gray-500">Business OS ინტელექტუალური თანაშემწე</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">AI ასისტენტი</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Business OS ინტელექტუალური თანაშემწე</p>
         </div>
       </div>
 
@@ -97,7 +97,7 @@ export default function AIPage() {
                 <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
                   msg.role === 'user'
                     ? 'bg-primary-600 text-white rounded-br-md'
-                    : 'bg-gray-100 text-gray-800 rounded-bl-md'
+                    : 'bg-gray-100 dark:bg-dark-100 text-gray-800 rounded-bl-md'
                 }`}>
                   {msg.role === 'user' ? msg.content : renderMarkdown(msg.content)}
                 </div>
@@ -105,7 +105,7 @@ export default function AIPage() {
             ))}
             {chatMutation.isPending && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 px-4 py-3 rounded-2xl text-gray-500 text-sm flex items-center gap-2">
+                <div className="bg-gray-100 dark:bg-dark-100 px-4 py-3 rounded-2xl text-gray-500 dark:text-gray-400 text-sm flex items-center gap-2">
                   <RefreshCw size={14} className="animate-spin" />
                   ფიქრობს...
                 </div>
@@ -114,7 +114,7 @@ export default function AIPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="border-t border-gray-200 p-4">
+          <div className="border-t border-gray-200 dark:border-dark-50 p-4">
             <div className="flex gap-2">
               <input
                 type="text"
@@ -134,7 +134,7 @@ export default function AIPage() {
 
         {/* Quick Actions */}
         <div className="w-64 card hidden lg:flex flex-col">
-          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
             <Sparkles size={16} className="text-yellow-500" />
             სწრაფი ქმედებები
           </h3>
@@ -145,13 +145,13 @@ export default function AIPage() {
                 onClick={() => {
                   setInput(a.prompt)
                 }}
-                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-100 text-sm transition-colors border border-gray-100 hover:border-gray-200"
+                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 text-sm transition-colors border border-gray-100 dark:border-dark-50 hover:border-gray-200 dark:border-dark-50"
               >
                 {a.label}
               </button>
             ))}
           </div>
-          <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-dark-50">
             <div className="text-xs text-gray-400 space-y-2">
               <p className="flex items-center gap-1"><TrendingUp size={12} /> შემოსავლების ანალიზი</p>
               <p className="flex items-center gap-1"><Package size={12} /> ნაშთების მართვა</p>

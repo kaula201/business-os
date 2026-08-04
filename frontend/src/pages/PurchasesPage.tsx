@@ -255,7 +255,7 @@ export default function PurchasesPage() {
 
   const columns = [
     { key: 'purchase_order_number', label: 'დოკუმენტი', render: (order: PurchaseOrder) => (
-      <div><p className="font-semibold text-gray-900">{order.purchase_order_number}</p><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString('ka-GE')}</p></div>
+      <div><p className="font-semibold text-gray-900 dark:text-gray-100">{order.purchase_order_number}</p><p className="text-xs text-gray-500 dark:text-gray-400">{new Date(order.created_at).toLocaleDateString('ka-GE')}</p></div>
     ) },
     { key: 'supplier_name', label: 'მომწოდებელი' },
     { key: 'warehouse_name', label: 'საწყობი', hideOnMobile: true },
@@ -264,7 +264,7 @@ export default function PurchasesPage() {
     { key: 'progress', label: 'მიღება', hideOnMobile: true, render: (order: PurchaseOrder) => {
       const ordered = order.items.reduce((sum, item) => sum + item.quantity, 0)
       const received = order.items.reduce((sum, item) => sum + item.received_quantity, 0)
-      return <span className="text-gray-600">{received} / {ordered}</span>
+      return <span className="text-gray-600 dark:text-gray-400">{received} / {ordered}</span>
     } },
   ]
 
@@ -272,8 +272,8 @@ export default function PurchasesPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">შესყიდვები</h1>
-          <p className="text-sm text-gray-500 mt-1">შესყიდვის შეკვეთები, საქონლის მიღება და საწყობის შემოსავალი</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">შესყიდვები</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">შესყიდვის შეკვეთები, საქონლის მიღება და საწყობის შემოსავალი</p>
         </div>
         <button className="btn-primary flex items-center gap-2" onClick={openCreate}><Plus size={18} /> ახალი შესყიდვის შეკვეთა</button>
       </div>
@@ -300,7 +300,7 @@ export default function PurchasesPage() {
           </div>
 
           <div className="border rounded-xl overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between"><h3 className="font-medium text-gray-900">პროდუქტები</h3><button type="button" className="text-sm text-primary-600 flex items-center gap-1" onClick={() => setForm({ ...form, items: [...form.items, emptyLine()] })}><Plus size={15} /> ხაზის დამატება</button></div>
+            <div className="px-4 py-3 bg-gray-50 dark:bg-dark-100 border-b flex items-center justify-between"><h3 className="font-medium text-gray-900 dark:text-gray-100">პროდუქტები</h3><button type="button" className="text-sm text-primary-600 flex items-center gap-1" onClick={() => setForm({ ...form, items: [...form.items, emptyLine()] })}><Plus size={15} /> ხაზის დამატება</button></div>
             <div className="divide-y">
               {form.items.map((line, index) => (
                 <div key={index} className="p-4 grid grid-cols-12 gap-3 items-end">
@@ -316,7 +316,7 @@ export default function PurchasesPage() {
             </div>
           </div>
           <FormField label="შენიშვნა"><textarea className="input min-h-20" value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></FormField>
-          <div className="flex items-center justify-between pt-4 border-t"><div><p className="text-xs text-gray-500">სავარაუდო ჯამი დღგ-ის ჩათვლით</p><p className="text-xl font-bold text-gray-900">{currency(draftTotal)}</p></div><div className="flex gap-3"><button type="button" className="btn-secondary" onClick={() => setCreateOpen(false)}>გაუქმება</button><button className="btn-primary" disabled={createMutation.isPending}>{createMutation.isPending ? 'იქმნება...' : 'შესყიდვის შეკვეთის შექმნა'}</button></div></div>
+          <div className="flex items-center justify-between pt-4 border-t"><div><p className="text-xs text-gray-500 dark:text-gray-400">სავარაუდო ჯამი დღგ-ის ჩათვლით</p><p className="text-xl font-bold text-gray-900 dark:text-gray-100">{currency(draftTotal)}</p></div><div className="flex gap-3"><button type="button" className="btn-secondary" onClick={() => setCreateOpen(false)}>გაუქმება</button><button className="btn-primary" disabled={createMutation.isPending}>{createMutation.isPending ? 'იქმნება...' : 'შესყიდვის შეკვეთის შექმნა'}</button></div></div>
         </form>
       </Modal>
 
@@ -328,29 +328,29 @@ export default function PurchasesPage() {
               <div className="flex items-start justify-between gap-2">
                 {lifecycle.map((step, index) => {
                   const active = lifecycleRank[selected.status] >= index
-                  return <div key={step.key} className="flex-1 flex items-center last:flex-none"><div className="flex flex-col items-center min-w-20"><div className={`w-9 h-9 rounded-full flex items-center justify-center ${active ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-400'}`}>{active ? <Check size={18} /> : index + 1}</div><span className={`text-xs mt-2 text-center ${active ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>{step.label}</span></div>{index < lifecycle.length - 1 && <div className={`h-0.5 flex-1 mt-[-18px] ${lifecycleRank[selected.status] > index ? 'bg-primary-600' : 'bg-gray-200'}`} />}</div>
+                  return <div key={step.key} className="flex-1 flex items-center last:flex-none"><div className="flex flex-col items-center min-w-20"><div className={`w-9 h-9 rounded-full flex items-center justify-center ${active ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-dark-100 text-gray-400'}`}>{active ? <Check size={18} /> : index + 1}</div><span className={`text-xs mt-2 text-center ${active ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-400'}`}>{step.label}</span></div>{index < lifecycle.length - 1 && <div className={`h-0.5 flex-1 mt-[-18px] ${lifecycleRank[selected.status] > index ? 'bg-primary-600' : 'bg-gray-200'}`} />}</div>
                 })}
               </div>
             )}
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="p-4 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500">მომწოდებელი</p><p className="font-medium mt-1">{selected.supplier_name}</p></div>
-              <div className="p-4 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500">საწყობი</p><p className="font-medium mt-1">{selected.warehouse_name}</p></div>
-              <div className="p-4 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500">სტატუსი</p><div className="mt-1"><StatusBadge status={selected.status} map={purchaseOrderStatusMap} /></div></div>
-              <div className="p-4 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500">ჯამი</p><p className="font-bold mt-1">{currency(selected.total)}</p></div>
+              <div className="p-4 bg-gray-50 dark:bg-dark-100 rounded-xl"><p className="text-xs text-gray-500 dark:text-gray-400">მომწოდებელი</p><p className="font-medium mt-1">{selected.supplier_name}</p></div>
+              <div className="p-4 bg-gray-50 dark:bg-dark-100 rounded-xl"><p className="text-xs text-gray-500 dark:text-gray-400">საწყობი</p><p className="font-medium mt-1">{selected.warehouse_name}</p></div>
+              <div className="p-4 bg-gray-50 dark:bg-dark-100 rounded-xl"><p className="text-xs text-gray-500 dark:text-gray-400">სტატუსი</p><div className="mt-1"><StatusBadge status={selected.status} map={purchaseOrderStatusMap} /></div></div>
+              <div className="p-4 bg-gray-50 dark:bg-dark-100 rounded-xl"><p className="text-xs text-gray-500 dark:text-gray-400">ჯამი</p><p className="font-bold mt-1">{currency(selected.total)}</p></div>
               <div className={`p-4 rounded-xl ${selected.required_approval_role === 'admin' ? 'bg-purple-50' : 'bg-blue-50'}`}>
-                <p className="text-xs text-gray-500">საჭირო დამმტკიცებელი</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">საჭირო დამმტკიცებელი</p>
                 <p className={`font-semibold mt-1 ${selected.required_approval_role === 'admin' ? 'text-purple-700' : 'text-blue-700'}`}>
                   {selected.required_approval_role === 'admin' ? 'ადმინისტრატორი' : 'მენეჯერი / ადმინისტრატორი'}
                 </p>
               </div>
             </div>
 
-            <div className="border rounded-xl overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50"><tr><th className="text-left p-3">პროდუქტი</th><th className="text-right p-3">შეკვეთილი</th><th className="text-right p-3">მიღებული</th><th className="text-right p-3">დარჩენილი</th><th className="text-right p-3">ფასი</th><th className="text-right p-3">ჯამი</th></tr></thead><tbody className="divide-y">{selected.items.map((item) => <tr key={item.id}><td className="p-3 font-medium">{item.product_name}</td><td className="p-3 text-right">{item.quantity}</td><td className="p-3 text-right text-green-700">{item.received_quantity}</td><td className="p-3 text-right">{item.remaining_quantity}</td><td className="p-3 text-right">{currency(item.unit_price)}</td><td className="p-3 text-right font-medium">{currency(item.line_total)}</td></tr>)}</tbody></table></div>
+            <div className="border rounded-xl overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50 dark:bg-dark-100"><tr><th className="text-left p-3">პროდუქტი</th><th className="text-right p-3">შეკვეთილი</th><th className="text-right p-3">მიღებული</th><th className="text-right p-3">დარჩენილი</th><th className="text-right p-3">ფასი</th><th className="text-right p-3">ჯამი</th></tr></thead><tbody className="divide-y">{selected.items.map((item) => <tr key={item.id}><td className="p-3 font-medium">{item.product_name}</td><td className="p-3 text-right">{item.quantity}</td><td className="p-3 text-right text-green-700">{item.received_quantity}</td><td className="p-3 text-right">{item.remaining_quantity}</td><td className="p-3 text-right">{currency(item.unit_price)}</td><td className="p-3 text-right font-medium">{currency(item.line_total)}</td></tr>)}</tbody></table></div>
 
             <div className="grid md:grid-cols-2 gap-5">
-              <div><h3 className="font-semibold flex items-center gap-2 mb-3"><ClipboardList size={18} /> სტატუსის ისტორია</h3><div className="space-y-3">{history.map((item) => <div key={item.id} className="flex gap-3"><div className="w-2 h-2 rounded-full bg-primary-500 mt-2" /><div><StatusBadge status={item.status} map={purchaseOrderStatusMap} /><p className="text-xs text-gray-500 mt-1">{new Date(item.created_at).toLocaleString('ka-GE')}</p>{item.notes && <p className="text-sm text-gray-600 mt-1">{item.notes}</p>}</div></div>)}</div></div>
-              <div><h3 className="font-semibold flex items-center gap-2 mb-3"><PackageCheck size={18} /> მიღებები</h3>{receipts.length ? <div className="space-y-2">{receipts.map((receipt) => <div key={receipt.id} className="p-3 border rounded-lg flex justify-between"><div><p className="font-medium">{receipt.receipt_number}</p><p className="text-xs text-gray-500">{new Date(receipt.received_at).toLocaleString('ka-GE')}</p></div><p className="text-sm text-gray-600">{receipt.items.reduce((sum, item) => sum + item.quantity, 0)} ერთ.</p></div>)}</div> : <p className="text-sm text-gray-500">მიღება ჯერ არ დაფიქსირებულა</p>}</div>
+              <div><h3 className="font-semibold flex items-center gap-2 mb-3"><ClipboardList size={18} /> სტატუსის ისტორია</h3><div className="space-y-3">{history.map((item) => <div key={item.id} className="flex gap-3"><div className="w-2 h-2 rounded-full bg-primary-500 mt-2" /><div><StatusBadge status={item.status} map={purchaseOrderStatusMap} /><p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{new Date(item.created_at).toLocaleString('ka-GE')}</p>{item.notes && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{item.notes}</p>}</div></div>)}</div></div>
+              <div><h3 className="font-semibold flex items-center gap-2 mb-3"><PackageCheck size={18} /> მიღებები</h3>{receipts.length ? <div className="space-y-2">{receipts.map((receipt) => <div key={receipt.id} className="p-3 border rounded-lg flex justify-between"><div><p className="font-medium">{receipt.receipt_number}</p><p className="text-xs text-gray-500 dark:text-gray-400">{new Date(receipt.received_at).toLocaleString('ka-GE')}</p></div><p className="text-sm text-gray-600 dark:text-gray-400">{receipt.items.reduce((sum, item) => sum + item.quantity, 0)} ერთ.</p></div>)}</div> : <p className="text-sm text-gray-500 dark:text-gray-400">მიღება ჯერ არ დაფიქსირებულა</p>}</div>
             </div>
 
             {selected.status === 'draft' && !canApproveSelected && (
@@ -376,7 +376,7 @@ export default function PurchasesPage() {
         {selected && <form onSubmit={submitReceipt} className="space-y-5">
           {receiptError && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{receiptError}</div>}
           <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800"><CalendarDays size={17} className="inline mr-2" />მარაგი დაემატება საწყობში: <strong>{selected.warehouse_name}</strong></div>
-          <div className="space-y-3">{selected.items.filter((item) => item.remaining_quantity > 0).map((item) => <div key={item.id} className="grid grid-cols-3 gap-3 items-center p-3 border rounded-lg"><div className="col-span-2"><p className="font-medium">{item.product_name}</p><p className="text-xs text-gray-500">დარჩენილი: {item.remaining_quantity}</p></div><input type="number" min="0" max={item.remaining_quantity} step="0.001" className="input text-right" value={receiptQuantities[item.id] || 0} onChange={(e) => setReceiptQuantities({ ...receiptQuantities, [item.id]: Number(e.target.value) })} /></div>)}</div>
+          <div className="space-y-3">{selected.items.filter((item) => item.remaining_quantity > 0).map((item) => <div key={item.id} className="grid grid-cols-3 gap-3 items-center p-3 border rounded-lg"><div className="col-span-2"><p className="font-medium">{item.product_name}</p><p className="text-xs text-gray-500 dark:text-gray-400">დარჩენილი: {item.remaining_quantity}</p></div><input type="number" min="0" max={item.remaining_quantity} step="0.001" className="input text-right" value={receiptQuantities[item.id] || 0} onChange={(e) => setReceiptQuantities({ ...receiptQuantities, [item.id]: Number(e.target.value) })} /></div>)}</div>
           <FormField label="შენიშვნა"><textarea className="input min-h-20" value={receiptNotes} onChange={(e) => setReceiptNotes(e.target.value)} placeholder="ზედნადების ნომერი ან სხვა ინფორმაცია" /></FormField>
           <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={() => setReceiptOpen(false)}>გაუქმება</button><button className="btn-primary" disabled={receiptMutation.isPending}>{receiptMutation.isPending ? 'მიღება მუშავდება...' : 'მიღების დაფიქსირება'}</button></div>
         </form>}
