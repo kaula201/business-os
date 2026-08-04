@@ -1,15 +1,23 @@
 # backend/app/core/database.py
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.pool import NullPool
 from app.core.config import settings
 
 
 def _create_engine_kwargs():
     url = settings.DATABASE_URL
-    kwargs = {"echo": settings.DEBUG}
-    if not url.startswith("sqlite"):
+    kwargs = {"echo": settings.DATABASE_ECHO}
+    if url.startswith("sqlite"):
+        # SQLite (local tests) cannot pool across threads.
+        from sqlalchemy.pool import NullPool
         kwargs["poolclass"] = NullPool
+    else:
+        # asyncpg default pool is a QueuePool — tune it for 20-30 concurrent
+        # users with bursts on financial reports / exports.
+        kwargs["pool_size"] = settings.DB_POOL_SIZE
+        kwargs["max_overflow"] = settings.DB_MAX_OVERFLOW
+        kwargs["pool_timeout"] = settings.DB_POOL_TIMEOUT
+        kwargs["pool_pre_ping"] = True
     return kwargs
 
 
