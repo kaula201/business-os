@@ -1,19 +1,35 @@
 # backend/app/core/security.py
+"""Password hashing uses the bcrypt library directly.
+
+passlib 1.7.4 imports the deprecated stdlib `crypt` module, which emits
+DeprecationWarnings on Python 3.11+ and is scheduled for removal on
+Python 3.13. bcrypt produces the same $2b$ hash format, so existing
+passwords remain compatible.
+"""
 from datetime import UTC, datetime, timedelta
 from typing import Optional
-from jose import JWTError, jwt
-from passlib.context import CryptContext
-from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+import bcrypt
+from jose import JWTError, jwt
+
+from app.core.config import settings
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    """Hash a plaintext password with bcrypt."""
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify a plaintext password against a bcrypt hash."""
+    try:
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"),
+            hashed_password.encode("utf-8"),
+        )
+    except (ValueError, TypeError):
+        # Malformed hash (wrong prefix, bad base64) -> treat as invalid.
+        return False
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
