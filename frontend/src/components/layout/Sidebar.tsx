@@ -62,7 +62,7 @@ function NavLinkItem({ item, onClose, depth = 0 }: { item: { to: string; icon: a
 function CollapsibleGroup({
   icon: Icon,
   label,
-  defaultOpen = true,
+  defaultOpen = false,
   children,
 }: {
   icon: any
@@ -74,7 +74,9 @@ function CollapsibleGroup({
   return (
     <div>
       <button
+        type="button"
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-brandgray-600 hover:bg-brandgray-50 hover:text-brandgray-900 transition-colors dark:text-gray-400 dark:hover:bg-dark-100 dark:hover:text-gray-200"
       >
         <Icon size={18} className="shrink-0" />
@@ -101,7 +103,7 @@ interface SidebarProps {
 export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
   const [modules, setModules] = useState<CompanyModuleStatus[]>([])
   const [loading, setLoading] = useState(true)
-  const [financeOpen, setFinanceOpen] = useState(true)
+  const [financeOpen, setFinanceOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -207,7 +209,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
               {/* CRM group */}
               {crmItems.length > 0 && (
                 <div className="pt-1">
-                  <CollapsibleGroup icon={Target} label="CRM — გაყიდვების მართვა" defaultOpen={true}>
+                  <CollapsibleGroup icon={Target} label="CRM — გაყიდვების მართვა">
                     {crmItems.map((item) => (
                       <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
                     ))}
@@ -218,7 +220,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
               {/* Sales group */}
               {salesItems.length > 0 && (
                 <div className="pt-1">
-                  <CollapsibleGroup icon={ShoppingCart} label="გაყიდვები" defaultOpen={true}>
+                  <CollapsibleGroup icon={ShoppingCart} label="გაყიდვები">
                     {salesItems.map((item) => (
                       <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
                     ))}
@@ -234,7 +236,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
               {/* Purchases group */}
               {getNavItems('purchases').length > 0 && (
                 <div className="pt-1">
-                  <CollapsibleGroup icon={Building2} label="შესყიდვები" defaultOpen={true}>
+                  <CollapsibleGroup icon={Building2} label="შესყიდვები">
                     {getNavItems('purchases').map((item) => (
                       <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
                     ))}
@@ -246,7 +248,9 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
               {getNavItems('finance').length > 0 && (
                 <div className="pt-2">
                   <button
+                    type="button"
                     onClick={() => setFinanceOpen(!financeOpen)}
+                    aria-expanded={financeOpen}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-brandgray-600 hover:bg-brandgray-50 hover:text-brandgray-900 transition-colors dark:text-gray-400 dark:hover:bg-dark-100 dark:hover:text-gray-200"
                   >
                     <DollarSign size={20} />
@@ -267,7 +271,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
               {/* Accounting group */}
               {getNavItems('accounting').length > 0 && (
                 <div className="pt-1">
-                  <CollapsibleGroup icon={BookOpen} label="ბუღალტერია" defaultOpen={true}>
+                  <CollapsibleGroup icon={BookOpen} label="ბუღალტერია">
                     {getNavItems('accounting').map((item) => (
                       <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
                     ))}
