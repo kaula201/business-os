@@ -42,7 +42,7 @@ export default function LoginPage() {
       <div className="pointer-events-none absolute -right-20 bottom-16 h-64 w-64 rounded-full border-[34px] border-accent-100/50" />
 
       <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center">
-        <div className="grid w-full overflow-hidden rounded-3xl border border-brandgray-100 bg-white shadow-[0_30px_80px_-40px_rgba(16,95,125,0.45)] lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="grid w-full overflow-hidden rounded-3xl border border-brandgray-100 dark:border-dark-50 bg-white dark:bg-dark-200 shadow-[0_30px_80px_-40px_rgba(16,95,125,0.45)] lg:grid-cols-[1.05fr_0.95fr]">
           <div className="relative hidden overflow-hidden bg-brandgray-700 p-12 text-white lg:flex lg:flex-col lg:justify-between">
             <div className="absolute inset-x-0 top-0 h-2 brand-topline" />
             <div className="absolute -bottom-24 -right-20 h-72 w-72 rounded-full bg-primary-500/15" />
@@ -76,7 +76,7 @@ export default function LoginPage() {
             </div>
             <div className="mb-8">
               <p className="text-sm font-semibold text-primary-700">კეთილი იყოს თქვენი დაბრუნება</p>
-              <h2 className="mt-2 text-3xl font-bold text-brandgray-900">ანგარიშზე შესვლა</h2>
+              <h2 className="mt-2 text-3xl font-bold text-brandgray-900 dark:text-gray-100">ანგარიშზე შესვლა</h2>
               <p className="mt-2 text-sm text-brandgray-400">გამოიყენეთ თქვენი სამუშაო ელფოსტა და პაროლი.</p>
             </div>
 
@@ -84,11 +84,11 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-brandgray-700">ელფოსტა</label>
+                <label className="mb-1.5 block text-sm font-medium text-brandgray-700 dark:text-gray-300">ელფოსტა</label>
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input h-11" placeholder="name@company.com" required />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-brandgray-700">პაროლი</label>
+                <label className="mb-1.5 block text-sm font-medium text-brandgray-700 dark:text-gray-300">პაროლი</label>
                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input h-11" placeholder="••••••••" required />
               </div>
 
@@ -116,7 +116,7 @@ export default function LoginPage() {
         {forgotSent ? (
           <div className="text-center py-4">
             <CheckCircle2 size={48} className="mx-auto text-green-500 mb-4" />
-            <p className="text-sm text-gray-700">თუ ელფოსტა რეგისტრირებულია, პაროლის აღდგენის ინსტრუქცია გამოგეგზავნებათ.</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">თუ ელფოსტა რეგისტრირებულია, პაროლის აღდგენის ინსტრუქცია გამოგეგზავნებათ.</p>
             <button onClick={() => setForgotOpen(false)} className="btn-primary mt-6">დახურვა</button>
           </div>
         ) : (
@@ -133,9 +133,9 @@ export default function LoginPage() {
               setForgotLoading(false)
             }
           }} className="space-y-4">
-            <p className="text-sm text-gray-600">შეიყვანეთ თქვენი ელფოსტა და ჩვენ გამოგიგზავნით პაროლის აღდგენის ბმულს.</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">შეიყვანეთ თქვენი ელფოსტა და ჩვენ გამოგიგზავნით პაროლის აღდგენის ბმულს.</p>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-brandgray-700">ელფოსტა</label>
+              <label className="mb-1.5 block text-sm font-medium text-brandgray-700 dark:text-gray-300">ელფოსტა</label>
               <input type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} className="input h-11" required />
             </div>
             {forgotError && <p className="text-sm text-red-600">{forgotError}</p>}

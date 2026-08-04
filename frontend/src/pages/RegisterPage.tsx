@@ -27,11 +27,11 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dark-100 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-primary-600">Business OS</h1>
-          <p className="text-gray-500 mt-2">ქართული ბიზნეს ოპერაციული სისტემა</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">ქართული ბიზნეს ოპერაციული სისტემა</p>
         </div>
 
         <div className="card">
@@ -43,19 +43,19 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">კომპანიის სახელი</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">კომპანიის სახელი</label>
               <input type="text" value={form.company_name} onChange={(e) => setForm({...form, company_name: e.target.value})} className="input" required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">სახელი</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">სახელი</label>
               <input type="text" value={form.full_name} onChange={(e) => setForm({...form, full_name: e.target.value})} className="input" required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">ელფოსტა</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ელფოსტა</label>
               <input type="email" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} className="input" required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">პაროლი</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">პაროლი</label>
               <input type="password" value={form.password} onChange={(e) => setForm({...form, password: e.target.value})} className="input" minLength={8} required />
             </div>
             <button type="submit" className="btn-primary w-full" disabled={loading}>
@@ -63,7 +63,7 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-500 mt-6">
+          <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
             უკვე გაქვთ ანგარიში?{' '}
             <Link to="/login" className="text-primary-600 hover:underline font-medium">შესვლა</Link>
           </p>
