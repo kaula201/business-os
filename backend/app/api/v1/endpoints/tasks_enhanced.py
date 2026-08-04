@@ -12,6 +12,7 @@ from app.core.dependencies import get_current_user, require_module
 from app.models.user import User
 from app.models.task import Task, TaskStatus
 from app.schemas.common import ResponseBase
+from app.core.time import utc_now
 from pydantic import BaseModel, Field
 from io import BytesIO
 import openpyxl
@@ -134,7 +135,7 @@ async def task_analytics(
     current_user: User = Depends(require_module("tasks", "can_access")),
 ):
     company_id = current_user.company_id
-    now = datetime.utcnow()
+    now = utc_now()
 
     total = (await db.execute(select(func.count(Task.id)).where(Task.company_id == company_id))).scalar()
     todo = (await db.execute(select(func.count(Task.id)).where(Task.company_id == company_id, Task.status == "todo"))).scalar()

@@ -13,6 +13,7 @@ from app.models.user import User
 from app.models.pos import POSSession, POSOrder, POSOrderItem
 from app.models.product import Product
 from app.schemas.common import ResponseBase
+from app.core.time import utc_now
 from app.schemas.pos import (
     POSSessionCreate, POSSessionResponse,
     POSOrderCreate, POSOrderResponse, POSOrderItemResponse,
@@ -70,7 +71,7 @@ async def close_session(
     if session.status != "open":
         raise HTTPException(status_code=409, detail="სესია უკვე დახურულია")
     session.status = "closed"
-    session.closed_at = datetime.utcnow()
+    session.closed_at = utc_now()
     await db.flush()
     await db.refresh(session)
     return ResponseBase(data=POSSessionResponse.model_validate(session))
@@ -111,7 +112,7 @@ async def create_pos_order(
         raise HTTPException(status_code=409, detail="სესია დახურულია, გაყიდვა შეუძლებელია")
 
     # Allocate order number
-    today = datetime.utcnow()
+    today = utc_now()
     count = (await db.execute(
         select(func.count(POSOrder.id)).where(POSOrder.company_id == current_user.company_id)
     )).scalar()

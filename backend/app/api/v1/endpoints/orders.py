@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.endpoints.invoices import ensure_completed_order_invoice, ensure_order_invoice_draft
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.time import utc_now
 from app.models.audit import AuditLog
 from app.models.client import Client
 from app.models.order import (
@@ -355,7 +356,7 @@ async def update_order_payment(
     if data.paid_at is not None:
         order.paid_at = data.paid_at
     elif data.payment_status == PaymentStatus.PAID and order.paid_at is None:
-        order.paid_at = datetime.utcnow()
+        order.paid_at = utc_now()
 
     _write_order_audit(
         db,

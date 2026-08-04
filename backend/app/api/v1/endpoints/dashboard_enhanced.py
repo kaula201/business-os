@@ -13,6 +13,7 @@ from app.models.user import User
 from app.models.order import Order, OrderStatus
 from app.models.client import Client
 from app.models.product import Product
+from app.core.time import utc_now
 from app.models.task import Task
 from app.models.crm import CRMLead, CRMOpportunity
 from app.models.hr import Employee
@@ -51,7 +52,7 @@ async def extended_kpis(
     company_id = current_user.company_id
     today = date.today()
     month_start = datetime.combine(today.replace(day=1), datetime.min.time())
-    now = datetime.utcnow()
+    now = utc_now()
 
     # Revenue
     total_rev = (await db.execute(
@@ -125,7 +126,7 @@ async def quick_actions(
     current_user: User = Depends(require_module("dashboard", "can_access")),
 ):
     company_id = current_user.company_id
-    now = datetime.utcnow()
+    now = utc_now()
 
     overdue = (await db.execute(
         select(func.count(Task.id)).where(Task.company_id == company_id, Task.due_date < now, Task.status.notin_(["done", "cancelled"]))

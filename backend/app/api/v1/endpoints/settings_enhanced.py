@@ -11,6 +11,7 @@ from app.models.user import User
 from app.models.company import Company
 from app.models.module import AppModule, CompanyModule
 from app.schemas.common import ResponseBase
+from app.core.time import utc_now
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -36,7 +37,7 @@ async def system_info(
         app_name="Business OS",
         app_version="1.0.0",
         python_version=sys.version,
-        server_time=datetime.utcnow().isoformat(),
+        server_time=utc_now().isoformat(),
     ))
 
 

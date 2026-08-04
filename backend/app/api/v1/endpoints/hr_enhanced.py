@@ -16,6 +16,7 @@ from app.models.hr import (
     EmployeeDocument, LeaveType, LeaveBalance, LeaveRequest,
     Attendance, PerformanceReview, PerformanceGoal,
 )
+from app.core.time import utc_now
 from app.schemas.common import ResponseBase, PaginatedResponse
 from app.schemas.hr import (
     # Department
@@ -550,7 +551,7 @@ async def verify_employee_document(
 
     doc.is_verified = data.is_verified
     doc.verified_by = current_user.id
-    doc.verified_at = datetime.utcnow()
+    doc.verified_at = utc_now()
     if data.notes is not None:
         doc.notes = data.notes
     await db.flush()
@@ -863,7 +864,7 @@ async def approve_leave_request(
     if data.approved:
         lr.status = LeaveRequest.Status.APPROVED
         lr.approved_by = current_user.id
-        lr.approved_at = datetime.utcnow()
+        lr.approved_at = utc_now()
 
         # Update leave balance
         balance_result = await db.execute(
@@ -1342,7 +1343,7 @@ async def acknowledge_performance_review(
         raise HTTPException(status_code=404, detail="შეფასება არ მოიძებნა")
 
     review.is_acknowledged = True
-    review.acknowledged_at = datetime.utcnow()
+    review.acknowledged_at = utc_now()
     if data.employee_comments is not None:
         review.employee_comments = data.employee_comments
     await db.flush()
