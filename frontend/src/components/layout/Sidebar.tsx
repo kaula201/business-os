@@ -62,20 +62,21 @@ function NavLinkItem({ item, onClose, depth = 0 }: { item: { to: string; icon: a
 function CollapsibleGroup({
   icon: Icon,
   label,
-  defaultOpen = false,
+  open,
+  onToggle,
   children,
 }: {
   icon: any
   label: string
-  defaultOpen?: boolean
+  open: boolean
+  onToggle: () => void
   children: React.ReactNode
 }) {
-  const [open, setOpen] = useState(defaultOpen)
   return (
     <div>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={onToggle}
         aria-expanded={open}
         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-brandgray-600 hover:bg-brandgray-50 hover:text-brandgray-900 transition-colors dark:text-gray-400 dark:hover:bg-dark-100 dark:hover:text-gray-200"
       >
@@ -103,7 +104,16 @@ interface SidebarProps {
 export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
   const [modules, setModules] = useState<CompanyModuleStatus[]>([])
   const [loading, setLoading] = useState(true)
-  const [financeOpen, setFinanceOpen] = useState(false)
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
+
+  const toggleGroup = (groupId: string) => {
+    setOpenGroups((current) => {
+      const next = new Set(current)
+      if (next.has(groupId)) next.delete(groupId)
+      else next.add(groupId)
+      return next
+    })
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -209,7 +219,12 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
               {/* CRM group */}
               {crmItems.length > 0 && (
                 <div className="pt-1">
-                  <CollapsibleGroup icon={Target} label="CRM — გაყიდვების მართვა">
+                  <CollapsibleGroup
+                    icon={Target}
+                    label="CRM — გაყიდვების მართვა"
+                    open={openGroups.has('crm')}
+                    onToggle={() => toggleGroup('crm')}
+                  >
                     {crmItems.map((item) => (
                       <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
                     ))}
@@ -220,7 +235,12 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
               {/* Sales group */}
               {salesItems.length > 0 && (
                 <div className="pt-1">
-                  <CollapsibleGroup icon={ShoppingCart} label="გაყიდვები">
+                  <CollapsibleGroup
+                    icon={ShoppingCart}
+                    label="გაყიდვები"
+                    open={openGroups.has('sales')}
+                    onToggle={() => toggleGroup('sales')}
+                  >
                     {salesItems.map((item) => (
                       <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
                     ))}
@@ -236,7 +256,12 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
               {/* Purchases group */}
               {getNavItems('purchases').length > 0 && (
                 <div className="pt-1">
-                  <CollapsibleGroup icon={Building2} label="შესყიდვები">
+                  <CollapsibleGroup
+                    icon={Building2}
+                    label="შესყიდვები"
+                    open={openGroups.has('purchases')}
+                    onToggle={() => toggleGroup('purchases')}
+                  >
                     {getNavItems('purchases').map((item) => (
                       <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
                     ))}
@@ -249,16 +274,16 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                 <div className="pt-2">
                   <button
                     type="button"
-                    onClick={() => setFinanceOpen(!financeOpen)}
-                    aria-expanded={financeOpen}
+                    onClick={() => toggleGroup('finance')}
+                    aria-expanded={openGroups.has('finance')}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-brandgray-600 hover:bg-brandgray-50 hover:text-brandgray-900 transition-colors dark:text-gray-400 dark:hover:bg-dark-100 dark:hover:text-gray-200"
                   >
                     <DollarSign size={20} />
                     <span className="flex-1 text-left">ფინანსები</span>
-                    {financeOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    {openGroups.has('finance') ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </button>
 
-                  {financeOpen && (
+                  {openGroups.has('finance') && (
                     <div className="ml-3 pl-3 border-l border-brandgray-200 dark:border-dark-50 space-y-1 mt-1">
                       {getNavItems('finance').map((item) => (
                         <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
@@ -271,7 +296,12 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
               {/* Accounting group */}
               {getNavItems('accounting').length > 0 && (
                 <div className="pt-1">
-                  <CollapsibleGroup icon={BookOpen} label="ბუღალტერია">
+                  <CollapsibleGroup
+                    icon={BookOpen}
+                    label="ბუღალტერია"
+                    open={openGroups.has('accounting')}
+                    onToggle={() => toggleGroup('accounting')}
+                  >
                     {getNavItems('accounting').map((item) => (
                       <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
                     ))}
