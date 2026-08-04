@@ -283,8 +283,8 @@ export default function FleetPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brandgray-900">ავტოპარკი</h1>
-          <p className="mt-1 text-sm text-brandgray-500">ავტომობილების, საწვავის, მომსახურებისა და მძღოლების მართვა</p>
+          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">ავტოპარკი</h1>
+          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">ავტომობილების, საწვავის, მომსახურებისა და მძღოლების მართვა</p>
         </div>
         <div className="flex gap-2">
           {tab === 'vehicles' && (
@@ -362,7 +362,7 @@ export default function FleetPage() {
 
       {/* Tabs */}
       <div
-        className="flex min-w-0 snap-x snap-mandatory gap-1 overflow-x-auto border-b border-brandgray-100 overscroll-x-contain"
+        className="flex min-w-0 snap-x snap-mandatory gap-1 overflow-x-auto border-b border-brandgray-100 dark:border-dark-50 overscroll-x-contain"
         aria-label="ავტოპარკის განყოფილებები"
       >
         {tabs.map((t) => (
@@ -372,7 +372,7 @@ export default function FleetPage() {
             className={`flex shrink-0 snap-start items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
               tab === t.id
                 ? 'border-primary-600 text-primary-700'
-                : 'border-transparent text-brandgray-500 hover:text-brandgray-700 hover:border-brandgray-300'
+                : 'border-transparent text-brandgray-500 dark:text-gray-400 hover:text-brandgray-700 dark:text-gray-300 hover:border-brandgray-300 dark:border-dark-50'
             }`}
           >
             <t.icon size={18} />
@@ -386,7 +386,7 @@ export default function FleetPage() {
         <>
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative flex-1 max-w-xs">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
               <input
                 value={search} onChange={(e) => setSearch(e.target.value)}
                 placeholder="ძებნა ნომრით, ბრენდით ან მოდელით..."
@@ -407,7 +407,7 @@ export default function FleetPage() {
                 key: 'is_active', label: 'სტატუსი',
                 render: (v: Vehicle) => (
                   <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    v.is_active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
+                    v.is_active ? 'bg-green-50 text-green-700' : 'bg-gray-100 dark:bg-dark-100 text-gray-500 dark:text-gray-400 dark:text-gray-500'
                   }`}>
                     {v.is_active ? 'აქტიური' : 'არააქტიური'}
                   </span>
@@ -419,9 +419,9 @@ export default function FleetPage() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={(e) => { e.stopPropagation(); openVehicleEditor(v) }}
-                      className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                      className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded-lg transition-colors"
                     >
-                      <Pencil size={16} className="text-gray-400" />
+                      <Pencil size={16} className="text-gray-400 dark:text-gray-500" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); if (confirm('დარწმუნებული ხართ, რომ გსურთ ავტომობილის წაშლა?')) deleteVehicle.mutate(v.id) }}
@@ -459,7 +459,7 @@ export default function FleetPage() {
           </div>
 
           {!fuelVehicleId ? (
-            <div className="card p-8 text-center text-brandgray-500">აირჩიეთ ავტომობილი საწვავის ჩანაწერების სანახავად</div>
+            <div className="card p-8 text-center text-brandgray-500 dark:text-gray-400">აირჩიეთ ავტომობილი საწვავის ჩანაწერების სანახავად</div>
           ) : (
             <DataTable
               columns={[
@@ -503,7 +503,7 @@ export default function FleetPage() {
           </div>
 
           {!serviceVehicleId ? (
-            <div className="card p-8 text-center text-brandgray-500">აირჩიეთ ავტომობილი მომსახურების ჩანაწერების სანახავად</div>
+            <div className="card p-8 text-center text-brandgray-500 dark:text-gray-400">აირჩიეთ ავტომობილი მომსახურების ჩანაწერების სანახავად</div>
           ) : (
             <DataTable
               columns={[
@@ -549,7 +549,7 @@ export default function FleetPage() {
           </div>
 
           {!driverVehicleId ? (
-            <div className="card p-8 text-center text-brandgray-500">აირჩიეთ ავტომობილი მძღოლების სანახავად</div>
+            <div className="card p-8 text-center text-brandgray-500 dark:text-gray-400">აირჩიეთ ავტომობილი მძღოლების სანახავად</div>
           ) : (
             <DataTable
               columns={[
@@ -564,7 +564,7 @@ export default function FleetPage() {
                   key: 'is_active', label: 'სტატუსი',
                   render: (d: DriverAssignment) => (
                     <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      d.is_active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
+                      d.is_active ? 'bg-green-50 text-green-700' : 'bg-gray-100 dark:bg-dark-100 text-gray-500 dark:text-gray-400 dark:text-gray-500'
                     }`}>
                       {d.is_active ? 'აქტიური' : 'არააქტიური'}
                     </span>
@@ -579,9 +579,9 @@ export default function FleetPage() {
                           driver_name: d.driver_name, driver_phone: d.driver_phone, driver_license: d.driver_license,
                           assigned_from: d.assigned_from, assigned_until: d.assigned_until, is_active: d.is_active, notes: d.notes,
                         }); setError(''); setDriverModal('edit') }}
-                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded-lg transition-colors"
                       >
-                        <Pencil size={16} className="text-gray-400" />
+                        <Pencil size={16} className="text-gray-400 dark:text-gray-500" />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); if (confirm('წავშალოთ მძღოლის მინიჭება?')) deleteDriver.mutate(d.id) }}
@@ -642,8 +642,8 @@ export default function FleetPage() {
               <input type="number" value={vehicleForm.current_mileage} onChange={(e) => setVehicleForm({ ...vehicleForm, current_mileage: Number(e.target.value) })} className="input" />
             </FormField>
           </div>
-          <div className="border-t border-gray-100 pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">დაზღვევა</h3>
+          <div className="border-t border-gray-100 dark:border-dark-50 pt-4">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">დაზღვევა</h3>
             <div className="grid grid-cols-3 gap-4">
               <FormField label="მზღვეველი კომპანია">
                 <input value={vehicleForm.insurance_company || ''} onChange={(e) => setVehicleForm({ ...vehicleForm, insurance_company: e.target.value })} className="input" />
@@ -738,7 +738,7 @@ export default function FleetPage() {
             <FormField label="სტატუსი">
               <label className="flex items-center gap-2 mt-2">
                 <input type="checkbox" checked={vehicleEditForm.is_active !== false} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, is_active: e.target.checked })} className="rounded" />
-                <span className="text-sm text-gray-700">აქტიური</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">აქტიური</span>
               </label>
             </FormField>
           </div>
@@ -960,7 +960,7 @@ export default function FleetPage() {
           <FormField label="სტატუსი">
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={driverEditForm.is_active !== false} onChange={(e) => setDriverEditForm({ ...driverEditForm, is_active: e.target.checked })} className="rounded" />
-              <span className="text-sm text-gray-700">აქტიური</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">აქტიური</span>
             </label>
           </FormField>
           <FormField label="შენიშვნა">
