@@ -47,7 +47,7 @@ export default function ExpensesPage() {
     queryKey: ['expenses', statusFilter],
     queryFn: () => api.get('/expenses/', { params: { status: statusFilter || undefined } }).then((r) => r.data.data),
   })
-  const expenses: Expense[] = expensesData || []
+  const expenses: Expense[] = expensesData?.items || []
 
   const { data: categoriesData } = useQuery({
     queryKey: ['expense-categories'],
