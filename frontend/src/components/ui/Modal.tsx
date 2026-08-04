@@ -42,10 +42,10 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50"
+      className="fixed inset-0 z-50 flex items-end justify-center p-2 sm:p-4 sm:items-center bg-black/50"
       onClick={(e) => e.target === overlayRef.current && onClose()}
     >
-      <div className={`bg-white rounded-xl shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col overflow-hidden dark:bg-dark-200 dark:border dark:border-dark-50`}>
+      <div className={`bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full ${sizeClasses[size]} max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden dark:bg-dark-200 dark:border dark:border-dark-50`}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-dark-50 shrink-0">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{title}</h2>
@@ -53,8 +53,8 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
             <X size={20} className="text-gray-500 dark:text-gray-400" />
           </button>
         </div>
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+        {/* Body — horizontal fallback for wide tables on mobile */}
+        <div className="flex-1 overflow-y-auto overflow-x-auto px-4 sm:px-6 py-4">
           {children}
         </div>
       </div>

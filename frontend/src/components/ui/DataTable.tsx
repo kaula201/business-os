@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, AlertCircle, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Search, ChevronRight as ChevronRightIcon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, AlertCircle, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Search, ChevronRight as ChevronRightIcon, FileQuestion, Plus, ArrowRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 interface Column<T> {
   key: string
@@ -19,7 +20,6 @@ interface DataTableProps<T> {
   data: T[]
   isLoading?: boolean
   error?: string | null
-  emptyMessage?: string
   onRetry?: () => void
   onRowClick?: (item: T) => void
   page?: number
@@ -35,6 +35,13 @@ interface DataTableProps<T> {
   pageSize?: number
   /** Show mobile card layout below md breakpoint */
   mobileCards?: boolean
+  /** Empty-state props — shown instead of the plain "no data" message */
+  emptyTitle?: string
+  emptyMessage?: string
+  emptyIcon?: React.ReactNode
+  emptyActionLabel?: string
+  emptyActionTo?: string
+  emptyOnAction?: () => void
 }
 
 export default function DataTable<T extends Record<string, any>>({
@@ -42,8 +49,10 @@ export default function DataTable<T extends Record<string, any>>({
   onRetry, onRowClick, page, totalPages, total, onPageChange,
   searchable, searchPlaceholder = 'ძებნა...', onSearch, searchValue,
   pageSizeOptions, onPageSizeChange, pageSize,
-  mobileCards = true,
+  mobileCards = true, emptyTitle, emptyIcon,
+  emptyActionLabel, emptyActionTo, emptyOnAction,
 }: DataTableProps<T>) {
+  const navigate = useNavigate()
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
@@ -103,7 +112,30 @@ export default function DataTable<T extends Record<string, any>>({
   if (data.length === 0) {
     return (
       <div className="card" aria-label="ცარიელი შედეგი">
-        <div className="p-8 text-center text-gray-500 dark:text-gray-400">{emptyMessage}</div>
+        <div className="p-10 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-100">
+            {emptyIcon || <FileQuestion size={28} className="text-gray-400 dark:text-gray-500" />}
+          </div>
+          <h3 className="text-base font-semibold text-gray-700 dark:text-gray-200">
+            {emptyTitle || 'მონაცემები არ მოიძებნა'}
+          </h3>
+          <p className="mx-auto mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
+            {emptyMessage}
+          </p>
+          {(emptyActionLabel && (emptyActionTo || emptyOnAction)) && (
+            <button
+              onClick={() => {
+                if (emptyOnAction) emptyOnAction()
+                else if (emptyActionTo) navigate(emptyActionTo)
+              }}
+              className="btn btn-primary btn-sm mt-5 inline-flex items-center gap-2"
+            >
+              <Plus size={15} />
+              {emptyActionLabel}
+              <ArrowRight size={15} />
+            </button>
+          )}
+        </div>
       </div>
     )
   }

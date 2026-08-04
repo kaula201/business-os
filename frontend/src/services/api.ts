@@ -92,6 +92,12 @@ export const crmApi = {
     api.get('/crm/activities', { params }),
   createActivity: (data: Record<string, unknown>) => api.post('/crm/activities', data),
   updateActivity: (id: string, data: Record<string, unknown>) => api.patch(`/crm/activities/${id}`, data),
+  // ── CRM ინდიკატორები (enhanced) ──
+  forecast: () => api.get('/crm/forecast'),
+  pipelineValue: () => api.get('/crm/pipeline-value'),
+  conversionRate: (params?: { days?: number }) => api.get('/crm/conversion-rate', { params }),
+  leadSources: () => api.get('/crm/lead-sources'),
+  staleLeads: (params?: { threshold_days?: number }) => api.get('/crm/stale-leads', { params }),
 }
 
 // Orders API

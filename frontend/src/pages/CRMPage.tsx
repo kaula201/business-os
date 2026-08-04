@@ -131,16 +131,36 @@ export default function CRMPage() {
     queryKey: ['crm-activities'],
     queryFn: () => crmApi.listActivities({ page_size: 100 }),
   })
+  // ── CRM ინდიკატორები ──
+  const conversionQuery = useQuery({
+    queryKey: ['crm-conversion'],
+    queryFn: () => crmApi.conversionRate({ days: 90 }).then(r => r.data.data),
+  })
+  const staleQuery = useQuery({
+    queryKey: ['crm-stale'],
+    queryFn: () => crmApi.staleLeads({ threshold_days: 30 }).then(r => r.data.data),
+  })
+  const pipelineValueQuery = useQuery({
+    queryKey: ['crm-pipeline-value'],
+    queryFn: () => crmApi.pipelineValue().then(r => r.data.data),
+  })
 
   const leads = (leadsQuery.data?.data?.data?.items || []) as CRMLead[]
   const opportunities = (opportunitiesQuery.data?.data?.data?.items || []) as CRMOpportunity[]
   const activities = (activitiesQuery.data?.data?.data?.items || []) as CRMActivity[]
+  const conversion = conversionQuery.data
+  const staleLeads = (staleQuery.data || []) as { id: string; company_name: string; contact_name: string | null; status: string; estimated_value: number | null; days_since_last_activity: number }[]
+  const pipelineValueStages = (pipelineValueQuery.data?.stages || []) as { stage: string; stage_label: string; count: number; total_amount: number }[]
+  const pipelineValueTotal = pipelineValueQuery.data?.total_pipeline_value || 0
 
   const refreshCRM = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['crm-leads'] }),
       queryClient.invalidateQueries({ queryKey: ['crm-opportunities'] }),
       queryClient.invalidateQueries({ queryKey: ['crm-activities'] }),
+      queryClient.invalidateQueries({ queryKey: ['crm-conversion'] }),
+      queryClient.invalidateQueries({ queryKey: ['crm-stale'] }),
+      queryClient.invalidateQueries({ queryKey: ['crm-pipeline-value'] }),
     ])
   }
 
@@ -291,6 +311,82 @@ export default function CRMPage() {
               </div>
             ))}
           </div>
+
+          {/* ── CRM ინდიკატორები ── */}
+          <div className="grid gap-6 xl:grid-cols-3">
+            {/* კონვერსიის მაჩვენებელი */}
+            <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-dark-50 dark:bg-dark-200">
+              <div className="mb-3 flex items-center justify-between"><h2 className="font-semibold text-gray-900 dark:text-gray-100">ლიდის კონვერსია</h2><CheckCircle2 size={18} className="text-green-600" /></div>
+              {conversionQuery.isLoading ? (
+                <div className="py-6 text-center text-sm text-gray-400">იტვირთება...</div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-end justify-between">
+                    <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">{conversion?.conversion_rate ?? 0}%</span>
+                    <span className="text-xs text-gray-500">ბოლო 90 დღე</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-100">
+                    <div className="h-full rounded-full bg-green-500" style={{ width: `${Math.min(conversion?.conversion_rate ?? 0, 100)}%` }} />
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>ლიდი: {conversion?.total_leads ?? 0}</span>
+                    <span>კლიენტად გადაყვანილი: {conversion?.converted_leads ?? 0}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Pipeline ღირებულება ეტაპების მიხედვით */}
+            <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-dark-50 dark:bg-dark-200">
+              <div className="mb-3 flex items-center justify-between"><h2 className="font-semibold text-gray-900 dark:text-gray-100">Pipeline ღირებულება</h2><span className="text-sm font-bold text-primary-700">{money(pipelineValueTotal)}</span></div>
+              {pipelineValueQuery.isLoading ? (
+                <div className="py-6 text-center text-sm text-gray-400">იტვირთება...</div>
+              ) : (
+                <div className="space-y-2">
+                  {pipelineValueStages.length === 0 && <div className="py-6 text-center text-sm text-gray-400">ღია შესაძლებლობები არ არის</div>}
+                  {pipelineValueStages.map((s) => (
+                    <div key={s.stage} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-300">{s.stage_label}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-400">{s.count} ც.</span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">{money(s.total_amount)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* გაუქმებული ლიდები */}
+            <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-dark-50 dark:bg-dark-200">
+              <div className="mb-3 flex items-center justify-between"><h2 className="font-semibold text-gray-900 dark:text-gray-100">უმოქმედო ლიდები</h2><span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">{staleLeads.length}</span></div>
+              {staleQuery.isLoading ? (
+                <div className="py-6 text-center text-sm text-gray-400">იტვირთება...</div>
+              ) : staleLeads.length === 0 ? (
+                <div className="py-6 text-center text-sm text-gray-400">30 დღეზე მეტი უმოქმედო ლიდი არ არის ✓</div>
+              ) : (
+                <div className="space-y-2">
+                  {staleLeads.slice(0, 5).map((lead) => (
+                    <button
+                      key={lead.id}
+                      onClick={() => {
+                        const full = leads.find((l) => l.id === lead.id)
+                        if (full) setSelectedLead(full)
+                      }}
+                      className="flex w-full items-center justify-between rounded-lg border border-gray-100 p-2.5 text-left hover:bg-gray-50 dark:border-dark-50 dark:hover:bg-dark-100"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{lead.company_name}</div>
+                        <div className="text-xs text-gray-500">{lead.contact_name || '—'} · {lead.days_since_last_activity} დღე</div>
+                      </div>
+                      <ArrowRight size={15} className="ml-2 shrink-0 text-gray-400" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="grid gap-6 xl:grid-cols-2">
             <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-dark-50 dark:bg-dark-200">
               <div className="mb-4 flex items-center justify-between"><h2 className="font-semibold text-gray-900 dark:text-gray-100">ბოლო ლიდები</h2><button onClick={() => changeView('leads')} className="text-sm font-semibold text-primary-700">ყველას ნახვა</button></div>
