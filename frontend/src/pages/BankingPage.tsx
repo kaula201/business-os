@@ -205,10 +205,10 @@ export default function BankingPage() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-brandgray-50 text-left text-brandgray-600"><tr><th className="px-4 py-3">თარიღი</th><th className="px-4 py-3">ანგარიში / reference</th><th className="px-4 py-3">კონტრაგენტი</th><th className="px-4 py-3 text-right">თანხა</th><th className="px-4 py-3 text-right">დარჩენილი</th><th className="px-4 py-3">სტატუსი</th><th className="px-4 py-3"></th></tr></thead>
+            <thead className="bg-brandgray-50 text-left text-brandgray-600"><tr><th className="px-4 py-3">თარიღი</th><th className="px-4 py-3">ანგარიში / მითითება</th><th className="px-4 py-3">კონტრაგენტი</th><th className="px-4 py-3 text-right">თანხა</th><th className="px-4 py-3 text-right">დარჩენილი</th><th className="px-4 py-3">სტატუსი</th><th className="px-4 py-3"></th></tr></thead>
             <tbody className="divide-y divide-brandgray-100">
               {(transactionsLoading || accountsLoading) && <tr><td className="px-4 py-8 text-center text-brandgray-500" colSpan={7}>იტვირთება...</td></tr>}
-              {!transactionsLoading && !transactions.length && <tr><td className="px-4 py-10 text-center text-brandgray-500" colSpan={7}>transaction-ები ჯერ არ არის. ატვირთეთ CSV ამონაწერი.</td></tr>}
+              {!transactionsLoading && !transactions.length && <tr><td className="px-4 py-10 text-center text-brandgray-500" colSpan={7}>ტრანზაქციები ჯერ არ არის. ატვირთეთ CSV ამონაწერი.</td></tr>}
               {transactions.map((row) => {
                 const status = transactionStatus[row.status]
                 return <tr key={row.id} className="hover:bg-primary-50/30">
@@ -227,7 +227,7 @@ export default function BankingPage() {
       </section>
 
       <section className="card overflow-hidden">
-        <div className="border-b border-brandgray-100 px-5 py-4"><h2 className="font-semibold text-brandgray-900">Reconciliation history</h2></div>
+        <div className="border-b border-brandgray-100 px-5 py-4"><h2 className="font-semibold text-brandgray-900">შეჯერების ისტორია</h2></div>
         <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-brandgray-50 text-left text-brandgray-600"><tr><th className="px-4 py-3">reference</th><th className="px-4 py-3">მომწოდებელი / ინვოისი</th><th className="px-4 py-3 text-right">თანხა</th><th className="px-4 py-3">სტატუსი</th><th className="px-4 py-3"></th></tr></thead><tbody className="divide-y divide-brandgray-100">
           {!reconciliations.length && <tr><td colSpan={5} className="px-4 py-8 text-center text-brandgray-500">შეჯერების ისტორია ჯერ არ არის.</td></tr>}
           {reconciliations.map((row) => <tr key={row.id}><td className="px-4 py-3">{row.transaction_reference}</td><td className="px-4 py-3"><div>{row.supplier_name}</div><div className="text-xs text-brandgray-500">{row.supplier_invoice_number}</div></td><td className="px-4 py-3 text-right font-medium">{money(row.amount)}</td><td className="px-4 py-3"><span className={`badge ${row.status === 'active' ? 'badge-green' : 'badge-gray'}`}>{row.status === 'active' ? 'აქტიური' : 'გაუქმებული'}</span></td><td className="px-4 py-3 text-right">{canManage && row.status === 'active' && <button className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-800" onClick={() => { setError(''); setReversalRow(row) }}><RotateCcw size={15} /> გაუქმება</button>}</td></tr>)}

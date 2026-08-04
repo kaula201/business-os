@@ -567,9 +567,9 @@ export default function InventoryPage() {
                     <th className="px-4 py-3">თარიღი / დოკუმენტი</th>
                     <th className="px-4 py-3">მომწოდებელი</th>
                     <th className="px-4 py-3 text-right">რაოდენობა</th>
-                    <th className="px-4 py-3 text-right">Unit cost</th>
+                    <th className="px-4 py-3 text-right">ღირებულება ერთეულზე</th>
                     <th className="px-4 py-3 text-right">ნაშთი</th>
-                    <th className="px-4 py-3 text-right">Average ცვლილება</th>
+                    <th className="px-4 py-3 text-right">საშუალო ცვლილება</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">

@@ -198,7 +198,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
               {/* Dashboard */}
               {enabledModules.some((m) => m.module.code === 'dashboard') && (
                 <NavLinkItem
-                  item={{ to: '/dashboard', icon: LayoutDashboard, label: 'დეშბორდი' }}
+                  item={{ to: '/dashboard', icon: LayoutDashboard, label: 'მიმოხილვა' }}
                   onClose={onClose}
                   depth={0}
                 />

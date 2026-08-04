@@ -300,7 +300,7 @@ export default function SettingsPage() {
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-gray-200 p-4 dark:border-dark-50"><p className="text-xs text-gray-500 dark:text-gray-400">სერვერი</p><p className={`mt-1 font-semibold ${rsStatus?.reachable ? 'text-green-600' : 'text-red-600'}`}>{rsStatusLoading ? 'მოწმდება...' : rsStatus?.reachable ? 'ხელმისაწვდომია' : 'მიუწვდომელია'}</p></div>
-            <div className="rounded-lg border border-gray-200 p-4 dark:border-dark-50"><p className="text-xs text-gray-500 dark:text-gray-400">Credentials</p><p className={`mt-1 font-semibold ${rsStatus?.configured ? 'text-green-600' : 'text-amber-600'}`}>{rsStatus?.configured ? 'დაყენებულია' : 'არ არის დაყენებული'}</p></div>
+            <div className="rounded-lg border border-gray-200 p-4 dark:border-dark-50"><p className="text-xs text-gray-500 dark:text-gray-400">რეკვიზიტები</p><p className={`mt-1 font-semibold ${rsStatus?.configured ? 'text-green-600' : 'text-amber-600'}`}>{rsStatus?.configured ? 'დაყენებულია' : 'არ არის დაყენებული'}</p></div>
             <div className="rounded-lg border border-gray-200 p-4 dark:border-dark-50"><p className="text-xs text-gray-500 dark:text-gray-400">ავტორიზაცია</p><p className={`mt-1 font-semibold ${rsStatus?.authenticated ? 'text-green-600' : 'text-gray-500'}`}>{rsStatus?.authenticated ? 'წარმატებულია' : 'არ შემოწმებულა'}</p></div>
           </div>
 

@@ -26,7 +26,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">მიმოხილვა</h1>
         <div className="flex gap-2 bg-white rounded-lg border border-gray-200 p-1 dark:bg-dark-200 dark:border-dark-50">
           {[
             { key: '7d', label: '7 დღე' },
