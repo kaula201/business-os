@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Archive,
@@ -51,6 +51,8 @@ const emptyProduct: ProductCreate = {
 export default function InventoryPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
   const [productModalOpen, setProductModalOpen] = useState(false)
   const [warehouseModalOpen, setWarehouseModalOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
@@ -93,10 +95,16 @@ export default function InventoryPage() {
     notes: '',
   })
 
+  // Debounce: search იგზავნება server-ზე მხოლოდ აკრეფის შეწყვეტის შემდეგ
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1) }, 400)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['products', search],
+    queryKey: ['products', search, page],
     queryFn: () =>
-      productsApi.list({ search: search || undefined, page_size: 50 }).then((r) => r.data.data),
+      productsApi.list({ search: search || undefined, page, page_size: 20 }).then((r) => r.data.data),
   })
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
@@ -117,6 +125,8 @@ export default function InventoryPage() {
   })
 
   const items: Product[] = data?.items || []
+  const productsTotal = data?.total || 0
+  const productsTotalPages = Math.max(1, Math.ceil(productsTotal / 20))
   const categories = categoriesData || []
   const warehouses: Warehouse[] = warehousesData || []
   const activeWarehouses = warehouses.filter((warehouse) => warehouse.is_active)
@@ -520,15 +530,15 @@ export default function InventoryPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
           <input
             type="text"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
             placeholder="ძებნა SKU-ით ან სახელით..."
             className="input pl-10"
           />
         </div>
       </div>
 
-      <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage="პროდუქტები არ მოიძებნა" onRowClick={setCostProduct} />
+      <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage="პროდუქტები არ მოიძებნა" onRowClick={setCostProduct} page={page} totalPages={productsTotalPages} total={productsTotal} onPageChange={setPage} />
 
       <Modal open={!!costProduct} onClose={() => setCostProduct(null)} title={`შესყიდვის ფასების ისტორია — ${costProduct?.name || ''}`} size="xl">
         <div className="space-y-5">

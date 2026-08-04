@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -75,6 +75,8 @@ export default function PurchasesPage() {
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
   const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -92,9 +94,15 @@ export default function PurchasesPage() {
     items: [emptyLine()],
   })
 
+  // Debounce: search იგზავნება server-ზე მხოლოდ აკრეფის შეწყვეტის შემდეგ
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1) }, 400)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['purchase-orders', search, status],
-    queryFn: () => purchaseOrdersApi.list({ search: search || undefined, status: status || undefined, page_size: 100 }).then((r) => r.data.data),
+    queryKey: ['purchase-orders', search, status, page],
+    queryFn: () => purchaseOrdersApi.list({ search: search || undefined, status: status || undefined, page, page_size: 20 }).then((r) => r.data.data),
   })
   const { data: suppliersData } = useQuery({
     queryKey: ['suppliers', 'active'],
@@ -125,6 +133,8 @@ export default function PurchasesPage() {
   })
 
   const orders: PurchaseOrder[] = data?.items || []
+  const ordersTotal = data?.total || 0
+  const ordersTotalPages = Math.max(1, Math.ceil(ordersTotal / 20))
   const suppliers: Supplier[] = suppliersData?.items || []
   const warehouses: Warehouse[] = warehousesData || []
   const products: Product[] = productsData?.items || []
@@ -283,12 +293,12 @@ export default function PurchasesPage() {
       <div className="card flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-          <input className="input pl-10" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="შესყიდვის შეკვეთის ნომერი" />
+          <input className="input pl-10" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="შესყიდვის შეკვეთის ნომერი" />
         </div>
         <Select className="sm:w-60" value={status} onChange={(e) => setStatus(e.target.value)} options={statusFilters} />
       </div>
 
-      <DataTable columns={columns} data={orders} isLoading={isLoading} onRowClick={(order) => { setFormError(''); setSelectedId(order.id) }} emptyMessage="შესყიდვის შეკვეთა ჯერ არ არის შექმნილი" />
+      <DataTable columns={columns} data={orders} isLoading={isLoading} onRowClick={(order) => { setFormError(''); setSelectedId(order.id) }} emptyMessage="შესყიდვის შეკვეთა ჯერ არ არის შექმნილი" page={page} totalPages={ordersTotalPages} total={ordersTotal} onPageChange={setPage} />
 
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="ახალი შესყიდვის შეკვეთა" size="xl">
         <form onSubmit={submitPurchaseOrder} className="space-y-5">

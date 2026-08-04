@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tasksApi, usersApi, clientsApi } from '../services/api'
 import { Plus, CheckSquare, Clock, Calendar, User as UserIcon, Search } from 'lucide-react'
@@ -19,6 +19,8 @@ export default function TasksPage() {
   const queryClient = useQueryClient()
   const [view, setView] = useState<'list' | 'kanban'>('list')
   const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -26,19 +28,28 @@ export default function TasksPage() {
   const [viewTask, setViewTask] = useState<Task | null>(null)
   const [comment, setComment] = useState('')
 
+  // Debounce: search იგზავნება server-ზე მხოლოდ აკრეფის შეწყვეტის შემდეგ
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1) }, 400)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['tasks', search, statusFilter, priorityFilter],
+    queryKey: ['tasks', search, statusFilter, priorityFilter, page],
     queryFn: () => tasksApi.list({
       search: search || undefined,
       status: statusFilter || undefined,
       priority: priorityFilter || undefined,
-      page_size: 50
+      page,
+      page_size: 20
     }).then(r => r.data.data),
   })
   const { data: usersData } = useQuery({ queryKey: ['users-list'], queryFn: () => usersApi.list({ page_size: 100 }).then(r => r.data.data) })
   const { data: clientsData } = useQuery({ queryKey: ['clients-ref'], queryFn: () => clientsApi.list({ page_size: 100 }).then(r => r.data.data) })
 
   const tasks: Task[] = data?.items || []
+  const tasksTotal = data?.total || 0
+  const tasksTotalPages = Math.max(1, Math.ceil(tasksTotal / 20))
   const users = usersData?.items || []
   const clients = clientsData?.items || []
 
@@ -145,7 +156,7 @@ export default function TasksPage() {
       <div className="card flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ძებნა სათაურით..." className="input pl-10" />
+          <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="ძებნა სათაურით..." className="input pl-10" />
         </div>
         <div className="flex gap-1 flex-wrap">
           <button onClick={() => setStatusFilter('')} className={`btn-secondary text-sm ${!statusFilter ? 'ring-2 ring-primary-500' : ''}`}>ყველა</button>
@@ -162,7 +173,7 @@ export default function TasksPage() {
       </div>
 
       {view === 'list' ? (
-        <DataTable columns={listColumns} data={tasks} isLoading={isLoading} emptyMessage="დავალებები არ მოიძებნა" onRowClick={(t) => setViewTask(t)} />
+        <DataTable columns={listColumns} data={tasks} isLoading={isLoading} emptyMessage="დავალებები არ მოიძებნა" onRowClick={(t) => setViewTask(t)} page={page} totalPages={tasksTotalPages} total={tasksTotal} onPageChange={setPage} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {statusColumns.map(({ status, label }) => {

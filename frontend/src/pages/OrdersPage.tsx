@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ordersApi, clientsApi, productsApi, warehousesApi } from '../services/api'
@@ -45,6 +45,8 @@ export default function OrdersPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [viewOrderId, setViewOrderId] = useState<string | null>(null)
@@ -56,9 +58,15 @@ export default function OrdersPage() {
     address: '', phone: '', email: '', notes: '',
   })
 
+  // Debounce: search იგზავნება server-ზე მხოლოდ აკრეფის შეწყვეტის შემდეგ
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1) }, 400)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['orders', statusFilter, search],
-    queryFn: () => ordersApi.list({ status: statusFilter || undefined, search: search || undefined, page_size: 50 }).then(r => r.data.data),
+    queryKey: ['orders', statusFilter, search, page],
+    queryFn: () => ordersApi.list({ status: statusFilter || undefined, search: search || undefined, page, page_size: 20 }).then(r => r.data.data),
   })
   const { data: viewOrder, isLoading: isOrderDetailLoading } = useQuery<Order>({
     queryKey: ['order-detail', viewOrderId],
@@ -80,6 +88,8 @@ export default function OrdersPage() {
   const { data: warehousesData } = useQuery({ queryKey: ['warehouses-select'], queryFn: () => warehousesApi.list().then(r => r.data.data) })
 
   const items: OrderSummary[] = data?.items || []
+  const ordersTotal = data?.total || 0
+  const ordersTotalPages = Math.max(1, Math.ceil(ordersTotal / 20))
   const clients = (clientsData?.items || []) as any[]
   const products = (productsData?.items || []) as any[]
   const warehouses = (warehousesData || []) as Warehouse[]
@@ -202,7 +212,7 @@ export default function OrdersPage() {
       <div className="card flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ძებნა ნომრით, კლიენტით..." className="input pl-10" />
+          <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="ძებნა ნომრით, კლიენტით..." className="input pl-10" />
         </div>
         <button onClick={() => setStatusFilter('')} className={`btn-secondary text-sm ${!statusFilter ? 'ring-2 ring-primary-500' : ''}`}>ყველა</button>
         {Object.entries(orderStatusMap).map(([key, { label }]) => (
@@ -210,7 +220,7 @@ export default function OrdersPage() {
         ))}
       </div>
 
-      <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage="გაყიდვის შეკვეთა არ მოიძებნა" onRowClick={(o) => setViewOrderId(o.id)} />
+      <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage="გაყიდვის შეკვეთა არ მოიძებნა" onRowClick={(o) => setViewOrderId(o.id)} page={page} totalPages={ordersTotalPages} total={ordersTotal} onPageChange={setPage} />
 
       {/* Create Order Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="ახალი გაყიდვის შეკვეთა" size="xl">
