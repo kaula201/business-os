@@ -57,10 +57,10 @@ export default function ChartOfAccountsPage() {
   }
 
   const columns = [
-    { key: 'code', label: 'კოდი', render: (a: GLAccount) => <span className="font-mono font-semibold text-gray-900">{a.code}</span> },
-    { key: 'name', label: 'სახელი', render: (a: GLAccount) => <span className="text-gray-900">{a.name}</span> },
+    { key: 'code', label: 'კოდი', render: (a: GLAccount) => <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{a.code}</span> },
+    { key: 'name', label: 'სახელი', render: (a: GLAccount) => <span className="text-gray-900 dark:text-gray-100">{a.name}</span> },
     { key: 'account_type', label: 'ტიპი', render: (a: GLAccount) => (
-      <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">{accountTypes[a.account_type] || a.account_type}</span>
+      <span className="inline-flex items-center rounded-full bg-gray-100 dark:bg-dark-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">{accountTypes[a.account_type] || a.account_type}</span>
     )},
     { key: 'is_active', label: 'სტატუსი', render: (a: GLAccount) => a.is_active
       ? <span className="inline-flex items-center gap-1 text-green-600"><Check size={14} />აქტიური</span>
@@ -75,8 +75,8 @@ export default function ChartOfAccountsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">ანგარიშთა გეგმა</h1>
-          <p className="mt-1 text-sm text-gray-500">საბუღალტრო ანგარიშების სია — Chart of Accounts</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">ანგარიშთა გეგმა</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">საბუღალტრო ანგარიშების სია — Chart of Accounts</p>
         </div>
         <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary flex items-center gap-2">
           <Plus size={18} />ახალი ანგარიში

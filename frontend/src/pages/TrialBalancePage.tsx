@@ -42,28 +42,28 @@ export default function TrialBalancePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">საცდელი ბალანსი</h1>
-          <p className="mt-1 text-sm text-gray-500">Trial Balance — ანგარიშების ნაშთები მოცემულ თარიღზე</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">საცდელი ბალანსი</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Trial Balance — ანგარიშების ნაშთები მოცემულ თარიღზე</p>
         </div>
         <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-600">თარიღი:</label>
+          <label className="text-sm text-gray-600 dark:text-gray-400">თარიღი:</label>
           <input type="date" value={asOfDate} onChange={e => setAsOfDate(e.target.value)} className="input w-44" />
         </div>
       </div>
 
       {isLoading ? (
-        <div className="card py-12 text-center text-gray-500">იტვირთება...</div>
+        <div className="card py-12 text-center text-gray-500 dark:text-gray-400">იტვირთება...</div>
       ) : accounts.length === 0 ? (
-        <div className="card py-12 text-center text-gray-500">საცდელი ბალანსის მონაცემები არ არის</div>
+        <div className="card py-12 text-center text-gray-500 dark:text-gray-400">საცდელი ბალანსის მონაცემები არ არის</div>
       ) : (
         <div className="space-y-6">
           {Object.entries(grouped).map(([group, items]) => (
             <div key={group} className="card overflow-hidden">
-              <div className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700">{group}</div>
+              <div className="border-b border-gray-200 dark:border-dark-50 bg-gray-50 dark:bg-dark-100 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300">{group}</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <tr className="border-b border-gray-200 dark:border-dark-50 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       <th className="px-4 py-2">კოდი</th>
                       <th className="px-4 py-2">სახელი</th>
                       <th className="px-4 py-2 text-right">დებეტი</th>
@@ -73,9 +73,9 @@ export default function TrialBalancePage() {
                   </thead>
                   <tbody>
                     {items.map(a => (
-                      <tr key={a.code} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-4 py-2 font-mono text-gray-900">{a.code}</td>
-                        <td className="px-4 py-2 text-gray-900">{a.name}</td>
+                      <tr key={a.code} className="border-b border-gray-100 dark:border-dark-50 hover:bg-gray-50 dark:hover:bg-dark-100 dark:bg-dark-100">
+                        <td className="px-4 py-2 font-mono text-gray-900 dark:text-gray-100">{a.code}</td>
+                        <td className="px-4 py-2 text-gray-900 dark:text-gray-100">{a.name}</td>
                         <td className="px-4 py-2 text-right font-mono text-green-700">{a.total_debit > 0 ? money(a.total_debit) : ''}</td>
                         <td className="px-4 py-2 text-right font-mono text-red-700">{a.total_credit > 0 ? money(a.total_credit) : ''}</td>
                         <td className={`px-4 py-2 text-right font-mono font-semibold ${a.balance >= 0 ? 'text-green-700' : 'text-red-700'}`}>

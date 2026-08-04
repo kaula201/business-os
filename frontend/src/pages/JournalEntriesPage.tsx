@@ -45,9 +45,9 @@ export default function JournalEntriesPage() {
   const entries: JournalEntrySummary[] = data?.items || []
 
   const columns = [
-    { key: 'entry_number', label: 'ნომერი', render: (e: JournalEntrySummary) => <span className="font-mono font-semibold text-gray-900">{e.entry_number}</span> },
+    { key: 'entry_number', label: 'ნომერი', render: (e: JournalEntrySummary) => <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{e.entry_number}</span> },
     { key: 'entry_date', label: 'თარიღი', render: (e: JournalEntrySummary) => new Date(e.entry_date).toLocaleDateString('ka-GE') },
-    { key: 'description', label: 'აღწერა', render: (e: JournalEntrySummary) => <span className="text-gray-900">{e.description}</span> },
+    { key: 'description', label: 'აღწერა', render: (e: JournalEntrySummary) => <span className="text-gray-900 dark:text-gray-100">{e.description}</span> },
     { key: 'reference_type', label: 'წყარო', render: (e: JournalEntrySummary) => (
       <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">{refTypes[e.reference_type] || e.reference_type}</span>
     )},
@@ -61,8 +61,8 @@ export default function JournalEntriesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">საჟურნალო ჩანაწერები</h1>
-          <p className="mt-1 text-sm text-gray-500">ორმაგი ჩანაწერის პრინციპით შექმნილი GL ჩანაწერები</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">საჟურნალო ჩანაწერები</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">ორმაგი ჩანაწერის პრინციპით შექმნილი GL ჩანაწერები</p>
         </div>
       </div>
 
@@ -76,18 +76,18 @@ export default function JournalEntriesPage() {
       <DataTable columns={columns} data={entries} isLoading={isLoading} emptyMessage="საჟურნალო ჩანაწერები ჯერ არ არის" onRowClick={e => setSelectedId(e.id)} />
 
       <Modal open={!!selectedId} onClose={() => setSelectedId(null)} title={selected ? `ჩანაწერი ${selected.entry_number}` : ''}>
-        {detailLoading ? <p className="text-gray-500">იტვირთება...</p> : selected && (
+        {detailLoading ? <p className="text-gray-500 dark:text-gray-400">იტვირთება...</p> : selected && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><span className="text-gray-500">თარიღი:</span> <span className="font-medium">{new Date(selected.entry_date).toLocaleDateString('ka-GE')}</span></div>
-              <div><span className="text-gray-500">წყარო:</span> <span className="font-medium">{refTypes[selected.reference_type] || selected.reference_type}</span></div>
-              <div className="col-span-2"><span className="text-gray-500">აღწერა:</span> <span className="font-medium">{selected.description}</span></div>
+              <div><span className="text-gray-500 dark:text-gray-400">თარიღი:</span> <span className="font-medium">{new Date(selected.entry_date).toLocaleDateString('ka-GE')}</span></div>
+              <div><span className="text-gray-500 dark:text-gray-400">წყარო:</span> <span className="font-medium">{refTypes[selected.reference_type] || selected.reference_type}</span></div>
+              <div className="col-span-2"><span className="text-gray-500 dark:text-gray-400">აღწერა:</span> <span className="font-medium">{selected.description}</span></div>
               {selected.is_reversal && <div className="col-span-2"><span className="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">გაუქმების ჩანაწერი</span></div>}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <tr className="border-b border-gray-200 dark:border-dark-50 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     <th className="py-2 pr-4">ანგარიში</th>
                     <th className="py-2 pr-4 text-right">დებეტი</th>
                     <th className="py-2 pr-4 text-right">კრედიტი</th>
@@ -96,11 +96,11 @@ export default function JournalEntriesPage() {
                 </thead>
                 <tbody>
                   {selected.lines.map((line: JournalEntryLine) => (
-                    <tr key={line.id} className="border-b border-gray-100">
-                      <td className="py-2 pr-4 font-mono text-gray-900">{line.gl_account_id.slice(0, 8)}...</td>
+                    <tr key={line.id} className="border-b border-gray-100 dark:border-dark-50">
+                      <td className="py-2 pr-4 font-mono text-gray-900 dark:text-gray-100">{line.gl_account_id.slice(0, 8)}...</td>
                       <td className="py-2 pr-4 text-right font-mono text-green-700">{line.debit_amount > 0 ? money(line.debit_amount) : ''}</td>
                       <td className="py-2 pr-4 text-right font-mono text-red-700">{line.credit_amount > 0 ? money(line.credit_amount) : ''}</td>
-                      <td className="py-2 text-gray-600">{line.description || ''}</td>
+                      <td className="py-2 text-gray-600 dark:text-gray-400">{line.description || ''}</td>
                     </tr>
                   ))}
                 </tbody>
