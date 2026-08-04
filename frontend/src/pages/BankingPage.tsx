@@ -176,8 +176,8 @@ export default function BankingPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brandgray-900">საბანკო ოპერაციები</h1>
-          <p className="mt-1 text-sm text-brandgray-500">ამონაწერის იმპორტი და მომწოდებლის payable-ებთან შეჯერება</p>
+          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">საბანკო ოპერაციები</h1>
+          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">ამონაწერის იმპორტი და მომწოდებლის payable-ებთან შეჯერება</p>
         </div>
         {canManage && <div className="flex gap-2">
           <button className="btn-secondary flex items-center gap-2" onClick={() => { setError(''); setAccountOpen(true) }}>
@@ -190,13 +190,13 @@ export default function BankingPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="card p-5"><div className="flex items-center gap-3"><Landmark className="text-primary-600" /><div><div className="text-sm text-brandgray-500">საბანკო ანგარიშები</div><div className="text-2xl font-semibold text-brandgray-900">{accounts.length}</div></div></div></div>
-        <div className="card p-5"><div className="flex items-center gap-3"><Link2 className="text-accent-600" /><div><div className="text-sm text-brandgray-500">შეჯერებები</div><div className="text-2xl font-semibold text-brandgray-900">{reconciliations.filter((row) => row.status === 'active').length}</div></div></div></div>
-        <div className="card p-5"><div className="flex items-center gap-3"><ArrowUpRight className="text-amber-600" /><div><div className="text-sm text-brandgray-500">დარჩენილი თანხა</div><div className="text-2xl font-semibold text-brandgray-900">{money(totalUnmatched)}</div></div></div></div>
+        <div className="card p-5"><div className="flex items-center gap-3"><Landmark className="text-primary-600" /><div><div className="text-sm text-brandgray-500 dark:text-gray-400">საბანკო ანგარიშები</div><div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{accounts.length}</div></div></div></div>
+        <div className="card p-5"><div className="flex items-center gap-3"><Link2 className="text-accent-600" /><div><div className="text-sm text-brandgray-500 dark:text-gray-400">შეჯერებები</div><div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{reconciliations.filter((row) => row.status === 'active').length}</div></div></div></div>
+        <div className="card p-5"><div className="flex items-center gap-3"><ArrowUpRight className="text-amber-600" /><div><div className="text-sm text-brandgray-500 dark:text-gray-400">დარჩენილი თანხა</div><div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(totalUnmatched)}</div></div></div></div>
       </div>
 
       <section className="card overflow-hidden">
-        <div className="border-b border-brandgray-100 p-4">
+        <div className="border-b border-brandgray-100 dark:border-dark-50 p-4">
           <div className="flex flex-wrap gap-3">
             <Select value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)} options={accounts.map((row) => ({ value: row.id, label: row.account_name }))} placeholder="ყველა ანგარიში" />
             <Select value={directionFilter} onChange={(event) => setDirectionFilter(event.target.value)} options={[{ value: 'debit', label: 'გასავალი' }, { value: 'credit', label: 'შემოსავალი' }]} placeholder="ყველა მიმართულება" />
@@ -205,16 +205,16 @@ export default function BankingPage() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-brandgray-50 text-left text-brandgray-600"><tr><th className="px-4 py-3">თარიღი</th><th className="px-4 py-3">ანგარიში / მითითება</th><th className="px-4 py-3">კონტრაგენტი</th><th className="px-4 py-3 text-right">თანხა</th><th className="px-4 py-3 text-right">დარჩენილი</th><th className="px-4 py-3">სტატუსი</th><th className="px-4 py-3"></th></tr></thead>
-            <tbody className="divide-y divide-brandgray-100">
-              {(transactionsLoading || accountsLoading) && <tr><td className="px-4 py-8 text-center text-brandgray-500" colSpan={7}>იტვირთება...</td></tr>}
-              {!transactionsLoading && !transactions.length && <tr><td className="px-4 py-10 text-center text-brandgray-500" colSpan={7}>ტრანზაქციები ჯერ არ არის. ატვირთეთ CSV ამონაწერი.</td></tr>}
+            <thead className="bg-brandgray-50 dark:bg-dark-100 text-left text-brandgray-600 dark:text-gray-400"><tr><th className="px-4 py-3">თარიღი</th><th className="px-4 py-3">ანგარიში / მითითება</th><th className="px-4 py-3">კონტრაგენტი</th><th className="px-4 py-3 text-right">თანხა</th><th className="px-4 py-3 text-right">დარჩენილი</th><th className="px-4 py-3">სტატუსი</th><th className="px-4 py-3"></th></tr></thead>
+            <tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
+              {(transactionsLoading || accountsLoading) && <tr><td className="px-4 py-8 text-center text-brandgray-500 dark:text-gray-400" colSpan={7}>იტვირთება...</td></tr>}
+              {!transactionsLoading && !transactions.length && <tr><td className="px-4 py-10 text-center text-brandgray-500 dark:text-gray-400" colSpan={7}>ტრანზაქციები ჯერ არ არის. ატვირთეთ CSV ამონაწერი.</td></tr>}
               {transactions.map((row) => {
                 const status = transactionStatus[row.status]
                 return <tr key={row.id} className="hover:bg-primary-50/30">
                   <td className="px-4 py-3">{row.transaction_date}</td>
-                  <td className="px-4 py-3"><div className="font-medium text-brandgray-900">{row.bank_account_name}</div><div className="text-xs text-brandgray-500">{row.reference}</div></td>
-                  <td className="px-4 py-3"><div>{row.counterparty || '—'}</div><div className="max-w-[260px] truncate text-xs text-brandgray-500">{row.description}</div></td>
+                  <td className="px-4 py-3"><div className="font-medium text-brandgray-900 dark:text-gray-100">{row.bank_account_name}</div><div className="text-xs text-brandgray-500 dark:text-gray-400">{row.reference}</div></td>
+                  <td className="px-4 py-3"><div>{row.counterparty || '—'}</div><div className="max-w-[260px] truncate text-xs text-brandgray-500 dark:text-gray-400">{row.description}</div></td>
                   <td className={`px-4 py-3 text-right font-semibold ${row.direction === 'debit' ? 'text-red-600' : 'text-accent-700'}`}><span className="inline-flex items-center gap-1">{row.direction === 'debit' ? <ArrowUpRight size={15} /> : <ArrowDownLeft size={15} />}{money(row.amount, row.currency)}</span></td>
                   <td className="px-4 py-3 text-right">{money(row.unmatched_amount, row.currency)}</td>
                   <td className="px-4 py-3"><span className={`badge ${status.cls}`}>{status.label}</span></td>
@@ -227,10 +227,10 @@ export default function BankingPage() {
       </section>
 
       <section className="card overflow-hidden">
-        <div className="border-b border-brandgray-100 px-5 py-4"><h2 className="font-semibold text-brandgray-900">შეჯერების ისტორია</h2></div>
-        <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-brandgray-50 text-left text-brandgray-600"><tr><th className="px-4 py-3">reference</th><th className="px-4 py-3">მომწოდებელი / ინვოისი</th><th className="px-4 py-3 text-right">თანხა</th><th className="px-4 py-3">სტატუსი</th><th className="px-4 py-3"></th></tr></thead><tbody className="divide-y divide-brandgray-100">
-          {!reconciliations.length && <tr><td colSpan={5} className="px-4 py-8 text-center text-brandgray-500">შეჯერების ისტორია ჯერ არ არის.</td></tr>}
-          {reconciliations.map((row) => <tr key={row.id}><td className="px-4 py-3">{row.transaction_reference}</td><td className="px-4 py-3"><div>{row.supplier_name}</div><div className="text-xs text-brandgray-500">{row.supplier_invoice_number}</div></td><td className="px-4 py-3 text-right font-medium">{money(row.amount)}</td><td className="px-4 py-3"><span className={`badge ${row.status === 'active' ? 'badge-green' : 'badge-gray'}`}>{row.status === 'active' ? 'აქტიური' : 'გაუქმებული'}</span></td><td className="px-4 py-3 text-right">{canManage && row.status === 'active' && <button className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-800" onClick={() => { setError(''); setReversalRow(row) }}><RotateCcw size={15} /> გაუქმება</button>}</td></tr>)}
+        <div className="border-b border-brandgray-100 dark:border-dark-50 px-5 py-4"><h2 className="font-semibold text-brandgray-900 dark:text-gray-100">შეჯერების ისტორია</h2></div>
+        <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-brandgray-50 dark:bg-dark-100 text-left text-brandgray-600 dark:text-gray-400"><tr><th className="px-4 py-3">reference</th><th className="px-4 py-3">მომწოდებელი / ინვოისი</th><th className="px-4 py-3 text-right">თანხა</th><th className="px-4 py-3">სტატუსი</th><th className="px-4 py-3"></th></tr></thead><tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
+          {!reconciliations.length && <tr><td colSpan={5} className="px-4 py-8 text-center text-brandgray-500 dark:text-gray-400">შეჯერების ისტორია ჯერ არ არის.</td></tr>}
+          {reconciliations.map((row) => <tr key={row.id}><td className="px-4 py-3">{row.transaction_reference}</td><td className="px-4 py-3"><div>{row.supplier_name}</div><div className="text-xs text-brandgray-500 dark:text-gray-400">{row.supplier_invoice_number}</div></td><td className="px-4 py-3 text-right font-medium">{money(row.amount)}</td><td className="px-4 py-3"><span className={`badge ${row.status === 'active' ? 'badge-green' : 'badge-gray'}`}>{row.status === 'active' ? 'აქტიური' : 'გაუქმებული'}</span></td><td className="px-4 py-3 text-right">{canManage && row.status === 'active' && <button className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-800" onClick={() => { setError(''); setReversalRow(row) }}><RotateCcw size={15} /> გაუქმება</button>}</td></tr>)}
         </tbody></table></div>
       </section>
 
@@ -257,7 +257,7 @@ export default function BankingPage() {
 
       <Modal open={!!reconcileTransaction} onClose={() => setReconcileTransaction(null)} title="Supplier Payable-თან შეჯერება" size="lg">
         {reconcileTransaction && <div className="space-y-4">
-          <div className="grid gap-3 rounded-lg bg-brandgray-50 p-4 sm:grid-cols-3"><div><div className="text-xs text-brandgray-500">reference</div><div className="font-medium">{reconcileTransaction.reference}</div></div><div><div className="text-xs text-brandgray-500">თანხა</div><div className="font-medium">{money(reconcileTransaction.amount)}</div></div><div><div className="text-xs text-brandgray-500">დარჩენილი</div><div className="font-medium">{money(reconcileTransaction.unmatched_amount)}</div></div></div>
+          <div className="grid gap-3 rounded-lg bg-brandgray-50 dark:bg-dark-100 p-4 sm:grid-cols-3"><div><div className="text-xs text-brandgray-500 dark:text-gray-400">reference</div><div className="font-medium">{reconcileTransaction.reference}</div></div><div><div className="text-xs text-brandgray-500 dark:text-gray-400">თანხა</div><div className="font-medium">{money(reconcileTransaction.amount)}</div></div><div><div className="text-xs text-brandgray-500 dark:text-gray-400">დარჩენილი</div><div className="font-medium">{money(reconcileTransaction.unmatched_amount)}</div></div></div>
           <FormField label="Supplier Payable" required><Select value={reconcileForm.payable_id} onChange={(e) => setReconcileForm({ ...reconcileForm, payable_id: e.target.value })} placeholder="აირჩიეთ payable" options={payables.map((row) => ({ value: row.id, label: `${row.supplier_name} — ${row.supplier_invoice_number} — ${money(row.outstanding_amount)}` }))} /></FormField>
           <FormField label="შეჯერების თანხა" required><input className={inputClass} type="number" min="0.01" step="0.01" max={reconcileTransaction.unmatched_amount} value={reconcileForm.amount || ''} onChange={(e) => setReconcileForm({ ...reconcileForm, amount: Number(e.target.value) })} /></FormField>
           <FormField label="შენიშვნა"><textarea className={inputClass} rows={3} value={reconcileForm.notes} onChange={(e) => setReconcileForm({ ...reconcileForm, notes: e.target.value })} /></FormField>
