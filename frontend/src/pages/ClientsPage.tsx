@@ -91,7 +91,7 @@ export default function ClientsPage() {
             {c.client_type === 'legal' ? <Building2 size={16} /> : <User size={16} />}
           </div>
           <div>
-            <span className="font-medium text-gray-900">{c.name}</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{c.name}</span>
             <span className="block text-xs text-gray-400">{c.identification_code}</span>
           </div>
         </div>
@@ -115,10 +115,10 @@ export default function ClientsPage() {
       key: 'actions', label: '',
       render: (c: Client) => (
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => openEdit(c)} className="p-1.5 hover:bg-gray-100 rounded text-gray-500 hover:text-primary-600">
+          <button onClick={() => openEdit(c)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400 hover:text-primary-600">
             ✏️
           </button>
-          <button onClick={() => setDeleteTarget(c)} className="p-1.5 hover:bg-gray-100 rounded text-gray-500 hover:text-red-600">
+          <button onClick={() => setDeleteTarget(c)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400 hover:text-red-600">
             🗑️
           </button>
         </div>
@@ -130,8 +130,8 @@ export default function ClientsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">კლიენტების რეესტრი</h1>
-          <p className="mt-1 text-sm text-gray-500">გაყიდვებისა და ფინანსური დოკუმენტებისთვის გამოყენებული ოფიციალური კლიენტები</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">კლიენტების რეესტრი</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">გაყიდვებისა და ფინანსური დოკუმენტებისთვის გამოყენებული ოფიციალური კლიენტები</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => { setImportModal(true); setImportFile(null); setImportResult('') }} className="btn-secondary flex items-center gap-2">
@@ -181,7 +181,7 @@ export default function ClientsPage() {
           <FormField label="შენიშვნა">
             <textarea value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="input" rows={3} />
           </FormField>
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
             <button type="button" onClick={closeModal} className="btn-secondary">გაუქმება</button>
             <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
               {createMutation.isPending ? 'შენახვა...' : editClient ? 'განახლება' : 'დამატება'}
@@ -199,21 +199,21 @@ export default function ClientsPage() {
                 {viewClient.client_type === 'legal' ? <Building2 size={28} /> : <User size={28} />}
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-900">{viewClient.name}</h3>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{viewClient.name}</h3>
                 <StatusBadge status={viewClient.status} map={clientStatusMap} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="p-3 bg-gray-50 rounded-lg"><span className="text-gray-500">კოდი:</span> <span className="font-medium">{viewClient.identification_code}</span></div>
-              <div className="p-3 bg-gray-50 rounded-lg"><span className="text-gray-500">ტიპი:</span> <span className="font-medium">{viewClient.client_type === 'legal' ? 'იურ. პირი' : 'ფიზ. პირი'}</span></div>
-              <div className="p-3 bg-gray-50 rounded-lg"><span className="text-gray-500">დღგ:</span> <span className="font-medium">{viewClient.is_vat_payer ? 'გადამხდელი' : 'არ არის'}</span></div>
-              <div className="p-3 bg-gray-50 rounded-lg"><span className="text-gray-500">შექმნილი:</span> <span className="font-medium">{new Date(viewClient.created_at).toLocaleDateString('ka-GE')}</span></div>
-              {viewClient.phone && <div className="p-3 bg-gray-50 rounded-lg col-span-1"><Phone size={14} className="inline mr-1" />{viewClient.phone}</div>}
-              {viewClient.email && <div className="p-3 bg-gray-50 rounded-lg col-span-1"><Mail size={14} className="inline mr-1" />{viewClient.email}</div>}
-              {viewClient.address && <div className="p-3 bg-gray-50 rounded-lg col-span-2"><MapPin size={14} className="inline mr-1" />{viewClient.address}</div>}
-              {viewClient.notes && <div className="p-3 bg-gray-50 rounded-lg col-span-2"><span className="text-gray-500">შენიშვნა:</span> {viewClient.notes}</div>}
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">კოდი:</span> <span className="font-medium">{viewClient.identification_code}</span></div>
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">ტიპი:</span> <span className="font-medium">{viewClient.client_type === 'legal' ? 'იურ. პირი' : 'ფიზ. პირი'}</span></div>
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">დღგ:</span> <span className="font-medium">{viewClient.is_vat_payer ? 'გადამხდელი' : 'არ არის'}</span></div>
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">შექმნილი:</span> <span className="font-medium">{new Date(viewClient.created_at).toLocaleDateString('ka-GE')}</span></div>
+              {viewClient.phone && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-1"><Phone size={14} className="inline mr-1" />{viewClient.phone}</div>}
+              {viewClient.email && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-1"><Mail size={14} className="inline mr-1" />{viewClient.email}</div>}
+              {viewClient.address && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-2"><MapPin size={14} className="inline mr-1" />{viewClient.address}</div>}
+              {viewClient.notes && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-2"><span className="text-gray-500 dark:text-gray-400">შენიშვნა:</span> {viewClient.notes}</div>}
             </div>
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
               <button onClick={() => { setViewClient(null); openEdit(viewClient) }} className="btn-primary">რედაქტირება</button>
             </div>
           </div>
@@ -234,20 +234,20 @@ export default function ClientsPage() {
       <Modal open={importModal} onClose={() => setImportModal(false)} title="კლიენტების Excel იმპორტი" size="md">
         {importResult ? (
           <div className="text-center py-4">
-            <p className="text-sm text-gray-700 whitespace-pre-line">{importResult}</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{importResult}</p>
             <button onClick={() => { setImportModal(false); queryClient.invalidateQueries({ queryKey: ['clients'] }) }} className="btn-primary mt-6">დახურვა</button>
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               ატვირთეთ Excel ფაილი (.xlsx) კლიენტების სიით. მოსალოდნელი სვეტები:
-              <code className="block mt-2 text-xs bg-gray-100 p-2 rounded">name, identification_code, phone, email, address, notes</code>
+              <code className="block mt-2 text-xs bg-gray-100 dark:bg-dark-100 p-2 rounded">name, identification_code, phone, email, address, notes</code>
             </p>
             <input
               type="file"
               accept=".xlsx,.xls"
               onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+              className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
             />
             {importFile && <p className="text-xs text-gray-400">არჩეულია: {importFile.name}</p>}
             <div className="flex justify-end gap-3 pt-2">

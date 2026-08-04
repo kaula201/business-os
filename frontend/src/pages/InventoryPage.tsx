@@ -345,12 +345,12 @@ export default function InventoryPage() {
     {
       key: 'sku',
       label: 'SKU',
-      render: (product: Product) => <span className="font-mono text-sm text-gray-500">{product.sku}</span>,
+      render: (product: Product) => <span className="font-mono text-sm text-gray-500 dark:text-gray-400">{product.sku}</span>,
     },
     {
       key: 'name',
       label: 'დასახელება',
-      render: (product: Product) => <span className="font-medium text-gray-900">{product.name}</span>,
+      render: (product: Product) => <span className="font-medium text-gray-900 dark:text-gray-100">{product.name}</span>,
     },
     {
       key: 'category_name',
@@ -364,7 +364,7 @@ export default function InventoryPage() {
       hideOnMobile: true,
       render: (product: Product) => (
         <div className="flex items-center gap-2">
-          <div className="h-2 w-24 rounded-full bg-gray-100">
+          <div className="h-2 w-24 rounded-full bg-gray-100 dark:bg-dark-100">
             <div
               className={`h-2 rounded-full ${
                 product.current_stock <= product.min_stock
@@ -408,20 +408,20 @@ export default function InventoryPage() {
         <div className="flex gap-1" onClick={(event) => event.stopPropagation()}>
           <button
             onClick={() => setCostProduct(product)}
-            className="rounded p-1.5 text-gray-500 hover:bg-amber-50 hover:text-amber-700"
+            className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-amber-50 hover:text-amber-700"
             title="შესყიდვის ფასების ისტორია"
           >
             <History size={16} />
           </button>
           <button
             onClick={() => openStockAdjust(product)}
-            className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-blue-600"
+            className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 hover:text-blue-600"
             title="საწყობის ოპერაცია"
           >
             {product.current_stock === 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
           </button>
-          <button onClick={() => openProductEdit(product)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-600">✏️</button>
-          <button onClick={() => setDeleteTarget(product)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-red-600">🗑️</button>
+          <button onClick={() => openProductEdit(product)} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 hover:text-primary-600">✏️</button>
+          <button onClick={() => setDeleteTarget(product)} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 hover:text-red-600">🗑️</button>
         </div>
       ),
     },
@@ -431,8 +431,8 @@ export default function InventoryPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">საწყობი და მარაგები</h1>
-          <p className="mt-1 text-sm text-gray-500">მართეთ რამდენიმე საწყობი, ნაშთები და შიდა გადატანები.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">საწყობი და მარაგები</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">მართეთ რამდენიმე საწყობი, ნაშთები და შიდა გადატანები.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setShowArchived((value) => !value)} className="btn-secondary flex items-center gap-2">
@@ -467,45 +467,45 @@ export default function InventoryPage() {
           className="w-full rounded-xl border-2 border-dashed border-primary-200 bg-primary-50 p-6 text-left hover:border-primary-400"
         >
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-white p-3 text-primary-600"><WarehouseIcon size={24} /></div>
+            <div className="rounded-lg bg-white dark:bg-dark-200 p-3 text-primary-600"><WarehouseIcon size={24} /></div>
             <div>
-              <p className="font-semibold text-gray-900">დაამატეთ პირველი საწყობი</p>
-              <p className="text-sm text-gray-600">ამის შემდეგ შეძლებთ მიღებას, გაცემასა და გადატანას.</p>
+              <p className="font-semibold text-gray-900 dark:text-gray-100">დაამატეთ პირველი საწყობი</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">ამის შემდეგ შეძლებთ მიღებას, გაცემასა და გადატანას.</p>
             </div>
           </div>
         </button>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {warehouses.map((warehouse) => (
-            <div key={warehouse.id} className={`card p-4 ${!warehouse.is_active ? 'border-dashed bg-gray-50 opacity-75' : ''}`}>
+            <div key={warehouse.id} className={`card p-4 ${!warehouse.is_active ? 'border-dashed bg-gray-50 dark:bg-dark-100 opacity-75' : ''}`}>
               <div className="flex items-start justify-between gap-3">
-                <div className={`rounded-lg p-2 ${warehouse.is_active ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}><WarehouseIcon size={20} /></div>
+                <div className={`rounded-lg p-2 ${warehouse.is_active ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 dark:bg-dark-100 text-gray-500 dark:text-gray-400'}`}><WarehouseIcon size={20} /></div>
                 <div className="flex flex-wrap justify-end gap-1">
                   {warehouse.is_default && <span className="rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700">მთავარი</span>}
-                  {!warehouse.is_active && <span className="rounded-full bg-gray-200 px-2 py-1 text-xs font-medium text-gray-600">დეაქტივირებული</span>}
+                  {!warehouse.is_active && <span className="rounded-full bg-gray-200 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400">დეაქტივირებული</span>}
                 </div>
               </div>
-              <p className="mt-3 font-semibold text-gray-900">{warehouse.name}</p>
+              <p className="mt-3 font-semibold text-gray-900 dark:text-gray-100">{warehouse.name}</p>
               <p className="text-xs font-medium text-gray-400">{warehouse.code}</p>
               <div className="mt-3 flex items-end justify-between">
-                <span className="text-sm text-gray-500">ჯამური ერთეული</span>
-                <span className="text-xl font-bold text-gray-900">{(warehouseTotals[warehouse.id] || 0).toLocaleString()}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">ჯამური ერთეული</span>
+                <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{(warehouseTotals[warehouse.id] || 0).toLocaleString()}</span>
               </div>
-              {warehouse.address && <p className="mt-2 flex items-center gap-1 text-xs text-gray-500"><MapPin size={12} /> {warehouse.address}</p>}
+              {warehouse.address && <p className="mt-2 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"><MapPin size={12} /> {warehouse.address}</p>}
               {warehouse.is_active && (
-                <div className="mt-4 flex items-center justify-end gap-1 border-t border-gray-100 pt-3">
+                <div className="mt-4 flex items-center justify-end gap-1 border-t border-gray-100 dark:border-dark-50 pt-3">
                   {!warehouse.is_default && (
                     <button
                       onClick={() => setDefaultWarehouseMutation.mutate(warehouse.id)}
-                      className="rounded p-1.5 text-gray-500 hover:bg-amber-50 hover:text-amber-600"
+                      className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-amber-50 hover:text-amber-600"
                       title="მთავარ საწყობად მონიშვნა"
                     ><Star size={16} /></button>
                   )}
-                  <button onClick={() => openWarehouseEdit(warehouse)} className="rounded p-1.5 text-gray-500 hover:bg-blue-50 hover:text-blue-600" title="რედაქტირება"><Pencil size={16} /></button>
+                  <button onClick={() => openWarehouseEdit(warehouse)} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-blue-50 hover:text-blue-600" title="რედაქტირება"><Pencil size={16} /></button>
                   {!warehouse.is_default && (
                     <>
-                      <button onClick={() => setWarehouseAction({ warehouse, action: 'archive' })} className="rounded p-1.5 text-gray-500 hover:bg-amber-50 hover:text-amber-600" title="დეაქტივაცია"><Archive size={16} /></button>
-                      <button onClick={() => setWarehouseAction({ warehouse, action: 'delete' })} className="rounded p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600" title="წაშლა"><Trash2 size={16} /></button>
+                      <button onClick={() => setWarehouseAction({ warehouse, action: 'archive' })} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-amber-50 hover:text-amber-600" title="დეაქტივაცია"><Archive size={16} /></button>
+                      <button onClick={() => setWarehouseAction({ warehouse, action: 'delete' })} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600" title="წაშლა"><Trash2 size={16} /></button>
                     </>
                   )}
                 </div>
@@ -552,17 +552,17 @@ export default function InventoryPage() {
           </div>
 
           {costHistoryLoading ? (
-            <p className="py-10 text-center text-sm text-gray-500">ისტორია იტვირთება...</p>
+            <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">ისტორია იტვირთება...</p>
           ) : costHistory.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-200 py-10 text-center">
+            <div className="rounded-xl border border-dashed border-gray-200 dark:border-dark-50 py-10 text-center">
               <History className="mx-auto text-gray-300" size={28} />
-              <p className="mt-2 text-sm text-gray-500">Goods Receipt-ით მიღების ისტორია ჯერ არ არსებობს.</p>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Goods Receipt-ით მიღების ისტორია ჯერ არ არსებობს.</p>
               <p className="mt-1 text-xs text-gray-400">ხელით მითითებული purchase price საწყის average cost-ად გამოიყენება.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-gray-200">
+            <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-dark-50">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                <thead className="bg-gray-50 dark:bg-dark-100 text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
                   <tr>
                     <th className="px-4 py-3">თარიღი / დოკუმენტი</th>
                     <th className="px-4 py-3">მომწოდებელი</th>
@@ -572,19 +572,19 @@ export default function InventoryPage() {
                     <th className="px-4 py-3 text-right">საშუალო ცვლილება</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-100 dark:divide-dark-50">
                   {costHistory.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-gray-50">
+                    <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-dark-100 dark:bg-dark-100">
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">{entry.receipt_number}</p>
-                        <p className="text-xs text-gray-500">{entry.purchase_order_number} · {new Date(entry.created_at).toLocaleDateString('ka-GE')}</p>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">{entry.receipt_number}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{entry.purchase_order_number} · {new Date(entry.created_at).toLocaleDateString('ka-GE')}</p>
                       </td>
-                      <td className="px-4 py-3 text-gray-700">{entry.supplier_name}</td>
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{entry.supplier_name}</td>
                       <td className="px-4 py-3 text-right font-medium">+{entry.quantity.toLocaleString('ka-GE')}</td>
                       <td className="px-4 py-3 text-right">{entry.unit_cost.toLocaleString('ka-GE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ₾</td>
-                      <td className="px-4 py-3 text-right text-gray-600">{entry.previous_stock.toLocaleString('ka-GE')} → {entry.new_stock.toLocaleString('ka-GE')}</td>
+                      <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{entry.previous_stock.toLocaleString('ka-GE')} → {entry.new_stock.toLocaleString('ka-GE')}</td>
                       <td className="px-4 py-3 text-right">
-                        <span className="text-gray-500">{entry.previous_average_cost.toLocaleString('ka-GE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
+                        <span className="text-gray-500 dark:text-gray-400">{entry.previous_average_cost.toLocaleString('ka-GE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
                         <span className="mx-1 text-gray-300">→</span>
                         <span className="font-semibold text-amber-700">{entry.new_average_cost.toLocaleString('ka-GE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ₾</span>
                       </td>
@@ -594,7 +594,7 @@ export default function InventoryPage() {
               </table>
             </div>
           )}
-          <div className="flex justify-end border-t border-gray-200 pt-4">
+          <div className="flex justify-end border-t border-gray-200 dark:border-dark-50 pt-4">
             <button type="button" onClick={() => setCostProduct(null)} className="btn-secondary">დახურვა</button>
           </div>
         </div>
@@ -613,7 +613,7 @@ export default function InventoryPage() {
             {!editProduct && <FormField label="საწყისი ჯამური ნაშთი"><input type="number" value={productForm.current_stock} onChange={(e) => setProductForm({ ...productForm, current_stock: Number(e.target.value) })} className="input" min={0} step="0.01" /></FormField>}
           </div>
           <FormField label="აღწერა"><textarea value={productForm.description || ''} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} className="input" rows={2} /></FormField>
-          <div className="flex justify-end gap-3 border-t border-gray-200 pt-4"><button type="button" onClick={closeProductModal} className="btn-secondary">გაუქმება</button><button type="submit" className="btn-primary">{editProduct ? 'განახლება' : 'დამატება'}</button></div>
+          <div className="flex justify-end gap-3 border-t border-gray-200 dark:border-dark-50 pt-4"><button type="button" onClick={closeProductModal} className="btn-secondary">გაუქმება</button><button type="submit" className="btn-primary">{editProduct ? 'განახლება' : 'დამატება'}</button></div>
         </form>
       </Modal>
 
@@ -622,22 +622,22 @@ export default function InventoryPage() {
           <FormField label="კოდი" required><input value={warehouseForm.code} onChange={(e) => setWarehouseForm({ ...warehouseForm, code: e.target.value.toUpperCase() })} className="input" placeholder="MAIN" required /></FormField>
           <FormField label="დასახელება" required><input value={warehouseForm.name} onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })} className="input" placeholder="მთავარი საწყობი" required /></FormField>
           <FormField label="მისამართი"><input value={warehouseForm.address || ''} onChange={(e) => setWarehouseForm({ ...warehouseForm, address: e.target.value })} className="input" /></FormField>
-          {!editWarehouse && <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={warehouseForm.is_default || false} onChange={(e) => setWarehouseForm({ ...warehouseForm, is_default: e.target.checked })} /> მთავარი საწყობი</label>}
+          {!editWarehouse && <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input type="checkbox" checked={warehouseForm.is_default || false} onChange={(e) => setWarehouseForm({ ...warehouseForm, is_default: e.target.checked })} /> მთავარი საწყობი</label>}
           {formError && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
-          <div className="flex justify-end gap-3 border-t border-gray-200 pt-4"><button type="button" onClick={closeWarehouseModal} className="btn-secondary">გაუქმება</button><button type="submit" className="btn-primary" disabled={createWarehouseMutation.isPending || updateWarehouseMutation.isPending}>{editWarehouse ? 'განახლება' : 'შენახვა'}</button></div>
+          <div className="flex justify-end gap-3 border-t border-gray-200 dark:border-dark-50 pt-4"><button type="button" onClick={closeWarehouseModal} className="btn-secondary">გაუქმება</button><button type="submit" className="btn-primary" disabled={createWarehouseMutation.isPending || updateWarehouseMutation.isPending}>{editWarehouse ? 'განახლება' : 'შენახვა'}</button></div>
         </form>
       </Modal>
 
       <Modal open={!!stockProduct} onClose={() => setStockProduct(null)} title={`საწყობის ოპერაცია — ${stockProduct?.name || ''}`} size="md">
         <form onSubmit={(event) => { event.preventDefault(); stockMutation.mutate(stockForm) }} className="space-y-4">
-          <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3"><Package size={20} className="text-gray-400" /><div><p className="text-xs text-gray-500">ჯამური ნაშთი</p><p className="text-lg font-bold">{stockProduct?.current_stock || 0}</p></div></div>
+          <div className="flex items-center gap-3 rounded-lg bg-gray-50 dark:bg-dark-100 p-3"><Package size={20} className="text-gray-400" /><div><p className="text-xs text-gray-500 dark:text-gray-400">ჯამური ნაშთი</p><p className="text-lg font-bold">{stockProduct?.current_stock || 0}</p></div></div>
           <FormField label="საწყობი" required><Select value={stockForm.warehouse_id} onChange={(e) => setStockForm({ ...stockForm, warehouse_id: e.target.value })} placeholder="აირჩიეთ საწყობი" options={activeWarehouses.map((warehouse) => ({ value: warehouse.id, label: `${warehouse.name} (${warehouse.code})` }))} /></FormField>
           <FormField label="ოპერაცია" required><Select value={stockForm.movement_type} onChange={(e) => setStockForm({ ...stockForm, movement_type: e.target.value as WarehouseStockAdjustment['movement_type'] })} options={[{ value: 'in', label: 'მიღება' }, { value: 'out', label: 'გაცემა' }, { value: 'adjustment', label: 'ინვენტარიზაციის კორექტირება' }]} /></FormField>
           <FormField label="რაოდენობა" required><input type="number" value={stockForm.quantity} onChange={(e) => setStockForm({ ...stockForm, quantity: Number(e.target.value) })} className="input" min={0} step="0.001" required /></FormField>
           <FormField label="მიზეზი" required><Select value={stockForm.reason} onChange={(e) => setStockForm({ ...stockForm, reason: e.target.value })} options={[{ value: 'purchase', label: 'შესყიდვა' }, { value: 'sale', label: 'გაყიდვა' }, { value: 'inventory', label: 'ინვენტარიზაცია' }, { value: 'return', label: 'დაბრუნება' }, { value: 'loss', label: 'დანაკარგი' }, { value: 'other', label: 'სხვა' }]} /></FormField>
           <FormField label="შენიშვნა"><input value={stockForm.notes || ''} onChange={(e) => setStockForm({ ...stockForm, notes: e.target.value })} className="input" /></FormField>
           {formError && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
-          <div className="flex justify-end gap-3 border-t border-gray-200 pt-4"><button type="button" onClick={() => setStockProduct(null)} className="btn-secondary">გაუქმება</button><button type="submit" className="btn-primary" disabled={!stockForm.warehouse_id || stockMutation.isPending}>შენახვა</button></div>
+          <div className="flex justify-end gap-3 border-t border-gray-200 dark:border-dark-50 pt-4"><button type="button" onClick={() => setStockProduct(null)} className="btn-secondary">გაუქმება</button><button type="submit" className="btn-primary" disabled={!stockForm.warehouse_id || stockMutation.isPending}>შენახვა</button></div>
         </form>
       </Modal>
 
@@ -652,7 +652,7 @@ export default function InventoryPage() {
           <FormField label="მიზეზი" required><input value={transferForm.reason} onChange={(e) => setTransferForm({ ...transferForm, reason: e.target.value })} className="input" required /></FormField>
           <FormField label="შენიშვნა"><input value={transferForm.notes || ''} onChange={(e) => setTransferForm({ ...transferForm, notes: e.target.value })} className="input" /></FormField>
           {formError && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
-          <div className="flex justify-end gap-3 border-t border-gray-200 pt-4"><button type="button" onClick={() => setTransferModalOpen(false)} className="btn-secondary">გაუქმება</button><button type="submit" className="btn-primary" disabled={transferMutation.isPending}>გადატანა</button></div>
+          <div className="flex justify-end gap-3 border-t border-gray-200 dark:border-dark-50 pt-4"><button type="button" onClick={() => setTransferModalOpen(false)} className="btn-secondary">გაუქმება</button><button type="submit" className="btn-primary" disabled={transferMutation.isPending}>გადატანა</button></div>
         </form>
       </Modal>
 
@@ -674,20 +674,20 @@ export default function InventoryPage() {
       <Modal open={importModal} onClose={() => setImportModal(false)} title="პროდუქტების Excel იმპორტი" size="md">
         {importResult ? (
           <div className="text-center py-4">
-            <p className="text-sm text-gray-700 whitespace-pre-line">{importResult}</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{importResult}</p>
             <button onClick={() => { setImportModal(false); queryClient.invalidateQueries({ queryKey: ['products'] }) }} className="btn-primary mt-6">დახურვა</button>
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               ატვირთეთ Excel ფაილი (.xlsx) პროდუქტების სიით. მოსალოდნელი სვეტები:
-              <code className="block mt-2 text-xs bg-gray-100 p-2 rounded">sku, name, category, unit, sale_price, purchase_price, min_stock, current_stock</code>
+              <code className="block mt-2 text-xs bg-gray-100 dark:bg-dark-100 p-2 rounded">sku, name, category, unit, sale_price, purchase_price, min_stock, current_stock</code>
             </p>
             <input
               type="file"
               accept=".xlsx,.xls"
               onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+              className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
             />
             {importFile && <p className="text-xs text-gray-400">არჩეულია: {importFile.name}</p>}
             <div className="flex justify-end gap-3 pt-2">

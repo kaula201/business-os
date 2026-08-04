@@ -98,7 +98,7 @@ export default function TasksPage() {
   }
 
   const listColumns = [
-    { key: 'title', label: 'დავალება', render: (t: Task) => <span className="font-medium text-gray-900">{t.title}</span> },
+    { key: 'title', label: 'დავალება', render: (t: Task) => <span className="font-medium text-gray-900 dark:text-gray-100">{t.title}</span> },
     { key: 'priority', label: 'პრიორიტეტი', render: (t: Task) => <StatusBadge status={t.priority} map={priorityMap} /> },
     { key: 'status', label: 'სტატუსი', render: (t: Task) => <StatusBadge status={t.status} map={taskStatusMap} /> },
     {
@@ -118,10 +118,10 @@ export default function TasksPage() {
       key: 'actions', label: '',
       render: (t: Task) => (
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => handleStatusChange(t, t.status === 'todo' ? 'in_progress' : t.status === 'in_progress' ? 'done' : 'todo')} className="p-1.5 hover:bg-gray-100 rounded text-gray-500 hover:text-green-600">
+          <button onClick={() => handleStatusChange(t, t.status === 'todo' ? 'in_progress' : t.status === 'in_progress' ? 'done' : 'todo')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400 hover:text-green-600">
             {t.status === 'todo' ? '▶️' : t.status === 'in_progress' ? '✅' : '↩️'}
           </button>
-          <button onClick={() => setViewTask(t)} className="p-1.5 hover:bg-gray-100 rounded text-gray-500">👁️</button>
+          <button onClick={() => setViewTask(t)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400">👁️</button>
         </div>
       ),
     },
@@ -130,7 +130,7 @@ export default function TasksPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">დავალებები</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">დავალებები</h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-2">
             <button onClick={() => setView('list')} className={`btn-secondary text-sm ${view === 'list' ? 'ring-2 ring-primary-500' : ''}`}>სია</button>
@@ -168,10 +168,10 @@ export default function TasksPage() {
           {statusColumns.map(({ status, label }) => {
             const columnTasks = tasks.filter(t => t.status === status)
             return (
-              <div key={status} className="bg-gray-50 rounded-xl p-3 min-h-[300px]">
-                <h3 className="font-semibold text-gray-700 mb-3 px-2 flex items-center justify-between">
+              <div key={status} className="bg-gray-50 dark:bg-dark-100 rounded-xl p-3 min-h-[300px]">
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 px-2 flex items-center justify-between">
                   {label}
-                  <span className="text-xs text-gray-400 bg-white px-2 py-0.5 rounded-full">{columnTasks.length}</span>
+                  <span className="text-xs text-gray-400 bg-white dark:bg-dark-200 px-2 py-0.5 rounded-full">{columnTasks.length}</span>
                 </h3>
                 <div className="space-y-2">
                   {columnTasks.map(task => (
@@ -179,11 +179,11 @@ export default function TasksPage() {
                       key={task.id}
                       draggable
                       onDragEnd={() => handleStatusChange(task, status)}
-                      className="bg-white rounded-lg p-3 shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
+                      className="bg-white dark:bg-dark-200 rounded-lg p-3 shadow-sm border border-gray-200 dark:border-dark-50 cursor-pointer hover:shadow-md transition-shadow"
                       onClick={() => setViewTask(task)}
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <span className="font-medium text-sm text-gray-900 line-clamp-2">{task.title}</span>
+                        <span className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-2">{task.title}</span>
                         <StatusBadge status={task.priority} map={priorityMap} />
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -239,7 +239,7 @@ export default function TasksPage() {
               <input type="text" value={form.order_id || ''} onChange={(e) => setForm({ ...form, order_id: e.target.value })} className="input" placeholder="შეკვეთის ID" />
             </FormField>
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
             <button type="button" onClick={closeModal} className="btn-secondary">გაუქმება</button>
             <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
               {createMutation.isPending ? 'შენახვა...' : editTask ? 'განახლება' : 'დამატება'}
@@ -254,7 +254,7 @@ export default function TasksPage() {
           <div className="space-y-4">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-xl font-bold text-gray-900">{viewTask.title}</h3>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{viewTask.title}</h3>
                 <div className="flex gap-2 mt-2">
                   <StatusBadge status={viewTask.status} map={taskStatusMap} />
                   <StatusBadge status={viewTask.priority} map={priorityMap} />
@@ -274,18 +274,18 @@ export default function TasksPage() {
             </div>
 
             {viewTask.description && (
-              <div className="p-3 bg-gray-50 rounded-lg text-sm whitespace-pre-wrap">{viewTask.description}</div>
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg text-sm whitespace-pre-wrap">{viewTask.description}</div>
             )}
 
-            <div className="text-sm text-gray-600 space-y-1">
+            <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
               {viewTask.assigned_to_name && <div className="flex items-center gap-2"><UserIcon size={14} /> {viewTask.assigned_to_name}</div>}
               {viewTask.due_date && <div className="flex items-center gap-2"><Calendar size={14} /> ვადა: {new Date(viewTask.due_date).toLocaleDateString('ka-GE')}</div>}
               {viewTask.client_name && <div>კლიენტი: {viewTask.client_name}</div>}
               {viewTask.order_number && <div>შეკვეთა: {viewTask.order_number}</div>}
             </div>
 
-            <div className="pt-4 border-t border-gray-200">
-              <h4 className="font-medium text-gray-700 mb-2">კომენტარები</h4>
+            <div className="pt-4 border-t border-gray-200 dark:border-dark-50">
+              <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">კომენტარები</h4>
               <div className="space-y-2 mb-3">
                 {/* Inline comment display — will work when comments are fetched */}
               </div>
