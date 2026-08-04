@@ -122,47 +122,35 @@ def generate_invoice_pdf(
     elements.append(Spacer(1, 8))
 
     table_header = [
-        ["#", "დასახელება", "რაოდ.", "ფასი (₾)", "ფასდ. %", "ჯამი (₾)"]
+        ["#", "დასახელება", "რაოდ.", "ფასი (₾)", "ფასდ. %", "დღგ %", "ჯამი (₾)"]
     ]
-    # Remove discount column if no discounts
-    has_discounts = any(item.get("discount_percent", 0) for item in items)
-    if not has_discounts:
-        table_header = [["#", "დასახელება", "რაოდ.", "ფასი (₾)", "ჯამი (₾)"]]
-        col_widths = [0.5*cm, None, 2*cm, 2.5*cm, 2.5*cm]
-    else:
-        col_widths = [0.5*cm, None, 1.5*cm, 2*cm, 1.5*cm, 2*cm]
+    col_widths = [0.5*cm, None, 1.5*cm, 2*cm, 1.5*cm, 1.2*cm, 2*cm]
 
     table_data = [table_header[0]]
 
     for i, item in enumerate(items, 1):
-        if not has_discounts:
-            row = [
-                str(i),
-                item.get("product_name", ""),
-                f"{item.get('quantity', 0):.2f}",
-                f"{item.get('unit_price', 0):.2f}",
-                f"{item.get('total', 0):.2f}",
-            ]
-        else:
-            row = [
-                str(i),
-                item.get("product_name", ""),
-                f"{item.get('quantity', 0):.2f}",
-                f"{item.get('unit_price', 0):.2f}",
-                f"{item.get('discount_percent', 0):.0f}%",
-                f"{item.get('total', 0):.2f}",
-            ]
-        table_data.append(row)
+        table_data.append([
+            str(i),
+            item.get("product_name", ""),
+            f"{item.get('quantity', 0):.2f}",
+            f"{item.get('unit_price', 0):.2f}",
+            f"{item.get('discount_percent', 0):.0f}%",
+            f"{item.get('vat_rate', 0):.0f}%",
+            f"{item.get('total', 0):.2f}",
+        ])
 
-    # Totals must have the same number of cells as the selected table layout.
-    if has_discounts:
-        table_data.append(["", "", "", "", "ქვე-ჯამი:", f"{subtotal:.2f}"])
-        table_data.append(["", "", "", "", "დღგ (18%):", f"{vat_amount:.2f}"])
-        table_data.append(["", "", "", "", "სულ:", f"{total:.2f}"])
+    # Derive the VAT label from the actual item rates (never hardcode 18%).
+    vat_rates = {float(item.get("vat_rate", 0)) for item in items}
+    if not items or vat_rates == {0}:
+        vat_label = "დღგ:"
+    elif len(vat_rates) == 1:
+        vat_label = f"დღგ ({vat_rates.pop():.0f}%):"
     else:
-        table_data.append(["", "", "", "ქვე-ჯამი:", f"{subtotal:.2f}"])
-        table_data.append(["", "", "", "დღგ (18%):", f"{vat_amount:.2f}"])
-        table_data.append(["", "", "", "სულ:", f"{total:.2f}"])
+        vat_label = "დღგ (პოზიციების მიხედვით):"
+
+    table_data.append(["", "", "", "", "", "ქვე-ჯამი:", f"{subtotal:.2f}"])
+    table_data.append(["", "", "", "", "", vat_label, f"{vat_amount:.2f}"])
+    table_data.append(["", "", "", "", "", "სულ:", f"{total:.2f}"])
 
     t = Table(table_data, colWidths=col_widths)
     t.setStyle(TableStyle([
