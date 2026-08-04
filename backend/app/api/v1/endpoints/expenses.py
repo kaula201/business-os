@@ -60,6 +60,7 @@ async def create_category(
 @router.get("/", response_model=ResponseBase[PaginatedResponse[ExpenseResponse]])
 async def list_expenses(
     status: str | None = None,
+    search: str | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     current_user: User = Depends(get_current_user),
@@ -75,6 +76,11 @@ async def list_expenses(
     )
     if status:
         query = query.where(Expense.status == status)
+    if search:
+        query = query.where(
+            Expense.description.ilike(f"%{search}%")
+            | Expense.employee.has(User.full_name.ilike(f"%{search}%"))
+        )
     query = query.order_by(Expense.expense_date.desc(), Expense.created_at.desc())
 
     total = (

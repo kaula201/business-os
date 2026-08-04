@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Pencil, Search, DollarSign, CheckCircle, XCircle, Clock, User, Tag, FileText
@@ -30,8 +30,16 @@ function errorText(err: any) {
 export default function ExpensesPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
   const [error, setError] = useState('')
+
+  // Debounce: search იგზავნება server-ზე მხოლოდ აკრეფის შეწყვეტის შემდეგ
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1) }, 400)
+    return () => clearTimeout(t)
+  }, [searchInput])
 
   // Modal
   const [modal, setModal] = useState<'create' | 'edit' | null>(null)
@@ -44,10 +52,12 @@ export default function ExpensesPage() {
   // ── Queries ──────────────────────────────────────────────────────
 
   const { data: expensesData, isLoading } = useQuery({
-    queryKey: ['expenses', statusFilter],
-    queryFn: () => api.get('/expenses/', { params: { status: statusFilter || undefined } }).then((r) => r.data.data),
+    queryKey: ['expenses', statusFilter, search, page],
+    queryFn: () => api.get('/expenses/', { params: { status: statusFilter || undefined, search: search || undefined, page, page_size: 20 } }).then((r) => r.data.data),
   })
   const expenses: Expense[] = expensesData?.items || []
+  const total = expensesData?.total || 0
+  const totalPages = Math.max(1, Math.ceil(total / 20))
 
   const { data: categoriesData } = useQuery({
     queryKey: ['expense-categories'],
@@ -84,10 +94,9 @@ export default function ExpensesPage() {
   })
 
   // ── Filtered data ────────────────────────────────────────────────
+  // Search და pagination ხდება server-side-ზე (/expenses/?search=&page=)
 
-  const visible = search.trim()
-    ? expenses.filter((e) => e.description.toLowerCase().includes(search.trim().toLowerCase()) || (e.employee_name || '').toLowerCase().includes(search.trim().toLowerCase()))
-    : expenses
+  const visible = expenses
 
   const totalPending = expenses.filter((e) => e.status === 'pending').reduce((s, e) => s + e.amount, 0)
   const totalApproved = expenses.filter((e) => e.status === 'approved').reduce((s, e) => s + e.amount, 0)
@@ -148,7 +157,7 @@ export default function ExpensesPage() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-xs">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ძებნა..." className="input pl-10" />
+          <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="ძებნა..." className="input pl-10" />
         </div>
         <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} options={[
           { value: '', label: 'ყველა' },
@@ -202,6 +211,10 @@ export default function ExpensesPage() {
         data={visible}
         isLoading={isLoading}
         emptyMessage="ხარჯები არ მოიძებნა"
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPageChange={setPage}
       />
 
       {/* Create Modal */}

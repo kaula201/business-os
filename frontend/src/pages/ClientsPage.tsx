@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { clientsApi, importApi } from '../services/api'
 import { Plus, Search, Building2, User, Phone, Mail, MapPin, Upload, Loader2 } from 'lucide-react'
@@ -9,9 +9,13 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { StatusBadge, clientStatusMap } from '../components/ui/Badges'
 import type { Client, ClientCreate } from '../types'
 
+const CLIENTS_PAGE_SIZE = 20
+
 export default function ClientsPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
   const [modalOpen, setModalOpen] = useState(false)
   const [editClient, setEditClient] = useState<Client | null>(null)
   const [viewClient, setViewClient] = useState<Client | null>(null)
@@ -25,9 +29,15 @@ export default function ClientsPage() {
     is_vat_payer: true, address: '', phone: '', email: '', notes: '',
   })
 
+  // Debounce: search იგზავნება server-ზე მხოლოდ აკრეფის შეწყვეტის შემდეგ
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1) }, 400)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['clients', search],
-    queryFn: () => clientsApi.list({ search: search || undefined, page_size: 50 }).then(r => r.data.data),
+    queryKey: ['clients', search, page],
+    queryFn: () => clientsApi.list({ search: search || undefined, page, page_size: CLIENTS_PAGE_SIZE }).then(r => r.data.data),
   })
 
   const createMutation = useMutation({
@@ -47,6 +57,8 @@ export default function ClientsPage() {
   })
 
   const items: Client[] = data?.items || []
+  const total = data?.total || 0
+  const totalPages = Math.max(1, Math.ceil(total / CLIENTS_PAGE_SIZE))
 
   function openCreate() {
     setEditClient(null)
@@ -146,11 +158,11 @@ export default function ClientsPage() {
       <div className="card">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ძებნა სახელით, კოდით, ტელეფონით..." className="input pl-10" />
+          <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="ძებნა სახელით, კოდით, ტელეფონით..." className="input pl-10" />
         </div>
       </div>
 
-      <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage="კლიენტების რეესტრში ჩანაწერი არ მოიძებნა" onRowClick={(c) => setViewClient(c)} />
+      <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage="კლიენტების რეესტრში ჩანაწერი არ მოიძებნა" onRowClick={(c) => setViewClient(c)} page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
 
       {/* Create / Edit Modal */}
       <Modal open={modalOpen} onClose={closeModal} title={editClient ? 'კლიენტის რედაქტირება' : 'ახალი კლიენტი'} size="lg">
