@@ -104,6 +104,21 @@ async def seed_modules():
                     perm.can_create = True
                     perm.can_edit = True
 
+                # Financial writes are admin/accountant only: strip write
+                # permissions from manager on financial modules.
+                mgr_existing = await session.execute(
+                    select(ModulePermission).where(
+                        ModulePermission.module_id == mod.id,
+                        ModulePermission.role == User.Role.MANAGER,
+                    )
+                )
+                mgr_perm = mgr_existing.scalar_one_or_none()
+                if mgr_perm:
+                    mgr_perm.can_create = False
+                    mgr_perm.can_edit = False
+                    mgr_perm.can_delete = False
+                    mgr_perm.can_approve = False
+
             # Override: manager gets approve on operational modules
             if code in OPERATIONAL_MODULES:
                 existing = await session.execute(
