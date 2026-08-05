@@ -13,6 +13,7 @@ from app.models.user import User
 from app.models.order import Order, OrderStatus
 from app.models.client import Client
 from app.models.product import Product
+from app.models.warehouse import InventoryBalance
 from app.core.time import utc_now
 from app.models.task import Task
 from app.models.crm import CRMLead, CRMOpportunity
@@ -87,9 +88,18 @@ async def extended_kpis(
         select(func.count(Task.id)).where(Task.company_id == company_id, Task.due_date < now, Task.status.notin_(["done", "cancelled"]))
     )).scalar()
 
-    # Low stock
+    # Low stock (canonical: sum of warehouse balances)
+    stock_total = (
+        select(func.coalesce(func.sum(InventoryBalance.quantity), 0))
+        .where(
+            InventoryBalance.company_id == company_id,
+            InventoryBalance.product_id == Product.id,
+        )
+        .correlate(Product)
+        .scalar_subquery()
+    )
     low_stock = (await db.execute(
-        select(func.count(Product.id)).where(Product.company_id == company_id, Product.current_stock <= Product.min_stock, Product.is_active == True)
+        select(func.count(Product.id)).where(Product.company_id == company_id, stock_total <= Product.min_stock, Product.is_active == True)
     )).scalar()
 
     # Unpaid invoices
@@ -132,8 +142,17 @@ async def quick_actions(
         select(func.count(Task.id)).where(Task.company_id == company_id, Task.due_date < now, Task.status.notin_(["done", "cancelled"]))
     )).scalar() or 0
 
+    stock_total_qa = (
+        select(func.coalesce(func.sum(InventoryBalance.quantity), 0))
+        .where(
+            InventoryBalance.company_id == company_id,
+            InventoryBalance.product_id == Product.id,
+        )
+        .correlate(Product)
+        .scalar_subquery()
+    )
     low_stock = (await db.execute(
-        select(func.count(Product.id)).where(Product.company_id == company_id, Product.current_stock <= Product.min_stock, Product.is_active == True)
+        select(func.count(Product.id)).where(Product.company_id == company_id, stock_total_qa <= Product.min_stock, Product.is_active == True)
     )).scalar() or 0
 
     new_leads = (await db.execute(select(func.count(CRMLead.id)).where(CRMLead.company_id == company_id, CRMLead.status == "new"))).scalar() or 0

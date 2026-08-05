@@ -5,6 +5,7 @@ from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
 from typing import Optional
 from uuid import UUID
+from decimal import Decimal
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.models.user import User
@@ -12,6 +13,7 @@ from app.models.product import (
     Product, ProductCategory, ProductVariant, ProductImage, StockMovement
 )
 from app.models.purchase import Supplier
+from app.models.warehouse import InventoryBalance, InventoryMovement, Warehouse
 from app.schemas.product import (
     ProductCreate, ProductUpdate, ProductResponse, ProductListResponse,
     StockAdjustment, StockMovementResponse,
@@ -378,6 +380,24 @@ async def create_product(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    initial_stock = Decimal(str(data.current_stock))
+    default_warehouse = None
+    if initial_stock > 0:
+        default_warehouse = (
+            await db.execute(
+                select(Warehouse).where(
+                    Warehouse.company_id == current_user.company_id,
+                    Warehouse.is_default.is_(True),
+                    Warehouse.is_active.is_(True),
+                )
+            )
+        ).scalar_one_or_none()
+        if default_warehouse is None:
+            raise HTTPException(
+                status_code=409,
+                detail="საწყისი ნაშთისთვის ჯერ შექმენით აქტიური მთავარი საწყობი",
+            )
+
     product = Product(
         company_id=current_user.company_id,
         sku=data.sku,
@@ -397,6 +417,34 @@ async def create_product(
     )
     db.add(product)
     await db.flush()
+
+    if default_warehouse is not None:
+        db.add(
+            InventoryBalance(
+                company_id=current_user.company_id,
+                warehouse_id=default_warehouse.id,
+                product_id=product.id,
+                quantity=initial_stock,
+                reserved_quantity=Decimal("0"),
+            )
+        )
+        db.add(
+            InventoryMovement(
+                company_id=current_user.company_id,
+                warehouse_id=default_warehouse.id,
+                product_id=product.id,
+                movement_type="in",
+                quantity=initial_stock,
+                balance_before=Decimal("0"),
+                balance_after=initial_stock,
+                reserved_before=Decimal("0"),
+                reserved_after=Decimal("0"),
+                reason="initial_stock",
+                reason_category="adjustment",
+                notes="პროდუქტის საწყისი ნაშთი",
+                created_by=current_user.id,
+            )
+        )
     await db.refresh(product)
 
     # Reload with relationships
@@ -430,6 +478,11 @@ async def update_product(
         raise HTTPException(status_code=404, detail="პროდუქტი არ მოიძებნა")
 
     update_data = data.model_dump(exclude_unset=True)
+    if "current_stock" in update_data:
+        raise HTTPException(
+            status_code=400,
+            detail="ნაშთი შეცვალეთ საწყობის ოპერაციით",
+        )
     for field, value in update_data.items():
         setattr(product, field, value)
 
@@ -893,6 +946,11 @@ async def adjust_stock(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("inventory", "can_create")),
 ):
+    raise HTTPException(
+        status_code=410,
+        detail="ეს endpoint გაუქმებულია; გამოიყენეთ /warehouses/adjust-stock",
+    )
+
     result = await db.execute(
         select(Product).where(Product.id == data.product_id, Product.company_id == current_user.company_id)
     )

@@ -44,6 +44,7 @@ from app.schemas.warehouse import (
     WarehouseZoneUpdate,
     ZoneBalanceResponse,
 )
+from app.services.inventory import sync_product_current_stock
 
 router = APIRouter(prefix="/warehouses", tags=["საწყობები"])
 
@@ -555,7 +556,11 @@ async def adjust_warehouse_stock(
         )
 
     balance.quantity = new_quantity
-    product.current_stock = float(product.current_stock) + float(new_quantity - old_quantity)
+    await sync_product_current_stock(
+        db,
+        company_id=current_user.company_id,
+        product_id=data.product_id,
+    )
 
     # Update zone balance if zone_id provided
     if data.zone_id:
@@ -1553,6 +1558,11 @@ async def post_count(
             created_by=current_user.id,
         )
         db.add(movement)
+        await sync_product_current_stock(
+            db,
+            company_id=current_user.company_id,
+            product_id=line.product_id,
+        )
         adjustments_created += 1
 
     count.status = "posted"

@@ -151,7 +151,7 @@ class ProductCreate(BaseModel):
     unit: str = "ცალი"
     conversion_factor: float = 1.0
     min_stock: float = 0
-    current_stock: float = 0
+    current_stock: float = Field(default=0, ge=0)
     image_url: Optional[str] = None
 
 

@@ -10,6 +10,7 @@ from app.models.user import User
 from app.models.client import Client, ClientStatus
 from app.models.order import Order, OrderStatus
 from app.models.product import Product
+from app.models.warehouse import InventoryBalance
 from app.models.task import Task, TaskStatus
 from app.models.invoice import Invoice
 from app.schemas.dashboard import (
@@ -59,10 +60,19 @@ async def get_dashboard_summary(
         )
     )).scalar() or 0
 
+    stock_total = (
+        select(func.coalesce(func.sum(InventoryBalance.quantity), 0))
+        .where(
+            InventoryBalance.company_id == company_id,
+            InventoryBalance.product_id == Product.id,
+        )
+        .correlate(Product)
+        .scalar_subquery()
+    )
     low_stock_count = (await db.execute(
-        select(func.count()).where(
+        select(func.count(Product.id)).where(
             Product.company_id == company_id,
-            Product.current_stock <= Product.min_stock,
+            stock_total <= Product.min_stock,
             Product.is_active == True
         )
     )).scalar() or 0
@@ -129,18 +139,19 @@ async def get_dashboard_summary(
     alerts = []
     if low_stock_count > 0:
         low_stock_products = (await db.execute(
-            select(Product).where(
+            select(Product, stock_total.label("stock_total")).where(
                 Product.company_id == company_id,
-                Product.current_stock <= Product.min_stock,
+                stock_total <= Product.min_stock,
                 Product.is_active == True
             ).limit(5)
-        )).scalars().all()
-        for p in low_stock_products:
+        )).all()
+        for p, current_stock in low_stock_products:
+            current_stock_value = float(current_stock)
             alerts.append(CriticalAlert(
                 type="low_stock",
-                severity="high" if p.current_stock <= 0 else "medium",
+                severity="high" if current_stock_value <= 0 else "medium",
                 title=f"დაბალი ნაშთი: {p.name}",
-                description=f"მიმდინარე ნაშთი: {p.current_stock} {p.unit}",
+                description=f"მიმდინარე ნაშთი: {current_stock_value} {p.unit}",
                 entity_id=str(p.id)
             ))
 
@@ -181,8 +192,8 @@ async def get_dashboard_summary(
                        formula="დავალებები, რომელთა ვადა გავიდა და სტატუსი არ არის 'done' ან 'cancelled'",
                        source="დავალებები"),
             KPITooltip(key="low_stock_products", label="დაბალი ნაშთი",
-                       formula="პროდუქტები, სადაც current_stock <= min_stock",
-                       source="საწყობი / მარაგები"),
+                       formula="პროდუქტები, სადაც საწყობების ჯამური ნაშთი <= მინიმალურ ნაშთს",
+                       source="საწყობის ნაშთები"),
             KPITooltip(key="total_revenue", label="ჯამური შემოსავალი",
                        formula="დადასტურებული ინვოისების ჯამი (status='issued')",
                        source="გაყიდვის ინვოისები"),

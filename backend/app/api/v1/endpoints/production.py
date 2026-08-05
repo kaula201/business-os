@@ -13,7 +13,7 @@ from app.models.production import (
     BillOfMaterial, BOMItem, WorkOrder, WorkCenter,
     ProductionReservation, FinishedGoodsReceipt,
 )
-from app.models.warehouse import InventoryBalance, InventoryMovement
+from app.models.warehouse import InventoryBalance, InventoryMovement, Warehouse
 from app.models.product import Product
 from app.schemas.common import ResponseBase, PaginatedResponse
 from app.schemas.production import (
@@ -25,6 +25,7 @@ from app.schemas.production import (
     ComponentAvailabilityResponse, ComponentAvailabilityItem,
     FinishedGoodsReceiptCreate, FinishedGoodsReceiptResponse,
 )
+from app.services.inventory import sync_product_current_stock
 
 router = APIRouter(prefix="/production", tags=["წარმოება"])
 
@@ -455,15 +456,35 @@ async def create_finished_goods_receipt(
     if wo.status not in (WorkOrder.Status.IN_PROGRESS, WorkOrder.Status.COMPLETED):
         raise HTTPException(status_code=400, detail="მიღება შესაძლებელია მხოლოდ მიმდინარე ან დასრულებული ორდერისთვის")
 
+    if data.quantity <= 0:
+        raise HTTPException(status_code=400, detail="რაოდენობა დადებითი უნდა იყოს")
+    if data.product_id != wo.product_id:
+        raise HTTPException(
+            status_code=400,
+            detail="მიღებული პროდუქტი არ ემთხვევა სამუშაო ორდერის პროდუქტს",
+        )
+    warehouse = (
+        await db.execute(
+            select(Warehouse).where(
+                Warehouse.id == data.warehouse_id,
+                Warehouse.company_id == current_user.company_id,
+                Warehouse.is_active.is_(True),
+            )
+        )
+    ).scalar_one_or_none()
+    if warehouse is None:
+        raise HTTPException(status_code=404, detail="საწყობი არ მოიძებნა")
+
     from app.api.v1.endpoints.purchase_orders import allocate_document_number
     receipt_number = await allocate_document_number(db, current_user.company_id, "fg_receipt", "FGR")
 
+    payload = data.model_dump(exclude={"work_order_id"})
     receipt = FinishedGoodsReceipt(
         company_id=current_user.company_id,
         work_order_id=wo_id,
         receipt_number=receipt_number,
         created_by=current_user.id,
-        **data.model_dump(),
+        **payload,
     )
     db.add(receipt)
 
@@ -474,6 +495,7 @@ async def create_finished_goods_receipt(
             InventoryBalance.warehouse_id == data.warehouse_id,
             InventoryBalance.product_id == data.product_id,
         )
+        .with_for_update()
     )
     balance = bal_result.scalar_one_or_none()
     if balance:
@@ -501,6 +523,11 @@ async def create_finished_goods_receipt(
         created_by=current_user.id,
     )
     db.add(movement)
+    await sync_product_current_stock(
+        db,
+        company_id=current_user.company_id,
+        product_id=data.product_id,
+    )
 
     # Update work order completed quantity
     wo.completed_quantity += data.quantity
@@ -603,6 +630,11 @@ async def production_workflow_demo(
                 quantity=100,
             )
             db.add(comp_balance)
+        await sync_product_current_stock(
+            db,
+            company_id=company_id,
+            product_id=component.id,
+        )
         steps.append(f"✅ Stocked component: 100 units")
 
     # 5. Create BOM
@@ -732,6 +764,11 @@ async def production_workflow_demo(
         created_by=current_user.id,
     )
     db.add(movement)
+    await sync_product_current_stock(
+        db,
+        company_id=company_id,
+        product_id=finished_product.id,
+    )
 
     wo.completed_quantity = 9
     wo.status = WorkOrder.Status.COMPLETED

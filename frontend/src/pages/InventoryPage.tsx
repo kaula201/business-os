@@ -101,7 +101,7 @@ export default function InventoryPage() {
     return () => clearTimeout(t)
   }, [searchInput])
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError: productsError } = useQuery({
     queryKey: ['products', search, page],
     queryFn: () =>
       productsApi.list({ search: search || undefined, page, page_size: 20 }).then((r) => r.data.data),
@@ -110,11 +110,11 @@ export default function InventoryPage() {
     queryKey: ['categories'],
     queryFn: () => productsApi.listCategories().then((r) => r.data.data),
   })
-  const { data: warehousesData } = useQuery({
+  const { data: warehousesData, isLoading: warehousesLoading, isError: warehousesError } = useQuery({
     queryKey: ['warehouses', showArchived],
     queryFn: () => warehousesApi.list({ include_inactive: showArchived }).then((r) => r.data.data),
   })
-  const { data: balancesData } = useQuery({
+  const { data: balancesData, isError: balancesError } = useQuery({
     queryKey: ['warehouse-balances'],
     queryFn: () => warehousesApi.balances().then((r) => r.data.data),
   })
@@ -134,11 +134,12 @@ export default function InventoryPage() {
   const costHistory: PurchaseCostHistory[] = costHistoryData?.items || []
 
   const warehouseTotals = useMemo(() => {
+    if (balancesError) return {}
     return balances.reduce<Record<string, number>>((totals, balance) => {
       totals[balance.warehouse_id] = (totals[balance.warehouse_id] || 0) + balance.quantity
       return totals
     }, {})
-  }, [balances])
+  }, [balances, balancesError])
 
   const refreshInventory = () => {
     queryClient.invalidateQueries({ queryKey: ['products'] })
@@ -315,7 +316,9 @@ export default function InventoryPage() {
   function handleProductSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (editProduct) {
-      productsApi.update(editProduct.id, productForm).then(() => {
+      const updatePayload = { ...productForm }
+      delete updatePayload.current_stock
+      productsApi.update(editProduct.id, updatePayload).then(() => {
         refreshInventory()
         closeProductModal()
       })
@@ -471,7 +474,15 @@ export default function InventoryPage() {
         <p className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">{formError}</p>
       )}
 
-      {warehouses.length === 0 ? (
+      {(warehousesError || balancesError || productsError) && (
+        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          საწყობის მონაცემების ჩატვირთვა ვერ მოხერხდა. სცადეთ გვერდის განახლება.
+        </p>
+      )}
+
+      {warehousesLoading ? (
+        <div className="card p-6 text-sm text-gray-500 dark:text-gray-400">საწყობების მონაცემები იტვირთება...</div>
+      ) : warehousesError ? null : warehouses.length === 0 ? (
         <button
           onClick={openWarehouseCreate}
           className="w-full rounded-xl border-2 border-dashed border-primary-200 bg-primary-50 p-6 text-left hover:border-primary-400"
@@ -499,7 +510,7 @@ export default function InventoryPage() {
               <p className="text-xs font-medium text-gray-400 dark:text-gray-500">{warehouse.code}</p>
               <div className="mt-3 flex items-end justify-between">
                 <span className="text-sm text-gray-500 dark:text-gray-400">ჯამური ერთეული</span>
-                <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{(warehouseTotals[warehouse.id] || 0).toLocaleString()}</span>
+                <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{balancesError ? '—' : (warehouseTotals[warehouse.id] || 0).toLocaleString()}</span>
               </div>
               {warehouse.address && <p className="mt-2 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"><MapPin size={12} /> {warehouse.address}</p>}
               {warehouse.is_active && (
@@ -538,7 +549,9 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage="პროდუქტები არ მოიძებნა" onRowClick={setCostProduct} page={page} totalPages={productsTotalPages} total={productsTotal} onPageChange={setPage} />
+      {!productsError && (
+        <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage="პროდუქტები არ მოიძებნა" onRowClick={setCostProduct} page={page} totalPages={productsTotalPages} total={productsTotal} onPageChange={setPage} />
+      )}
 
       <Modal open={!!costProduct} onClose={() => setCostProduct(null)} title={`შესყიდვის ფასების ისტორია — ${costProduct?.name || ''}`} size="xl">
         <div className="space-y-5">

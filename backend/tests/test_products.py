@@ -12,14 +12,92 @@ async def test_create_product(client, auth_headers):
         "purchase_price": 80.0,
         "unit": "ცალი",
         "min_stock": 10,
-        "current_stock": 50,
+        "current_stock": 0,
     }, headers=auth_headers)
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["sku"] == "TEST-001"
     assert data["name"] == "Test Product"
     assert data["sale_price"] == 100.0
-    assert float(data["current_stock"]) == 50.0
+    assert float(data["current_stock"]) == 0.0
+
+
+@pytest.mark.asyncio
+async def test_create_product_rejects_initial_stock_without_warehouse(client, auth_headers):
+    response = await client.post("/api/v1/products/", json={
+        "sku": "NO-WH-STOCK",
+        "name": "Warehouse-less Stock",
+        "sale_price": 10,
+        "current_stock": 5,
+    }, headers=auth_headers)
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "საწყისი ნაშთისთვის ჯერ შექმენით აქტიური მთავარი საწყობი"
+
+
+@pytest.mark.asyncio
+async def test_create_product_puts_initial_stock_in_default_warehouse(client, auth_headers):
+    warehouse = await client.post("/api/v1/warehouses/", json={
+        "code": "MAIN",
+        "name": "მთავარი საწყობი",
+        "is_default": True,
+    }, headers=auth_headers)
+    assert warehouse.status_code == 200
+
+    product = await client.post("/api/v1/products/", json={
+        "sku": "DEFAULT-WH-STOCK",
+        "name": "Default Warehouse Stock",
+        "sale_price": 10,
+        "current_stock": 5,
+    }, headers=auth_headers)
+    assert product.status_code == 200
+    product_id = product.json()["data"]["id"]
+
+    balances = await client.get(
+        f"/api/v1/warehouses/balances?product_id={product_id}",
+        headers=auth_headers,
+    )
+    assert balances.status_code == 200
+    assert len(balances.json()["data"]) == 1
+    assert balances.json()["data"][0]["quantity"] == 5
+
+
+@pytest.mark.asyncio
+async def test_product_update_rejects_direct_stock_change(client, auth_headers):
+    product = await client.post("/api/v1/products/", json={
+        "sku": "DIRECT-STOCK-UPDATE",
+        "name": "Direct Stock Update",
+        "sale_price": 10,
+    }, headers=auth_headers)
+    product_id = product.json()["data"]["id"]
+
+    response = await client.patch(
+        f"/api/v1/products/{product_id}",
+        json={"current_stock": 7},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "ნაშთი შეცვალეთ საწყობის ოპერაციით"
+
+
+@pytest.mark.asyncio
+async def test_legacy_product_stock_adjustment_is_disabled(client, auth_headers):
+    product = await client.post("/api/v1/products/", json={
+        "sku": "LEGACY-STOCK",
+        "name": "Legacy Stock",
+        "sale_price": 10,
+    }, headers=auth_headers)
+    product_id = product.json()["data"]["id"]
+
+    response = await client.post("/api/v1/products/adjust-stock", json={
+        "product_id": product_id,
+        "movement_type": "in",
+        "quantity": 2,
+        "reason": "test",
+    }, headers=auth_headers)
+
+    assert response.status_code == 410
 
 
 @pytest.mark.asyncio
