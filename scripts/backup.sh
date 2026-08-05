@@ -11,9 +11,9 @@ FILENAME="business_os_${TIMESTAMP}.sql.gz"
 
 mkdir -p "$BACKUP_DIR"
 
-PGPASSWORD="${PGPASSWORD:-secret}" pg_dump \
+PGPASSWORD="${PGPASSWORD:-business_os_app}" pg_dump \
   -h postgres \
-  -U business_os \
+  -U business_os_app \
   -d business_os \
   --no-owner \
   --no-acl \

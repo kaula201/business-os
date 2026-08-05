@@ -1,7 +1,17 @@
 # backend/app/core/database.py
+from contextvars import ContextVar
+from uuid import UUID
+
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import text
 from app.core.config import settings
+
+# Current tenant (company) for this request — consumed by get_db to set the
+# PostgreSQL Row-Level Security session variable.
+current_company_id: ContextVar[UUID | None] = ContextVar(
+    "current_company_id", default=None
+)
 
 
 def _create_engine_kwargs():

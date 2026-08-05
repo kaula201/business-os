@@ -16,7 +16,7 @@ from app.models.user import User
 
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://business_os:secret@postgres:5432/business_os_test",
+    "postgresql+asyncpg://business_os_app:business_os_app@postgres:5432/business_os_test",
 )
 
 test_database_name = make_url(TEST_DATABASE_URL).database or ""
@@ -60,6 +60,38 @@ async def setup_db():
         await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
         await conn.execute(text("CREATE SCHEMA public"))
         await conn.run_sync(Base.metadata.create_all)
+        # Mirror migration 062: enable Row-Level Security on every table that
+        # carries company_id, so tests exercise the same tenant isolation the
+        # production database has.
+        await conn.execute(text(
+            """
+            DO $$
+            DECLARE
+                t TEXT;
+            BEGIN
+                FOR t IN
+                    SELECT table_name
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public'
+                      AND column_name = 'company_id'
+                    ORDER BY table_name
+                LOOP
+                    EXECUTE format(
+                        'CREATE POLICY tenant_isolation ON %I '
+                        'USING ('
+                        '  current_setting(''app.current_company_id'', true) IS NULL '
+                        '  OR current_setting(''app.current_company_id'', true) = '''' '
+                        '  OR company_id::text = current_setting(''app.current_company_id'', true)'
+                        ')',
+                        t
+                    );
+                    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+                    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+                END LOOP;
+            END
+            $$;
+            """
+        ))
     yield
     async with test_engine.begin() as conn:
         await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))

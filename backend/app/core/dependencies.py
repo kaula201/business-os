@@ -1,8 +1,8 @@
 # backend/app/core/dependencies.py
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from app.core.database import get_db
+from sqlalchemy import select, text
+from app.core.database import get_db, current_company_id
 from app.core.security import decode_token
 from app.models.user import User
 from app.models.module import AppModule, ModulePermission
@@ -28,6 +28,16 @@ async def get_current_user(
 
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="მომხმარებელი არ მოიძებნა ან დეაქტივირებულია")
+
+    # Row-Level Security: pin the tenant for this request's DB transaction.
+    # set_config(..., is_local=true) is the parameterized equivalent of
+    # SET LOCAL: it resets at transaction end, so pooled connections can
+    # never leak another company's scope.
+    await db.execute(
+        text("SELECT set_config('app.current_company_id', :cid, true)"),
+        {"cid": str(user.company_id)},
+    )
+    current_company_id.set(user.company_id)
 
     return user
 

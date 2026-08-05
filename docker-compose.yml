@@ -36,7 +36,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://business_os:secret@postgres:5432/business_os
+      DATABASE_URL: postgresql+asyncpg://business_os_app:business_os_app@postgres:5432/business_os
       REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
@@ -67,13 +67,15 @@ services:
     entrypoint: |
       sh -c "
         echo '0 3 * * * /scripts/backup.sh' > /etc/crontabs/root &&
+        echo '*/5 * * * * /scripts/refresh_mvs.sh' >> /etc/crontabs/root &&
         crond -f -l 2
       "
     environment:
-      PGPASSWORD: secret
+      PGPASSWORD: business_os_app
       RETENTION_DAYS: 30
     volumes:
       - ./scripts/backup.sh:/scripts/backup.sh:ro
+      - ./scripts/refresh_mvs.sh:/scripts/refresh_mvs.sh:ro
       - backup_data:/backups
     depends_on:
       postgres:
