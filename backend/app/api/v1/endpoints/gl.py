@@ -372,7 +372,10 @@ async def profit_loss(
     for code, name, acct_type, debit, credit in rows:
         debit = float(debit)
         credit = float(credit)
-        balance = credit - debit  # income = credit side, expense = debit side
+        # Income accounts: credit side is positive. Expense accounts: debit
+        # side is positive. Displaying both as positive magnitudes keeps the
+        # P&L report intuitive and net_income = income - expenses correct.
+        balance = credit - debit if acct_type == "income" else debit - credit
         # Get source journal entries for drill-down
         source_entries = (
             await db.execute(
