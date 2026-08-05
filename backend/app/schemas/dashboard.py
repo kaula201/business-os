@@ -9,6 +9,7 @@ class KPICards(BaseModel):
     active_orders: int
     overdue_tasks: int
     low_stock_products: int
+    total_revenue: float = 0.0
 
 
 class KPITooltip(BaseModel):
@@ -52,6 +53,8 @@ class DashboardSummary(BaseModel):
     ai_summary: Optional[str] = None
     critical_alerts: List["CriticalAlert"]
     total_revenue: float = 0.0
+    invoiced_orders_count: int = 0
+    total_orders_count: int = 0
     kpi_tooltips: List[KPITooltip] = []
 
 

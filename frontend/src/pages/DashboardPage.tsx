@@ -46,7 +46,14 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard icon={TrendingUp} label="შემოსავალი" value={kpi?.monthly_revenue ? `${kpi.monthly_revenue.toLocaleString()} ₾` : '0 ₾'} change={kpi?.revenue_change} color="blue" />
+        <KPICard
+          icon={TrendingUp}
+          label="შემოსავალი"
+          value={kpi?.total_revenue != null ? `${kpi.total_revenue.toLocaleString()} ₾` : '0 ₾'}
+          change={kpi?.revenue_change}
+          color="blue"
+          hint={`ინვოისირებული შეკვეთები: ${data?.invoiced_orders_count ?? 0} / ${data?.total_orders_count ?? 0}`}
+        />
         <KPICard icon={Users} label="აქტიური კლიენტები" value={String(kpi?.active_clients || 0)} color="green" />
         <KPICard icon={ShoppingCart} label="მიმდინარე შეკვეთები" value={String(kpi?.active_orders || 0)} color="gray" />
         <KPICard icon={AlertTriangle} label="დაგვიანებული დავალებები" value={String(kpi?.overdue_tasks || 0)} color="red" />
@@ -129,7 +136,7 @@ export default function DashboardPage() {
   )
 }
 
-function KPICard({ icon: Icon, label, value, change, color }: { icon: any; label: string; value: string; change?: number; color: string }) {
+function KPICard({ icon: Icon, label, value, change, color, hint }: { icon: any; label: string; value: string; change?: number; color: string; hint?: string }) {
   const colorMap: Record<string, string> = {
     blue: 'bg-primary-50 text-primary-700',
     green: 'bg-accent-50 text-accent-700',
@@ -150,6 +157,9 @@ function KPICard({ icon: Icon, label, value, change, color }: { icon: any; label
             {change >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
             {Math.abs(change).toFixed(1)}%
           </span>
+        )}
+        {hint && (
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1" title="შემოსავალი ითვლება მხოლოდ გაცემული (issued) ინვოისებიდან">{hint}</p>
         )}
       </div>
     </div>

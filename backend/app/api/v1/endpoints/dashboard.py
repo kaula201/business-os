@@ -80,11 +80,29 @@ async def get_dashboard_summary(
     # Canonical revenue from issued invoices
     total_revenue = await get_total_revenue(db, company_id)
 
+    # Invoiced vs total order counts — Dashboard revenue context:
+    # revenue is counted ONLY from issued invoices, so show how many of the
+    # company's orders have actually been invoiced.
+    total_orders_count = (await db.execute(
+        select(func.count()).where(
+            Order.company_id == company_id,
+            Order.status.notin_([OrderStatus.CANCELLED]),
+        )
+    )).scalar() or 0
+
+    invoiced_orders_count = (await db.execute(
+        select(func.count()).where(
+            Invoice.company_id == company_id,
+            Invoice.status == "issued",
+        )
+    )).scalar() or 0
+
     kpi = KPICards(
         active_clients=active_clients_count,
         active_orders=active_orders_count,
         overdue_tasks=overdue_tasks_count,
-        low_stock_products=low_stock_count
+        low_stock_products=low_stock_count,
+        total_revenue=float(total_revenue),
     )
 
     # Revenue chart (daily aggregation from issued invoices)
@@ -181,6 +199,8 @@ async def get_dashboard_summary(
         critical_alerts=alerts,
         ai_summary=None,
         total_revenue=float(total_revenue),
+        invoiced_orders_count=invoiced_orders_count,
+        total_orders_count=total_orders_count,
         kpi_tooltips=[
             KPITooltip(key="active_clients", label="აქტიური კლიენტები",
                        formula="კლიენტების რაოდენობა სტატუსით 'active'",
@@ -195,7 +215,7 @@ async def get_dashboard_summary(
                        formula="პროდუქტები, სადაც საწყობების ჯამური ნაშთი <= მინიმალურ ნაშთს",
                        source="საწყობის ნაშთები"),
             KPITooltip(key="total_revenue", label="ჯამური შემოსავალი",
-                       formula="დადასტურებული ინვოისების ჯამი (status='issued')",
+                       formula="მხოლოდ გაცემული (issued) ინვოისების ჯამი",
                        source="გაყიდვის ინვოისები"),
         ],
     ))

@@ -980,8 +980,9 @@ export interface DashboardKPI {
   active_orders: number
   overdue_tasks: number
   low_stock_products: number
-  monthly_revenue: number
-  revenue_change: number
+  total_revenue: number
+  monthly_revenue?: number
+  revenue_change?: number
 }
 
 export interface RevenuePoint {
@@ -995,6 +996,9 @@ export interface DashboardData {
   order_status_distribution: { status: string; count: number; color: string }[]
   recent_orders: Order[]
   critical_alerts: { severity: 'high' | 'medium'; title: string; description: string }[]
+  total_revenue: number
+  invoiced_orders_count: number
+  total_orders_count: number
 }
 
 // === General Ledger ===
