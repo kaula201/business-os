@@ -18,6 +18,7 @@ from app.models.warehouse import (
     InventoryCount,
     InventoryCountLine,
     InventoryMovement,
+    ProductBatch,
     Warehouse,
     WarehouseZone,
     ZoneBalance,
@@ -63,6 +64,24 @@ async def get_active_reserved_quantity(
         )
     ).scalar_one()
     return Decimal(reserved)
+
+
+async def reject_batch_tracked_generic_write(
+    db: AsyncSession, company_id: UUID, warehouse_id: UUID, product_id: UUID
+) -> None:
+    """Prevent canonical stock writes that bypass lot-level synchronization."""
+    has_batch = await db.scalar(
+        select(ProductBatch.id).where(
+            ProductBatch.company_id == company_id,
+            ProductBatch.warehouse_id == warehouse_id,
+            ProductBatch.product_id == product_id,
+        ).limit(1)
+    )
+    if has_batch:
+        raise HTTPException(
+            status_code=409,
+            detail="პარტიებად აღრიცხული მარაგი შეცვალეთ WMS batch ოპერაციით",
+        )
 
 
 def add_warehouse_audit(
@@ -520,6 +539,9 @@ async def adjust_warehouse_stock(
         db, data.warehouse_id, current_user.company_id
     )
     product = await get_company_product(db, data.product_id, current_user.company_id)
+    await reject_batch_tracked_generic_write(
+        db, current_user.company_id, data.warehouse_id, data.product_id
+    )
     balance = await get_locked_balance(
         db, current_user.company_id, data.warehouse_id, data.product_id
     )
@@ -641,6 +663,9 @@ async def transfer_stock(
     )
     await get_company_warehouse(
         db, data.destination_warehouse_id, current_user.company_id
+    )
+    await reject_batch_tracked_generic_write(
+        db, current_user.company_id, data.source_warehouse_id, data.product_id
     )
 
     source = await get_locked_balance(
@@ -1521,6 +1546,9 @@ async def post_count(
         diff = Decimal(line.difference)
         total_difference += diff
 
+        await reject_batch_tracked_generic_write(
+            db, current_user.company_id, count.warehouse_id, line.product_id
+        )
         balance = await get_locked_balance(
             db, current_user.company_id, count.warehouse_id, line.product_id
         )

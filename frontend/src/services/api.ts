@@ -176,6 +176,10 @@ export const tasksApi = {
 // Dashboard API
 export const dashboardApi = {
   getSummary: (period: string = '30d') => api.get('/dashboard/summary', { params: { period } }),
+  getAging: () => api.get('/dashboard/aging'),
+  getCashFlow: () => api.get('/dashboard/cash-flow'),
+  getDrillDown: (entity: 'ar' | 'ap', bucket: string = 'all') =>
+    api.get(`/dashboard/drill-down/${entity}`, { params: { bucket } }),
 }
 
 // AI API

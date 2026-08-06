@@ -64,6 +64,7 @@ from app.api.v1.endpoints import (
     users,
     warehouses,
     warehouses_enhanced,
+    wms,
 )
 
 api_router = APIRouter(prefix="/api/v1")
@@ -103,6 +104,7 @@ api_router.include_router(leaves.router)
 api_router.include_router(live_chat.router)
 api_router.include_router(warehouses.router)
 api_router.include_router(warehouses_enhanced.router)
+api_router.include_router(wms.router)
 api_router.include_router(suppliers.router)
 api_router.include_router(purchase_orders.router)
 api_router.include_router(purchase_costs.router)

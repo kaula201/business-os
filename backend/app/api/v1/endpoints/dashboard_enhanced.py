@@ -1,6 +1,7 @@
 """Dashboard enhanced: quick actions, CRM pipeline, HR stats, export."""
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -19,6 +20,19 @@ from app.models.task import Task
 from app.models.crm import CRMLead, CRMOpportunity
 from app.models.hr import Employee
 from app.models.invoice import Invoice
+from app.models.company import Company
+from app.models.receivable import (
+    CustomerPayment,
+    CustomerPaymentReversal,
+    CustomerReceivable,
+)
+from app.models.purchase import (
+    Supplier,
+    SupplierInvoice,
+    SupplierPayable,
+    SupplierPayment,
+    SupplierPaymentReversal,
+)
 from app.schemas.common import ResponseBase
 from pydantic import BaseModel
 from io import BytesIO
@@ -195,3 +209,298 @@ async def export_dashboard_summary(
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": "attachment; filename=dashboard_orders.xlsx"})
+
+
+# ── Dashboard 2.0: AR/AP aging, cash flow, drill-down ─────────────────────────
+
+class AgingBucket(BaseModel):
+    bucket: str            # current / 1_30 / 31_60 / 61_90 / 90_plus
+    label: str
+    amount: Decimal
+
+
+class AgingSummary(BaseModel):
+    currency: str
+    ar_total: Decimal
+    ap_total: Decimal
+    ar_buckets: list[AgingBucket]
+    ap_buckets: list[AgingBucket]
+
+
+class CashFlowPoint(BaseModel):
+    month: str             # YYYY-MM
+    inflow: Decimal
+    outflow: Decimal
+
+
+class CashFlowSummary(BaseModel):
+    currency: str
+    series: list[CashFlowPoint]
+    net_6m: Decimal
+
+
+class DrillDownRow(BaseModel):
+    id: str
+    number: str
+    counterparty: str
+    due_date: str | None
+    outstanding: Decimal
+    days_overdue: int
+    status: str
+    currency: str
+
+
+class DrillDownSummary(BaseModel):
+    currency: str
+    rows: list[DrillDownRow]
+
+
+async def _report_currency(
+    db: AsyncSession, company_id: UUID, requested: str | None
+) -> str:
+    if requested:
+        return requested.upper()
+    base_currency = await db.scalar(
+        select(Company.currency).where(Company.id == company_id)
+    )
+    return (base_currency or "GEL").upper()
+
+
+def _aging_buckets(rows: list[tuple[date, Decimal]]) -> list[AgingBucket]:
+    today = date.today()
+    buckets = {
+        "current": Decimal("0"), "1_30": Decimal("0"), "31_60": Decimal("0"),
+        "61_90": Decimal("0"), "90_plus": Decimal("0"),
+    }
+    for due_date, amount in rows:
+        days = (today - due_date).days
+        if days <= 0:
+            buckets["current"] += amount
+        elif days <= 30:
+            buckets["1_30"] += amount
+        elif days <= 60:
+            buckets["31_60"] += amount
+        elif days <= 90:
+            buckets["61_90"] += amount
+        else:
+            buckets["90_plus"] += amount
+    labels = {
+        "current": "მიმდინარე", "1_30": "1–30 დღე", "31_60": "31–60 დღე",
+        "61_90": "61–90 დღე", "90_plus": "90+ დღე",
+    }
+    return [
+        AgingBucket(bucket=k, label=labels[k], amount=v)
+        for k, v in buckets.items()
+    ]
+
+
+@router.get("/aging", response_model=ResponseBase[AgingSummary])
+async def aging_summary(
+    currency: str | None = Query(None, min_length=3, max_length=3),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("dashboard", "can_access")),
+):
+    """AR/AP aging: outstanding receivables and payables by due-date bucket."""
+    company_id = current_user.company_id
+    report_currency = await _report_currency(db, company_id, currency)
+    ar = (await db.execute(
+        select(CustomerReceivable.due_date, CustomerReceivable.outstanding_amount)
+        .where(
+            CustomerReceivable.company_id == company_id,
+            CustomerReceivable.currency == report_currency,
+            CustomerReceivable.outstanding_amount > 0,
+        )
+    )).all()
+    ap = (await db.execute(
+        select(SupplierPayable.due_date, SupplierPayable.outstanding_amount)
+        .where(
+            SupplierPayable.company_id == company_id,
+            SupplierPayable.currency_code == report_currency,
+            SupplierPayable.outstanding_amount > 0,
+        )
+    )).all()
+
+    ar_total = sum((Decimal(str(r.outstanding_amount)) for r in ar), Decimal("0"))
+    ap_total = sum((Decimal(str(r.outstanding_amount)) for r in ap), Decimal("0"))
+
+    return ResponseBase(data=AgingSummary(
+        currency=report_currency,
+        ar_total=ar_total,
+        ap_total=ap_total,
+        ar_buckets=_aging_buckets([(r.due_date, Decimal(str(r.outstanding_amount))) for r in ar]),
+        ap_buckets=_aging_buckets([(r.due_date, Decimal(str(r.outstanding_amount))) for r in ap]),
+    ))
+
+
+def _month_offset(base: date, months_back: int) -> date:
+    """First day of the month `months_back` months before `base`."""
+    total = base.year * 12 + (base.month - 1) - months_back
+    return date(total // 12, total % 12 + 1, 1)
+
+
+@router.get("/cash-flow", response_model=ResponseBase[CashFlowSummary])
+async def cash_flow(
+    currency: str | None = Query(None, min_length=3, max_length=3),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("dashboard", "can_access")),
+):
+    """Last 6 months of cash in/out: customer payments vs supplier payments."""
+    company_id = current_user.company_id
+    report_currency = await _report_currency(db, company_id, currency)
+    today = date.today()
+    six_months_ago = _month_offset(today, 5)
+
+    customer_payments = (await db.execute(
+        select(
+            func.date_trunc("month", CustomerPayment.payment_date).label("month"),
+            func.sum(CustomerPayment.amount),
+        )
+        .join(
+            CustomerReceivable,
+            CustomerReceivable.id == CustomerPayment.receivable_id,
+        )
+        .outerjoin(
+            CustomerPaymentReversal,
+            CustomerPaymentReversal.payment_id == CustomerPayment.id,
+        )
+        .where(
+            CustomerPayment.company_id == company_id,
+            CustomerPayment.status == "active",
+            CustomerPaymentReversal.id.is_(None),
+            CustomerReceivable.currency == report_currency,
+            CustomerPayment.payment_date >= six_months_ago,
+        )
+        .group_by("month")
+        .order_by("month")
+    )).all()
+
+    supplier_payments = (await db.execute(
+        select(
+            func.date_trunc("month", SupplierPayment.payment_date).label("month"),
+            func.sum(SupplierPayment.amount),
+        )
+        .join(
+            SupplierPayable,
+            SupplierPayable.id == SupplierPayment.supplier_payable_id,
+        )
+        .outerjoin(
+            SupplierPaymentReversal,
+            SupplierPaymentReversal.supplier_payment_id == SupplierPayment.id,
+        )
+        .where(
+            SupplierPayment.company_id == company_id,
+            SupplierPaymentReversal.id.is_(None),
+            SupplierPayable.currency_code == report_currency,
+            SupplierPayment.payment_date >= six_months_ago,
+        )
+        .group_by("month")
+        .order_by("month")
+    )).all()
+
+    inflow_map = {r.month.strftime("%Y-%m"): Decimal(str(r.sum or 0)) for r in customer_payments}
+    outflow_map = {r.month.strftime("%Y-%m"): Decimal(str(r.sum or 0)) for r in supplier_payments}
+
+    series = []
+    for i in range(5, -1, -1):
+        m = _month_offset(today, i)
+        key = m.strftime("%Y-%m")
+        series.append(CashFlowPoint(
+            month=key,
+            inflow=inflow_map.get(key, Decimal("0")),
+            outflow=outflow_map.get(key, Decimal("0")),
+        ))
+
+    net = sum((p.inflow - p.outflow for p in series), Decimal("0"))
+    return ResponseBase(data=CashFlowSummary(
+        currency=report_currency,
+        series=series,
+        net_6m=net,
+    ))
+
+
+@router.get("/drill-down/{entity}", response_model=ResponseBase[DrillDownSummary])
+async def drill_down(
+    entity: Literal["ar", "ap"],
+    bucket: Literal["all", "current", "1_30", "31_60", "61_90", "90_plus"] = "all",
+    currency: str | None = Query(None, min_length=3, max_length=3),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("dashboard", "can_access")),
+):
+    """Drill-down rows for AR or AP in one explicitly selected currency."""
+    company_id = current_user.company_id
+    report_currency = await _report_currency(db, company_id, currency)
+    today = date.today()
+    rows: list[DrillDownRow] = []
+
+    if entity == "ar":
+        result = await db.execute(
+            select(CustomerReceivable)
+            .where(
+                CustomerReceivable.company_id == company_id,
+                CustomerReceivable.currency == report_currency,
+                CustomerReceivable.outstanding_amount > 0,
+            )
+            .order_by(CustomerReceivable.due_date)
+        )
+        for r in result.scalars().all():
+            days = (today - r.due_date).days
+            if bucket != "all":
+                in_bucket = (
+                    (bucket == "current" and days <= 0)
+                    or (bucket == "1_30" and 0 < days <= 30)
+                    or (bucket == "31_60" and 30 < days <= 60)
+                    or (bucket == "61_90" and 60 < days <= 90)
+                    or (bucket == "90_plus" and days > 90)
+                )
+                if not in_bucket:
+                    continue
+            rows.append(DrillDownRow(
+                id=str(r.id), number=r.invoice_number, counterparty=r.client_name,
+                due_date=r.due_date.isoformat(), outstanding=r.outstanding_amount,
+                days_overdue=max(days, 0), status=r.status, currency=r.currency,
+            ))
+    else:
+        result = await db.execute(
+            select(
+                SupplierPayable.id,
+                SupplierPayable.due_date,
+                SupplierPayable.outstanding_amount,
+                SupplierPayable.status,
+                SupplierPayable.currency_code,
+                SupplierInvoice.supplier_invoice_number.label("invoice_number"),
+                Supplier.name.label("supplier_name"),
+            )
+            .join(
+                SupplierInvoice,
+                SupplierInvoice.id == SupplierPayable.supplier_invoice_id,
+            )
+            .join(Supplier, Supplier.id == SupplierPayable.supplier_id)
+            .where(
+                SupplierPayable.company_id == company_id,
+                SupplierPayable.currency_code == report_currency,
+                SupplierPayable.outstanding_amount > 0,
+            )
+            .order_by(SupplierPayable.due_date)
+        )
+        for r in result.all():
+            days = (today - r.due_date).days
+            if bucket != "all":
+                in_bucket = (
+                    (bucket == "current" and days <= 0)
+                    or (bucket == "1_30" and 0 < days <= 30)
+                    or (bucket == "31_60" and 30 < days <= 60)
+                    or (bucket == "61_90" and 60 < days <= 90)
+                    or (bucket == "90_plus" and days > 90)
+                )
+                if not in_bucket:
+                    continue
+            rows.append(DrillDownRow(
+                id=str(r.id), number=r.invoice_number, counterparty=r.supplier_name,
+                due_date=r.due_date.isoformat(), outstanding=r.outstanding_amount,
+                days_overdue=max(days, 0), status=r.status, currency=r.currency_code,
+            ))
+
+    return ResponseBase(data=DrillDownSummary(
+        currency=report_currency,
+        rows=rows,
+    ))

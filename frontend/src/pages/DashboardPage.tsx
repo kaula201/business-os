@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { dashboardApi } from '../services/api'
-import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, ArrowDown } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts'
+import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, ArrowDown, Wallet, Clock } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts'
 import { StatusBadge, orderStatusMap } from '../components/ui/Badges'
 import type { DashboardData } from '../types'
 
@@ -14,6 +14,14 @@ export default function DashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard', period],
     queryFn: () => dashboardApi.getSummary(period).then(r => r.data.data),
+  })
+  const { data: aging } = useQuery({
+    queryKey: ['dashboard-aging'],
+    queryFn: () => dashboardApi.getAging().then(r => r.data.data),
+  })
+  const { data: cashFlow } = useQuery({
+    queryKey: ['dashboard-cashflow'],
+    queryFn: () => dashboardApi.getCashFlow().then(r => r.data.data),
   })
 
   if (isLoading) return <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400 dark:text-gray-500">ჩატვირთვა...</div>
@@ -132,6 +140,82 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Dashboard 2.0: AR/AP Aging + Cash Flow */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* AR/AP Aging */}
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock size={18} className="text-primary-600" />
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200">ვადიანობა — მოთხოვნები / ვალდებულებები</h3>
+          </div>
+          {aging && (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">მოთხოვნები (AR)</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{Number(aging.ar_total).toLocaleString()} {aging.currency}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">ვალდებულებები (AP)</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{Number(aging.ap_total).toLocaleString()} {aging.currency}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  {aging.ar_buckets.map((b: any) => (
+                    <div key={b.bucket} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">{b.label}</span>
+                      <span className="font-medium">{Number(b.amount).toLocaleString()} {aging.currency}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-1.5">
+                  {aging.ap_buckets.map((b: any) => (
+                    <div key={b.bucket} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">{b.label}</span>
+                      <span className="font-medium">{Number(b.amount).toLocaleString()} {aging.currency}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Cash Flow */}
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <Wallet size={18} className="text-primary-600" />
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200">ფულადი ნაკადი — 6 თვე</h3>
+          </div>
+          {cashFlow && (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">წმინდა ნაკადი (6 თვე)</p>
+                  <p className={`text-xl font-bold ${Number(cashFlow.net_6m) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {Number(cashFlow.net_6m).toLocaleString()} {cashFlow.currency}
+                  </p>
+                </div>
+                <div className="flex gap-4 text-xs">
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> შემოსავლები</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400" /> ხარჯები</span>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={180}>
+                <AreaChart data={cashFlow.series}>
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#9CA3AF" />
+                  <YAxis tick={{ fontSize: 10 }} stroke="#9CA3AF" />
+                  <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+                  <Area type="monotone" dataKey="inflow" stroke="#4CAF32" fill="#4CAF32" fillOpacity={0.15} name="შემოსავალი" />
+                  <Area type="monotone" dataKey="outflow" stroke="#EF6F6C" fill="#EF6F6C" fillOpacity={0.15} name="ხარჯები" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

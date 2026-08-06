@@ -59,6 +59,10 @@ async def setup_db():
         # Use CASCADE to handle circular FK dependencies (departments ↔ employees)
         await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
         await conn.execute(text("CREATE SCHEMA public"))
+        # pgvector is installed once in a durable `extensions` schema because
+        # this fixture recreates `public` for every test. Keep both schemas on
+        # the connection search path so Base.metadata can create VECTOR columns.
+        await conn.execute(text("SET LOCAL search_path TO public, extensions"))
         await conn.run_sync(Base.metadata.create_all)
         # Mirror migration 062: enable Row-Level Security on every table that
         # carries company_id, so tests exercise the same tenant isolation the

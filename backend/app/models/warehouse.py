@@ -248,3 +248,71 @@ class InventoryCountLine(Base):
     count = relationship("InventoryCount", back_populates="lines")
     product = relationship("Product")
     zone = relationship("WarehouseZone")
+
+
+class ProductBatch(Base):
+    """WMS: batch/lot — a tracked lot of a product in a warehouse.
+
+    Enables expiry tracking, lot-cost accounting and recall tracing.
+    """
+    __tablename__ = "product_batches"
+    __table_args__ = (
+        UniqueConstraint("company_id", "batch_number", name="uq_batch_company_number"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True
+    )
+    warehouse_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=False, index=True
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True
+    )
+    batch_number: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    production_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    expiry_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 3), default=Decimal("0"), nullable=False)
+    unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    warehouse = relationship("Warehouse")
+    product = relationship("Product")
+
+
+class ProductSerial(Base):
+    """WMS: serial-number tracking for individual units (warranty, recall)."""
+    __tablename__ = "product_serials"
+    __table_args__ = (
+        UniqueConstraint("company_id", "serial_number", name="uq_serial_company_number"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True
+    )
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("product_batches.id"), nullable=True, index=True
+    )
+    serial_number: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(20), default="in_stock", nullable=False, index=True
+    )  # in_stock, sold, returned, scrapped
+    warehouse_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=True, index=True
+    )
+    sold_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    product = relationship("Product")
+    batch = relationship("ProductBatch")
+    warehouse = relationship("Warehouse")

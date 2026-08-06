@@ -1,15 +1,16 @@
 """RAG service — embed business data and search via pgvector."""
-import asyncio
+import hashlib
 import json
+import math
+import re
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import MetaData, Table, Column, String, Text, DateTime, ForeignKey, UniqueConstraint, select, func, desc, text, delete
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import select, func, desc, text, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.config import settings
+from app.models.embedding import Embedding
 from app.models.user import User
 from app.models.company import Company
 from app.models.client import Client
@@ -20,37 +21,33 @@ from app.models.invoice import Invoice
 from app.models.receivable import CustomerReceivable
 
 
-# ── Embedding table metadata (no ORM model needed) ───────────────────────────
+# ── Embedding table metadata ─────────────────────────────────────────────────
+
+embeddings_table = Embedding.__table__
 
 
-_metadata = MetaData()
-embeddings_table = Table(
-    "embeddings", _metadata,
-    Column("id", UUID(as_uuid=True), primary_key=True),
-    Column("company_id", UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False),
-    Column("content_type", String(50), nullable=False),
-    Column("content_id", UUID(as_uuid=True), nullable=False),
-    Column("content_text", Text(), nullable=False),
-    Column("embedding", Text(), nullable=True),
-    Column("created_at", DateTime(), nullable=False),
-    Column("updated_at", DateTime(), nullable=False),
-)
+def _local_embedding(text: str, dimensions: int = 1536) -> list[float]:
+    """Deterministic lexical embedding used when OpenAI is unavailable."""
+    normalized = text.lower().strip()
+    words = re.findall(r"\w+", normalized, flags=re.UNICODE)
+    features = words + [normalized[i:i + 3] for i in range(max(0, len(normalized) - 2))]
+    vector = [0.0] * dimensions
+    for feature in features or [normalized]:
+        digest = hashlib.sha256(feature.encode("utf-8")).digest()
+        index = int.from_bytes(digest[:4], "big") % dimensions
+        vector[index] += 1.0 if digest[4] % 2 == 0 else -1.0
+    norm = math.sqrt(sum(value * value for value in vector)) or 1.0
+    return [value / norm for value in vector]
 
 
-async def _get_embedding(text: str) -> list[float] | None:
-    """Get embedding vector from OpenAI."""
-    if not settings.OPENAI_API_KEY:
-        return None
-    try:
-        import openai
-        client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        response = await client.embeddings.create(
-            model=settings.OPENAI_EMBEDDING_MODEL,
-            input=text[:8000],  # Truncate to token limit
-        )
-        return response.data[0].embedding
-    except Exception:
-        return None
+async def _get_embedding(text: str) -> list[float]:
+    """Return the single canonical embedding space used by index and search.
+
+    RAG vectors intentionally stay local and deterministic.  Falling back from
+    OpenAI per row/query would mix incompatible vector spaces in one index.
+    OpenAI remains available to the chat-completion layer, not vector storage.
+    """
+    return _local_embedding(text)
 
 
 # ── Content collectors ───────────────────────────────────────────────────────
@@ -187,46 +184,23 @@ async def index_company_data(db: AsyncSession, company_id) -> int:
         items = await collector(db, company_id)
         all_items.extend(items)
 
-    # Batch insert without embeddings (they'll be filled asynchronously)
+    # Generate every vector inline in the same transaction.  This guarantees
+    # that the rows are searchable immediately after reindex commit and avoids
+    # a background session racing the request transaction.
     for item in all_items:
+        embedding = await _get_embedding(item["text"])
         await db.execute(
             embeddings_table.insert().values(
                 company_id=company_id,
                 content_type=item["type"],
                 content_id=item["id"],
                 content_text=item["text"],
+                embedding=embedding,
             )
         )
     await db.flush()
 
-    # Generate embeddings in background (best-effort)
-    if settings.OPENAI_API_KEY:
-        asyncio.create_task(_fill_embeddings(db.bind, company_id))
-
     return len(all_items)
-
-
-async def _fill_embeddings(bind, company_id):
-    """Background task: generate embeddings for unembedded rows."""
-    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-    async with async_sessionmaker(bind, class_=AsyncSession)() as session:
-        result = await session.execute(
-            select(embeddings_table.c.id, embeddings_table.c.content_text)
-            .where(
-                embeddings_table.c.company_id == company_id,
-                embeddings_table.c.embedding.is_(None),
-            )
-        )
-        rows = result.all()
-        for row_id, text in rows:
-            emb = await _get_embedding(text)
-            if emb:
-                await session.execute(
-                    embeddings_table.update()
-                    .where(embeddings_table.c.id == row_id)
-                    .values(embedding=emb)
-                )
-        await session.commit()
 
 
 # ── Search ───────────────────────────────────────────────────────────────────
@@ -238,16 +212,20 @@ async def search_similar(db: AsyncSession, company_id, query: str, limit: int = 
     if not query_emb:
         return []
 
-    # Use pgvector cosine similarity search
-    emb_str = "[" + ",".join(str(x) for x in query_emb) + "]"
-    sql = text("""
-        SELECT content_type, content_text, 1 - (embedding <=> :emb::vector) AS similarity
-        FROM embeddings
-        WHERE company_id = :company_id AND embedding IS NOT NULL
-        ORDER BY embedding <=> :emb::vector
-        LIMIT :limit
-    """)
-    result = await db.execute(sql, {"emb": emb_str, "company_id": company_id, "limit": limit})
+    distance = Embedding.embedding.cosine_distance(query_emb)
+    result = await db.execute(
+        select(
+            Embedding.content_type,
+            Embedding.content_text,
+            (1 - distance).label("similarity"),
+        )
+        .where(
+            Embedding.company_id == company_id,
+            Embedding.embedding.is_not(None),
+        )
+        .order_by(distance)
+        .limit(limit)
+    )
     return [
         {"type": row[0], "text": row[1], "similarity": round(float(row[2]), 3)}
         for row in result.all()

@@ -122,10 +122,10 @@ async def chat(
     # Collect business context from DB
     context = await _get_business_context(db, current_user)
 
-    # RAG: search for similar content
-    rag_results = []
-    if settings.OPENAI_API_KEY:
-        rag_results = await search_similar(db, current_user.company_id, data.message, limit=3)
+    # RAG: search for similar content using OpenAI or the local fallback.
+    rag_results = await search_similar(
+        db, current_user.company_id, data.message, limit=3
+    )
 
     rag_context = ""
     if rag_results:
@@ -139,7 +139,7 @@ async def chat(
         await asyncio.sleep(1)  # Simulate API latency
         source_links = _build_source_links(context)
         return ResponseBase(data=ChatResponse(
-            message=f"🔍 **ბიზნეს მონაცემები:**\n\n{context}\n\n💡 **რჩევა:** ჩემი ანალიზის მიხედვით, თქვენ გაქვთ აქტიური ბიზნესი მრავალი კლიენტით. დაბალი ნაშთის მქონე პროდუქტების შესავსებად გადადით საწყობში.\n\n⚠️ **გაფრთხილება:** AI-ს მიერ მოწოდებული ფინანსური ინფორმაცია დაფუძნებულია მიმდინარე მონაცემებზე და არ წარმოადგენს ოფიციალურ ფინანსურ ანგარიშგებას. გადამოწმებისთვის იხილეთ შესაბამისი მოდული.",
+            message=f"🔍 **ბიზნეს მონაცემები:**\n\n{context}{rag_context}\n\n💡 **რჩევა:** ჩემი ანალიზის მიხედვით, თქვენ გაქვთ აქტიური ბიზნესი მრავალი კლიენტით. დაბალი ნაშთის მქონე პროდუქტების შესავსებად გადადით საწყობში.\n\n⚠️ **გაფრთხილება:** AI-ს მიერ მოწოდებული ფინანსური ინფორმაცია დაფუძნებულია მიმდინარე მონაცემებზე და არ წარმოადგენს ოფიციალურ ფინანსურ ანგარიშგებას. გადამოწმებისთვის იხილეთ შესაბამისი მოდული.",
             conversation_id=conversation_id,
             suggestions=["რა არის ჩემი მიმდინარე შეკვეთები?", "რომელ პროდუქტებს აქვთ დაბალი ნაშთი?", "მაჩვენე დაგვიანებული დავალებები"],
             source_links=source_links,
