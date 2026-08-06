@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Pencil, Trash2, Search, Building2, Calendar, TrendingDown, Calculator, FileText, Wrench
@@ -41,6 +42,7 @@ function errorText(err: any) {
 }
 
 export default function AssetsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
@@ -122,8 +124,8 @@ export default function AssetsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">ძირითადი საშუალებები</h1>
-          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">აქტივების რეგისტრი, ამორტიზაცია, ჩამოწერა</p>
+          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('ძირითადი საშუალებები')}</h1>
+          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('აქტივების რეგისტრი, ამორტიზაცია, ჩამოწერა')}</p>
         </div>
         <button
           className="btn-primary flex items-center gap-2"
@@ -137,7 +139,7 @@ export default function AssetsPage() {
             setAssetModal('create')
           }}
         >
-          <Plus size={18} /> აქტივი
+          <Plus size={18} /> {t('აქტივი')}
         </button>
       </div>
 
@@ -147,7 +149,7 @@ export default function AssetsPage() {
           <div className="flex items-center gap-3">
             <Building2 className="text-primary-600" />
             <div>
-              <div className="text-sm text-brandgray-500 dark:text-gray-400">აქტიური აქტივები</div>
+              <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('აქტიური აქტივები')}</div>
               <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{activeCount}</div>
             </div>
           </div>
@@ -156,7 +158,7 @@ export default function AssetsPage() {
           <div className="flex items-center gap-3">
             <Calculator className="text-accent-600" />
             <div>
-              <div className="text-sm text-brandgray-500 dark:text-gray-400">საწყისი ღირებულება</div>
+              <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('საწყისი ღირებულება')}</div>
               <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(totalCost)}</div>
             </div>
           </div>
@@ -165,7 +167,7 @@ export default function AssetsPage() {
           <div className="flex items-center gap-3">
             <TrendingDown className="text-amber-600" />
             <div>
-              <div className="text-sm text-brandgray-500 dark:text-gray-400">ამორტიზაცია</div>
+              <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('ამორტიზაცია')}</div>
               <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(totalDep)}</div>
             </div>
           </div>
@@ -174,7 +176,7 @@ export default function AssetsPage() {
           <div className="flex items-center gap-3">
             <FileText className="text-primary-600" />
             <div>
-              <div className="text-sm text-brandgray-500 dark:text-gray-400">ნარჩენი ღირებულება</div>
+              <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('ნარჩენი ღირებულება')}</div>
               <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(totalBook)}</div>
             </div>
           </div>
@@ -187,7 +189,7 @@ export default function AssetsPage() {
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="ძებნა სახელით..."
+            placeholder={t('ძებნა სახელით...')}
             className="input pl-10"
           />
         </div>
@@ -217,7 +219,7 @@ export default function AssetsPage() {
                   <button
                     onClick={(e) => { e.stopPropagation(); setDepResult(null); runDep.mutate(a.id) }}
                     className="p-1.5 hover:bg-accent-50 rounded-lg transition-colors"
-                    title="ამორტიზაციის დათვლა"
+                    title={t('ამორტიზაციის დათვლა')}
                   >
                     <Calculator size={16} className="text-accent-500" />
                   </button>
@@ -225,7 +227,7 @@ export default function AssetsPage() {
                 <button
                   onClick={(e) => { e.stopPropagation(); setDepAssetId(a.id); loadDepHistory.mutate(a.id) }}
                   className="p-1.5 hover:bg-primary-50 rounded-lg transition-colors"
-                  title="ამორტიზაციის ისტორია"
+                  title={t('ამორტიზაციის ისტორია')}
                 >
                   <TrendingDown size={16} className="text-primary-500" />
                 </button>
@@ -257,20 +259,20 @@ export default function AssetsPage() {
           <div className="flex items-center gap-3">
             <Calculator size={24} className="text-accent-600" />
             <div className="flex-1">
-              <p className="font-medium text-accent-800 dark:text-accent-200">ამორტიზაცია დაფიქსირებულია</p>
+              <p className="font-medium text-accent-800 dark:text-accent-200">{t('ამორტიზაცია დაფიქსირებულია')}</p>
               <p className="text-sm text-accent-700 dark:text-accent-300">
                 {depResult.asset_name} — {money(depResult.depreciation_amount)} / {depResult.is_fully_depreciated ? '✅ სრულად ამორტიზებული' : `📉 ნარჩენი: ${money(depResult.new_book_value)}`}
               </p>
             </div>
-            <button onClick={() => setDepResult(null)} className="btn-secondary text-sm">დახურვა</button>
+            <button onClick={() => setDepResult(null)} className="btn-secondary text-sm">{t('დახურვა')}</button>
           </div>
         </div>
       )}
 
       {/* Depreciation History Modal */}
-      <Modal open={!!depAssetId} onClose={() => { setDepAssetId(null); setDepHistory([]) }} title="ამორტიზაციის ისტორია" size="md">
+      <Modal open={!!depAssetId} onClose={() => { setDepAssetId(null); setDepHistory([]) }} title={t('ამორტიზაციის ისტორია')} size="md">
         {depHistory.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">ამორტიზაციის ისტორია ცარიელია</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">{t('ამორტიზაციის ისტორია ცარიელია')}</p>
         ) : (
           <div className="space-y-2">
             {depHistory.map((d) => (
@@ -287,49 +289,49 @@ export default function AssetsPage() {
       </Modal>
 
       {/* ── Create Modal ──────────────────────────────────────────── */}
-      <Modal open={assetModal === 'create'} onClose={() => setAssetModal(null)} title="ახალი ძირითადი საშუალება" size="lg">
+      <Modal open={assetModal === 'create'} onClose={() => setAssetModal(null)} title={t('ახალი ძირითადი საშუალება')} size="lg">
         <div className="space-y-4">
-          <FormField label="სახელი" required>
-            <input value={assetForm.name} onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })} placeholder="მაგ. საწარმოო დანადგარი" className="input" />
+          <FormField label={t('სახელი')} required>
+            <input value={assetForm.name} onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })} placeholder={t('მაგ. საწარმოო დანადგარი')} className="input" />
           </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="ტიპი" required>
+            <FormField label={t('ტიპი')} required>
               <Select value={assetForm.asset_type} onChange={(e) => setAssetForm({ ...assetForm, asset_type: e.target.value })} options={assetTypes} />
             </FormField>
-            <FormField label="შეძენის თარიღი" required>
+            <FormField label={t('შეძენის თარიღი')} required>
               <input type="date" value={assetForm.purchase_date} onChange={(e) => setAssetForm({ ...assetForm, purchase_date: e.target.value })} className="input" />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="შეძენის ღირებულება" required>
+            <FormField label={t('შეძენის ღირებულება')} required>
               <input type="number" step="0.01" value={assetForm.purchase_cost || ''} onChange={(e) => setAssetForm({ ...assetForm, purchase_cost: Number(e.target.value) })} className="input" />
             </FormField>
-            <FormField label="სასარგებლო ვადა (წელი)" required>
+            <FormField label={t('სასარგებლო ვადა (წელი)')} required>
               <input type="number" min="1" value={assetForm.useful_life_years} onChange={(e) => setAssetForm({ ...assetForm, useful_life_years: Number(e.target.value) })} className="input" />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="ამორტიზაციის მეთოდი">
+            <FormField label={t('ამორტიზაციის მეთოდი')}>
               <Select value={assetForm.depreciation_method || 'straight_line'} onChange={(e) => setAssetForm({ ...assetForm, depreciation_method: e.target.value })} options={depMethods} />
             </FormField>
-            <FormField label="სალიკვიდაციო ღირებულება">
+            <FormField label={t('სალიკვიდაციო ღირებულება')}>
               <input type="number" step="0.01" value={assetForm.salvage_value || ''} onChange={(e) => setAssetForm({ ...assetForm, salvage_value: Number(e.target.value) })} className="input" />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="სერიული ნომერი">
+            <FormField label={t('სერიული ნომერი')}>
               <input value={assetForm.serial_number || ''} onChange={(e) => setAssetForm({ ...assetForm, serial_number: e.target.value || null })} className="input" />
             </FormField>
-            <FormField label="მდებარეობა">
+            <FormField label={t('მდებარეობა')}>
               <input value={assetForm.location || ''} onChange={(e) => setAssetForm({ ...assetForm, location: e.target.value || null })} className="input" />
             </FormField>
           </div>
-          <FormField label="შენიშვნა">
+          <FormField label={t('შენიშვნა')}>
             <textarea value={assetForm.notes || ''} onChange={(e) => setAssetForm({ ...assetForm, notes: e.target.value || null })} className="input" rows={2} />
           </FormField>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setAssetModal(null)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setAssetModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button
               onClick={() => {
                 if (!assetForm.name.trim() || !assetForm.purchase_cost || !assetForm.useful_life_years) {
@@ -348,27 +350,27 @@ export default function AssetsPage() {
       </Modal>
 
       {/* ── Edit Modal ────────────────────────────────────────────── */}
-      <Modal open={assetModal === 'edit'} onClose={() => setAssetModal(null)} title="აქტივის რედაქტირება" size="md">
+      <Modal open={assetModal === 'edit'} onClose={() => setAssetModal(null)} title={t('აქტივის რედაქტირება')} size="md">
         <div className="space-y-4">
-          <FormField label="სახელი">
+          <FormField label={t('სახელი')}>
             <input value={assetEditForm.name || ''} onChange={(e) => setAssetEditForm({ ...assetEditForm, name: e.target.value })} className="input" />
           </FormField>
-          <FormField label="სტატუსი">
+          <FormField label={t('სტატუსი')}>
             <Select value={assetEditForm.status || 'active'} onChange={(e) => setAssetEditForm({ ...assetEditForm, status: e.target.value })} options={[
               { value: 'active', label: 'აქტიური' },
               { value: 'fully_depreciated', label: 'სრულად ამორტიზებული' },
               { value: 'disposed', label: 'ჩამოწერილი' },
             ]} />
           </FormField>
-          <FormField label="მდებარეობა">
+          <FormField label={t('მდებარეობა')}>
             <input value={assetEditForm.location || ''} onChange={(e) => setAssetEditForm({ ...assetEditForm, location: e.target.value || null })} className="input" />
           </FormField>
-          <FormField label="შენიშვნა">
+          <FormField label={t('შენიშვნა')}>
             <textarea value={assetEditForm.notes || ''} onChange={(e) => setAssetEditForm({ ...assetEditForm, notes: e.target.value || null })} className="input" rows={2} />
           </FormField>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setAssetModal(null)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setAssetModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button onClick={() => updateAsset.mutate()} disabled={updateAsset.isPending} className="btn-primary">
               {updateAsset.isPending ? 'ინახება...' : 'შენახვა'}
             </button>

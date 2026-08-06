@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search, Users, DollarSign, Calendar, Clock, Building2, Briefcase, ChevronDown, ChevronRight } from 'lucide-react'
 
@@ -49,6 +50,7 @@ const tabs = [
 ]
 
 export default function HRPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState('employees')
   const [search, setSearch] = useState('')
@@ -128,12 +130,12 @@ export default function HRPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">HR / კადრები</h1>
-          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">თანამშრომლების რეესტრი, ხელფასები, timesheets</p>
+          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('HR / კადრები')}</h1>
+          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('თანამშრომლების რეესტრი, ხელფასები, timesheets')}</p>
         </div>
         {tab === 'employees' && (
           <button onClick={() => { setEditId(null); resetForm(); setShowModal(true) }} className="btn btn-primary flex items-center gap-2">
-            <Plus size={18} /> თანამშრომლის დამატება
+            <Plus size={18} /> {t('თანამშრომლის დამატება')}
           </button>
         )}
       </div>
@@ -160,7 +162,7 @@ export default function HRPage() {
             <div className="relative min-w-64 flex-1">
               <Search className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500" size={18} />
               <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="ძებნა სახელით, პოზიციით..."
+                placeholder={t('ძებნა სახელით, პოზიციით...')}
                 className="w-full rounded-lg border py-2 pl-10 pr-3 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </div>
           </div>
@@ -170,20 +172,20 @@ export default function HRPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
                   <tr>
-                    <th className="px-4 py-3">სახელი / პოზიცია</th>
-                    <th className="px-4 py-3">პირადი ნომერი</th>
-                    <th className="px-4 py-3">დეპარტამენტი</th>
-                    <th className="px-4 py-3">ხელშეკრულება</th>
-                    <th className="px-4 py-3 text-right">ხელფასი</th>
-                    <th className="px-4 py-3">სტატუსი</th>
+                    <th className="px-4 py-3">{t('სახელი / პოზიცია')}</th>
+                    <th className="px-4 py-3">{t('პირადი ნომერი')}</th>
+                    <th className="px-4 py-3">{t('დეპარტამენტი')}</th>
+                    <th className="px-4 py-3">{t('ხელშეკრულება')}</th>
+                    <th className="px-4 py-3 text-right">{t('ხელფასი')}</th>
+                    <th className="px-4 py-3">{t('სტატუსი')}</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y dark:divide-dark-50">
                   {empLoading ? (
-                    <tr><td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">იტვირთება...</td></tr>
+                    <tr><td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('იტვირთება...')}</td></tr>
                   ) : employees.length === 0 ? (
-                    <tr><td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">თანამშრომლები არ მოიძებნა</td></tr>
+                    <tr><td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('თანამშრომლები არ მოიძებნა')}</td></tr>
                   ) : employees.map(emp => (
                     <tr key={emp.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                       <td className="px-4 py-3">
@@ -200,7 +202,7 @@ export default function HRPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <button onClick={() => openEdit(emp)} className="text-primary-600 hover:underline text-xs dark:text-primary-400">რედაქტირება</button>
+                        <button onClick={() => openEdit(emp)} className="text-primary-600 hover:underline text-xs dark:text-primary-400">{t('რედაქტირება')}</button>
                       </td>
                     </tr>
                   ))}
@@ -233,15 +235,15 @@ export default function HRPage() {
           {/* Summary cards */}
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
-              <p className="text-xs text-gray-500 dark:text-gray-400">მთლიანი დარიცხვა</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('მთლიანი დარიცხვა')}</p>
               <p className="mt-2 text-xl font-bold text-brandgray-900 dark:text-gray-100">{money(totalGross)}</p>
             </div>
             <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
-              <p className="text-xs text-gray-500 dark:text-gray-400">საშემოსავლო გადასახადი (15%)</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('საშემოსავლო გადასახადი (15%)')}</p>
               <p className="mt-2 text-xl font-bold text-amber-700 dark:text-amber-400">{money(totalTax)}</p>
             </div>
             <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
-              <p className="text-xs text-gray-500 dark:text-gray-400">გასაცემი ხელფასი</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('გასაცემი ხელფასი')}</p>
               <p className="mt-2 text-xl font-bold text-green-700 dark:text-green-400">{money(totalNet)}</p>
             </div>
           </div>
@@ -251,18 +253,18 @@ export default function HRPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
                   <tr>
-                    <th className="px-4 py-3">თანამშრომელი</th>
-                    <th className="px-4 py-3 text-right">დარიცხვა</th>
-                    <th className="px-4 py-3 text-right">დამატებები</th>
-                    <th className="px-4 py-3 text-right">დაკავებები</th>
-                    <th className="px-4 py-3 text-right">გადასახადი</th>
-                    <th className="px-4 py-3 text-right">გასაცემი</th>
-                    <th className="px-4 py-3">სტატუსი</th>
+                    <th className="px-4 py-3">{t('თანამშრომელი')}</th>
+                    <th className="px-4 py-3 text-right">{t('დარიცხვა')}</th>
+                    <th className="px-4 py-3 text-right">{t('დამატებები')}</th>
+                    <th className="px-4 py-3 text-right">{t('დაკავებები')}</th>
+                    <th className="px-4 py-3 text-right">{t('გადასახადი')}</th>
+                    <th className="px-4 py-3 text-right">{t('გასაცემი')}</th>
+                    <th className="px-4 py-3">{t('სტატუსი')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y dark:divide-dark-50">
                   {payLoading ? (
-                    <tr><td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">იტვირთება...</td></tr>
+                    <tr><td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('იტვირთება...')}</td></tr>
                   ) : payrollEntries.length === 0 ? (
                     <tr><td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">ამ პერიოდისთვის მონაცემები არ არის. დააჭირეთ "ხელფასების გაანგარიშება"</td></tr>
                   ) : payrollEntries.map(entry => (
@@ -294,7 +296,7 @@ export default function HRPage() {
       {/* ── Timesheets Tab ──────────────────────────────────────────── */}
       {tab === 'timesheets' && (
         <div className="rounded-xl border bg-white p-8 text-center text-sm text-gray-500 dark:border-dark-50 dark:bg-dark-200 dark:text-gray-400">
-          Timesheets ფუნქციონალი API-ში მზადაა. Frontend UI მალე დაემატება.
+          {t('Timesheets ფუნქციონალი API-ში მზადაა. Frontend UI მალე დაემატება.')}
         </div>
       )}
 
@@ -302,40 +304,40 @@ export default function HRPage() {
       <Modal open={showModal} onClose={() => setShowModal(false)} title={editId ? 'თანამშრომლის რედაქტირება' : 'ახალი თანამშრომელი'} size="lg">
         <form onSubmit={submit} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <FormField label="სრული სახელი" required>
+            <FormField label={t('სრული სახელი')} required>
               <input required value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </FormField>
-            <FormField label="პირადი ნომერი" required>
+            <FormField label={t('პირადი ნომერი')} required>
               <input required value={form.personal_number} onChange={e => setForm({ ...form, personal_number: e.target.value })} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </FormField>
-            <FormField label="პოზიცია" required>
+            <FormField label={t('პოზიცია')} required>
               <input required value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </FormField>
-            <FormField label="დეპარტამენტი">
+            <FormField label={t('დეპარტამენტი')}>
               <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}
                 className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
-                <option value="">აირჩიეთ</option>
+                <option value="">{t('აირჩიეთ')}</option>
                 {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </FormField>
-            <FormField label="ელ. ფოსტა">
+            <FormField label={t('ელ. ფოსტა')}>
               <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </FormField>
-            <FormField label="ტელეფონი">
+            <FormField label={t('ტელეფონი')}>
               <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </FormField>
-            <FormField label="ხელშეკრულების ტიპი">
+            <FormField label={t('ხელშეკრულების ტიპი')}>
               <select value={form.contract_type} onChange={e => setForm({ ...form, contract_type: e.target.value })}
                 className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
-                <option value="permanent">მუდმივი</option>
-                <option value="fixed_term">ვადიანი</option>
-                <option value="contract">ხელშეკრულება</option>
+                <option value="permanent">{t('მუდმივი')}</option>
+                <option value="fixed_term">{t('ვადიანი')}</option>
+                <option value="contract">{t('ხელშეკრულება')}</option>
               </select>
             </FormField>
-            <FormField label="დაქირავების თარიღი" required>
+            <FormField label={t('დაქირავების თარიღი')} required>
               <input required type="date" value={form.hire_date} onChange={e => setForm({ ...form, hire_date: e.target.value })} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </FormField>
-            <FormField label="საბაზისო ხელფასი">
+            <FormField label={t('საბაზისო ხელფასი')}>
               <input type="number" value={form.base_salary || ''} onChange={e => setForm({ ...form, base_salary: Number(e.target.value) })} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </FormField>
           </div>

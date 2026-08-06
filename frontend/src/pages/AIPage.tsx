@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { aiApi } from '../services/api'
 import { Send, Bot, Sparkles, RefreshCw, AlertCircle, TrendingUp, Clock, Package } from 'lucide-react'
@@ -43,6 +44,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
 }
 
 export default function AIPage() {
+  const { t } = useTranslation()
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: 'მოგესალმებით! 👋 მე ვარ Business OS AI ასისტენტი. დამისვით შეკითხვა თქვენი ბიზნეს მონაცემების შესახებ — შემოსავლები, კლიენტები, შეკვეთები, ნაშთები ან დავალებები.' }
   ])
@@ -83,8 +85,8 @@ export default function AIPage() {
       <div className="flex items-center gap-3 mb-4">
         <Bot size={28} className="text-primary-600" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">AI ასისტენტი</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Business OS ინტელექტუალური თანაშემწე</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('AI ასისტენტი')}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('Business OS ინტელექტუალური თანაშემწე')}</p>
         </div>
       </div>
 
@@ -107,7 +109,7 @@ export default function AIPage() {
               <div className="flex justify-start">
                 <div className="bg-gray-100 dark:bg-dark-100 px-4 py-3 rounded-2xl text-gray-500 dark:text-gray-400 text-sm flex items-center gap-2">
                   <RefreshCw size={14} className="animate-spin" />
-                  ფიქრობს...
+                  {t('ფიქრობს...')}
                 </div>
               </div>
             )}
@@ -121,7 +123,7 @@ export default function AIPage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                placeholder="დასვით შეკითხვა..."
+                placeholder={t('დასვით შეკითხვა...')}
                 className="input flex-1"
                 disabled={chatMutation.isPending}
               />
@@ -136,7 +138,7 @@ export default function AIPage() {
         <div className="w-64 card hidden lg:flex flex-col">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
             <Sparkles size={16} className="text-yellow-500" />
-            სწრაფი ქმედებები
+            {t('სწრაფი ქმედებები')}
           </h3>
           <div className="space-y-2 flex-1">
             {quickActions.map(a => (
@@ -153,9 +155,9 @@ export default function AIPage() {
           </div>
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-dark-50">
             <div className="text-xs text-gray-400 space-y-2 dark:text-gray-500">
-              <p className="flex items-center gap-1"><TrendingUp size={12} /> შემოსავლების ანალიზი</p>
-              <p className="flex items-center gap-1"><Package size={12} /> ნაშთების მართვა</p>
-              <p className="flex items-center gap-1"><Clock size={12} /> დავალებების ტრეკინგი</p>
+              <p className="flex items-center gap-1"><TrendingUp size={12} /> {t('შემოსავლების ანალიზი')}</p>
+              <p className="flex items-center gap-1"><Package size={12} /> {t('ნაშთების მართვა')}</p>
+              <p className="flex items-center gap-1"><Clock size={12} /> {t('დავალებების ტრეკინგი')}</p>
             </div>
           </div>
         </div>

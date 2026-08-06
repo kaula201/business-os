@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Car,
@@ -86,6 +87,7 @@ function errorText(err: any) {
 // ── Page ─────────────────────────────────────────────────────────────
 
 export default function FleetPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState('vehicles')
   const [search, setSearch] = useState('')
@@ -283,8 +285,8 @@ export default function FleetPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">ავტოპარკი</h1>
-          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">ავტომობილების, საწვავის, მომსახურებისა და მძღოლების მართვა</p>
+          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('ავტოპარკი')}</h1>
+          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('ავტომობილების, საწვავის, მომსახურებისა და მძღოლების მართვა')}</p>
         </div>
         <div className="flex gap-2">
           {tab === 'vehicles' && (
@@ -301,7 +303,7 @@ export default function FleetPage() {
                 setVehicleModal('create')
               }}
             >
-              <Plus size={18} /> ავტომობილი
+              <Plus size={18} /> {t('ავტომობილი')}
             </button>
           )}
           {tab === 'fuel' && (
@@ -319,7 +321,7 @@ export default function FleetPage() {
               }}
               disabled={!fuelVehicleId}
             >
-              <Plus size={18} /> საწვავი
+              <Plus size={18} /> {t('საწვავი')}
             </button>
           )}
           {tab === 'services' && (
@@ -337,7 +339,7 @@ export default function FleetPage() {
               }}
               disabled={!serviceVehicleId}
             >
-              <Plus size={18} /> მომსახურება
+              <Plus size={18} /> {t('მომსახურება')}
             </button>
           )}
           {tab === 'drivers' && (
@@ -354,7 +356,7 @@ export default function FleetPage() {
               }}
               disabled={!driverVehicleId}
             >
-              <Plus size={18} /> მძღოლი
+              <Plus size={18} /> {t('მძღოლი')}
             </button>
           )}
         </div>
@@ -363,7 +365,7 @@ export default function FleetPage() {
       {/* Tabs */}
       <div
         className="flex min-w-0 snap-x snap-mandatory gap-1 overflow-x-auto border-b border-brandgray-100 dark:border-dark-50 overscroll-x-contain"
-        aria-label="ავტოპარკის განყოფილებები"
+        aria-label={t('ავტოპარკის განყოფილებები')}
       >
         {tabs.map((t) => (
           <button
@@ -389,7 +391,7 @@ export default function FleetPage() {
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
               <input
                 value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="ძებნა ნომრით, ბრენდით ან მოდელით..."
+                placeholder={t('ძებნა ნომრით, ბრენდით ან მოდელით...')}
                 className="input pl-10"
               />
             </div>
@@ -454,13 +456,13 @@ export default function FleetPage() {
               value={fuelVehicleId}
               onChange={(e) => setFuelVehicleId(e.target.value)}
               options={vehicles.map((v) => ({ value: v.id, label: `${v.plate_number} — ${v.brand} ${v.model}` }))}
-              placeholder="აირჩიეთ ავტომობილი"
+              placeholder={t('აირჩიეთ ავტომობილი')}
               className="w-72"
             />
           </div>
 
           {!fuelVehicleId ? (
-            <div className="card p-8 text-center text-brandgray-500 dark:text-gray-400">აირჩიეთ ავტომობილი საწვავის ჩანაწერების სანახავად</div>
+            <div className="card p-8 text-center text-brandgray-500 dark:text-gray-400">{t('აირჩიეთ ავტომობილი საწვავის ჩანაწერების სანახავად')}</div>
           ) : (
             <DataTable
               columns={[
@@ -499,13 +501,13 @@ export default function FleetPage() {
               value={serviceVehicleId}
               onChange={(e) => setServiceVehicleId(e.target.value)}
               options={vehicles.map((v) => ({ value: v.id, label: `${v.plate_number} — ${v.brand} ${v.model}` }))}
-              placeholder="აირჩიეთ ავტომობილი"
+              placeholder={t('აირჩიეთ ავტომობილი')}
               className="w-72"
             />
           </div>
 
           {!serviceVehicleId ? (
-            <div className="card p-8 text-center text-brandgray-500 dark:text-gray-400">აირჩიეთ ავტომობილი მომსახურების ჩანაწერების სანახავად</div>
+            <div className="card p-8 text-center text-brandgray-500 dark:text-gray-400">{t('აირჩიეთ ავტომობილი მომსახურების ჩანაწერების სანახავად')}</div>
           ) : (
             <DataTable
               columns={[
@@ -546,13 +548,13 @@ export default function FleetPage() {
               value={driverVehicleId}
               onChange={(e) => setDriverVehicleId(e.target.value)}
               options={vehicles.map((v) => ({ value: v.id, label: `${v.plate_number} — ${v.brand} ${v.model}` }))}
-              placeholder="აირჩიეთ ავტომობილი"
+              placeholder={t('აირჩიეთ ავტომობილი')}
               className="w-72"
             />
           </div>
 
           {!driverVehicleId ? (
-            <div className="card p-8 text-center text-brandgray-500 dark:text-gray-400">აირჩიეთ ავტომობილი მძღოლების სანახავად</div>
+            <div className="card p-8 text-center text-brandgray-500 dark:text-gray-400">{t('აირჩიეთ ავტომობილი მძღოლების სანახავად')}</div>
           ) : (
             <DataTable
               columns={[
@@ -606,76 +608,76 @@ export default function FleetPage() {
       )}
 
       {/* ── Vehicle Create Modal ─────────────────────────────────── */}
-      <Modal open={vehicleModal === 'create'} onClose={() => setVehicleModal(null)} title="ახალი ავტომობილი" size="lg">
+      <Modal open={vehicleModal === 'create'} onClose={() => setVehicleModal(null)} title={t('ახალი ავტომობილი')} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="სახელმწ. ნომერი" required>
-              <input value={vehicleForm.plate_number} onChange={(e) => setVehicleForm({ ...vehicleForm, plate_number: e.target.value })} placeholder="მაგ. AA-123-BB" className="input" />
+            <FormField label={t('სახელმწ. ნომერი')} required>
+              <input value={vehicleForm.plate_number} onChange={(e) => setVehicleForm({ ...vehicleForm, plate_number: e.target.value })} placeholder={t('მაგ. AA-123-BB')} className="input" />
             </FormField>
-            <FormField label="საწვავის ტიპი">
+            <FormField label={t('საწვავის ტიპი')}>
               <Select value={vehicleForm.fuel_type} onChange={(e) => setVehicleForm({ ...vehicleForm, fuel_type: e.target.value })} options={fuelTypes} />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="ბრენდი" required>
+            <FormField label={t('ბრენდი')} required>
               <input value={vehicleForm.brand} onChange={(e) => setVehicleForm({ ...vehicleForm, brand: e.target.value })} placeholder="Toyota" className="input" />
             </FormField>
-            <FormField label="მოდელი" required>
+            <FormField label={t('მოდელი')} required>
               <input value={vehicleForm.model} onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })} placeholder="Camry" className="input" />
             </FormField>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <FormField label="გამოშვების წელი">
+            <FormField label={t('გამოშვების წელი')}>
               <input type="number" value={vehicleForm.year ?? ''} onChange={(e) => setVehicleForm({ ...vehicleForm, year: e.target.value ? Number(e.target.value) : null })} className="input" />
             </FormField>
-            <FormField label="VIN კოდი">
+            <FormField label={t('VIN კოდი')}>
               <input value={vehicleForm.vin || ''} onChange={(e) => setVehicleForm({ ...vehicleForm, vin: e.target.value })} className="input" />
             </FormField>
-            <FormField label="ფერი">
+            <FormField label={t('ფერი')}>
               <input value={vehicleForm.color || ''} onChange={(e) => setVehicleForm({ ...vehicleForm, color: e.target.value })} className="input" />
             </FormField>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <FormField label="ძრავის მოცულობა (ლ)">
+            <FormField label={t('ძრავის მოცულობა (ლ)')}>
               <input type="number" step="0.1" value={vehicleForm.engine_capacity ?? ''} onChange={(e) => setVehicleForm({ ...vehicleForm, engine_capacity: e.target.value ? Number(e.target.value) : null })} className="input" />
             </FormField>
-            <FormField label="საწყისი გარბენი (კმ)">
+            <FormField label={t('საწყისი გარბენი (კმ)')}>
               <input type="number" value={vehicleForm.initial_mileage} onChange={(e) => setVehicleForm({ ...vehicleForm, initial_mileage: Number(e.target.value) })} className="input" />
             </FormField>
-            <FormField label="მიმდ. გარბენი (კმ)">
+            <FormField label={t('მიმდ. გარბენი (კმ)')}>
               <input type="number" value={vehicleForm.current_mileage} onChange={(e) => setVehicleForm({ ...vehicleForm, current_mileage: Number(e.target.value) })} className="input" />
             </FormField>
           </div>
           <div className="border-t border-gray-100 dark:border-dark-50 pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">დაზღვევა</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{t('დაზღვევა')}</h3>
             <div className="grid grid-cols-3 gap-4">
-              <FormField label="მზღვეველი კომპანია">
+              <FormField label={t('მზღვეველი კომპანია')}>
                 <input value={vehicleForm.insurance_company || ''} onChange={(e) => setVehicleForm({ ...vehicleForm, insurance_company: e.target.value })} className="input" />
               </FormField>
-              <FormField label="პოლისის ნომერი">
+              <FormField label={t('პოლისის ნომერი')}>
                 <input value={vehicleForm.insurance_policy || ''} onChange={(e) => setVehicleForm({ ...vehicleForm, insurance_policy: e.target.value })} className="input" />
               </FormField>
-              <FormField label="მოქმედებს">
+              <FormField label={t('მოქმედებს')}>
                 <input type="date" value={vehicleForm.insurance_valid_until || ''} onChange={(e) => setVehicleForm({ ...vehicleForm, insurance_valid_until: e.target.value || null })} className="input" />
               </FormField>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="ტექ. ინსპექცია">
+            <FormField label={t('ტექ. ინსპექცია')}>
               <input type="date" value={vehicleForm.tech_inspection_until || ''} onChange={(e) => setVehicleForm({ ...vehicleForm, tech_inspection_until: e.target.value || null })} className="input" />
             </FormField>
-            <FormField label="შენიშვნა">
+            <FormField label={t('შენიშვნა')}>
               <input value={vehicleForm.notes || ''} onChange={(e) => setVehicleForm({ ...vehicleForm, notes: e.target.value })} className="input" />
             </FormField>
           </div>
           <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 dark:border-blue-900/40 dark:bg-blue-900/10">
-            <div className="mb-3 flex items-center gap-2 font-semibold text-blue-950 dark:text-blue-200"><MapPinned size={18} /> მდებარეობა საქართველოს რუკაზე</div>
+            <div className="mb-3 flex items-center gap-2 font-semibold text-blue-950 dark:text-blue-200"><MapPinned size={18} /> {t('მდებარეობა საქართველოს რუკაზე')}</div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField label="ქალაქის სწრაფი არჩევა">
+              <FormField label={t('ქალაქის სწრაფი არჩევა')}>
                 <Select value={georgiaLocations.some((item) => item.value === vehicleForm.location_name) ? vehicleForm.location_name || '' : ''} onChange={(e) => applyCreateLocation(e.target.value)} options={georgiaLocations} />
               </FormField>
-              <FormField label="მისამართი / ობიექტი">
-                <input value={vehicleForm.location_name || ''} onChange={(e) => setVehicleForm({ ...vehicleForm, location_name: e.target.value })} className="input" placeholder="მაგ. თბილისი, წერეთლის გამზირი" />
+              <FormField label={t('მისამართი / ობიექტი')}>
+                <input value={vehicleForm.location_name || ''} onChange={(e) => setVehicleForm({ ...vehicleForm, location_name: e.target.value })} className="input" placeholder={t('მაგ. თბილისი, წერეთლის გამზირი')} />
               </FormField>
               <FormField label="Latitude">
                 <input type="number" min="-90" max="90" step="0.000001" value={vehicleForm.latitude ?? ''} onChange={(e) => setVehicleForm({ ...vehicleForm, latitude: e.target.value ? Number(e.target.value) : null })} className="input" placeholder="41.715100" />
@@ -687,7 +689,7 @@ export default function FleetPage() {
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setVehicleModal(null)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setVehicleModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button
               onClick={() => {
                 if (!vehicleForm.plate_number.trim() || !vehicleForm.brand.trim() || !vehicleForm.model.trim()) {
@@ -706,54 +708,54 @@ export default function FleetPage() {
       </Modal>
 
       {/* ── Vehicle Edit Modal ───────────────────────────────────── */}
-      <Modal open={vehicleModal === 'edit'} onClose={() => setVehicleModal(null)} title="ავტომობილის რედაქტირება" size="lg">
+      <Modal open={vehicleModal === 'edit'} onClose={() => setVehicleModal(null)} title={t('ავტომობილის რედაქტირება')} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="სახელმწ. ნომერი">
+            <FormField label={t('სახელმწ. ნომერი')}>
               <input value={vehicleEditForm.plate_number || ''} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, plate_number: e.target.value })} className="input" />
             </FormField>
-            <FormField label="საწვავის ტიპი">
+            <FormField label={t('საწვავის ტიპი')}>
               <Select value={vehicleEditForm.fuel_type || 'petrol'} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, fuel_type: e.target.value })} options={fuelTypes} />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="ბრენდი">
+            <FormField label={t('ბრენდი')}>
               <input value={vehicleEditForm.brand || ''} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, brand: e.target.value })} className="input" />
             </FormField>
-            <FormField label="მოდელი">
+            <FormField label={t('მოდელი')}>
               <input value={vehicleEditForm.model || ''} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, model: e.target.value })} className="input" />
             </FormField>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <FormField label="წელი">
+            <FormField label={t('წელი')}>
               <input type="number" value={vehicleEditForm.year ?? ''} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, year: e.target.value ? Number(e.target.value) : null })} className="input" />
             </FormField>
             <FormField label="VIN">
               <input value={vehicleEditForm.vin || ''} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, vin: e.target.value })} className="input" />
             </FormField>
-            <FormField label="ფერი">
+            <FormField label={t('ფერი')}>
               <input value={vehicleEditForm.color || ''} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, color: e.target.value })} className="input" />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="მიმდ. გარბენი (კმ)">
+            <FormField label={t('მიმდ. გარბენი (კმ)')}>
               <input type="number" value={vehicleEditForm.current_mileage ?? ''} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, current_mileage: e.target.value ? Number(e.target.value) : null })} className="input" />
             </FormField>
-            <FormField label="სტატუსი">
+            <FormField label={t('სტატუსი')}>
               <label className="flex items-center gap-2 mt-2">
                 <input type="checkbox" checked={vehicleEditForm.is_active !== false} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, is_active: e.target.checked })} className="rounded" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">აქტიური</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">{t('აქტიური')}</span>
               </label>
             </FormField>
           </div>
           <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 dark:border-blue-900/40 dark:bg-blue-900/10">
-            <div className="mb-3 flex items-center gap-2 font-semibold text-blue-950 dark:text-blue-200"><MapPinned size={18} /> მდებარეობა საქართველოს რუკაზე</div>
+            <div className="mb-3 flex items-center gap-2 font-semibold text-blue-950 dark:text-blue-200"><MapPinned size={18} /> {t('მდებარეობა საქართველოს რუკაზე')}</div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField label="ქალაქის სწრაფი არჩევა">
+              <FormField label={t('ქალაქის სწრაფი არჩევა')}>
                 <Select value={georgiaLocations.some((item) => item.value === vehicleEditForm.location_name) ? vehicleEditForm.location_name || '' : ''} onChange={(e) => applyEditLocation(e.target.value)} options={georgiaLocations} />
               </FormField>
-              <FormField label="მისამართი / ობიექტი">
-                <input value={vehicleEditForm.location_name || ''} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, location_name: e.target.value })} className="input" placeholder="მაგ. ბათუმი, პორტის ტერიტორია" />
+              <FormField label={t('მისამართი / ობიექტი')}>
+                <input value={vehicleEditForm.location_name || ''} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, location_name: e.target.value })} className="input" placeholder={t('მაგ. ბათუმი, პორტის ტერიტორია')} />
               </FormField>
               <FormField label="Latitude">
                 <input type="number" min="-90" max="90" step="0.000001" value={vehicleEditForm.latitude ?? ''} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, latitude: e.target.value ? Number(e.target.value) : null })} className="input" />
@@ -763,12 +765,12 @@ export default function FleetPage() {
               </FormField>
             </div>
           </div>
-          <FormField label="შენიშვნა">
+          <FormField label={t('შენიშვნა')}>
             <textarea value={vehicleEditForm.notes || ''} onChange={(e) => setVehicleEditForm({ ...vehicleEditForm, notes: e.target.value })} className="input" rows={3} />
           </FormField>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setVehicleModal(null)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setVehicleModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button
               onClick={() => {
                 if (!selectedVehicle) return
@@ -784,41 +786,41 @@ export default function FleetPage() {
       </Modal>
 
       {/* ── Fuel Create Modal ─────────────────────────────────────── */}
-      <Modal open={fuelModal} onClose={() => setFuelModal(false)} title="საწვავის ჩანაწერი" size="md">
+      <Modal open={fuelModal} onClose={() => setFuelModal(false)} title={t('საწვავის ჩანაწერი')} size="md">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="თარიღი" required>
+            <FormField label={t('თარიღი')} required>
               <input type="date" value={fuelForm.refuel_date} onChange={(e) => setFuelForm({ ...fuelForm, refuel_date: e.target.value })} className="input" />
             </FormField>
-            <FormField label="ლიტრი" required>
+            <FormField label={t('ლიტრი')} required>
               <input type="number" step="0.01" value={fuelForm.liters || ''} onChange={(e) => setFuelForm({ ...fuelForm, liters: Number(e.target.value) })} className="input" />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="ფასი ლიტრზე" required>
+            <FormField label={t('ფასი ლიტრზე')} required>
               <input type="number" step="0.01" value={fuelForm.price_per_liter || ''} onChange={(e) => setFuelForm({ ...fuelForm, price_per_liter: Number(e.target.value) })} className="input" />
             </FormField>
-            <FormField label="ჯამი" required>
+            <FormField label={t('ჯამი')} required>
               <input type="number" step="0.01" value={fuelForm.total_amount || ''} onChange={(e) => setFuelForm({ ...fuelForm, total_amount: Number(e.target.value) })} className="input" />
             </FormField>
           </div>
-          <FormField label="გარბენი საწვავის შევსებისას (კმ)" required>
+          <FormField label={t('გარბენი საწვავის შევსებისას (კმ)')} required>
             <input type="number" value={fuelForm.mileage_at_refuel || ''} onChange={(e) => setFuelForm({ ...fuelForm, mileage_at_refuel: Number(e.target.value) })} className="input" />
           </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="საწვავის ბარათი">
+            <FormField label={t('საწვავის ბარათი')}>
               <input value={fuelForm.fuel_card || ''} onChange={(e) => setFuelForm({ ...fuelForm, fuel_card: e.target.value })} className="input" />
             </FormField>
-            <FormField label="ბენზინგასამართი">
+            <FormField label={t('ბენზინგასამართი')}>
               <input value={fuelForm.station || ''} onChange={(e) => setFuelForm({ ...fuelForm, station: e.target.value })} className="input" />
             </FormField>
           </div>
-          <FormField label="შენიშვნა">
+          <FormField label={t('შენიშვნა')}>
             <textarea value={fuelForm.notes || ''} onChange={(e) => setFuelForm({ ...fuelForm, notes: e.target.value })} className="input" rows={2} />
           </FormField>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setFuelModal(false)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setFuelModal(false)} className="btn-secondary">{t('გაუქმება')}</button>
             <button
               onClick={() => {
                 if (!fuelForm.liters || !fuelForm.price_per_liter || !fuelForm.total_amount || !fuelForm.mileage_at_refuel) {
@@ -837,49 +839,49 @@ export default function FleetPage() {
       </Modal>
 
       {/* ── Service Create Modal ──────────────────────────────────── */}
-      <Modal open={serviceModal} onClose={() => setServiceModal(false)} title="მომსახურების ჩანაწერი" size="md">
+      <Modal open={serviceModal} onClose={() => setServiceModal(false)} title={t('მომსახურების ჩანაწერი')} size="md">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="თარიღი" required>
+            <FormField label={t('თარიღი')} required>
               <input type="date" value={serviceForm.service_date} onChange={(e) => setServiceForm({ ...serviceForm, service_date: e.target.value })} className="input" />
             </FormField>
-            <FormField label="ტიპი" required>
+            <FormField label={t('ტიპი')} required>
               <Select value={serviceForm.service_type} onChange={(e) => setServiceForm({ ...serviceForm, service_type: e.target.value })} options={serviceTypes} />
             </FormField>
           </div>
-          <FormField label="აღწერა" required>
-            <textarea value={serviceForm.description} onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })} className="input" rows={3} placeholder="მომსახურების აღწერა" />
+          <FormField label={t('აღწერა')} required>
+            <textarea value={serviceForm.description} onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })} className="input" rows={3} placeholder={t('მომსახურების აღწერა')} />
           </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="გარბენი (კმ)" required>
+            <FormField label={t('გარბენი (კმ)')} required>
               <input type="number" value={serviceForm.mileage_at_service || ''} onChange={(e) => setServiceForm({ ...serviceForm, mileage_at_service: Number(e.target.value) })} className="input" />
             </FormField>
-            <FormField label="ღირებულება">
+            <FormField label={t('ღირებულება')}>
               <input type="number" step="0.01" value={serviceForm.cost || ''} onChange={(e) => setServiceForm({ ...serviceForm, cost: Number(e.target.value) })} className="input" />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="სერვის ცენტრი">
+            <FormField label={t('სერვის ცენტრი')}>
               <input value={serviceForm.service_provider || ''} onChange={(e) => setServiceForm({ ...serviceForm, service_provider: e.target.value })} className="input" />
             </FormField>
-            <FormField label="ინვოისის ნომერი">
+            <FormField label={t('ინვოისის ნომერი')}>
               <input value={serviceForm.invoice_number || ''} onChange={(e) => setServiceForm({ ...serviceForm, invoice_number: e.target.value })} className="input" />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="შემდეგი მომსახურება (გარბენი)">
+            <FormField label={t('შემდეგი მომსახურება (გარბენი)')}>
               <input type="number" value={serviceForm.next_service_mileage ?? ''} onChange={(e) => setServiceForm({ ...serviceForm, next_service_mileage: e.target.value ? Number(e.target.value) : null })} className="input" />
             </FormField>
-            <FormField label="შემდეგი მომსახურება (თარიღი)">
+            <FormField label={t('შემდეგი მომსახურება (თარიღი)')}>
               <input type="date" value={serviceForm.next_service_date || ''} onChange={(e) => setServiceForm({ ...serviceForm, next_service_date: e.target.value || null })} className="input" />
             </FormField>
           </div>
-          <FormField label="შენიშვნა">
+          <FormField label={t('შენიშვნა')}>
             <textarea value={serviceForm.notes || ''} onChange={(e) => setServiceForm({ ...serviceForm, notes: e.target.value })} className="input" rows={2} />
           </FormField>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setServiceModal(false)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setServiceModal(false)} className="btn-secondary">{t('გაუქმება')}</button>
             <button
               onClick={() => {
                 if (!serviceForm.description.trim() || !serviceForm.mileage_at_service) {
@@ -898,33 +900,33 @@ export default function FleetPage() {
       </Modal>
 
       {/* ── Driver Create Modal ──────────────────────────────────── */}
-      <Modal open={driverModal === 'create'} onClose={() => setDriverModal(null)} title="მძღოლის მინიჭება" size="md">
+      <Modal open={driverModal === 'create'} onClose={() => setDriverModal(null)} title={t('მძღოლის მინიჭება')} size="md">
         <div className="space-y-4">
-          <FormField label="მძღოლის სახელი" required>
+          <FormField label={t('მძღოლის სახელი')} required>
             <input value={driverForm.driver_name} onChange={(e) => setDriverForm({ ...driverForm, driver_name: e.target.value })} className="input" />
           </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="ტელეფონი">
+            <FormField label={t('ტელეფონი')}>
               <input value={driverForm.driver_phone || ''} onChange={(e) => setDriverForm({ ...driverForm, driver_phone: e.target.value })} className="input" />
             </FormField>
-            <FormField label="მართვის მოწმობა">
+            <FormField label={t('მართვის მოწმობა')}>
               <input value={driverForm.driver_license || ''} onChange={(e) => setDriverForm({ ...driverForm, driver_license: e.target.value })} className="input" />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="მინიჭებული" required>
+            <FormField label={t('მინიჭებული')} required>
               <input type="date" value={driverForm.assigned_from} onChange={(e) => setDriverForm({ ...driverForm, assigned_from: e.target.value })} className="input" />
             </FormField>
-            <FormField label="მოქმედებს">
+            <FormField label={t('მოქმედებს')}>
               <input type="date" value={driverForm.assigned_until || ''} onChange={(e) => setDriverForm({ ...driverForm, assigned_until: e.target.value || null })} className="input" />
             </FormField>
           </div>
-          <FormField label="შენიშვნა">
+          <FormField label={t('შენიშვნა')}>
             <textarea value={driverForm.notes || ''} onChange={(e) => setDriverForm({ ...driverForm, notes: e.target.value })} className="input" rows={2} />
           </FormField>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setDriverModal(null)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setDriverModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button
               onClick={() => {
                 if (!driverForm.driver_name.trim()) { setError('მძღოლის სახელი სავალდებულოა'); return }
@@ -940,39 +942,39 @@ export default function FleetPage() {
       </Modal>
 
       {/* ── Driver Edit Modal ─────────────────────────────────────── */}
-      <Modal open={driverModal === 'edit'} onClose={() => setDriverModal(null)} title="მძღოლის რედაქტირება" size="md">
+      <Modal open={driverModal === 'edit'} onClose={() => setDriverModal(null)} title={t('მძღოლის რედაქტირება')} size="md">
         <div className="space-y-4">
-          <FormField label="მძღოლის სახელი">
+          <FormField label={t('მძღოლის სახელი')}>
             <input value={driverEditForm.driver_name || ''} onChange={(e) => setDriverEditForm({ ...driverEditForm, driver_name: e.target.value })} className="input" />
           </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="ტელეფონი">
+            <FormField label={t('ტელეფონი')}>
               <input value={driverEditForm.driver_phone || ''} onChange={(e) => setDriverEditForm({ ...driverEditForm, driver_phone: e.target.value })} className="input" />
             </FormField>
-            <FormField label="მართვის მოწმობა">
+            <FormField label={t('მართვის მოწმობა')}>
               <input value={driverEditForm.driver_license || ''} onChange={(e) => setDriverEditForm({ ...driverEditForm, driver_license: e.target.value })} className="input" />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="მინიჭებული">
+            <FormField label={t('მინიჭებული')}>
               <input type="date" value={driverEditForm.assigned_from || ''} onChange={(e) => setDriverEditForm({ ...driverEditForm, assigned_from: e.target.value })} className="input" />
             </FormField>
-            <FormField label="მოქმედებს">
+            <FormField label={t('მოქმედებს')}>
               <input type="date" value={driverEditForm.assigned_until || ''} onChange={(e) => setDriverEditForm({ ...driverEditForm, assigned_until: e.target.value || null })} className="input" />
             </FormField>
           </div>
-          <FormField label="სტატუსი">
+          <FormField label={t('სტატუსი')}>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={driverEditForm.is_active !== false} onChange={(e) => setDriverEditForm({ ...driverEditForm, is_active: e.target.checked })} className="rounded" />
-              <span className="text-sm text-gray-700 dark:text-gray-300">აქტიური</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t('აქტიური')}</span>
             </label>
           </FormField>
-          <FormField label="შენიშვნა">
+          <FormField label={t('შენიშვნა')}>
             <textarea value={driverEditForm.notes || ''} onChange={(e) => setDriverEditForm({ ...driverEditForm, notes: e.target.value })} className="input" rows={2} />
           </FormField>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setDriverModal(null)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setDriverModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button
               onClick={() => {
                 if (!selectedDriver) return

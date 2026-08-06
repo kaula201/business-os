@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarRange, ChevronLeft, ChevronRight, History, LockKeyhole, ShieldCheck, Unlock } from 'lucide-react'
 import Modal from '../components/ui/Modal'
@@ -37,6 +38,7 @@ const formatDateTime = (value: string | null) => value
 type ActionState = { type: 'close' | 'reopen'; month: number } | null
 
 export default function AccountingPeriodsPage() {
+  const { t } = useTranslation()
   const currentYear = new Date().getFullYear()
   const [year, setYear] = useState(currentYear)
   const [action, setAction] = useState<ActionState>(null)
@@ -91,27 +93,27 @@ export default function AccountingPeriodsPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-brandgray-900 dark:text-gray-100">
             <CalendarRange className="text-primary-600 dark:text-primary-400" />
-            სააღრიცხვო პერიოდები
+            {t('სააღრიცხვო პერიოდები')}
           </h1>
           <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">
-            დახურეთ დასრულებული თვეები და დაიცავით ფინანსური მონაცემები შემდგომი ცვლილებებისგან
+            {t('დახურეთ დასრულებული თვეები და დაიცავით ფინანსური მონაცემები შემდგომი ცვლილებებისგან')}
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-xl border border-brandgray-200 bg-white p-1 shadow-sm dark:border-dark-50 dark:bg-dark-200">
-          <button className="rounded-lg p-2 hover:bg-brandgray-50 dark:hover:bg-dark-100" onClick={() => setYear((value) => value - 1)} aria-label="წინა წელი"><ChevronLeft size={18} /></button>
+          <button className="rounded-lg p-2 hover:bg-brandgray-50 dark:hover:bg-dark-100" onClick={() => setYear((value) => value - 1)} aria-label={t('წინა წელი')}><ChevronLeft size={18} /></button>
           <span className="min-w-20 text-center text-lg font-semibold">{year}</span>
-          <button className="rounded-lg p-2 hover:bg-brandgray-50 dark:hover:bg-dark-100" onClick={() => setYear((value) => value + 1)} aria-label="შემდეგი წელი"><ChevronRight size={18} /></button>
+          <button className="rounded-lg p-2 hover:bg-brandgray-50 dark:hover:bg-dark-100" onClick={() => setYear((value) => value + 1)} aria-label={t('შემდეგი წელი')}><ChevronRight size={18} /></button>
         </div>
       </header>
 
       <section className="grid gap-4 sm:grid-cols-3">
-        <div className="card p-5 dark:bg-dark-200 dark:border-dark-50"><p className="text-sm text-brandgray-500 dark:text-gray-400">წელი</p><p className="mt-1 text-2xl font-semibold">{year}</p></div>
-        <div className="card p-5 dark:bg-dark-200 dark:border-dark-50"><p className="text-sm text-brandgray-500 dark:text-gray-400">დახურული თვე</p><p className="mt-1 text-2xl font-semibold text-amber-700 dark:text-amber-300">{closedCount}</p></div>
-        <div className="card p-5 dark:bg-dark-200 dark:border-dark-50"><p className="text-sm text-brandgray-500 dark:text-gray-400">ღია თვე</p><p className="mt-1 text-2xl font-semibold text-emerald-700 dark:text-emerald-300">{12 - closedCount}</p></div>
+        <div className="card p-5 dark:bg-dark-200 dark:border-dark-50"><p className="text-sm text-brandgray-500 dark:text-gray-400">{t('წელი')}</p><p className="mt-1 text-2xl font-semibold">{year}</p></div>
+        <div className="card p-5 dark:bg-dark-200 dark:border-dark-50"><p className="text-sm text-brandgray-500 dark:text-gray-400">{t('დახურული თვე')}</p><p className="mt-1 text-2xl font-semibold text-amber-700 dark:text-amber-300">{closedCount}</p></div>
+        <div className="card p-5 dark:bg-dark-200 dark:border-dark-50"><p className="text-sm text-brandgray-500 dark:text-gray-400">{t('ღია თვე')}</p><p className="mt-1 text-2xl font-semibold text-emerald-700 dark:text-emerald-300">{12 - closedCount}</p></div>
       </section>
 
       {periodsQuery.isLoading ? (
-        <div className="card p-10 text-center text-brandgray-500 dark:bg-dark-200 dark:text-gray-400">პერიოდები იტვირთება...</div>
+        <div className="card p-10 text-center text-brandgray-500 dark:bg-dark-200 dark:text-gray-400">{t('პერიოდები იტვირთება...')}</div>
       ) : (
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {months.map((monthName, index) => {
@@ -128,15 +130,15 @@ export default function AccountingPeriodsPage() {
                   <span className={`badge ${isClosed ? 'badge-yellow' : 'badge-green'}`}>{isClosed ? 'დახურული' : 'ღია'}</span>
                 </div>
                 <div className="min-h-20 border-y border-brandgray-100 bg-brandgray-50/50 px-5 py-3 text-sm dark:border-dark-50 dark:bg-dark-300/40">
-                  {isClosed ? <><p className="line-clamp-2 text-brandgray-700 dark:text-gray-300">{period?.close_reason}</p><p className="mt-1 text-xs text-brandgray-400">{formatDateTime(period?.closed_at || null)}</p></> : <p className="text-brandgray-500 dark:text-gray-400">ფინანსური ოპერაციები ნებადართულია</p>}
+                  {isClosed ? <><p className="line-clamp-2 text-brandgray-700 dark:text-gray-300">{period?.close_reason}</p><p className="mt-1 text-xs text-brandgray-400">{formatDateTime(period?.closed_at || null)}</p></> : <p className="text-brandgray-500 dark:text-gray-400">{t('ფინანსური ოპერაციები ნებადართულია')}</p>}
                 </div>
                 <div className="flex items-center justify-between gap-2 p-4">
-                  {period && <button className="btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs" onClick={() => setHistoryPeriod(period)}><History size={14} />ისტორია</button>}
+                  {period && <button className="btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs" onClick={() => setHistoryPeriod(period)}><History size={14} />{t('ისტორია')}</button>}
                   <div className="ml-auto">
                     {isClosed && user?.role === 'admin' ? (
-                      <button className="btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs" onClick={() => openAction('reopen', month)}><Unlock size={14} />გახსნა</button>
+                      <button className="btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs" onClick={() => openAction('reopen', month)}><Unlock size={14} />{t('გახსნა')}</button>
                     ) : !isClosed ? (
-                      <button className="btn-primary flex items-center gap-1.5 px-3 py-1.5 text-xs" onClick={() => openAction('close', month)}><LockKeyhole size={14} />დახურვა</button>
+                      <button className="btn-primary flex items-center gap-1.5 px-3 py-1.5 text-xs" onClick={() => openAction('close', month)}><LockKeyhole size={14} />{t('დახურვა')}</button>
                     ) : null}
                   </div>
                 </div>
@@ -148,7 +150,7 @@ export default function AccountingPeriodsPage() {
 
       <div className="flex items-start gap-3 rounded-xl border border-primary-200 bg-primary-50 p-4 text-sm text-primary-900 dark:border-primary-800/60 dark:bg-primary-900/20 dark:text-primary-200">
         <ShieldCheck className="mt-0.5 shrink-0" size={19} />
-        <p>დახურულ პერიოდში იბლოკება GL posting, სალაროს ოპერაციები, ხარჯები, ძირითადი საშუალებები, ანალიტიკური ჩანაწერები და საბანკო statement import.</p>
+        <p>{t('დახურულ პერიოდში იბლოკება GL posting, სალაროს ოპერაციები, ხარჯები, ძირითადი საშუალებები, ანალიტიკური ჩანაწერები და საბანკო statement import.')}</p>
       </div>
 
       <Modal open={Boolean(action)} onClose={() => setAction(null)} title={action?.type === 'close' ? `${months[(action?.month || 1) - 1]} — პერიოდის დახურვა` : `${months[(action?.month || 1) - 1]} — პერიოდის გახსნა`}>
@@ -156,22 +158,22 @@ export default function AccountingPeriodsPage() {
           <p className="text-sm text-brandgray-600 dark:text-gray-300">
             {action?.type === 'close' ? 'დახურვის შემდეგ ამ თვის ფინანსური ცვლილებები დაიბლოკება.' : 'ხელახლა გახსნის შემდეგ ამ თვის ფინანსური ცვლილებები კვლავ შესაძლებელი იქნება.'}
           </p>
-          <FormField label="მიზეზი" required><textarea className="input" rows={4} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="მიუთითეთ მოქმედების მიზეზი" /></FormField>
+          <FormField label={t('მიზეზი')} required><textarea className="input" rows={4} value={reason} onChange={(event) => setReason(event.target.value)} placeholder={t('მიუთითეთ მოქმედების მიზეზი')} /></FormField>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-          <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setAction(null)}>გაუქმება</button><button className="btn-primary" disabled={reason.trim().length < 3 || periodMutation.isPending} onClick={submitAction}>{periodMutation.isPending ? 'მუშავდება...' : action?.type === 'close' ? 'პერიოდის დახურვა' : 'პერიოდის გახსნა'}</button></div>
+          <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setAction(null)}>{t('გაუქმება')}</button><button className="btn-primary" disabled={reason.trim().length < 3 || periodMutation.isPending} onClick={submitAction}>{periodMutation.isPending ? 'მუშავდება...' : action?.type === 'close' ? 'პერიოდის დახურვა' : 'პერიოდის გახსნა'}</button></div>
         </div>
       </Modal>
 
       <Modal open={Boolean(historyPeriod)} onClose={() => setHistoryPeriod(null)} title={`${historyPeriod ? months[historyPeriod.month - 1] : ''} — ცვლილებების ისტორია`}>
         <div className="space-y-3">
-          {historyQuery.isLoading && <p className="text-sm text-brandgray-500">ისტორია იტვირთება...</p>}
+          {historyQuery.isLoading && <p className="text-sm text-brandgray-500">{t('ისტორია იტვირთება...')}</p>}
           {(historyQuery.data || []).map((event) => (
             <div key={event.id} className="rounded-xl border border-brandgray-200 p-4 dark:border-dark-50">
               <div className="flex items-center justify-between gap-3"><span className={`badge ${event.action === 'closed' ? 'badge-yellow' : 'badge-green'}`}>{event.action === 'closed' ? 'დაიხურა' : 'გაიხსნა'}</span><span className="text-xs text-brandgray-400">{formatDateTime(event.created_at)}</span></div>
               <p className="mt-2 text-sm text-brandgray-700 dark:text-gray-300">{event.reason}</p>
             </div>
           ))}
-          {!historyQuery.isLoading && !historyQuery.data?.length && <p className="text-sm text-brandgray-500">ცვლილებების ისტორია არ არის.</p>}
+          {!historyQuery.isLoading && !historyQuery.data?.length && <p className="text-sm text-brandgray-500">{t('ცვლილებების ისტორია არ არის.')}</p>}
         </div>
       </Modal>
     </div>

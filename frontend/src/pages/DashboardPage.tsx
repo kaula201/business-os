@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { dashboardApi } from '../services/api'
 import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, ArrowDown, Wallet, Clock } from 'lucide-react'
@@ -9,6 +10,7 @@ import type { DashboardData } from '../types'
 const COLORS = ['#16A6D4', '#4CAF32', '#7C6966', '#8EDFF7', '#94DF79', '#BCAEAB']
 
 export default function DashboardPage() {
+  const { t } = useTranslation()
   const [period, setPeriod] = useState('30d')
 
   const { data, isLoading } = useQuery({
@@ -24,7 +26,7 @@ export default function DashboardPage() {
     queryFn: () => dashboardApi.getCashFlow().then(r => r.data.data),
   })
 
-  if (isLoading) return <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400 dark:text-gray-500">ჩატვირთვა...</div>
+  if (isLoading) return <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400 dark:text-gray-500">{t('ჩატვირთვა...')}</div>
 
   const kpi = data?.kpi
   const revenueData: any[] = data?.revenue_chart?.data || []
@@ -34,7 +36,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200">მიმოხილვა</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200">{t('მიმოხილვა')}</h1>
         <div className="flex gap-2 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-50 p-1 dark:bg-dark-200 dark:border-dark-50">
           {[
             { key: '7d', label: '7 დღე' },
@@ -56,21 +58,21 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           icon={TrendingUp}
-          label="შემოსავალი"
+          label={t('შემოსავალი')}
           value={kpi?.total_revenue != null ? `${kpi.total_revenue.toLocaleString()} ₾` : '0 ₾'}
           change={kpi?.revenue_change}
           color="blue"
           hint={`ინვოისირებული შეკვეთები: ${data?.invoiced_orders_count ?? 0} / ${data?.total_orders_count ?? 0}`}
         />
-        <KPICard icon={Users} label="აქტიური კლიენტები" value={String(kpi?.active_clients || 0)} color="green" />
-        <KPICard icon={ShoppingCart} label="მიმდინარე შეკვეთები" value={String(kpi?.active_orders || 0)} color="gray" />
-        <KPICard icon={AlertTriangle} label="დაგვიანებული დავალებები" value={String(kpi?.overdue_tasks || 0)} color="red" />
+        <KPICard icon={Users} label={t('აქტიური კლიენტები')} value={String(kpi?.active_clients || 0)} color="green" />
+        <KPICard icon={ShoppingCart} label={t('მიმდინარე შეკვეთები')} value={String(kpi?.active_orders || 0)} color="gray" />
+        <KPICard icon={AlertTriangle} label={t('დაგვიანებული დავალებები')} value={String(kpi?.overdue_tasks || 0)} color="red" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue Chart */}
         <div className="lg:col-span-2 card">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200 mb-4">შემოსავლების დინამიკა</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200 mb-4">{t('შემოსავლების დინამიკა')}</h3>
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={revenueData.filter((d: any) => d.amount > 0)}>
               <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
@@ -83,7 +85,7 @@ export default function DashboardPage() {
 
         {/* Order Distribution */}
         <div className="card">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200 mb-4">შეკვეთების სტატუსები</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200 mb-4">{t('შეკვეთების სტატუსები')}</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={orderDist} dataKey="count" nameKey="status" cx="50%" cy="50%" innerRadius={50} outerRadius={80}>
@@ -111,7 +113,7 @@ export default function DashboardPage() {
       {/* Alerts */}
       {alerts.length > 0 && (
         <div className="card">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200 mb-4">გაფრთხილებები</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200 mb-4">{t('გაფრთხილებები')}</h3>
           <div className="space-y-2">
             {alerts.map((alert: any, i: number) => (
               <div key={i} className={`flex items-center gap-3 p-3 rounded-lg ${
@@ -135,7 +137,7 @@ export default function DashboardPage() {
             <Package size={20} className="text-primary-600" />
             <div>
               <p className="font-medium text-brandgray-800 dark:text-gray-200">{kpi.low_stock_products} პროდუქტს აქვს დაბალი ნაშთი</p>
-              <p className="text-sm text-primary-700">გადადით საწყობში შესავსებად</p>
+              <p className="text-sm text-primary-700">{t('გადადით საწყობში შესავსებად')}</p>
             </div>
           </div>
         </div>
@@ -147,17 +149,17 @@ export default function DashboardPage() {
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
             <Clock size={18} className="text-primary-600" />
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200">ვადიანობა — მოთხოვნები / ვალდებულებები</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200">{t('ვადიანობა — მოთხოვნები / ვალდებულებები')}</h3>
           </div>
           {aging && (
             <>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">მოთხოვნები (AR)</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('მოთხოვნები (AR)')}</p>
                   <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{Number(aging.ar_total).toLocaleString()} {aging.currency}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">ვალდებულებები (AP)</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('ვალდებულებები (AP)')}</p>
                   <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{Number(aging.ap_total).toLocaleString()} {aging.currency}</p>
                 </div>
               </div>
@@ -187,20 +189,20 @@ export default function DashboardPage() {
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
             <Wallet size={18} className="text-primary-600" />
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200">ფულადი ნაკადი — 6 თვე</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200">{t('ფულადი ნაკადი — 6 თვე')}</h3>
           </div>
           {cashFlow && (
             <>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">წმინდა ნაკადი (6 თვე)</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('წმინდა ნაკადი (6 თვე)')}</p>
                   <p className={`text-xl font-bold ${Number(cashFlow.net_6m) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {Number(cashFlow.net_6m).toLocaleString()} {cashFlow.currency}
                   </p>
                 </div>
                 <div className="flex gap-4 text-xs">
-                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> შემოსავლები</span>
-                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400" /> ხარჯები</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> {t('შემოსავლები')}</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400" /> {t('ხარჯები')}</span>
                 </div>
               </div>
               <ResponsiveContainer width="100%" height={180}>
@@ -221,6 +223,7 @@ export default function DashboardPage() {
 }
 
 function KPICard({ icon: Icon, label, value, change, color, hint }: { icon: any; label: string; value: string; change?: number; color: string; hint?: string }) {
+  const { t } = useTranslation()
   const colorMap: Record<string, string> = {
     blue: 'bg-primary-50 text-primary-700',
     green: 'bg-accent-50 text-accent-700',
@@ -243,7 +246,7 @@ function KPICard({ icon: Icon, label, value, change, color, hint }: { icon: any;
           </span>
         )}
         {hint && (
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1" title="შემოსავალი ითვლება მხოლოდ გაცემული (issued) ინვოისებიდან">{hint}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1" title={t('შემოსავალი ითვლება მხოლოდ გაცემული (issued) ინვოისებიდან')}>{hint}</p>
         )}
       </div>
     </div>

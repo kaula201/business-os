@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, Building2, Pencil, Plus, Search } from 'lucide-react'
 
@@ -24,6 +25,7 @@ const emptySupplier: SupplierCreate = {
 }
 
 export default function SuppliersPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
@@ -136,11 +138,11 @@ export default function SuppliersPage() {
     ) },
     { key: 'actions', label: '', render: (supplier: Supplier) => (
       <div className="flex justify-end gap-1">
-        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 text-gray-500 dark:text-gray-400" title="რედაქტირება" onClick={(e) => { e.stopPropagation(); openEdit(supplier) }}>
+        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 text-gray-500 dark:text-gray-400" title={t('რედაქტირება')} onClick={(e) => { e.stopPropagation(); openEdit(supplier) }}>
           <Pencil size={16} />
         </button>
         {supplier.is_active && (
-          <button className="p-2 rounded-lg hover:bg-red-50 text-red-500" title="დეაქტივაცია" onClick={(e) => { e.stopPropagation(); setArchiveTarget(supplier) }}>
+          <button className="p-2 rounded-lg hover:bg-red-50 text-red-500" title={t('დეაქტივაცია')} onClick={(e) => { e.stopPropagation(); setArchiveTarget(supplier) }}>
             <Archive size={16} />
           </button>
         )}
@@ -152,10 +154,10 @@ export default function SuppliersPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">მომწოდებლები</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">შესყიდვების პარტნიორები და გადახდის პირობები</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('მომწოდებლები')}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('შესყიდვების პარტნიორები და გადახდის პირობები')}</p>
         </div>
-        <button className="btn-primary flex items-center gap-2" onClick={openCreate}><Plus size={18} /> ახალი მომწოდებელი</button>
+        <button className="btn-primary flex items-center gap-2" onClick={openCreate}><Plus size={18} /> {t('ახალი მომწოდებელი')}</button>
       </div>
 
       {formError && !modalOpen && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{formError}</div>}
@@ -163,10 +165,10 @@ export default function SuppliersPage() {
       <div className="card flex flex-col sm:flex-row gap-3 items-center">
         <div className="relative flex-1 w-full">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-          <input className="input pl-10" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="სახელი, კოდი ან საიდენტიფიკაციო ნომერი" />
+          <input className="input pl-10" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder={t('სახელი, კოდი ან საიდენტიფიკაციო ნომერი')} />
         </div>
         <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> არააქტიურების ჩვენება
+          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> {t('არააქტიურების ჩვენება')}
         </label>
       </div>
 
@@ -176,19 +178,19 @@ export default function SuppliersPage() {
         <form onSubmit={submit} className="space-y-5">
           {formError && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{formError}</div>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="კოდი" required><input className="input" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></FormField>
-            <FormField label="დასახელება" required><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></FormField>
-            <FormField label="საიდენტიფიკაციო კოდი"><input className="input" value={form.identification_code || ''} onChange={(e) => setForm({ ...form, identification_code: e.target.value })} /></FormField>
-            <FormField label="გადახდის ვადა (დღე)"><input type="number" min="0" className="input" value={form.payment_terms_days || 0} onChange={(e) => setForm({ ...form, payment_terms_days: Number(e.target.value) })} /></FormField>
-            <FormField label="საკონტაქტო პირი"><input className="input" value={form.contact_name || ''} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} /></FormField>
-            <FormField label="ტელეფონი"><input className="input" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></FormField>
-            <FormField label="ელფოსტა"><input type="email" className="input" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} /></FormField>
-            <FormField label="საბანკო ანგარიში"><input className="input" value={form.bank_account || ''} onChange={(e) => setForm({ ...form, bank_account: e.target.value })} /></FormField>
+            <FormField label={t('კოდი')} required><input className="input" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></FormField>
+            <FormField label={t('დასახელება')} required><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></FormField>
+            <FormField label={t('საიდენტიფიკაციო კოდი')}><input className="input" value={form.identification_code || ''} onChange={(e) => setForm({ ...form, identification_code: e.target.value })} /></FormField>
+            <FormField label={t('გადახდის ვადა (დღე)')}><input type="number" min="0" className="input" value={form.payment_terms_days || 0} onChange={(e) => setForm({ ...form, payment_terms_days: Number(e.target.value) })} /></FormField>
+            <FormField label={t('საკონტაქტო პირი')}><input className="input" value={form.contact_name || ''} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} /></FormField>
+            <FormField label={t('ტელეფონი')}><input className="input" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></FormField>
+            <FormField label={t('ელფოსტა')}><input type="email" className="input" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} /></FormField>
+            <FormField label={t('საბანკო ანგარიში')}><input className="input" value={form.bank_account || ''} onChange={(e) => setForm({ ...form, bank_account: e.target.value })} /></FormField>
           </div>
-          <FormField label="მისამართი"><input className="input" value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} /></FormField>
-          <FormField label="შენიშვნა"><textarea className="input min-h-20" value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></FormField>
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input type="checkbox" checked={form.is_vat_payer || false} onChange={(e) => setForm({ ...form, is_vat_payer: e.target.checked })} /> დღგ-ის გადამხდელი</label>
-          <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={closeModal}>გაუქმება</button><button className="btn-primary" disabled={saveMutation.isPending}>{saveMutation.isPending ? 'ინახება...' : 'შენახვა'}</button></div>
+          <FormField label={t('მისამართი')}><input className="input" value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} /></FormField>
+          <FormField label={t('შენიშვნა')}><textarea className="input min-h-20" value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></FormField>
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input type="checkbox" checked={form.is_vat_payer || false} onChange={(e) => setForm({ ...form, is_vat_payer: e.target.checked })} /> {t('დღგ-ის გადამხდელი')}</label>
+          <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={closeModal}>{t('გაუქმება')}</button><button className="btn-primary" disabled={saveMutation.isPending}>{saveMutation.isPending ? 'ინახება...' : 'შენახვა'}</button></div>
         </form>
       </Modal>
 
@@ -196,7 +198,7 @@ export default function SuppliersPage() {
         open={Boolean(archiveTarget)}
         onClose={() => setArchiveTarget(null)}
         onConfirm={() => archiveTarget && archiveMutation.mutate(archiveTarget.id)}
-        title="მომწოდებლის დეაქტივაცია"
+        title={t('მომწოდებლის დეაქტივაცია')}
         message={`${archiveTarget?.name || ''} აღარ გამოჩნდება ახალი შესყიდვის შეკვეთის შექმნისას. ისტორია შენარჩუნდება.`}
         confirmLabel="დეაქტივაცია"
         loading={archiveMutation.isPending}

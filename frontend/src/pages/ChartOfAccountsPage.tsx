@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Plus, Search, X } from 'lucide-react'
 
@@ -16,6 +17,7 @@ const accountTypes: Record<string, string> = {
 }
 
 export default function ChartOfAccountsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
@@ -72,11 +74,11 @@ export default function ChartOfAccountsPage() {
       <span className="inline-flex items-center rounded-full bg-gray-100 dark:bg-dark-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">{accountTypes[a.account_type] || a.account_type}</span>
     )},
     { key: 'is_active', label: 'სტატუსი', render: (a: GLAccount) => a.is_active
-      ? <span className="inline-flex items-center gap-1 text-green-600"><Check size={14} />აქტიური</span>
-      : <span className="inline-flex items-center gap-1 text-gray-400 dark:text-gray-500"><X size={14} />არააქტიური</span>
+      ? <span className="inline-flex items-center gap-1 text-green-600"><Check size={14} />{t('აქტიური')}</span>
+      : <span className="inline-flex items-center gap-1 text-gray-400 dark:text-gray-500"><X size={14} />{t('არააქტიური')}</span>
     },
     { key: 'actions', label: '', render: (a: GLAccount) => (
-      <button onClick={e => { e.stopPropagation(); openEdit(a) }} className="rounded px-3 py-1 text-sm text-primary-600 hover:bg-primary-50">რედაქტირება</button>
+      <button onClick={e => { e.stopPropagation(); openEdit(a) }} className="rounded px-3 py-1 text-sm text-primary-600 hover:bg-primary-50">{t('რედაქტირება')}</button>
     )},
   ]
 
@@ -84,18 +86,18 @@ export default function ChartOfAccountsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">ანგარიშთა გეგმა</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">საბუღალტრო ანგარიშების სია — Chart of Accounts</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ანგარიშთა გეგმა')}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('საბუღალტრო ანგარიშების სია — Chart of Accounts')}</p>
         </div>
         <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary flex items-center gap-2">
-          <Plus size={18} />ახალი ანგარიში
+          <Plus size={18} />{t('ახალი ანგარიში')}
         </button>
       </div>
 
       <div className="card">
         <div className="relative max-w-xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
-          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} className="input pl-10" placeholder="ძებნა კოდით ან სახელით..." />
+          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} className="input pl-10" placeholder={t('ძებნა კოდით ან სახელით...')} />
         </div>
       </div>
 
@@ -105,25 +107,25 @@ export default function ChartOfAccountsPage() {
       <Modal open={showForm} onClose={() => { setShowForm(false); resetForm() }} title={editId ? 'ანგარიშის რედაქტირება' : 'ახალი ანგარიში'}>
         <div className="space-y-4">
           <div>
-            <label className="label">კოდი</label>
-            <input value={form.code} onChange={e => setForm({ ...form, code: e.target.value })} className="input" placeholder="მაგ. 1100" disabled={!!editId} />
+            <label className="label">{t('კოდი')}</label>
+            <input value={form.code} onChange={e => setForm({ ...form, code: e.target.value })} className="input" placeholder={t('მაგ. 1100')} disabled={!!editId} />
           </div>
           <div>
-            <label className="label">სახელი</label>
-            <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="input" placeholder="ანგარიშის სახელი" />
+            <label className="label">{t('სახელი')}</label>
+            <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="input" placeholder={t('ანგარიშის სახელი')} />
           </div>
           <div>
-            <label className="label">ტიპი</label>
+            <label className="label">{t('ტიპი')}</label>
             <select value={form.account_type} onChange={e => setForm({ ...form, account_type: e.target.value })} className="input" disabled={!!editId}>
               {Object.entries(accountTypes).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div>
-            <label className="label">აღწერა</label>
+            <label className="label">{t('აღწერა')}</label>
             <textarea value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} className="input" rows={3} />
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => { setShowForm(false); resetForm() }} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => { setShowForm(false); resetForm() }} className="btn-secondary">{t('გაუქმება')}</button>
             <button onClick={() => editId ? updateMutation.mutate() : createMutation.mutate()} className="btn-primary" disabled={!form.code || !form.name}>
               {editId ? 'შენახვა' : 'შექმნა'}
             </button>

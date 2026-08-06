@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Pencil, Trash2, Search, ArrowDownRight, ArrowUpRight, DollarSign, CalendarDays, Receipt, Building2
@@ -29,6 +30,7 @@ function errorText(err: any) {
 }
 
 export default function CashPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
@@ -114,15 +116,15 @@ export default function CashPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">სალარო</h1>
-          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">ნაღდი ფულის მოძრაობის აღრიცხვა</p>
+          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('სალარო')}</h1>
+          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('ნაღდი ფულის მოძრაობის აღრიცხვა')}</p>
         </div>
         <div className="flex gap-2">
           <button
             className="btn-primary flex items-center gap-2"
             onClick={() => { setAccountForm({ name: '', currency: 'GEL', notes: '' }); setError(''); setAccountModal('create') }}
           >
-            <Plus size={18} /> სალარო
+            <Plus size={18} /> {t('სალარო')}
           </button>
         </div>
       </div>
@@ -133,7 +135,7 @@ export default function CashPage() {
           <div className="flex items-center gap-3">
             <DollarSign className="text-primary-600" />
             <div>
-              <div className="text-sm text-brandgray-500 dark:text-gray-400">სალაროები</div>
+              <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('სალაროები')}</div>
               <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{accounts.length}</div>
             </div>
           </div>
@@ -142,7 +144,7 @@ export default function CashPage() {
           <div className="flex items-center gap-3">
             <ArrowUpRight className="text-accent-600" />
             <div>
-              <div className="text-sm text-brandgray-500 dark:text-gray-400">ჯამური ბალანსი</div>
+              <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('ჯამური ბალანსი')}</div>
               <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">
                 {money(accounts.reduce((s, a) => s + a.balance, 0))}
               </div>
@@ -155,7 +157,7 @@ export default function CashPage() {
               <div className="flex items-center gap-3">
                 <ArrowUpRight className="text-green-600" />
                 <div>
-                  <div className="text-sm text-brandgray-500 dark:text-gray-400">შემოსავალი</div>
+                  <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('შემოსავალი')}</div>
                   <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(reportData.total_inflow)}</div>
                 </div>
               </div>
@@ -164,7 +166,7 @@ export default function CashPage() {
               <div className="flex items-center gap-3">
                 <ArrowDownRight className="text-red-600" />
                 <div>
-                  <div className="text-sm text-brandgray-500 dark:text-gray-400">გასავალი</div>
+                  <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('გასავალი')}</div>
                   <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(reportData.total_outflow)}</div>
                 </div>
               </div>
@@ -179,7 +181,7 @@ export default function CashPage() {
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="სალაროს ძებნა..."
+            placeholder={t('სალაროს ძებნა...')}
             className="input pl-10"
           />
         </div>
@@ -209,7 +211,7 @@ export default function CashPage() {
                     receipt_number: '', notes: '',
                   }); setError(''); setTxModal(true) }}
                   className="p-1.5 hover:bg-primary-50 rounded-lg transition-colors"
-                  title="ოპერაციის დამატება"
+                  title={t('ოპერაციის დამატება')}
                 >
                   <Plus size={16} className="text-primary-500" />
                 </button>
@@ -239,7 +241,7 @@ export default function CashPage() {
       {txAccountId && (
         <section className="card overflow-hidden p-0 dark:bg-dark-200 dark:border-dark-50">
           <div className="border-b border-brandgray-100 dark:border-dark-50 px-5 py-4 flex items-center justify-between">
-            <h2 className="font-semibold text-brandgray-900 dark:text-gray-100">ოპერაციები</h2>
+            <h2 className="font-semibold text-brandgray-900 dark:text-gray-100">{t('ოპერაციები')}</h2>
             <button
               className="btn-primary text-sm flex items-center gap-1"
               onClick={() => { setTxForm({
@@ -248,24 +250,24 @@ export default function CashPage() {
                 receipt_number: '', notes: '',
               }); setError(''); setTxModal(true) }}
             >
-              <Plus size={15} /> ოპერაცია
+              <Plus size={15} /> {t('ოპერაცია')}
             </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-brandgray-50 text-left text-brandgray-600 dark:bg-dark-100 dark:text-gray-400">
                 <tr>
-                  <th className="px-4 py-3">თარიღი</th>
-                  <th className="px-4 py-3">მიმართულება</th>
-                  <th className="px-4 py-3 text-right">თანხა</th>
-                  <th className="px-4 py-3">კატეგორია</th>
-                  <th className="px-4 py-3">აღწერა</th>
-                  <th className="px-4 py-3">კონტრაგენტი</th>
+                  <th className="px-4 py-3">{t('თარიღი')}</th>
+                  <th className="px-4 py-3">{t('მიმართულება')}</th>
+                  <th className="px-4 py-3 text-right">{t('თანხა')}</th>
+                  <th className="px-4 py-3">{t('კატეგორია')}</th>
+                  <th className="px-4 py-3">{t('აღწერა')}</th>
+                  <th className="px-4 py-3">{t('კონტრაგენტი')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
-                {txLoading && <tr><td className="px-4 py-8 text-center text-brandgray-500 dark:text-gray-400" colSpan={6}>იტვირთება...</td></tr>}
-                {!txLoading && transactions.length === 0 && <tr><td className="px-4 py-8 text-center text-brandgray-500 dark:text-gray-400" colSpan={6}>ოპერაციები ჯერ არ არის</td></tr>}
+                {txLoading && <tr><td className="px-4 py-8 text-center text-brandgray-500 dark:text-gray-400" colSpan={6}>{t('იტვირთება...')}</td></tr>}
+                {!txLoading && transactions.length === 0 && <tr><td className="px-4 py-8 text-center text-brandgray-500 dark:text-gray-400" colSpan={6}>{t('ოპერაციები ჯერ არ არის')}</td></tr>}
                 {transactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-primary-50/30 dark:hover:bg-dark-100">
                     <td className="px-4 py-3">{tx.transaction_date}</td>
@@ -293,13 +295,13 @@ export default function CashPage() {
 
       {/* Daily Report */}
       <section className="card dark:bg-dark-200 dark:border-dark-50">
-        <h2 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-4">დღიური ანგარიში</h2>
+        <h2 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-4">{t('დღიური ანგარიში')}</h2>
         <div className="flex flex-wrap gap-3 mb-4">
           <Select
             value={reportAccountId}
             onChange={(e) => setReportAccountId(e.target.value)}
             options={accounts.map((a) => ({ value: a.id, label: a.name }))}
-            placeholder="აირჩიეთ სალარო"
+            placeholder={t('აირჩიეთ სალარო')}
             className="w-60"
           />
           <input
@@ -312,23 +314,23 @@ export default function CashPage() {
         {reportData && (
           <div className="grid gap-4 md:grid-cols-5">
             <div className="p-3 rounded-lg bg-brandgray-50 dark:bg-dark-100">
-              <div className="text-xs text-brandgray-500 dark:text-gray-400">საწყისი ბალანსი</div>
+              <div className="text-xs text-brandgray-500 dark:text-gray-400">{t('საწყისი ბალანსი')}</div>
               <div className="text-lg font-semibold text-brandgray-900 dark:text-gray-100">{money(reportData.opening_balance)}</div>
             </div>
             <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/30">
-              <div className="text-xs text-green-700 dark:text-green-300">შემოსავალი</div>
+              <div className="text-xs text-green-700 dark:text-green-300">{t('შემოსავალი')}</div>
               <div className="text-lg font-semibold text-green-800 dark:text-green-200">{money(reportData.total_inflow)}</div>
             </div>
             <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30">
-              <div className="text-xs text-red-700 dark:text-red-300">გასავალი</div>
+              <div className="text-xs text-red-700 dark:text-red-300">{t('გასავალი')}</div>
               <div className="text-lg font-semibold text-red-800 dark:text-red-200">{money(reportData.total_outflow)}</div>
             </div>
             <div className="p-3 rounded-lg bg-primary-50 dark:bg-primary-900/30">
-              <div className="text-xs text-primary-700 dark:text-primary-300">საბოლოო ბალანსი</div>
+              <div className="text-xs text-primary-700 dark:text-primary-300">{t('საბოლოო ბალანსი')}</div>
               <div className="text-lg font-semibold text-primary-800 dark:text-primary-200">{money(reportData.closing_balance)}</div>
             </div>
             <div className="p-3 rounded-lg bg-brandgray-50 dark:bg-dark-100">
-              <div className="text-xs text-brandgray-500 dark:text-gray-400">ტრანზაქციები</div>
+              <div className="text-xs text-brandgray-500 dark:text-gray-400">{t('ტრანზაქციები')}</div>
               <div className="text-lg font-semibold text-brandgray-900 dark:text-gray-100">{reportData.transaction_count}</div>
             </div>
           </div>
@@ -336,20 +338,20 @@ export default function CashPage() {
       </section>
 
       {/* ── Account Create Modal ─────────────────────────────────── */}
-      <Modal open={accountModal === 'create'} onClose={() => setAccountModal(null)} title="ახალი სალარო" size="md">
+      <Modal open={accountModal === 'create'} onClose={() => setAccountModal(null)} title={t('ახალი სალარო')} size="md">
         <div className="space-y-4">
-          <FormField label="სახელი" required>
-            <input value={accountForm.name} onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })} placeholder="მთავარი სალარო" className="input" />
+          <FormField label={t('სახელი')} required>
+            <input value={accountForm.name} onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })} placeholder={t('მთავარი სალარო')} className="input" />
           </FormField>
-          <FormField label="ვალუტა">
+          <FormField label={t('ვალუტა')}>
             <Select value={accountForm.currency} onChange={(e) => setAccountForm({ ...accountForm, currency: e.target.value })} options={[{ value: 'GEL', label: 'GEL' }, { value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }]} />
           </FormField>
-          <FormField label="შენიშვნა">
+          <FormField label={t('შენიშვნა')}>
             <textarea value={accountForm.notes} onChange={(e) => setAccountForm({ ...accountForm, notes: e.target.value })} className="input" rows={2} />
           </FormField>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setAccountModal(null)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setAccountModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button onClick={() => createAccount.mutate()} disabled={!accountForm.name.trim() || createAccount.isPending} className="btn-primary">
               {createAccount.isPending ? 'იქმნება...' : 'შექმნა'}
             </button>
@@ -358,23 +360,23 @@ export default function CashPage() {
       </Modal>
 
       {/* ── Account Edit Modal ───────────────────────────────────── */}
-      <Modal open={accountModal === 'edit'} onClose={() => setAccountModal(null)} title="სალაროს რედაქტირება" size="md">
+      <Modal open={accountModal === 'edit'} onClose={() => setAccountModal(null)} title={t('სალაროს რედაქტირება')} size="md">
         <div className="space-y-4">
-          <FormField label="სახელი">
+          <FormField label={t('სახელი')}>
             <input value={accountEditForm.name} onChange={(e) => setAccountEditForm({ ...accountEditForm, name: e.target.value })} className="input" />
           </FormField>
-          <FormField label="სტატუსი">
+          <FormField label={t('სტატუსი')}>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={accountEditForm.is_active} onChange={(e) => setAccountEditForm({ ...accountEditForm, is_active: e.target.checked })} className="rounded" />
-              <span className="text-sm text-gray-700 dark:text-gray-300">აქტიური</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t('აქტიური')}</span>
             </label>
           </FormField>
-          <FormField label="შენიშვნა">
+          <FormField label={t('შენიშვნა')}>
             <textarea value={accountEditForm.notes} onChange={(e) => setAccountEditForm({ ...accountEditForm, notes: e.target.value })} className="input" rows={2} />
           </FormField>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setAccountModal(null)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setAccountModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button onClick={() => updateAccount.mutate()} disabled={updateAccount.isPending} className="btn-primary">
               {updateAccount.isPending ? 'ინახება...' : 'შენახვა'}
             </button>
@@ -383,13 +385,13 @@ export default function CashPage() {
       </Modal>
 
       {/* ── Transaction Create Modal ──────────────────────────────── */}
-      <Modal open={txModal} onClose={() => setTxModal(false)} title="ახალი ოპერაცია" size="md">
+      <Modal open={txModal} onClose={() => setTxModal(false)} title={t('ახალი ოპერაცია')} size="md">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="თარიღი" required>
+            <FormField label={t('თარიღი')} required>
               <input type="date" value={txForm.transaction_date} onChange={(e) => setTxForm({ ...txForm, transaction_date: e.target.value })} className="input" />
             </FormField>
-            <FormField label="მიმართულება" required>
+            <FormField label={t('მიმართულება')} required>
               <Select value={txForm.direction} onChange={(e) => setTxForm({ ...txForm, direction: e.target.value })} options={[
                 { value: 'inflow', label: 'შემოსავალი' },
                 { value: 'outflow', label: 'გასავალი' },
@@ -397,27 +399,27 @@ export default function CashPage() {
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="თანხა" required>
+            <FormField label={t('თანხა')} required>
               <input type="number" step="0.01" value={txForm.amount || ''} onChange={(e) => setTxForm({ ...txForm, amount: Number(e.target.value) })} className="input" />
             </FormField>
-            <FormField label="კატეგორია" required>
+            <FormField label={t('კატეგორია')} required>
               <Select value={txForm.category} onChange={(e) => setTxForm({ ...txForm, category: e.target.value })} options={categories} />
             </FormField>
           </div>
-          <FormField label="აღწერა">
-            <textarea value={txForm.description} onChange={(e) => setTxForm({ ...txForm, description: e.target.value })} className="input" rows={2} placeholder="ოპერაციის აღწერა" />
+          <FormField label={t('აღწერა')}>
+            <textarea value={txForm.description} onChange={(e) => setTxForm({ ...txForm, description: e.target.value })} className="input" rows={2} placeholder={t('ოპერაციის აღწერა')} />
           </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="კონტრაგენტი">
+            <FormField label={t('კონტრაგენტი')}>
               <input value={txForm.counterparty} onChange={(e) => setTxForm({ ...txForm, counterparty: e.target.value })} className="input" />
             </FormField>
-            <FormField label="ქვითრის ნომერი">
+            <FormField label={t('ქვითრის ნომერი')}>
               <input value={txForm.receipt_number} onChange={(e) => setTxForm({ ...txForm, receipt_number: e.target.value })} className="input" />
             </FormField>
           </div>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setTxModal(false)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setTxModal(false)} className="btn-secondary">{t('გაუქმება')}</button>
             <button
               onClick={() => {
                 if (!txForm.amount || !txForm.transaction_date) { setError('შეავსეთ სავალდებულო ველები'); return }

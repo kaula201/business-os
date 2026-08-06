@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
   FileText, Calculator, Scale, Download, Calendar, Building2, TrendingUp, TrendingDown, DollarSign
@@ -22,6 +23,7 @@ const tabs = [
 ]
 
 export default function SrsPage() {
+  const { t } = useTranslation()
   const [tab, setTab] = useState('vat')
   const [year, setYear] = useState(currentYear)
   const [month, setMonth] = useState(currentMonth)
@@ -52,8 +54,8 @@ export default function SrsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">SRS ანგარიშგება</h1>
-          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">საგადასახადო ანგარიშები — დღგ, საშემოსავლო, ბალანსი</p>
+          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('SRS ანგარიშგება')}</h1>
+          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('საგადასახადო ანგარიშები — დღგ, საშემოსავლო, ბალანსი')}</p>
         </div>
       </div>
 
@@ -95,7 +97,7 @@ export default function SrsPage() {
           </div>
 
           {vatLoading ? (
-            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">იტვირთება...</div>
+            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">{t('იტვირთება...')}</div>
           ) : vatData ? (
             <div className="space-y-4">
               <div className="card dark:bg-dark-200 dark:border-dark-50">
@@ -104,9 +106,9 @@ export default function SrsPage() {
                   <table className="w-full text-sm">
                     <thead className="bg-brandgray-50 dark:bg-dark-100">
                       <tr>
-                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">კოდი</th>
-                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">დასახელება</th>
-                        <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">თანხა</th>
+                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">{t('კოდი')}</th>
+                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">{t('დასახელება')}</th>
+                        <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">{t('თანხა')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
@@ -127,7 +129,7 @@ export default function SrsPage() {
                   <div className="flex items-center gap-3">
                     <TrendingUp className="text-green-600" />
                     <div>
-                      <div className="text-sm text-brandgray-500 dark:text-gray-400">გასაყიდი დღგ</div>
+                      <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('გასაყიდი დღგ')}</div>
                       <div className="text-xl font-semibold text-brandgray-900 dark:text-gray-100">{money(vatData.total_vat_payable)}</div>
                     </div>
                   </div>
@@ -136,7 +138,7 @@ export default function SrsPage() {
                   <div className="flex items-center gap-3">
                     <TrendingDown className="text-amber-600" />
                     <div>
-                      <div className="text-sm text-brandgray-500 dark:text-gray-400">შესაძენი დღგ</div>
+                      <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('შესაძენი დღგ')}</div>
                       <div className="text-xl font-semibold text-brandgray-900 dark:text-gray-100">{money(vatData.total_vat_credit)}</div>
                     </div>
                   </div>
@@ -145,7 +147,7 @@ export default function SrsPage() {
                   <div className="flex items-center gap-3">
                     <DollarSign className="text-primary-600" />
                     <div>
-                      <div className="text-sm text-brandgray-500 dark:text-gray-400">გადასახდელი დღგ</div>
+                      <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('გადასახდელი დღგ')}</div>
                       <div className="text-xl font-semibold text-primary-700 dark:text-primary-300">{money(vatData.net_vat)}</div>
                     </div>
                   </div>
@@ -153,7 +155,7 @@ export default function SrsPage() {
               </div>
             </div>
           ) : (
-            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">მონაცემები არ მოიძებნა ამ პერიოდისთვის</div>
+            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">{t('მონაცემები არ მოიძებნა ამ პერიოდისთვის')}</div>
           )}
         </>
       )}
@@ -178,7 +180,7 @@ export default function SrsPage() {
           </div>
 
           {incomeLoading ? (
-            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">იტვირთება...</div>
+            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">{t('იტვირთება...')}</div>
           ) : incomeData ? (
             <div className="space-y-4">
               <div className="card dark:bg-dark-200 dark:border-dark-50">
@@ -187,9 +189,9 @@ export default function SrsPage() {
                   <table className="w-full text-sm">
                     <thead className="bg-brandgray-50 dark:bg-dark-100">
                       <tr>
-                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">კოდი</th>
-                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">დასახელება</th>
-                        <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">თანხა</th>
+                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">{t('კოდი')}</th>
+                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">{t('დასახელება')}</th>
+                        <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">{t('თანხა')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
@@ -210,7 +212,7 @@ export default function SrsPage() {
                   <div className="flex items-center gap-3">
                     <TrendingUp className="text-green-600" />
                     <div>
-                      <div className="text-sm text-brandgray-500 dark:text-gray-400">შემოსავალი</div>
+                      <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('შემოსავალი')}</div>
                       <div className="text-xl font-semibold text-brandgray-900 dark:text-gray-100">{money(incomeData.total_revenue)}</div>
                     </div>
                   </div>
@@ -219,7 +221,7 @@ export default function SrsPage() {
                   <div className="flex items-center gap-3">
                     <TrendingDown className="text-red-600" />
                     <div>
-                      <div className="text-sm text-brandgray-500 dark:text-gray-400">ხარჯი</div>
+                      <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('ხარჯი')}</div>
                       <div className="text-xl font-semibold text-brandgray-900 dark:text-gray-100">{money(incomeData.total_expenses)}</div>
                     </div>
                   </div>
@@ -228,7 +230,7 @@ export default function SrsPage() {
                   <div className="flex items-center gap-3">
                     <Calculator className="text-amber-600" />
                     <div>
-                      <div className="text-sm text-brandgray-500 dark:text-gray-400">დასაბეგრი მოგება</div>
+                      <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('დასაბეგრი მოგება')}</div>
                       <div className="text-xl font-semibold text-brandgray-900 dark:text-gray-100">{money(incomeData.taxable_profit)}</div>
                     </div>
                   </div>
@@ -237,7 +239,7 @@ export default function SrsPage() {
                   <div className="flex items-center gap-3">
                     <DollarSign className="text-primary-600" />
                     <div>
-                      <div className="text-sm text-brandgray-500 dark:text-gray-400">სავარაუდო გადასახადი (15%)</div>
+                      <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('სავარაუდო გადასახადი (15%)')}</div>
                       <div className="text-xl font-semibold text-primary-700 dark:text-primary-300">{money(incomeData.estimated_tax)}</div>
                     </div>
                   </div>
@@ -245,7 +247,7 @@ export default function SrsPage() {
               </div>
             </div>
           ) : (
-            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">მონაცემები არ მოიძებნა</div>
+            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">{t('მონაცემები არ მოიძებნა')}</div>
           )}
         </>
       )}
@@ -261,18 +263,18 @@ export default function SrsPage() {
           </div>
 
           {balanceLoading ? (
-            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">იტვირთება...</div>
+            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">{t('იტვირთება...')}</div>
           ) : balanceData ? (
             <div className="space-y-4">
               <div className="card dark:bg-dark-200 dark:border-dark-50">
-                <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-4">აქტივები</h3>
+                <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-4">{t('აქტივები')}</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-brandgray-50 dark:bg-dark-100">
                       <tr>
-                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">კოდი</th>
-                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">დასახელება</th>
-                        <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">თანხა</th>
+                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">{t('კოდი')}</th>
+                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">{t('დასახელება')}</th>
+                        <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">{t('თანხა')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
@@ -286,7 +288,7 @@ export default function SrsPage() {
                     </tbody>
                     <tfoot className="bg-brandgray-50 dark:bg-dark-100 font-semibold">
                       <tr>
-                        <td colSpan={2} className="px-4 py-3 text-brandgray-800 dark:text-gray-200">სულ აქტივები</td>
+                        <td colSpan={2} className="px-4 py-3 text-brandgray-800 dark:text-gray-200">{t('სულ აქტივები')}</td>
                         <td className="px-4 py-3 text-right text-primary-700 dark:text-primary-300">{money(balanceData.total_assets)}</td>
                       </tr>
                     </tfoot>
@@ -295,14 +297,14 @@ export default function SrsPage() {
               </div>
 
               <div className="card dark:bg-dark-200 dark:border-dark-50">
-                <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-4">ვალდებულებები</h3>
+                <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-4">{t('ვალდებულებები')}</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-brandgray-50 dark:bg-dark-100">
                       <tr>
-                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">კოდი</th>
-                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">დასახელება</th>
-                        <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">თანხა</th>
+                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">{t('კოდი')}</th>
+                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">{t('დასახელება')}</th>
+                        <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">{t('თანხა')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
@@ -316,7 +318,7 @@ export default function SrsPage() {
                     </tbody>
                     <tfoot className="bg-brandgray-50 dark:bg-dark-100 font-semibold">
                       <tr>
-                        <td colSpan={2} className="px-4 py-3 text-brandgray-800 dark:text-gray-200">სულ ვალდებულებები</td>
+                        <td colSpan={2} className="px-4 py-3 text-brandgray-800 dark:text-gray-200">{t('სულ ვალდებულებები')}</td>
                         <td className="px-4 py-3 text-right text-amber-700 dark:text-amber-300">{money(balanceData.total_liabilities)}</td>
                       </tr>
                     </tfoot>
@@ -325,14 +327,14 @@ export default function SrsPage() {
               </div>
 
               <div className="card dark:bg-dark-200 dark:border-dark-50">
-                <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-4">კაპიტალი</h3>
+                <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-4">{t('კაპიტალი')}</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-brandgray-50 dark:bg-dark-100">
                       <tr>
-                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">კოდი</th>
-                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">დასახელება</th>
-                        <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">თანხა</th>
+                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">{t('კოდი')}</th>
+                        <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">{t('დასახელება')}</th>
+                        <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">{t('თანხა')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
@@ -346,7 +348,7 @@ export default function SrsPage() {
                     </tbody>
                     <tfoot className="bg-brandgray-50 dark:bg-dark-100 font-semibold">
                       <tr>
-                        <td colSpan={2} className="px-4 py-3 text-brandgray-800 dark:text-gray-200">სულ კაპიტალი</td>
+                        <td colSpan={2} className="px-4 py-3 text-brandgray-800 dark:text-gray-200">{t('სულ კაპიტალი')}</td>
                         <td className="px-4 py-3 text-right text-green-700 dark:text-green-300">{money(balanceData.total_equity)}</td>
                       </tr>
                     </tfoot>
@@ -359,7 +361,7 @@ export default function SrsPage() {
                   <div className="flex items-center gap-3">
                     <Scale className="text-primary-600" />
                     <div>
-                      <p className="text-sm text-brandgray-500 dark:text-gray-400">ბალანსის შემოწმება</p>
+                      <p className="text-sm text-brandgray-500 dark:text-gray-400">{t('ბალანსის შემოწმება')}</p>
                       <p className="text-lg font-semibold text-brandgray-900 dark:text-gray-100">
                         აქტივები: {money(balanceData.total_assets)} = ვალდებულებები: {money(balanceData.total_liabilities)} + კაპიტალი: {money(balanceData.total_equity)}
                       </p>
@@ -372,7 +374,7 @@ export default function SrsPage() {
               </div>
             </div>
           ) : (
-            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">მონაცემები არ მოიძებნა</div>
+            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">{t('მონაცემები არ მოიძებნა')}</div>
           )}
         </>
       )}

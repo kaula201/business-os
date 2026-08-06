@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tasksApi, usersApi, clientsApi } from '../services/api'
 import { Plus, CheckSquare, Clock, Calendar, User as UserIcon, Search } from 'lucide-react'
@@ -16,6 +17,7 @@ const statusColumns: { status: TaskStatus; label: string }[] = [
 ]
 
 export default function TasksPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [view, setView] = useState<'list' | 'kanban'>('list')
   const [search, setSearch] = useState('')
@@ -141,14 +143,14 @@ export default function TasksPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">დავალებები</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('დავალებები')}</h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-2">
-            <button onClick={() => setView('list')} className={`btn-secondary text-sm ${view === 'list' ? 'ring-2 ring-primary-500' : ''}`}>სია</button>
-            <button onClick={() => setView('kanban')} className={`btn-secondary text-sm ${view === 'kanban' ? 'ring-2 ring-primary-500' : ''}`}>დოსკა</button>
+            <button onClick={() => setView('list')} className={`btn-secondary text-sm ${view === 'list' ? 'ring-2 ring-primary-500' : ''}`}>{t('სია')}</button>
+            <button onClick={() => setView('kanban')} className={`btn-secondary text-sm ${view === 'kanban' ? 'ring-2 ring-primary-500' : ''}`}>{t('დოსკა')}</button>
           </div>
           <button onClick={openCreate} className="btn-primary flex items-center gap-2">
-            <Plus size={18} /> ახალი დავალება
+            <Plus size={18} /> {t('ახალი დავალება')}
           </button>
         </div>
       </div>
@@ -156,16 +158,16 @@ export default function TasksPage() {
       <div className="card flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
-          <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="ძებნა სათაურით..." className="input pl-10" />
+          <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder={t('ძებნა სათაურით...')} className="input pl-10" />
         </div>
         <div className="flex gap-1 flex-wrap">
-          <button onClick={() => setStatusFilter('')} className={`btn-secondary text-sm ${!statusFilter ? 'ring-2 ring-primary-500' : ''}`}>ყველა</button>
+          <button onClick={() => setStatusFilter('')} className={`btn-secondary text-sm ${!statusFilter ? 'ring-2 ring-primary-500' : ''}`}>{t('ყველა')}</button>
           {Object.entries(taskStatusMap).map(([key, { label }]) => (
             <button key={key} onClick={() => setStatusFilter(key)} className={`btn-secondary text-sm ${statusFilter === key ? 'ring-2 ring-primary-500' : ''}`}>{label}</button>
           ))}
         </div>
         <div className="flex gap-1 flex-wrap">
-          <button onClick={() => setPriorityFilter('')} className={`btn-secondary text-sm ${!priorityFilter ? 'ring-2 ring-primary-500' : ''}`}>პრიორიტეტი</button>
+          <button onClick={() => setPriorityFilter('')} className={`btn-secondary text-sm ${!priorityFilter ? 'ring-2 ring-primary-500' : ''}`}>{t('პრიორიტეტი')}</button>
           {Object.entries(priorityMap).map(([key, { label }]) => (
             <button key={key} onClick={() => setPriorityFilter(key)} className={`btn-secondary text-sm ${priorityFilter === key ? 'ring-2 ring-primary-500' : ''}`}>{label}</button>
           ))}
@@ -213,7 +215,7 @@ export default function TasksPage() {
                     </div>
                   ))}
                   {columnTasks.length === 0 && (
-                    <div className="text-center text-gray-400 text-xs py-8 dark:text-gray-500">ცარიელია</div>
+                    <div className="text-center text-gray-400 text-xs py-8 dark:text-gray-500">{t('ცარიელია')}</div>
                   )}
                 </div>
               </div>
@@ -225,33 +227,33 @@ export default function TasksPage() {
       {/* Task Create/Edit Modal */}
       <Modal open={modalOpen} onClose={closeModal} title={editTask ? 'დავალების რედაქტირება' : 'ახალი დავალება'} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <FormField label="სათაური" required>
+          <FormField label={t('სათაური')} required>
             <input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input" required />
           </FormField>
-          <FormField label="აღწერა">
+          <FormField label={t('აღწერა')}>
             <textarea value={form.description || ''} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input" rows={3} />
           </FormField>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <FormField label="პრიორიტეტი">
+            <FormField label={t('პრიორიტეტი')}>
               <Select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as any })} options={[{ value: 'low', label: 'დაბალი' }, { value: 'medium', label: 'საშუალო' }, { value: 'high', label: 'მაღალი' }]} />
             </FormField>
-            <FormField label="ვადა">
+            <FormField label={t('ვადა')}>
               <input type="date" value={form.due_date || ''} onChange={(e) => setForm({ ...form, due_date: e.target.value })} className="input" />
             </FormField>
-            <FormField label="პასუხისმგებელი">
-              <Select value={form.assigned_to || ''} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })} placeholder="აირჩიეთ" options={users.map((u: any) => ({ value: u.id, label: u.full_name }))} />
+            <FormField label={t('პასუხისმგებელი')}>
+              <Select value={form.assigned_to || ''} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })} placeholder={t('აირჩიეთ')} options={users.map((u: any) => ({ value: u.id, label: u.full_name }))} />
             </FormField>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField label="კლიენტი">
-              <Select value={form.client_id || ''} onChange={(e) => setForm({ ...form, client_id: e.target.value })} placeholder="აირჩიეთ" options={clients.map((c: any) => ({ value: c.id, label: c.name }))} />
+            <FormField label={t('კლიენტი')}>
+              <Select value={form.client_id || ''} onChange={(e) => setForm({ ...form, client_id: e.target.value })} placeholder={t('აირჩიეთ')} options={clients.map((c: any) => ({ value: c.id, label: c.name }))} />
             </FormField>
-            <FormField label="შეკვეთა">
-              <input type="text" value={form.order_id || ''} onChange={(e) => setForm({ ...form, order_id: e.target.value })} className="input" placeholder="შეკვეთის ID" />
+            <FormField label={t('შეკვეთა')}>
+              <input type="text" value={form.order_id || ''} onChange={(e) => setForm({ ...form, order_id: e.target.value })} className="input" placeholder={t('შეკვეთის ID')} />
             </FormField>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
-            <button type="button" onClick={closeModal} className="btn-secondary">გაუქმება</button>
+            <button type="button" onClick={closeModal} className="btn-secondary">{t('გაუქმება')}</button>
             <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
               {createMutation.isPending ? 'შენახვა...' : editTask ? 'განახლება' : 'დამატება'}
             </button>
@@ -260,7 +262,7 @@ export default function TasksPage() {
       </Modal>
 
       {/* View Task Modal */}
-      <Modal open={!!viewTask} onClose={() => setViewTask(null)} title="დავალების დეტალები" size="lg">
+      <Modal open={!!viewTask} onClose={() => setViewTask(null)} title={t('დავალების დეტალები')} size="lg">
         {viewTask && (
           <div className="space-y-4">
             <div className="flex items-start justify-between">
@@ -296,13 +298,13 @@ export default function TasksPage() {
             </div>
 
             <div className="pt-4 border-t border-gray-200 dark:border-dark-50">
-              <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">კომენტარები</h4>
+              <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">{t('კომენტარები')}</h4>
               <div className="space-y-2 mb-3">
                 {/* Inline comment display — will work when comments are fetched */}
               </div>
               <div className="flex gap-2">
-                <input type="text" value={comment} onChange={(e) => setComment(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddComment()} placeholder="დაწერეთ კომენტარი..." className="input flex-1" />
-                <button onClick={handleAddComment} className="btn-primary" disabled={!comment.trim()}>გაგზავნა</button>
+                <input type="text" value={comment} onChange={(e) => setComment(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddComment()} placeholder={t('დაწერეთ კომენტარი...')} className="input flex-1" />
+                <button onClick={handleAddComment} className="btn-primary" disabled={!comment.trim()}>{t('გაგზავნა')}</button>
               </div>
             </div>
           </div>

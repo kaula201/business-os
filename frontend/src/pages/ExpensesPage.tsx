@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Pencil, Search, DollarSign, CheckCircle, XCircle, Clock, User, Tag, FileText
@@ -28,6 +29,7 @@ function errorText(err: any) {
 }
 
 export default function ExpensesPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
@@ -107,8 +109,8 @@ export default function ExpensesPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">ხარჯები</h1>
-          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">თანამშრომლების ხარჯების აღრიცხვა</p>
+          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('ხარჯები')}</h1>
+          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('თანამშრომლების ხარჯების აღრიცხვა')}</p>
         </div>
         <button
           className="btn-primary flex items-center gap-2"
@@ -118,7 +120,7 @@ export default function ExpensesPage() {
             setModal('create')
           }}
         >
-          <Plus size={18} /> ხარჯი
+          <Plus size={18} /> {t('ხარჯი')}
         </button>
       </div>
 
@@ -128,7 +130,7 @@ export default function ExpensesPage() {
           <div className="flex items-center gap-3">
             <DollarSign className="text-primary-600" />
             <div>
-              <div className="text-sm text-brandgray-500 dark:text-gray-400">ჯამური ხარჯები</div>
+              <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('ჯამური ხარჯები')}</div>
               <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(totalAll)}</div>
             </div>
           </div>
@@ -137,7 +139,7 @@ export default function ExpensesPage() {
           <div className="flex items-center gap-3">
             <Clock className="text-amber-600" />
             <div>
-              <div className="text-sm text-brandgray-500 dark:text-gray-400">მოლოდინში</div>
+              <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('მოლოდინში')}</div>
               <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(totalPending)}</div>
             </div>
           </div>
@@ -146,7 +148,7 @@ export default function ExpensesPage() {
           <div className="flex items-center gap-3">
             <CheckCircle className="text-green-600" />
             <div>
-              <div className="text-sm text-brandgray-500 dark:text-gray-400">დამტკიცებული</div>
+              <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('დამტკიცებული')}</div>
               <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(totalApproved)}</div>
             </div>
           </div>
@@ -157,7 +159,7 @@ export default function ExpensesPage() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-xs">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-          <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="ძებნა..." className="input pl-10" />
+          <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder={t('ძებნა...')} className="input pl-10" />
         </div>
         <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} options={[
           { value: '', label: 'ყველა' },
@@ -193,10 +195,10 @@ export default function ExpensesPage() {
               <div className="flex items-center gap-1">
                 {e.status === 'pending' && (
                   <>
-                    <button onClick={(e2) => { e2.stopPropagation(); approveExpense.mutate(e.id) }} className="p-1.5 hover:bg-green-50 rounded-lg" title="დამტკიცება">
+                    <button onClick={(e2) => { e2.stopPropagation(); approveExpense.mutate(e.id) }} className="p-1.5 hover:bg-green-50 rounded-lg" title={t('დამტკიცება')}>
                       <CheckCircle size={16} className="text-green-500" />
                     </button>
-                    <button onClick={(e2) => { e2.stopPropagation(); rejectExpense.mutate(e.id) }} className="p-1.5 hover:bg-red-50 rounded-lg" title="უარყოფა">
+                    <button onClick={(e2) => { e2.stopPropagation(); rejectExpense.mutate(e.id) }} className="p-1.5 hover:bg-red-50 rounded-lg" title={t('უარყოფა')}>
                       <XCircle size={16} className="text-red-500" />
                     </button>
                   </>
@@ -218,33 +220,33 @@ export default function ExpensesPage() {
       />
 
       {/* Create Modal */}
-      <Modal open={modal === 'create'} onClose={() => setModal(null)} title="ახალი ხარჯი" size="md">
+      <Modal open={modal === 'create'} onClose={() => setModal(null)} title={t('ახალი ხარჯი')} size="md">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="თარიღი" required>
+            <FormField label={t('თარიღი')} required>
               <input type="date" value={form.expense_date} onChange={(e) => setForm({ ...form, expense_date: e.target.value })} className="input" />
             </FormField>
-            <FormField label="კატეგორია">
-              <Select value={form.category_id || ''} onChange={(e) => setForm({ ...form, category_id: e.target.value || null })} options={categories.map((c) => ({ value: c.id, label: c.name }))} placeholder="აირჩიეთ" />
+            <FormField label={t('კატეგორია')}>
+              <Select value={form.category_id || ''} onChange={(e) => setForm({ ...form, category_id: e.target.value || null })} options={categories.map((c) => ({ value: c.id, label: c.name }))} placeholder={t('აირჩიეთ')} />
             </FormField>
           </div>
-          <FormField label="აღწერა" required>
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input" rows={3} placeholder="ხარჯის აღწერა" />
+          <FormField label={t('აღწერა')} required>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input" rows={3} placeholder={t('ხარჯის აღწერა')} />
           </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="თანხა" required>
+            <FormField label={t('თანხა')} required>
               <input type="number" step="0.01" value={form.amount || ''} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} className="input" />
             </FormField>
-            <FormField label="ვალუტა">
+            <FormField label={t('ვალუტა')}>
               <Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} options={[{ value: 'GEL', label: 'GEL' }, { value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }]} />
             </FormField>
           </div>
-          <FormField label="შენიშვნა">
+          <FormField label={t('შენიშვნა')}>
             <textarea value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value || null })} className="input" rows={2} />
           </FormField>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setModal(null)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button onClick={() => { if (!form.description.trim() || !form.amount) { setError('აღწერა და თანხა სავალდებულოა'); return }; createExpense.mutate() }} disabled={createExpense.isPending} className="btn-primary">
               {createExpense.isPending ? 'ინახება...' : 'დაფიქსირება'}
             </button>
@@ -253,20 +255,20 @@ export default function ExpensesPage() {
       </Modal>
 
       {/* Edit Modal */}
-      <Modal open={modal === 'edit'} onClose={() => setModal(null)} title="ხარჯის რედაქტირება" size="md">
+      <Modal open={modal === 'edit'} onClose={() => setModal(null)} title={t('ხარჯის რედაქტირება')} size="md">
         <div className="space-y-4">
-          <FormField label="აღწერა">
+          <FormField label={t('აღწერა')}>
             <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="input" rows={3} />
           </FormField>
-          <FormField label="თანხა">
+          <FormField label={t('თანხა')}>
             <input type="number" step="0.01" value={editForm.amount || ''} onChange={(e) => setEditForm({ ...editForm, amount: Number(e.target.value) })} className="input" />
           </FormField>
-          <FormField label="შენიშვნა">
+          <FormField label={t('შენიშვნა')}>
             <textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} className="input" rows={2} />
           </FormField>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setModal(null)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button onClick={() => updateExpense.mutate()} disabled={updateExpense.isPending} className="btn-primary">
               {updateExpense.isPending ? 'ინახება...' : 'შენახვა'}
             </button>

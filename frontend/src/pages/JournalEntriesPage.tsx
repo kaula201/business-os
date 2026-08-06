@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Search } from 'lucide-react'
 
@@ -28,6 +29,7 @@ const refTypes: Record<string, string> = {
 }
 
 export default function JournalEntriesPage() {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [page, setPage] = useState(1)
@@ -61,7 +63,7 @@ export default function JournalEntriesPage() {
       <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">{refTypes[e.reference_type] || e.reference_type}</span>
     )},
     { key: 'is_reversal', label: '', render: (e: JournalEntrySummary) => e.is_reversal
-      ? <span className="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">გაუქმება</span>
+      ? <span className="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">{t('გაუქმება')}</span>
       : null
     },
   ]
@@ -70,37 +72,37 @@ export default function JournalEntriesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">საჟურნალო ჩანაწერები</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">ორმაგი ჩანაწერის პრინციპით შექმნილი GL ჩანაწერები</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('საჟურნალო ჩანაწერები')}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('ორმაგი ჩანაწერის პრინციპით შექმნილი GL ჩანაწერები')}</p>
         </div>
       </div>
 
       <div className="card">
         <div className="relative max-w-xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
-          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} className="input pl-10" placeholder="თარიღით ძებნა (YYYY-MM-DD)..." />
+          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} className="input pl-10" placeholder={t('თარიღით ძებნა (YYYY-MM-DD)...')} />
         </div>
       </div>
 
       <DataTable columns={columns} data={entries} isLoading={isLoading} emptyMessage="საჟურნალო ჩანაწერები ჯერ არ არის" onRowClick={e => setSelectedId(e.id)} page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
 
       <Modal open={!!selectedId} onClose={() => setSelectedId(null)} title={selected ? `ჩანაწერი ${selected.entry_number}` : ''}>
-        {detailLoading ? <p className="text-gray-500 dark:text-gray-400">იტვირთება...</p> : selected && (
+        {detailLoading ? <p className="text-gray-500 dark:text-gray-400">{t('იტვირთება...')}</p> : selected && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><span className="text-gray-500 dark:text-gray-400">თარიღი:</span> <span className="font-medium">{new Date(selected.entry_date).toLocaleDateString('ka-GE')}</span></div>
-              <div><span className="text-gray-500 dark:text-gray-400">წყარო:</span> <span className="font-medium">{refTypes[selected.reference_type] || selected.reference_type}</span></div>
-              <div className="col-span-2"><span className="text-gray-500 dark:text-gray-400">აღწერა:</span> <span className="font-medium">{selected.description}</span></div>
-              {selected.is_reversal && <div className="col-span-2"><span className="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">გაუქმების ჩანაწერი</span></div>}
+              <div><span className="text-gray-500 dark:text-gray-400">{t('თარიღი:')}</span> <span className="font-medium">{new Date(selected.entry_date).toLocaleDateString('ka-GE')}</span></div>
+              <div><span className="text-gray-500 dark:text-gray-400">{t('წყარო:')}</span> <span className="font-medium">{refTypes[selected.reference_type] || selected.reference_type}</span></div>
+              <div className="col-span-2"><span className="text-gray-500 dark:text-gray-400">{t('აღწერა:')}</span> <span className="font-medium">{selected.description}</span></div>
+              {selected.is_reversal && <div className="col-span-2"><span className="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">{t('გაუქმების ჩანაწერი')}</span></div>}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 dark:border-dark-50 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <th className="py-2 pr-4">ანგარიში</th>
-                    <th className="py-2 pr-4 text-right">დებეტი</th>
-                    <th className="py-2 pr-4 text-right">კრედიტი</th>
-                    <th className="py-2">აღწერა</th>
+                    <th className="py-2 pr-4">{t('ანგარიში')}</th>
+                    <th className="py-2 pr-4 text-right">{t('დებეტი')}</th>
+                    <th className="py-2 pr-4 text-right">{t('კრედიტი')}</th>
+                    <th className="py-2">{t('აღწერა')}</th>
                   </tr>
                 </thead>
                 <tbody>

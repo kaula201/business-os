@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { glApi } from '../services/api'
 import { Scale } from 'lucide-react'
@@ -23,6 +24,7 @@ function AmountCell({ value, color }: { value: number; color: string }) {
 }
 
 export default function BalanceSheetPage() {
+  const { t } = useTranslation()
   const today = new Date().toISOString().slice(0, 10)
   const [asOfDate, setAsOfDate] = useState(today)
 
@@ -55,14 +57,14 @@ export default function BalanceSheetPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:border-dark-50 dark:text-gray-400">
-              <th className="px-4 py-2">კოდი</th>
-              <th className="px-4 py-2">სახელი</th>
-              <th className="px-4 py-2 text-right">თანხა</th>
+              <th className="px-4 py-2">{t('კოდი')}</th>
+              <th className="px-4 py-2">{t('სახელი')}</th>
+              <th className="px-4 py-2 text-right">{t('თანხა')}</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={3} className="px-4 py-6 text-center text-gray-400 dark:text-gray-500">მონაცემები არ არის</td></tr>
+              <tr><td colSpan={3} className="px-4 py-6 text-center text-gray-400 dark:text-gray-500">{t('მონაცემები არ არის')}</td></tr>
             ) : rows.map(a => (
               <tr key={a.code} className="border-b border-gray-100 hover:bg-gray-50 dark:border-dark-50 dark:hover:bg-dark-100">
                 <td className="px-4 py-2 font-mono text-gray-900 dark:text-gray-200">{a.code}</td>
@@ -86,17 +88,17 @@ export default function BalanceSheetPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">ბალანსი</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Balance Sheet — ფინანსური მდგომარეობის ანგარიშგება</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ბალანსი')}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('Balance Sheet — ფინანსური მდგომარეობის ანგარიშგება')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-600 dark:text-gray-400">თარიღი:</label>
+          <label className="text-sm text-gray-600 dark:text-gray-400">{t('თარიღი:')}</label>
           <input type="date" value={asOfDate} onChange={e => setAsOfDate(e.target.value)} className="input w-44" />
         </div>
       </div>
 
       {isLoading ? (
-        <div className="card py-12 text-center text-gray-500 dark:text-gray-400" role="status">იტვირთება...</div>
+        <div className="card py-12 text-center text-gray-500 dark:text-gray-400" role="status">{t('იტვირთება...')}</div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-6">
@@ -125,11 +127,11 @@ export default function BalanceSheetPage() {
       <div className={`card ${balanced ? 'bg-green-50 border border-green-200 dark:bg-green-950/30 dark:border-green-900/50' : 'bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-900/50'}`}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-4 py-4">
           <div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">აქტივები</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">{t('აქტივები')}</div>
             <div className="text-lg font-bold font-mono text-blue-700 dark:text-blue-400">{money(totalAssets)}</div>
           </div>
           <div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">ვალდებულებები + კაპიტალი</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">{t('ვალდებულებები + კაპიტალი')}</div>
             <div className="text-lg font-bold font-mono text-amber-700 dark:text-amber-400">{money(totalLiabilitiesEquity)}</div>
           </div>
         </div>

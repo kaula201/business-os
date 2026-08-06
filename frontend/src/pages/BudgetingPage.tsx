@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Pencil, Trash2, Search, DollarSign, Target, TrendingDown, Calendar } from 'lucide-react'
 
@@ -19,6 +20,7 @@ function errorText(err: any) {
 }
 
 export default function BudgetingPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
@@ -71,11 +73,11 @@ export default function BudgetingPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">ბიუჯეტირება</h1>
-          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">ბიუჯეტის დაგეგმვა, შესრულების მონიტორინგი</p>
+          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('ბიუჯეტირება')}</h1>
+          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('ბიუჯეტის დაგეგმვა, შესრულების მონიტორინგი')}</p>
         </div>
         <button className="btn-primary flex items-center gap-2" onClick={() => { setPlanForm({ name: '', fiscal_year: currentYear, period_type: 'monthly', notes: null }); setError(''); setPlanModal('create') }}>
-          <Plus size={18} /> ბიუჯეტი
+          <Plus size={18} /> {t('ბიუჯეტი')}
         </button>
       </div>
 
@@ -85,7 +87,7 @@ export default function BudgetingPage() {
           <div className="flex items-center gap-3">
             <Target className="text-primary-600" />
             <div>
-              <div className="text-sm text-brandgray-500 dark:text-gray-400">დაგეგმილი</div>
+              <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('დაგეგმილი')}</div>
               <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(totalPlanned)}</div>
             </div>
           </div>
@@ -94,7 +96,7 @@ export default function BudgetingPage() {
           <div className="flex items-center gap-3">
             <DollarSign className="text-accent-600" />
             <div>
-              <div className="text-sm text-brandgray-500 dark:text-gray-400">ფაქტობრივი</div>
+              <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('ფაქტობრივი')}</div>
               <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(totalActual)}</div>
             </div>
           </div>
@@ -103,7 +105,7 @@ export default function BudgetingPage() {
           <div className="flex items-center gap-3">
             <TrendingDown className="text-amber-600" />
             <div>
-              <div className="text-sm text-brandgray-500 dark:text-gray-400">გადახრა</div>
+              <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('გადახრა')}</div>
               <div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(totalPlanned - totalActual)}</div>
             </div>
           </div>
@@ -114,7 +116,7 @@ export default function BudgetingPage() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-xs">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ძებნა..." className="input pl-10" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('ძებნა...')} className="input pl-10" />
         </div>
       </div>
 
@@ -134,7 +136,7 @@ export default function BudgetingPage() {
             key: 'actions', label: '',
             render: (p: BudgetPlan) => (
               <div className="flex items-center gap-1">
-                <button onClick={(e) => { e.stopPropagation(); setSelectedPlanId(p.id) }} className="p-1.5 hover:bg-primary-50 rounded-lg" title="ხაზები">
+                <button onClick={(e) => { e.stopPropagation(); setSelectedPlanId(p.id) }} className="p-1.5 hover:bg-primary-50 rounded-lg" title={t('ხაზები')}>
                   <Target size={16} className="text-primary-500" />
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); if (confirm('წავშალოთ ბიუჯეტი?')) deletePlan.mutate(p.id) }} className="p-1.5 hover:bg-red-50 rounded-lg">
@@ -154,24 +156,24 @@ export default function BudgetingPage() {
       {selectedPlanId && (
         <section className="card overflow-hidden p-0 dark:bg-dark-200 dark:border-dark-50">
           <div className="border-b border-brandgray-100 dark:border-dark-50 px-5 py-4 flex items-center justify-between">
-            <h2 className="font-semibold text-brandgray-900 dark:text-gray-100">ბიუჯეტის ხაზები</h2>
-            <button onClick={() => setSelectedPlanId(null)} className="btn-secondary text-sm">დახურვა</button>
+            <h2 className="font-semibold text-brandgray-900 dark:text-gray-100">{t('ბიუჯეტის ხაზები')}</h2>
+            <button onClick={() => setSelectedPlanId(null)} className="btn-secondary text-sm">{t('დახურვა')}</button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-brandgray-50 dark:bg-dark-100">
                 <tr>
-                  <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">ანგარიში</th>
-                  <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">პერიოდი</th>
-                  <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">დაგეგმილი</th>
-                  <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">ფაქტობრივი</th>
-                  <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">გადახრა</th>
+                  <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">{t('ანგარიში')}</th>
+                  <th className="px-4 py-3 text-left text-brandgray-600 dark:text-gray-400">{t('პერიოდი')}</th>
+                  <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">{t('დაგეგმილი')}</th>
+                  <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">{t('ფაქტობრივი')}</th>
+                  <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">{t('გადახრა')}</th>
                   <th className="px-4 py-3 text-right text-brandgray-600 dark:text-gray-400">%</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
-                {linesLoading && <tr><td className="px-4 py-8 text-center text-brandgray-500" colSpan={6}>იტვირთება...</td></tr>}
-                {!linesLoading && lines.length === 0 && <tr><td className="px-4 py-8 text-center text-brandgray-500" colSpan={6}>ხაზები არ არის</td></tr>}
+                {linesLoading && <tr><td className="px-4 py-8 text-center text-brandgray-500" colSpan={6}>{t('იტვირთება...')}</td></tr>}
+                {!linesLoading && lines.length === 0 && <tr><td className="px-4 py-8 text-center text-brandgray-500" colSpan={6}>{t('ხაზები არ არის')}</td></tr>}
                 {lines.map((l) => (
                   <tr key={l.id} className="hover:bg-brandgray-50/50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3"><span className="font-mono text-brandgray-600">{l.gl_account_code}</span> {l.gl_account_name}</td>
@@ -195,16 +197,16 @@ export default function BudgetingPage() {
       )}
 
       {/* Create Modal */}
-      <Modal open={planModal === 'create'} onClose={() => setPlanModal(null)} title="ახალი ბიუჯეტი" size="md">
+      <Modal open={planModal === 'create'} onClose={() => setPlanModal(null)} title={t('ახალი ბიუჯეტი')} size="md">
         <div className="space-y-4">
-          <FormField label="სახელი" required>
-            <input value={planForm.name} onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })} placeholder="2026 წლის ბიუჯეტი" className="input" />
+          <FormField label={t('სახელი')} required>
+            <input value={planForm.name} onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })} placeholder={t('2026 წლის ბიუჯეტი')} className="input" />
           </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="წელი" required>
+            <FormField label={t('წელი')} required>
               <input type="number" min={2020} max={2100} value={planForm.fiscal_year} onChange={(e) => setPlanForm({ ...planForm, fiscal_year: Number(e.target.value) })} className="input" />
             </FormField>
-            <FormField label="პერიოდის ტიპი">
+            <FormField label={t('პერიოდის ტიპი')}>
               <Select value={planForm.period_type || 'monthly'} onChange={(e) => setPlanForm({ ...planForm, period_type: e.target.value })} options={[
                 { value: 'monthly', label: 'თვიური' },
                 { value: 'quarterly', label: 'კვარტალური' },
@@ -212,12 +214,12 @@ export default function BudgetingPage() {
               ]} />
             </FormField>
           </div>
-          <FormField label="შენიშვნა">
+          <FormField label={t('შენიშვნა')}>
             <textarea value={planForm.notes || ''} onChange={(e) => setPlanForm({ ...planForm, notes: e.target.value || null })} className="input" rows={2} />
           </FormField>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setPlanModal(null)} className="btn-secondary">გაუქმება</button>
+            <button onClick={() => setPlanModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button onClick={() => { if (!planForm.name.trim()) { setError('სახელი სავალდებულოა'); return }; createPlan.mutate() }} disabled={createPlan.isPending} className="btn-primary">
               {createPlan.isPending ? 'იქმნება...' : 'შექმნა'}
             </button>

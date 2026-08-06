@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileText, FolderTree, Plus, Search, Download, Archive, Tag, Clock, ChevronDown, ChevronRight } from 'lucide-react'
 
@@ -27,6 +28,7 @@ const typeLabels: Record<string, string> = {
 const fmtSize = (bytes: number) => bytes > 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : bytes > 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${bytes} B`
 
 export default function DocumentsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
@@ -64,18 +66,18 @@ export default function DocumentsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">დოკუმენტები</h1>
-          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">დოკუმენტების საცავი, თარგები, არქივი</p>
+          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('დოკუმენტები')}</h1>
+          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('დოკუმენტების საცავი, თარგები, არქივი')}</p>
         </div>
         <button onClick={() => { resetForm(); setShowModal(true) }} className="btn btn-primary flex items-center gap-2">
-          <Plus size={18} /> დოკუმენტის დამატება
+          <Plus size={18} /> {t('დოკუმენტის დამატება')}
         </button>
       </div>
 
       <div className="flex flex-wrap gap-3">
         <div className="relative min-w-64 flex-1">
           <Search className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500" size={18} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ძებნა სათაურით, თეგებით..."
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('ძებნა სათაურით, თეგებით...')}
             className="w-full rounded-lg border py-2 pl-10 pr-3 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
         </div>
       </div>
@@ -85,20 +87,20 @@ export default function DocumentsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
               <tr>
-                <th className="px-4 py-3">სათაური</th>
-                <th className="px-4 py-3">კატეგორია</th>
-                <th className="px-4 py-3">ტიპი</th>
-                <th className="px-4 py-3">ფაილი</th>
-                <th className="px-4 py-3">თეგები</th>
-                <th className="px-4 py-3 text-right">ვერსია</th>
+                <th className="px-4 py-3">{t('სათაური')}</th>
+                <th className="px-4 py-3">{t('კატეგორია')}</th>
+                <th className="px-4 py-3">{t('ტიპი')}</th>
+                <th className="px-4 py-3">{t('ფაილი')}</th>
+                <th className="px-4 py-3">{t('თეგები')}</th>
+                <th className="px-4 py-3 text-right">{t('ვერსია')}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-dark-50">
               {isLoading ? (
-                <tr><td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">იტვირთება...</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('იტვირთება...')}</td></tr>
               ) : docs.length === 0 ? (
-                <tr><td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">დოკუმენტები არ მოიძებნა</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('დოკუმენტები არ მოიძებნა')}</td></tr>
               ) : docs.map(doc => (
                 <tr key={doc.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                   <td className="px-4 py-3">
@@ -114,7 +116,7 @@ export default function DocumentsPage() {
                   <td className="px-4 py-3">{doc.tags && <span className="text-xs text-gray-500 dark:text-gray-400">{doc.tags}</span>}</td>
                   <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">v{doc.version}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => archiveMutation.mutate(doc.id)} className="text-red-500 hover:text-red-700 text-xs" title="დარქივება"><Archive size={16} /></button>
+                    <button onClick={() => archiveMutation.mutate(doc.id)} className="text-red-500 hover:text-red-700 text-xs" title={t('დარქივება')}><Archive size={16} /></button>
                   </td>
                 </tr>
               ))}
@@ -123,46 +125,46 @@ export default function DocumentsPage() {
         </div>
       </div>
 
-      <Modal open={showModal} onClose={() => setShowModal(false)} title="ახალი დოკუმენტი" size="lg">
+      <Modal open={showModal} onClose={() => setShowModal(false)} title={t('ახალი დოკუმენტი')} size="lg">
         <form onSubmit={submit} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">სათაური *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('სათაური *')}</label>
               <input required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
                 className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">კატეგორია</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('კატეგორია')}</label>
               <select value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })}
                 className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
-                <option value="">აირჩიეთ</option>
+                <option value="">{t('აირჩიეთ')}</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ტიპი</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ტიპი')}</label>
               <select value={form.document_type} onChange={e => setForm({ ...form, document_type: e.target.value })}
                 className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
                 {Object.entries(typeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ფაილის სახელი *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ფაილის სახელი *')}</label>
               <input required value={form.filename} onChange={e => setForm({ ...form, filename: e.target.value })}
                 className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ფაილის გზა *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ფაილის გზა *')}</label>
               <input required value={form.file_path} onChange={e => setForm({ ...form, file_path: e.target.value })}
                 className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">აღწერა</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('აღწერა')}</label>
               <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2}
                 className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">თეგები (მძიმით გამოყოფილი)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('თეგები (მძიმით გამოყოფილი)')}</label>
               <input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })}
                 className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </div>

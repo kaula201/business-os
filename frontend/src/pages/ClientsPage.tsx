@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { clientsApi, importApi } from '../services/api'
 import { Plus, Search, Building2, User, Phone, Mail, MapPin, Upload, Loader2 } from 'lucide-react'
@@ -12,6 +13,7 @@ import type { Client, ClientCreate } from '../types'
 const CLIENTS_PAGE_SIZE = 20
 
 export default function ClientsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
@@ -142,15 +144,15 @@ export default function ClientsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">კლიენტების რეესტრი</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">გაყიდვებისა და ფინანსური დოკუმენტებისთვის გამოყენებული ოფიციალური კლიენტები</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('კლიენტების რეესტრი')}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('გაყიდვებისა და ფინანსური დოკუმენტებისთვის გამოყენებული ოფიციალური კლიენტები')}</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => { setImportModal(true); setImportFile(null); setImportResult('') }} className="btn-secondary flex items-center gap-2">
-            <Upload size={18} /> Excel იმპორტი
+            <Upload size={18} /> {t('Excel იმპორტი')}
           </button>
           <button onClick={openCreate} className="btn-primary flex items-center gap-2">
-            <Plus size={18} /> ახალი კლიენტი
+            <Plus size={18} /> {t('ახალი კლიენტი')}
           </button>
         </div>
       </div>
@@ -158,7 +160,7 @@ export default function ClientsPage() {
       <div className="card">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
-          <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="ძებნა სახელით, კოდით, ტელეფონით..." className="input pl-10" />
+          <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder={t('ძებნა სახელით, კოდით, ტელეფონით...')} className="input pl-10" />
         </div>
       </div>
 
@@ -168,33 +170,33 @@ export default function ClientsPage() {
       <Modal open={modalOpen} onClose={closeModal} title={editClient ? 'კლიენტის რედაქტირება' : 'ახალი კლიენტი'} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField label="სახელი / კომპანიის სახელი" required>
+            <FormField label={t('სახელი / კომპანიის სახელი')} required>
               <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input" required />
             </FormField>
-            <FormField label="საიდენტიფიკაციო კოდი" required>
+            <FormField label={t('საიდენტიფიკაციო კოდი')} required>
               <input type="text" value={form.identification_code} onChange={(e) => setForm({ ...form, identification_code: e.target.value })} className="input" required />
             </FormField>
-            <FormField label="ტიპი">
+            <FormField label={t('ტიპი')}>
               <Select options={[{ value: 'legal', label: 'იურიდიული პირი' }, { value: 'individual', label: 'ფიზიკური პირი' }]} value={form.client_type} onChange={(e) => setForm({ ...form, client_type: e.target.value as any })} />
             </FormField>
-            <FormField label="დღგ-ს გადამხდელი">
+            <FormField label={t('დღგ-ს გადამხდელი')}>
               <Select options={[{ value: 'true', label: 'კი' }, { value: 'false', label: 'არა' }]} value={String(form.is_vat_payer)} onChange={(e) => setForm({ ...form, is_vat_payer: e.target.value === 'true' })} />
             </FormField>
-            <FormField label="ტელეფონი">
+            <FormField label={t('ტელეფონი')}>
               <input type="tel" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input" placeholder="+995 5XX XXX XXX" />
             </FormField>
-            <FormField label="ელფოსტა">
+            <FormField label={t('ელფოსტა')}>
               <input type="email" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input" placeholder="info@company.ge" />
             </FormField>
           </div>
-          <FormField label="მისამართი">
+          <FormField label={t('მისამართი')}>
             <input type="text" value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} className="input" />
           </FormField>
-          <FormField label="შენიშვნა">
+          <FormField label={t('შენიშვნა')}>
             <textarea value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="input" rows={3} />
           </FormField>
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
-            <button type="button" onClick={closeModal} className="btn-secondary">გაუქმება</button>
+            <button type="button" onClick={closeModal} className="btn-secondary">{t('გაუქმება')}</button>
             <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
               {createMutation.isPending ? 'შენახვა...' : editClient ? 'განახლება' : 'დამატება'}
             </button>
@@ -203,7 +205,7 @@ export default function ClientsPage() {
       </Modal>
 
       {/* View Client Modal */}
-      <Modal open={!!viewClient} onClose={() => setViewClient(null)} title="ოფიციალური კლიენტის ბარათი" size="lg">
+      <Modal open={!!viewClient} onClose={() => setViewClient(null)} title={t('ოფიციალური კლიენტის ბარათი')} size="lg">
         {viewClient && (
           <div className="space-y-4">
             <div className="flex items-center gap-4 mb-4">
@@ -216,17 +218,17 @@ export default function ClientsPage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">კოდი:</span> <span className="font-medium">{viewClient.identification_code}</span></div>
-              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">ტიპი:</span> <span className="font-medium">{viewClient.client_type === 'legal' ? 'იურ. პირი' : 'ფიზ. პირი'}</span></div>
-              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">დღგ:</span> <span className="font-medium">{viewClient.is_vat_payer ? 'გადამხდელი' : 'არ არის'}</span></div>
-              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">შექმნილი:</span> <span className="font-medium">{new Date(viewClient.created_at).toLocaleDateString('ka-GE')}</span></div>
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('კოდი:')}</span> <span className="font-medium">{viewClient.identification_code}</span></div>
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('ტიპი:')}</span> <span className="font-medium">{viewClient.client_type === 'legal' ? 'იურ. პირი' : 'ფიზ. პირი'}</span></div>
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('დღგ:')}</span> <span className="font-medium">{viewClient.is_vat_payer ? 'გადამხდელი' : 'არ არის'}</span></div>
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('შექმნილი:')}</span> <span className="font-medium">{new Date(viewClient.created_at).toLocaleDateString('ka-GE')}</span></div>
               {viewClient.phone && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-1"><Phone size={14} className="inline mr-1" />{viewClient.phone}</div>}
               {viewClient.email && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-1"><Mail size={14} className="inline mr-1" />{viewClient.email}</div>}
               {viewClient.address && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-2"><MapPin size={14} className="inline mr-1" />{viewClient.address}</div>}
-              {viewClient.notes && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-2"><span className="text-gray-500 dark:text-gray-400">შენიშვნა:</span> {viewClient.notes}</div>}
+              {viewClient.notes && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-2"><span className="text-gray-500 dark:text-gray-400">{t('შენიშვნა:')}</span> {viewClient.notes}</div>}
             </div>
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
-              <button onClick={() => { setViewClient(null); openEdit(viewClient) }} className="btn-primary">რედაქტირება</button>
+              <button onClick={() => { setViewClient(null); openEdit(viewClient) }} className="btn-primary">{t('რედაქტირება')}</button>
             </div>
           </div>
         )}
@@ -236,23 +238,23 @@ export default function ClientsPage() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-        title="კლიენტის წაშლა"
+        title={t('კლიენტის წაშლა')}
         message={`დარწმუნებული ხართ, რომ გსურთ "${deleteTarget?.name}"-ის წაშლა?`}
         confirmLabel="წაშლა"
         loading={deleteMutation.isPending}
       />
 
       {/* Import Modal */}
-      <Modal open={importModal} onClose={() => setImportModal(false)} title="კლიენტების Excel იმპორტი" size="md">
+      <Modal open={importModal} onClose={() => setImportModal(false)} title={t('კლიენტების Excel იმპორტი')} size="md">
         {importResult ? (
           <div className="text-center py-4">
             <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{importResult}</p>
-            <button onClick={() => { setImportModal(false); queryClient.invalidateQueries({ queryKey: ['clients'] }) }} className="btn-primary mt-6">დახურვა</button>
+            <button onClick={() => { setImportModal(false); queryClient.invalidateQueries({ queryKey: ['clients'] }) }} className="btn-primary mt-6">{t('დახურვა')}</button>
           </div>
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              ატვირთეთ Excel ფაილი (.xlsx) კლიენტების სიით. მოსალოდნელი სვეტები:
+              {t('ატვირთეთ Excel ფაილი (.xlsx) კლიენტების სიით. მოსალოდნელი სვეტები:')}
               <code className="block mt-2 text-xs bg-gray-100 dark:bg-dark-100 p-2 rounded">name, identification_code, phone, email, address, notes</code>
             </p>
             <input
@@ -263,7 +265,7 @@ export default function ClientsPage() {
             />
             {importFile && <p className="text-xs text-gray-400 dark:text-gray-500">არჩეულია: {importFile.name}</p>}
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setImportModal(false)} className="btn-secondary">გაუქმება</button>
+              <button onClick={() => setImportModal(false)} className="btn-secondary">{t('გაუქმება')}</button>
               <button
                 onClick={async () => {
                   if (!importFile) return
@@ -281,7 +283,7 @@ export default function ClientsPage() {
                 disabled={!importFile || importLoading}
                 className="btn-primary"
               >
-                {importLoading ? <><Loader2 size={16} className="animate-spin" /> იტვირთება...</> : 'ატვირთვა'}
+                {importLoading ? <><Loader2 size={16} className="animate-spin" /> {t('იტვირთება...')}</> : 'ატვირთვა'}
               </button>
             </div>
           </div>

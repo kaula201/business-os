@@ -5,6 +5,7 @@ import {
   CheckSquare, Bot, Settings, X, ReceiptText, Building2, WalletCards, Landmark, BookOpen, FileText, TrendingUp, Scale, Car, ChevronDown, ChevronRight, DollarSign, Banknote, HandCoins, Wrench, BarChart3, Target, Coins, Network, CalendarClock, CalendarRange, Loader2
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { modulesApi } from '../../services/api'
 import type { CompanyModuleStatus } from '../../types'
 
@@ -41,6 +42,7 @@ const categoryGroups: NavGroup[] = [
 // ── Sub-components ──────────────────────────────────────────────────
 
 function NavLinkItem({ item, onClose, depth = 0 }: { item: { to: string; icon: any; label: string }; onClose: () => void; depth?: number }) {
+  const { t } = useTranslation()
   return (
     <NavLink
       to={item.to}
@@ -54,7 +56,7 @@ function NavLinkItem({ item, onClose, depth = 0 }: { item: { to: string; icon: a
       }
     >
       <item.icon size={depth === 0 ? 20 : 17} className="transition-transform group-hover:scale-105 shrink-0" />
-      <span className="truncate">{item.label}</span>
+      <span className="truncate">{t(item.label)}</span>
     </NavLink>
   )
 }
@@ -72,6 +74,7 @@ function CollapsibleGroup({
   onToggle: () => void
   children: React.ReactNode
 }) {
+  const { t } = useTranslation()
   return (
     <div>
       <button
@@ -81,7 +84,7 @@ function CollapsibleGroup({
         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-brandgray-600 hover:bg-brandgray-50 hover:text-brandgray-900 transition-colors dark:text-gray-400 dark:hover:bg-dark-100 dark:hover:text-gray-200"
       >
         <Icon size={18} className="shrink-0" />
-        <span className="flex-1 text-left truncate">{label}</span>
+        <span className="flex-1 text-left truncate">{t(label)}</span>
         {open ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
       </button>
       {open && (
@@ -102,6 +105,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
+  const { t } = useTranslation()
   const [modules, setModules] = useState<CompanyModuleStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
@@ -148,7 +152,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
         </div>
         <div className="flex-1 flex items-center justify-center text-brandgray-400">
           <Loader2 size={20} className="animate-spin mr-2" />
-          <span className="text-sm">იტვირთება...</span>
+          <span className="text-sm">{t('იტვირთება...')}</span>
         </div>
       </aside>
     )
@@ -221,7 +225,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                 <div className="pt-1">
                   <CollapsibleGroup
                     icon={Target}
-                    label="CRM — გაყიდვების მართვა"
+                    label={t('CRM — გაყიდვების მართვა')}
                     open={openGroups.has('crm')}
                     onToggle={() => toggleGroup('crm')}
                   >
@@ -237,7 +241,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                 <div className="pt-1">
                   <CollapsibleGroup
                     icon={ShoppingCart}
-                    label="გაყიდვები"
+                    label={t('გაყიდვები')}
                     open={openGroups.has('sales')}
                     onToggle={() => toggleGroup('sales')}
                   >
@@ -258,7 +262,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                 <div className="pt-1">
                   <CollapsibleGroup
                     icon={Building2}
-                    label="შესყიდვები"
+                    label={t('შესყიდვები')}
                     open={openGroups.has('purchases')}
                     onToggle={() => toggleGroup('purchases')}
                   >
@@ -279,7 +283,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-brandgray-600 hover:bg-brandgray-50 hover:text-brandgray-900 transition-colors dark:text-gray-400 dark:hover:bg-dark-100 dark:hover:text-gray-200"
                   >
                     <DollarSign size={20} />
-                    <span className="flex-1 text-left">ფინანსები</span>
+                    <span className="flex-1 text-left">{t('ფინანსები')}</span>
                     {openGroups.has('finance') ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </button>
 
@@ -298,7 +302,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                 <div className="pt-1">
                   <CollapsibleGroup
                     icon={BookOpen}
-                    label="ბუღალტერია"
+                    label={t('ბუღალტერია')}
                     open={openGroups.has('accounting')}
                     onToggle={() => toggleGroup('accounting')}
                   >
@@ -329,11 +333,11 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-brandgray-600 hover:bg-primary-50 hover:text-primary-800 transition-colors dark:text-gray-400 dark:hover:bg-primary-900/30 dark:hover:text-primary-200"
           >
             <Bot size={20} />
-            AI ასისტენტი
+            {t('AI ასისტენტი')}
             <span className="ml-auto w-2 h-2 bg-accent-500 rounded-full animate-pulse" />
           </button>
           <div className="text-xs text-gray-400 text-center dark:text-gray-500">
-            ვერსია 1.0.0 — MVP
+            {t('ვერსია 1.0.0 — MVP')}
           </div>
         </div>
       </aside>
