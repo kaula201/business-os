@@ -52,6 +52,7 @@ export const authApi = {
     api.post(`/auth/reset-password?token=${encodeURIComponent(token)}&new_password=${encodeURIComponent(new_password)}`),
   verifyEmail: (token: string) => api.get(`/auth/verify-email?token=${encodeURIComponent(token)}`),
   resendVerification: (email: string) => api.post('/auth/resend-verification', { email, password: '' }),
+  ssoToken: () => api.get('/auth/sso-token'),
 }
 
 // Users API

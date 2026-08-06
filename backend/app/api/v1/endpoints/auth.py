@@ -1,6 +1,7 @@
 # backend/app/api/v1/endpoints/auth.py
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
@@ -11,9 +12,36 @@ from app.models.company import Company
 from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse, UserUpdate, UserInvite
 from app.schemas.common import ResponseBase, MessageResponse
 from app.core.config import settings
+from app.core.dependencies import get_current_user
 import uuid
+from jose import jwt
+from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/auth", tags=["ავტორიზაცია"])
+
+
+class SSOTokenResponse(BaseModel):
+    token: str
+    expires_in: int = 300
+
+
+@router.get("/sso-token", response_model=ResponseBase[SSOTokenResponse])
+async def get_sso_token(current_user: User = Depends(get_current_user)):
+    """Issue a short-lived cross-app SSO token for CRM OS.
+
+    Signed with the same JWT_SECRET_KEY (HS256) that CRM OS trusts.
+    Payload carries the user's email + name + type='sso'; expires in 5 minutes.
+    """
+    expire = datetime.utcnow() + timedelta(minutes=5)
+    payload = {
+        "sub": str(current_user.id),
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "type": "sso",
+        "exp": expire,
+    }
+    token = jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    return ResponseBase(data=SSOTokenResponse(token=token))
 
 
 @router.post("/register", response_model=ResponseBase[TokenResponse])

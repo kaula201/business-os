@@ -6,6 +6,7 @@ import {
   BriefcaseBusiness,
   CalendarClock,
   CheckCircle2,
+  ExternalLink,
   CircleDollarSign,
   Mail,
   Phone,
@@ -18,7 +19,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
-import { crmApi } from '../services/api'
+import { authApi, crmApi } from '../services/api'
 import type {
   CRMActivity,
   CRMActivityType,
@@ -268,9 +269,27 @@ export default function CRMPage() {
             აქ იმართება დაინტერესებული პირი ლიდიდან კვალიფიცირებულ შესაძლებლობამდე. რეალური შეკვეთა იქმნება მხოლოდ კლიენტების რეესტრში გადაყვანის შემდეგ.
           </p>
         </div>
-        <button onClick={() => setNewLeadOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-800">
-          <UserPlus size={18} /> ახალი ლიდი
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              try {
+                const { data } = await authApi.ssoToken()
+                const ssoToken = data?.data?.token
+                if (ssoToken) {
+                  window.location.href = `http://localhost:5174/sso?token=${encodeURIComponent(ssoToken)}`
+                }
+              } catch {
+                setMessage('CRM OS-ზე გადასვლა ვერ მოხერხდა — თავიდან შედით სისტემაში')
+              }
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary-700 px-4 py-2.5 text-sm font-semibold text-primary-700 hover:bg-primary-50"
+          >
+            <ExternalLink size={18} /> CRM OS
+          </button>
+          <button onClick={() => setNewLeadOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-800">
+            <UserPlus size={18} /> ახალი ლიდი
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-primary-100 bg-gradient-to-r from-primary-50 to-white p-4 dark:border-primary-900 dark:from-primary-950/40 dark:to-dark-200">
