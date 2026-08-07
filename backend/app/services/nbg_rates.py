@@ -170,6 +170,12 @@ async def run_scheduled_nbg_sync() -> dict[str, int]:
                         result = await apply_nbg_rates(db, company_id, payload)
                         add_sync_log(db, company_id, result, "scheduled", started_at)
                         await db.commit()
+                    # Notify live clients that rates changed (no manual refresh needed)
+                    from app.core.ws import manager
+                    await manager.broadcast(str(company_id), "rates_updated", {
+                        "source": "nbg_scheduled",
+                        "rate_date": str(result.get("rate_date", "")),
+                    })
                     synced += 1
                 except Exception:
                     logger.exception("Scheduled NBG sync failed for company %s", company_id)
