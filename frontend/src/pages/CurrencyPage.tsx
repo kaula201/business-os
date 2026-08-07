@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRightLeft, Calculator, Plus, RefreshCw, Search, Trash2 } from 'lucide-react'
+import { ArrowRightLeft, Calculator, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react'
 
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
@@ -161,7 +161,20 @@ export default function CurrencyPage() {
         </div>
       </div>
 
-      {notice && <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">{notice}</div>}
+      {notice && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">
+          <span>{notice}</span>
+          <button
+            type="button"
+            onClick={() => setNotice('')}
+            className="shrink-0 rounded-lg p-1 text-green-700 transition-colors hover:bg-green-100 dark:text-green-300 dark:hover:bg-green-900/50"
+            aria-label={t('დახურვა')}
+            title={t('დახურვა')}
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
 
       <section className="rounded-xl border border-gray-200 bg-white px-5 py-4 dark:border-dark-50 dark:bg-dark-200">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
