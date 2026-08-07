@@ -24,6 +24,10 @@ for regular_path, bold_path in [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     ),
     (
+        "/opt/homebrew/Caskroom/font-dejavu/2.37/dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf",
+        "/opt/homebrew/Caskroom/font-dejavu/2.37/dejavu-fonts-ttf-2.37/ttf/DejaVuSans-Bold.ttf",
+    ),
+    (
         "/System/Library/Fonts/Supplemental/Arial.ttf",
         "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
     ),
