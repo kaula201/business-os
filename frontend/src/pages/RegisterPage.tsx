@@ -22,7 +22,7 @@ export default function RegisterPage() {
       const res = await authApi.register(form)
       setAuth(res.data.data)
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'შეცდომა რეგისტრაციისას')
+      setError(err.response?.data?.detail || t('შეცდომა რეგისტრაციისას'))
     } finally {
       setLoading(false)
     }
@@ -61,7 +61,7 @@ export default function RegisterPage() {
               <input type="password" value={form.password} onChange={(e) => setForm({...form, password: e.target.value})} className="input" minLength={8} required />
             </div>
             <button type="submit" className="btn-primary w-full" disabled={loading}>
-              {loading ? 'რეგისტრაცია...' : 'რეგისტრაცია'}
+              {loading ? t('რეგისტრაცია...') : t('რეგისტრაცია')}
             </button>
           </form>
 

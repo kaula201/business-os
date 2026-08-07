@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowDownLeft,
@@ -30,13 +31,13 @@ function money(value: number, currency = 'GEL') {
 }
 
 function errorText(error: any) {
-  return error?.response?.data?.detail || 'ოპერაცია ვერ შესრულდა'
+  return error?.response?.data?.detail || i18n.t('ოპერაცია ვერ შესრულდა')
 }
 
 const transactionStatus: Record<string, { label: string; cls: string }> = {
-  unmatched: { label: 'შეუჯერებელი', cls: 'badge-yellow' },
-  partially_matched: { label: 'ნაწილობრივ შეჯერებული', cls: 'badge-blue' },
-  matched: { label: 'შეჯერებული', cls: 'badge-green' },
+  unmatched: { label: i18n.t('შეუჯერებელი'), cls: 'badge-yellow' },
+  partially_matched: { label: i18n.t('ნაწილობრივ შეჯერებული'), cls: 'badge-blue' },
+  matched: { label: i18n.t('შეჯერებული'), cls: 'badge-green' },
 }
 
 export default function BankingPage() {
@@ -112,7 +113,7 @@ export default function BankingPage() {
 
   const importStatement = useMutation({
     mutationFn: async () => {
-      if (!statementFile || !importAccountId) throw new Error('აირჩიეთ ანგარიში და CSV ფაილი')
+      if (!statementFile || !importAccountId) throw new Error(t('აირჩიეთ ანგარიში და CSV ფაილი'))
       const csvContent = await statementFile.text()
       return bankingApi.importStatement(importAccountId, {
         idempotency_key: `statement-${crypto.randomUUID()}`,
@@ -167,10 +168,10 @@ export default function BankingPage() {
 
   const submitReconciliation = () => {
     const payable = payables.find((row) => row.id === reconcileForm.payable_id)
-    if (!payable || !reconcileTransaction) return setError('აირჩიეთ payable')
-    if (reconcileForm.amount <= 0) return setError('თანხა უნდა იყოს ნულზე მეტი')
-    if (reconcileForm.amount > reconcileTransaction.unmatched_amount) return setError('თანხა transaction-ის დარჩენილ თანხას აჭარბებს')
-    if (reconcileForm.amount > payable.outstanding_amount) return setError('თანხა payable-ის დარჩენილ თანხას აჭარბებს')
+    if (!payable || !reconcileTransaction) return setError(t('აირჩიეთ payable'))
+    if (reconcileForm.amount <= 0) return setError(t('თანხა უნდა იყოს ნულზე მეტი'))
+    if (reconcileForm.amount > reconcileTransaction.unmatched_amount) return setError(t('თანხა transaction-ის დარჩენილ თანხას აჭარბებს'))
+    if (reconcileForm.amount > payable.outstanding_amount) return setError(t('თანხა payable-ის დარჩენილ თანხას აჭარბებს'))
     reconcile.mutate()
   }
 
@@ -232,7 +233,7 @@ export default function BankingPage() {
         <div className="border-b border-brandgray-100 dark:border-dark-50 px-5 py-4"><h2 className="font-semibold text-brandgray-900 dark:text-gray-100">{t('შეჯერების ისტორია')}</h2></div>
         <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-brandgray-50 dark:bg-dark-100 text-left text-brandgray-600 dark:text-gray-400"><tr><th className="px-4 py-3">reference</th><th className="px-4 py-3">{t('მომწოდებელი / ინვოისი')}</th><th className="px-4 py-3 text-right">{t('თანხა')}</th><th className="px-4 py-3">{t('სტატუსი')}</th><th className="px-4 py-3"></th></tr></thead><tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
           {!reconciliations.length && <tr><td colSpan={5} className="px-4 py-8 text-center text-brandgray-500 dark:text-gray-400">{t('შეჯერების ისტორია ჯერ არ არის.')}</td></tr>}
-          {reconciliations.map((row) => <tr key={row.id}><td className="px-4 py-3">{row.transaction_reference}</td><td className="px-4 py-3"><div>{row.supplier_name}</div><div className="text-xs text-brandgray-500 dark:text-gray-400">{row.supplier_invoice_number}</div></td><td className="px-4 py-3 text-right font-medium">{money(row.amount)}</td><td className="px-4 py-3"><span className={`badge ${row.status === 'active' ? 'badge-green' : 'badge-gray'}`}>{row.status === 'active' ? 'აქტიური' : 'გაუქმებული'}</span></td><td className="px-4 py-3 text-right">{canManage && row.status === 'active' && <button className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-800" onClick={() => { setError(''); setReversalRow(row) }}><RotateCcw size={15} /> {t('გაუქმება')}</button>}</td></tr>)}
+          {reconciliations.map((row) => <tr key={row.id}><td className="px-4 py-3">{row.transaction_reference}</td><td className="px-4 py-3"><div>{row.supplier_name}</div><div className="text-xs text-brandgray-500 dark:text-gray-400">{row.supplier_invoice_number}</div></td><td className="px-4 py-3 text-right font-medium">{money(row.amount)}</td><td className="px-4 py-3"><span className={`badge ${row.status === 'active' ? 'badge-green' : 'badge-gray'}`}>{row.status === 'active' ? t('აქტიური') : t('გაუქმებული')}</span></td><td className="px-4 py-3 text-right">{canManage && row.status === 'active' && <button className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-800" onClick={() => { setError(''); setReversalRow(row) }}><RotateCcw size={15} /> {t('გაუქმება')}</button>}</td></tr>)}
         </tbody></table></div>
       </section>
 
@@ -243,7 +244,7 @@ export default function BankingPage() {
           <FormField label="IBAN" required><input className={inputClass} value={accountForm.iban} onChange={(e) => setAccountForm({ ...accountForm, iban: e.target.value })} /></FormField>
           <FormField label={t('ვალუტა')} required><Select value={accountForm.currency} onChange={(e) => setAccountForm({ ...accountForm, currency: e.target.value })} options={[{ value: 'GEL', label: 'GEL' }, { value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }]} /></FormField>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setAccountOpen(false)}>{t('დახურვა')}</button><button className="btn-primary" disabled={!accountForm.bank_name || !accountForm.account_name || !accountForm.iban || createAccount.isPending} onClick={() => createAccount.mutate()}>{createAccount.isPending ? 'ინახება...' : 'შენახვა'}</button></div>
+          <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setAccountOpen(false)}>{t('დახურვა')}</button><button className="btn-primary" disabled={!accountForm.bank_name || !accountForm.account_name || !accountForm.iban || createAccount.isPending} onClick={() => createAccount.mutate()}>{createAccount.isPending ? t('ინახება...') : t('შენახვა')}</button></div>
         </div>
       </Modal>
 
@@ -253,7 +254,7 @@ export default function BankingPage() {
           <FormField label={t('საბანკო ანგარიში')} required><Select value={importAccountId} onChange={(e) => setImportAccountId(e.target.value)} options={accounts.map((row) => ({ value: row.id, label: `${row.account_name} — ${row.iban}` }))} /></FormField>
           <FormField label={t('CSV ფაილი')} required><input className={inputClass} type="file" accept=".csv,text/csv" onChange={(e) => setStatementFile(e.target.files?.[0] || null)} /></FormField>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setImportOpen(false)}>{t('დახურვა')}</button><button className="btn-primary" disabled={!statementFile || !importAccountId || importStatement.isPending} onClick={() => importStatement.mutate()}>{importStatement.isPending ? 'იტვირთება...' : 'იმპორტი'}</button></div>
+          <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setImportOpen(false)}>{t('დახურვა')}</button><button className="btn-primary" disabled={!statementFile || !importAccountId || importStatement.isPending} onClick={() => importStatement.mutate()}>{importStatement.isPending ? t('იტვირთება...') : t('იმპორტი')}</button></div>
         </div>
       </Modal>
 
@@ -264,12 +265,12 @@ export default function BankingPage() {
           <FormField label={t('შეჯერების თანხა')} required><input className={inputClass} type="number" min="0.01" step="0.01" max={reconcileTransaction.unmatched_amount} value={reconcileForm.amount || ''} onChange={(e) => setReconcileForm({ ...reconcileForm, amount: Number(e.target.value) })} /></FormField>
           <FormField label={t('შენიშვნა')}><textarea className={inputClass} rows={3} value={reconcileForm.notes} onChange={(e) => setReconcileForm({ ...reconcileForm, notes: e.target.value })} /></FormField>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setReconcileTransaction(null)}>{t('დახურვა')}</button><button className="btn-primary" disabled={!reconcileForm.payable_id || reconcile.isPending} onClick={submitReconciliation}>{reconcile.isPending ? 'მუშავდება...' : 'შეჯერება'}</button></div>
+          <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setReconcileTransaction(null)}>{t('დახურვა')}</button><button className="btn-primary" disabled={!reconcileForm.payable_id || reconcile.isPending} onClick={submitReconciliation}>{reconcile.isPending ? t('მუშავდება...') : t('შეჯერება')}</button></div>
         </div>}
       </Modal>
 
       <Modal open={!!reversalRow} onClose={() => setReversalRow(null)} title={t('Reconciliation-ის გაუქმება')}>
-        <div className="space-y-4"><div className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-800">{t('გაუქმება აღადგენს payable-ის დავალიანებას და bank transaction-ის შეუჯერებელ თანხას. ისტორია არ წაიშლება.')}</div><FormField label={t('მიზეზი')} required><textarea className={inputClass} rows={4} value={reversalReason} onChange={(e) => setReversalReason(e.target.value)} /></FormField>{error && <p className="text-sm text-red-600">{error}</p>}<div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setReversalRow(null)}>{t('დახურვა')}</button><button className="btn-danger" disabled={!reversalReason.trim() || reverse.isPending} onClick={() => reverse.mutate()}>{reverse.isPending ? 'მუშავდება...' : 'გაუქმება'}</button></div></div>
+        <div className="space-y-4"><div className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-800">{t('გაუქმება აღადგენს payable-ის დავალიანებას და bank transaction-ის შეუჯერებელ თანხას. ისტორია არ წაიშლება.')}</div><FormField label={t('მიზეზი')} required><textarea className={inputClass} rows={4} value={reversalReason} onChange={(e) => setReversalReason(e.target.value)} /></FormField>{error && <p className="text-sm text-red-600">{error}</p>}<div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setReversalRow(null)}>{t('დახურვა')}</button><button className="btn-danger" disabled={!reversalReason.trim() || reverse.isPending} onClick={() => reverse.mutate()}>{reverse.isPending ? t('მუშავდება...') : t('გაუქმება')}</button></div></div>
       </Modal>
     </div>
   )

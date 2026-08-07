@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ordersApi, clientsApi, productsApi, warehousesApi } from '../services/api'
@@ -12,34 +13,34 @@ import type { Client, ClientCreate, InventoryReservation, Order, OrderCreate, Or
 
 const nextStatusActions: Partial<Record<OrderStatus, { status: OrderStatus; label: string; danger?: boolean }[]>> = {
   new: [
-    { status: 'confirmed', label: 'შეკვეთის დადასტურება' },
-    { status: 'cancelled', label: 'გაუქმება', danger: true },
+    { status: 'confirmed', label: i18n.t('შეკვეთის დადასტურება') },
+    { status: 'cancelled', label: i18n.t('გაუქმება'), danger: true },
   ],
   confirmed: [
-    { status: 'preparing', label: 'მომზადების დაწყება' },
-    { status: 'cancelled', label: 'გაუქმება', danger: true },
+    { status: 'preparing', label: i18n.t('მომზადების დაწყება') },
+    { status: 'cancelled', label: i18n.t('გაუქმება'), danger: true },
   ],
   preparing: [
-    { status: 'shipping', label: 'მიწოდებაში გაშვება' },
-    { status: 'cancelled', label: 'გაუქმება', danger: true },
+    { status: 'shipping', label: i18n.t('მიწოდებაში გაშვება') },
+    { status: 'cancelled', label: i18n.t('გაუქმება'), danger: true },
   ],
-  shipping: [{ status: 'completed', label: 'მიწოდების დასრულება' }],
-  completed: [{ status: 'returned', label: 'სრული დაბრუნება', danger: true }],
+  shipping: [{ status: 'completed', label: i18n.t('მიწოდების დასრულება') }],
+  completed: [{ status: 'returned', label: i18n.t('სრული დაბრუნება'), danger: true }],
 }
 
 const lifecycleStages: { status: OrderStatus; label: string }[] = [
-  { status: 'new', label: 'ახალი' },
-  { status: 'confirmed', label: 'დადასტურებული' },
-  { status: 'preparing', label: 'მზადდება' },
-  { status: 'shipping', label: 'მიწოდებაში' },
-  { status: 'completed', label: 'დასრულებული' },
+  { status: 'new', label: i18n.t('ახალი') },
+  { status: 'confirmed', label: i18n.t('დადასტურებული') },
+  { status: 'preparing', label: i18n.t('მზადდება') },
+  { status: 'shipping', label: i18n.t('მიწოდებაში') },
+  { status: 'completed', label: i18n.t('დასრულებული') },
 ]
 
 const reservationLabels: Record<string, string> = {
-  active: 'დარეზერვებული',
-  consumed: 'მარაგიდან გაცემული',
-  released: 'რეზერვაცია მოხსნილი',
-  returned: 'მარაგში დაბრუნებული',
+  active: i18n.t('დარეზერვებული'),
+  consumed: i18n.t('მარაგიდან გაცემული'),
+  released: i18n.t('რეზერვაცია მოხსნილი'),
+  returned: i18n.t('მარაგში დაბრუნებული'),
 }
 
 export default function OrdersPage() {
@@ -126,7 +127,7 @@ export default function OrdersPage() {
       setClientPanelOpen(false)
       setClientError('')
     },
-    onError: (error: any) => setClientError(error.response?.data?.detail || 'კლიენტის დამატება ვერ შესრულდა'),
+    onError: (error: any) => setClientError(error.response?.data?.detail || t('კლიენტის დამატება ვერ შესრულდა')),
   })
 
   const statusMutation = useMutation({
@@ -140,7 +141,7 @@ export default function OrdersPage() {
       queryClient.invalidateQueries({ queryKey: ['warehouse-balances'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
     },
-    onError: (error: any) => setActionError(error.response?.data?.detail || 'სტატუსის შეცვლა ვერ შესრულდა'),
+    onError: (error: any) => setActionError(error.response?.data?.detail || t('სტატუსის შეცვლა ვერ შესრულდა')),
   })
 
   function openCreate() {
@@ -154,7 +155,7 @@ export default function OrdersPage() {
 
   function changeStatus(status: OrderStatus, danger?: boolean) {
     if (!viewOrder) return
-    if (danger && !window.confirm(status === 'returned' ? 'დადასტურების შემდეგ საქონელი საწყობში დაბრუნდება. გავაგრძელოთ?' : 'ნამდვილად გსურთ შეკვეთის გაუქმება?')) return
+    if (danger && !window.confirm(status === 'returned' ? t('დადასტურების შემდეგ საქონელი საწყობში დაბრუნდება. გავაგრძელოთ?') : t('ნამდვილად გსურთ შეკვეთის გაუქმება?'))) return
     statusMutation.mutate({ id: viewOrder.id, status })
   }
 
@@ -187,11 +188,11 @@ export default function OrdersPage() {
   }
 
   const columns = [
-    { key: 'order_number', label: 'შეკვეთა', render: (o: OrderSummary) => <span className="font-mono font-medium text-gray-900 dark:text-gray-100 dark:text-gray-200">{o.order_number}</span> },
-    { key: 'client_name', label: 'კლიენტი', render: (o: OrderSummary) => o.client_name || '—', hideOnMobile: true },
-    { key: 'status', label: 'სტატუსი', render: (o: OrderSummary) => <StatusBadge status={o.status} map={orderStatusMap} /> },
-    { key: 'total', label: 'თანხა', render: (o: OrderSummary) => `${o.total?.toLocaleString()} ₾`, className: 'font-medium' },
-    { key: 'created_at', label: 'თარიღი', render: (o: OrderSummary) => new Date(o.created_at).toLocaleDateString('ka-GE'), hideOnMobile: true },
+    { key: 'order_number', label: i18n.t('შეკვეთა'), render: (o: OrderSummary) => <span className="font-mono font-medium text-gray-900 dark:text-gray-100 dark:text-gray-200">{o.order_number}</span> },
+    { key: 'client_name', label: i18n.t('კლიენტი'), render: (o: OrderSummary) => o.client_name || '—', hideOnMobile: true },
+    { key: 'status', label: i18n.t('სტატუსი'), render: (o: OrderSummary) => <StatusBadge status={o.status} map={orderStatusMap} /> },
+    { key: 'total', label: i18n.t('თანხა'), render: (o: OrderSummary) => `${o.total?.toLocaleString()} ₾`, className: 'font-medium' },
+    { key: 'created_at', label: i18n.t('თარიღი'), render: (o: OrderSummary) => new Date(o.created_at).toLocaleDateString('ka-GE'), hideOnMobile: true },
     {
       key: 'actions', label: '',
       render: (o: OrderSummary) => (
@@ -218,11 +219,11 @@ export default function OrdersPage() {
         </div>
         <button onClick={() => setStatusFilter('')} className={`btn-secondary text-sm ${!statusFilter ? 'ring-2 ring-primary-500' : ''}`}>{t('ყველა')}</button>
         {Object.entries(orderStatusMap).map(([key, { label }]) => (
-          <button key={key} onClick={() => setStatusFilter(key)} className={`btn-secondary text-sm ${statusFilter === key ? 'ring-2 ring-primary-500' : ''}`}>{label}</button>
+          <button key={key} onClick={() => setStatusFilter(key)} className={`btn-secondary text-sm ${statusFilter === key ? 'ring-2 ring-primary-500' : ''}`}>{t(label)}</button>
         ))}
       </div>
 
-      <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage="გაყიდვის შეკვეთა არ მოიძებნა" onRowClick={(o) => setViewOrderId(o.id)} page={page} totalPages={ordersTotalPages} total={ordersTotal} onPageChange={setPage} />
+      <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage={t('გაყიდვის შეკვეთა არ მოიძებნა')} onRowClick={(o) => setViewOrderId(o.id)} page={page} totalPages={ordersTotalPages} total={ordersTotal} onPageChange={setPage} />
 
       {/* Create Order Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('ახალი გაყიდვის შეკვეთა')} size="xl">
@@ -236,7 +237,7 @@ export default function OrdersPage() {
                   onClick={() => { setClientPanelOpen(!clientPanelOpen); setClientError('') }}
                   className="inline-flex items-center gap-1.5 text-sm font-medium text-primary-700 hover:text-primary-800"
                 >
-                  <UserPlus size={15} /> {clientPanelOpen ? 'დახურვა' : 'ახალი კლიენტი'}
+                  <UserPlus size={15} /> {clientPanelOpen ? t('დახურვა') : t('ახალი კლიენტი')}
                 </button>
               </div>
               <Select
@@ -259,7 +260,7 @@ export default function OrdersPage() {
               <Select value={form.warehouse_id || ''} onChange={(e) => setForm({ ...form, warehouse_id: e.target.value })} placeholder={t('აირჩიეთ საწყობი')} options={warehouses.map(warehouse => ({ value: warehouse.id, label: `${warehouse.name} (${warehouse.code})` }))} required />
             </FormField>
             <FormField label={t('დღგ')}>
-              <Select options={[{ value: 'true', label: 'დღგ-ს ჩათვლით (18%)' }, { value: 'false', label: 'დღგ-ს გარეშე' }]} value={String(form.is_vat_payer)} onChange={(e) => setForm({ ...form, is_vat_payer: e.target.value === 'true' })} />
+              <Select options={[{ value: 'true', label: i18n.t('დღგ-ს ჩათვლით (18%)') }, { value: 'false', label: i18n.t('დღგ-ს გარეშე') }]} value={String(form.is_vat_payer)} onChange={(e) => setForm({ ...form, is_vat_payer: e.target.value === 'true' })} />
             </FormField>
             <FormField label={t('მიწოდების თარიღი')}>
               <input type="date" value={form.delivery_date || ''} onChange={(e) => setForm({ ...form, delivery_date: e.target.value })} className="input" />
@@ -285,10 +286,10 @@ export default function OrdersPage() {
                   <input className="input" value={clientForm.identification_code} onChange={e => setClientForm({ ...clientForm, identification_code: e.target.value })} />
                 </FormField>
                 <FormField label={t('ტიპი')}>
-                  <Select options={[{ value: 'legal', label: 'იურიდიული პირი' }, { value: 'individual', label: 'ფიზიკური პირი' }]} value={clientForm.client_type} onChange={e => setClientForm({ ...clientForm, client_type: e.target.value as ClientCreate['client_type'] })} />
+                  <Select options={[{ value: 'legal', label: i18n.t('იურიდიული პირი') }, { value: 'individual', label: i18n.t('ფიზიკური პირი') }]} value={clientForm.client_type} onChange={e => setClientForm({ ...clientForm, client_type: e.target.value as ClientCreate['client_type'] })} />
                 </FormField>
                 <FormField label={t('დღგ-ს გადამხდელი')}>
-                  <Select options={[{ value: 'true', label: 'კი' }, { value: 'false', label: 'არა' }]} value={String(clientForm.is_vat_payer)} onChange={e => setClientForm({ ...clientForm, is_vat_payer: e.target.value === 'true' })} />
+                  <Select options={[{ value: 'true', label: i18n.t('კი') }, { value: 'false', label: i18n.t('არა') }]} value={String(clientForm.is_vat_payer)} onChange={e => setClientForm({ ...clientForm, is_vat_payer: e.target.value === 'true' })} />
                 </FormField>
                 <FormField label={t('ტელეფონი')}>
                   <input type="tel" className="input" value={clientForm.phone || ''} onChange={e => setClientForm({ ...clientForm, phone: e.target.value })} placeholder="+995 5XX XXX XXX" />
@@ -311,7 +312,7 @@ export default function OrdersPage() {
                   disabled={createClientMutation.isPending || clientForm.name.trim().length < 2 || !clientForm.identification_code.trim()}
                   onClick={() => createClientMutation.mutate(clientForm)}
                 >
-                  <UserPlus size={16} /> {createClientMutation.isPending ? 'ემატება...' : 'დამატება და არჩევა'}
+                  <UserPlus size={16} /> {createClientMutation.isPending ? t('ემატება...') : t('დამატება და არჩევა')}
                 </button>
               </div>
             </div>
@@ -366,7 +367,7 @@ export default function OrdersPage() {
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
             <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">{t('გაუქმება')}</button>
             <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'იქმნება...' : 'შეკვეთის შექმნა'}
+              {createMutation.isPending ? t('იქმნება...') : t('შეკვეთის შექმნა')}
             </button>
           </div>
         </form>
@@ -400,7 +401,7 @@ export default function OrdersPage() {
               </div>
             ) : (
               <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                შეკვეთა {viewOrder.status === 'cancelled' ? 'გაუქმებულია' : 'სრულად დაბრუნებულია'}.
+                შეკვეთა {viewOrder.status === 'cancelled' ? t('გაუქმებულია') : t('სრულად დაბრუნებულია')}.
               </div>
             )}
 

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 // Status badge configuration maps
 export const orderStatusMap: Record<string, { label: string; cls: string }> = {
   new: { label: 'ახალი', cls: 'badge-gray' },
@@ -63,6 +64,7 @@ export const clientStatusMap: Record<string, { label: string; cls: string }> = {
 }
 
 export function StatusBadge({ status, map }: { status: string; map: Record<string, { label: string; cls: string }> }) {
+  const { t } = useTranslation()
   const s = map[status] || { label: status, cls: 'badge-gray' }
-  return <span className={`badge ${s.cls}`}>{s.label}</span>
+  return <span className={`badge ${s.cls}`}>{t(s.label)}</span>
 }

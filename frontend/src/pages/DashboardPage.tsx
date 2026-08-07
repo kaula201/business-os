@@ -39,9 +39,9 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200">{t('მიმოხილვა')}</h1>
         <div className="flex gap-2 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-50 p-1 dark:bg-dark-200 dark:border-dark-50">
           {[
-            { key: '7d', label: '7 დღე' },
-            { key: '30d', label: '30 დღე' },
-            { key: '90d', label: '90 დღე' },
+            { key: '7d', label: t('7 დღე') },
+            { key: '30d', label: t('30 დღე') },
+            { key: '90d', label: t('90 დღე') },
           ].map(p => (
             <button
               key={p.key}
@@ -62,7 +62,7 @@ export default function DashboardPage() {
           value={kpi?.total_revenue != null ? `${kpi.total_revenue.toLocaleString()} ₾` : '0 ₾'}
           change={kpi?.revenue_change}
           color="blue"
-          hint={`ინვოისირებული შეკვეთები: ${data?.invoiced_orders_count ?? 0} / ${data?.total_orders_count ?? 0}`}
+          hint={`${t('ინვოისირებული შეკვეთები')}: ${data?.invoiced_orders_count ?? 0} / ${data?.total_orders_count ?? 0}`}
         />
         <KPICard icon={Users} label={t('აქტიური კლიენტები')} value={String(kpi?.active_clients || 0)} color="green" />
         <KPICard icon={ShoppingCart} label={t('მიმდინარე შეკვეთები')} value={String(kpi?.active_orders || 0)} color="gray" />
@@ -101,7 +101,7 @@ export default function DashboardPage() {
               <div key={d.status} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                  <span>{orderStatusMap[d.status]?.label || d.status}</span>
+                  <span>{t(orderStatusMap[d.status]?.label || d.status)}</span>
                 </div>
                 <span className="font-medium">{d.count}</span>
               </div>
@@ -136,7 +136,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <Package size={20} className="text-primary-600" />
             <div>
-              <p className="font-medium text-brandgray-800 dark:text-gray-200">{kpi.low_stock_products} პროდუქტს აქვს დაბალი ნაშთი</p>
+              <p className="font-medium text-brandgray-800 dark:text-gray-200">{t('დაბალი ნაშთი')}: {kpi.low_stock_products} {t('პროდუქტი')}</p>
               <p className="text-sm text-primary-700">{t('გადადით საწყობში შესავსებად')}</p>
             </div>
           </div>
@@ -210,8 +210,8 @@ export default function DashboardPage() {
                   <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#9CA3AF" />
                   <YAxis tick={{ fontSize: 10 }} stroke="#9CA3AF" />
                   <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }} />
-                  <Area type="monotone" dataKey="inflow" stroke="#4CAF32" fill="#4CAF32" fillOpacity={0.15} name="შემოსავალი" />
-                  <Area type="monotone" dataKey="outflow" stroke="#EF6F6C" fill="#EF6F6C" fillOpacity={0.15} name="ხარჯები" />
+                  <Area type="monotone" dataKey="inflow" stroke="#4CAF32" fill="#4CAF32" fillOpacity={0.15} name={t('შემოსავალი')} />
+                  <Area type="monotone" dataKey="outflow" stroke="#EF6F6C" fill="#EF6F6C" fillOpacity={0.15} name={t('ხარჯები')} />
                 </AreaChart>
               </ResponsiveContainer>
             </>
@@ -238,7 +238,7 @@ function KPICard({ icon: Icon, label, value, change, color, hint }: { icon: any;
       </div>
       <div className="flex-1">
         <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200">{value}</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{label}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{t(label)}</p>
         {change !== undefined && (
           <span className={`text-xs flex items-center gap-1 mt-0.5 ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {change >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}

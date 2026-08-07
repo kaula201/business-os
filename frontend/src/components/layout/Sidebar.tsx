@@ -147,7 +147,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
           <div className="absolute inset-x-0 top-0 h-1 brand-topline" />
           <div>
             <div className="text-lg font-bold tracking-tight text-brandgray-800 dark:text-gray-100">Business OS</div>
-            <div className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-primary-700 dark:text-primary-400">ბიზნესის მართვა</div>
+            <div className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-primary-700 dark:text-primary-400">{t('ბიზნესის მართვა')}</div>
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center text-brandgray-400">
@@ -195,7 +195,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
           <div className="absolute inset-x-0 top-0 h-1 brand-topline" />
           <div>
             <div className="text-lg font-bold tracking-tight text-brandgray-800 dark:text-gray-100">Business OS</div>
-            <div className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-primary-700 dark:text-primary-400">ბიზნესის მართვა</div>
+            <div className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-primary-700 dark:text-primary-400">{t('ბიზნესის მართვა')}</div>
           </div>
           <button onClick={onClose} className="md:hidden p-1 hover:bg-gray-100 rounded dark:hover:bg-dark-100">
             <X size={20} />

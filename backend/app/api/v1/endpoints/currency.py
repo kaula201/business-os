@@ -2,7 +2,7 @@
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.core.config import settings
 from app.core.time import utc_now
+from app.core.ws import manager
 from app.models.currency import CurrencyRate, IntegrationSyncLog
 from app.models.user import User
 from app.schemas.common import ResponseBase
@@ -24,6 +25,22 @@ from app.schemas.currency import (
 from app.services.nbg_rates import NBGSyncError, add_sync_log, apply_nbg_rates, fetch_nbg_rates
 
 router = APIRouter(prefix="/currency", tags=["ვალუტა"])
+
+
+@router.websocket("/ws/rates")
+async def currency_rates_ws(websocket: WebSocket):
+    """Live currency-rate updates. Client sends {company_id} as first message."""
+    await websocket.accept()
+    company_id = await websocket.receive_text()
+    await manager.connect(company_id, websocket)
+    try:
+        while True:
+            # Keep the socket alive; ignore inbound pings.
+            await websocket.receive_text()
+    except Exception:
+        pass
+    finally:
+        await manager.disconnect(company_id, websocket)
 
 
 @router.post("/rates/sync-nbg", response_model=ResponseBase[NBGSyncResponse])
@@ -45,6 +62,7 @@ async def sync_nbg_rates(
     except NBGSyncError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     add_sync_log(db, current_user.company_id, result, "manual", started_at)
+    await manager.broadcast(str(current_user.company_id), "rates_updated", {"source": "nbg", "rate_date": str(rate_date or date.today())})
     return ResponseBase(data=NBGSyncResponse(**result), message="ეროვნული ბანკის კურსები განახლებულია")
 
 
@@ -119,6 +137,13 @@ async def create_rate(
     db.add(rate)
     await db.flush()
     await db.refresh(rate)
+    await manager.broadcast(str(current_user.company_id), "rates_updated", {
+        "source": "manual",
+        "from_currency": rate.from_currency,
+        "to_currency": rate.to_currency,
+        "rate": str(rate.rate),
+        "rate_date": str(rate.rate_date),
+    })
     return ResponseBase(data=rate, message="კურსი დამატებულია")
 
 
@@ -147,6 +172,11 @@ async def delete_rate(
         "rate_date": str(rate.rate_date),
     })
     await db.delete(rate)
+    await manager.broadcast(str(current_user.company_id), "rates_updated", {
+        "source": "deleted",
+        "from_currency": rate.from_currency,
+        "to_currency": rate.to_currency,
+    })
     return ResponseBase(message="კურსი წაშლილია")
 
 

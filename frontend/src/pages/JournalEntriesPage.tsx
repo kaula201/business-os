@@ -84,7 +84,7 @@ export default function JournalEntriesPage() {
         </div>
       </div>
 
-      <DataTable columns={columns} data={entries} isLoading={isLoading} emptyMessage="საჟურნალო ჩანაწერები ჯერ არ არის" onRowClick={e => setSelectedId(e.id)} page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
+      <DataTable columns={columns} data={entries} isLoading={isLoading} emptyMessage={t('საჟურნალო ჩანაწერები ჯერ არ არის')} onRowClick={e => setSelectedId(e.id)} page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
 
       <Modal open={!!selectedId} onClose={() => setSelectedId(null)} title={selected ? `ჩანაწერი ${selected.entry_number}` : ''}>
         {detailLoading ? <p className="text-gray-500 dark:text-gray-400">{t('იტვირთება...')}</p> : selected && (

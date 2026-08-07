@@ -52,13 +52,13 @@ export default function ChartOfAccountsPage() {
   const createMutation = useMutation({
     mutationFn: () => glApi.createAccount(form),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['gl-accounts'] }); setShowForm(false); resetForm() },
-    onError: (e: any) => setError(e.response?.data?.detail || 'შექმნა ვერ მოხერხდა'),
+    onError: (e: any) => setError(e.response?.data?.detail || t('შექმნა ვერ მოხერხდა')),
   })
 
   const updateMutation = useMutation({
     mutationFn: () => glApi.updateAccount(editId!, { name: form.name, description: form.description || undefined }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['gl-accounts'] }); setShowForm(false); resetForm() },
-    onError: (e: any) => setError(e.response?.data?.detail || 'განახლება ვერ მოხერხდა'),
+    onError: (e: any) => setError(e.response?.data?.detail || t('განახლება ვერ მოხერხდა')),
   })
 
   function openEdit(account: GLAccount) {
@@ -102,9 +102,9 @@ export default function ChartOfAccountsPage() {
       </div>
 
       {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-      <DataTable columns={columns} data={accounts} isLoading={isLoading} emptyMessage="ანგარიშები ჯერ არ არის შექმნილი" page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
+      <DataTable columns={columns} data={accounts} isLoading={isLoading} emptyMessage={t('ანგარიშები ჯერ არ არის შექმნილი')} page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
 
-      <Modal open={showForm} onClose={() => { setShowForm(false); resetForm() }} title={editId ? 'ანგარიშის რედაქტირება' : 'ახალი ანგარიში'}>
+      <Modal open={showForm} onClose={() => { setShowForm(false); resetForm() }} title={editId ? t('ანგარიშის რედაქტირება') : t('ახალი ანგარიში')}>
         <div className="space-y-4">
           <div>
             <label className="label">{t('კოდი')}</label>
@@ -127,7 +127,7 @@ export default function ChartOfAccountsPage() {
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => { setShowForm(false); resetForm() }} className="btn-secondary">{t('გაუქმება')}</button>
             <button onClick={() => editId ? updateMutation.mutate() : createMutation.mutate()} className="btn-primary" disabled={!form.code || !form.name}>
-              {editId ? 'შენახვა' : 'შექმნა'}
+              {editId ? t('შენახვა') : t('შექმნა')}
             </button>
           </div>
         </div>

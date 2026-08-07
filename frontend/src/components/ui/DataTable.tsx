@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight, AlertCircle, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Search, ChevronRight as ChevronRightIcon, FileQuestion, Plus, ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -54,6 +55,7 @@ export default function DataTable<T extends Record<string, any>>({
   mobileCards = true, emptyTitle, emptyIcon,
   emptyActionLabel, emptyActionTo, emptyOnAction,
 }: DataTableProps<T>) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
@@ -97,10 +99,10 @@ export default function DataTable<T extends Record<string, any>>({
 
   if (isLoading) {
     return (
-      <div className="card" role="status" aria-label="იტვირთება">
+      <div className="card" role="status" aria-label={t('იტვირთება')}>
         <div className="p-8 text-center text-gray-500 dark:text-gray-400">
           <div className="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full mx-auto mb-2" />
-          <span className="text-sm">იტვირთება...</span>
+          <span className="text-sm">{t('იტვირთება...')}</span>
         </div>
       </div>
     )
@@ -108,7 +110,7 @@ export default function DataTable<T extends Record<string, any>>({
 
   if (error) {
     return (
-      <div className="card" role="alert" aria-label="შეცდომა">
+      <div className="card" role="alert" aria-label={t('შეცდომა')}>
         <div className="p-8 text-center">
           <AlertCircle size={32} className="mx-auto mb-2 text-red-500" />
           <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>
@@ -116,7 +118,7 @@ export default function DataTable<T extends Record<string, any>>({
             <button
               onClick={onRetry}
               className="btn btn-secondary btn-sm inline-flex items-center gap-2"
-              aria-label="ხელახლა ცდა"
+              aria-label={t('ხელახლა ცდა')}
             >
               <RefreshCw size={14} />
               ხელახლა ცდა
@@ -129,16 +131,16 @@ export default function DataTable<T extends Record<string, any>>({
 
   if (data.length === 0) {
     return (
-      <div className="card" aria-label="ცარიელი შედეგი">
+      <div className="card" aria-label={t('ცარიელი შედეგი')}>
         <div className="p-10 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-100">
             {emptyIcon || <FileQuestion size={28} className="text-gray-400 dark:text-gray-500" />}
           </div>
           <h3 className="text-base font-semibold text-gray-700 dark:text-gray-200">
-            {emptyTitle || 'მონაცემები არ მოიძებნა'}
+            {emptyTitle || t('მონაცემები არ მოიძებნა')}
           </h3>
           <p className="mx-auto mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
-            {emptyMessage}
+            {t(emptyMessage)}
           </p>
           {(emptyActionLabel && (emptyActionTo || emptyOnAction)) && (
             <button
@@ -186,7 +188,7 @@ export default function DataTable<T extends Record<string, any>>({
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
             {detailColumns.map((col) => (
               <div key={col.key} className={col.hideOnMobile ? 'hidden' : ''}>
-                <span className="text-gray-500 dark:text-gray-400 block">{col.mobileLabel || col.label}</span>
+                <span className="text-gray-500 dark:text-gray-400 block">{t(col.mobileLabel || col.label)}</span>
                 <span className="text-gray-800 dark:text-gray-200 font-medium">
                   {col.render ? col.render(item) : item[col.key] ?? '—'}
                 </span>
@@ -218,12 +220,12 @@ export default function DataTable<T extends Record<string, any>>({
           )}
           {pageSizeOptions && onPageSizeChange && (
             <div className="flex items-center gap-2 text-sm text-gray-500">
-              <span className="hidden sm:inline">ჩანაწერი:</span>
+              <span className="hidden sm:inline">{t('ჩანაწერი:')}</span>
               <select
                 value={pageSize || 20}
                 onChange={(e) => onPageSizeChange(Number(e.target.value))}
                 className="input py-1 px-2 text-sm"
-                aria-label="გვერდის ზომა"
+                aria-label={t('გვერდის ზომა')}
               >
                 {pageSizeOptions.map((s) => (
                   <option key={s} value={s}>{s}</option>
@@ -238,7 +240,7 @@ export default function DataTable<T extends Record<string, any>>({
       {mobileCards && renderMobileCards()}
 
       {/* Desktop table */}
-      <div className={`${mobileCards ? 'hidden md:block' : ''}`} role="region" aria-label="მონაცემთა ცხრილი">
+      <div className={`${mobileCards ? 'hidden md:block' : ''}`} role="region" aria-label={t('მონაცემთა ცხრილი')}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px]">
             <thead className="bg-gray-50 border-b border-gray-200 dark:bg-dark-100 dark:border-dark-50">
@@ -253,16 +255,16 @@ export default function DataTable<T extends Record<string, any>>({
                       <button
                         onClick={() => handleSort(col.key)}
                         className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                        aria-label={`დალაგება ${col.label}-ის მიხედვით`}
+                        aria-label={t('დალაგება') + ' ' + t(col.label)}
                       >
-                        {col.label}
+                        {t(col.label)}
                         {sortKey === col.key ? (
                           sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
                         ) : (
                           <ArrowUpDown size={14} className="opacity-30" />
                         )}
                       </button>
-                    ) : col.label}
+                    ) : t(col.label)}
                   </th>
                 ))}
               </tr>

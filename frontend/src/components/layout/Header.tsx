@@ -47,7 +47,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <button
           onClick={() => setDark(!dark)}
           className="p-2 hover:bg-gray-100 rounded-lg dark:hover:bg-dark-100"
-          title={dark ? 'ღია რეჟიმი' : 'მუქი რეჟიმი'}
+          title={dark ? t('ღია რეჟიმი') : t('მუქი რეჟიმი')}
         >
           {dark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-gray-500" />}
         </button>
@@ -68,7 +68,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               {user?.full_name?.charAt(0) || '?'}
             </div>
             <span className="text-sm font-medium text-gray-700 hidden sm:block">
-              {user?.full_name || 'მომხმარებელი'}
+              {user?.full_name || t('მომხმარებელი')}
             </span>
           </button>
 

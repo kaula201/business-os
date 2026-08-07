@@ -86,12 +86,12 @@ export default function CustomerFinancePage() {
   const paymentMutation = useMutation({
     mutationFn: () => customerFinanceApi.postPayment(selected!.id, payment),
     onSuccess: updateSelected,
-    onError: (e: any) => setError(e.response?.data?.detail || 'გადახდის დაფიქსირება ვერ მოხერხდა'),
+    onError: (e: any) => setError(e.response?.data?.detail || t('გადახდის დაფიქსირება ვერ მოხერხდა')),
   })
   const creditMutation = useMutation({
     mutationFn: () => customerFinanceApi.postCreditNote(selected!.id, credit),
     onSuccess: updateSelected,
-    onError: (e: any) => setError(e.response?.data?.detail || 'Credit Note-ის შექმნა ვერ მოხერხდა'),
+    onError: (e: any) => setError(e.response?.data?.detail || t('Credit Note-ის შექმნა ვერ მოხერხდა')),
   })
   const bankMutation = useMutation({
     mutationFn: () => customerFinanceApi.reconcileBankTransaction(bank.transaction_id, {
@@ -101,21 +101,21 @@ export default function CustomerFinancePage() {
       notes: bank.notes,
     }),
     onSuccess: updateSelected,
-    onError: (e: any) => setError(e.response?.data?.detail || 'საბანკო შეჯერება ვერ მოხერხდა'),
+    onError: (e: any) => setError(e.response?.data?.detail || t('საბანკო შეჯერება ვერ მოხერხდა')),
   })
   const reversalMutation = useMutation({
     mutationFn: (paymentId: string) => customerFinanceApi.reversePayment(paymentId, {
       idempotency_key: key('reversal'), reason: 'მომხმარებლის მიერ გაუქმებული გადახდა',
     }),
     onSuccess: updateSelected,
-    onError: (e: any) => setError(e.response?.data?.detail || 'გადახდის გაუქმება ვერ მოხერხდა'),
+    onError: (e: any) => setError(e.response?.data?.detail || t('გადახდის გაუქმება ვერ მოხერხდა')),
   })
   const bankReversalMutation = useMutation({
     mutationFn: (reconciliationId: string) => customerFinanceApi.reverseBankReconciliation(reconciliationId, {
       idempotency_key: key('bank-reversal'), reason: 'მომხმარებლის მიერ გაუქმებული საბანკო შეჯერება',
     }),
     onSuccess: updateSelected,
-    onError: (e: any) => setError(e.response?.data?.detail || 'საბანკო შეჯერების გაუქმება ვერ მოხერხდა'),
+    onError: (e: any) => setError(e.response?.data?.detail || t('საბანკო შეჯერების გაუქმება ვერ მოხერხდა')),
   })
 
   function openPayment(row: CustomerReceivable) {
@@ -155,7 +155,7 @@ export default function CustomerFinancePage() {
         ['დარჩენილი დავალიანება', totals.outstanding, 'text-blue-700 dark:text-blue-400'],
         ['ვადაგადაცილებული', totals.overdue, 'text-red-700 dark:text-red-400'],
       ].map(([label, value, color]) => <div key={String(label)} className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
-        <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p><p className={`mt-2 text-xl font-bold ${color}`}>{money(Number(value))}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{t(String(label))}</p><p className={`mt-2 text-xl font-bold ${color}`}>{money(Number(value))}</p>
       </div>)}
     </div>
 
@@ -201,15 +201,15 @@ export default function CustomerFinancePage() {
         <div className="flex items-start justify-between"><div><h2 className="text-xl font-bold dark:text-gray-100">{selected.invoice_number}</h2><p className="text-sm text-gray-500 dark:text-gray-400">{selected.client_name}</p></div><button aria-label={t('დეტალების დახურვა')} onClick={() => setSelected(null)} className="dark:text-gray-400"><X /></button></div>
         <div className="mt-6 grid grid-cols-2 gap-3">{[
           ['ინვოისის თანხა', selected.original_amount], ['მიღებული', selected.paid_amount], ['Credit Note', selected.credited_amount], ['დავალიანება', selected.outstanding_amount],
-        ].map(([label, value]) => <div key={String(label)} className="rounded-lg bg-gray-50 p-3 dark:bg-dark-100"><p className="text-xs text-gray-500 dark:text-gray-400">{label}</p><p className="mt-1 font-semibold dark:text-gray-200">{money(Number(value), selected.currency)}</p></div>)}</div>
+        ].map(([label, value]) => <div key={String(label)} className="rounded-lg bg-gray-50 p-3 dark:bg-dark-100"><p className="text-xs text-gray-500 dark:text-gray-400">{t(String(label))}</p><p className="mt-1 font-semibold dark:text-gray-200">{money(Number(value), selected.currency)}</p></div>)}</div>
         <h3 className="mt-6 font-semibold dark:text-gray-100">{t('გადახდების ისტორია')}</h3><div className="mt-2 space-y-2">{selected.payments.length === 0 ? <p className="text-sm text-gray-500 dark:text-gray-400">{t('გადახდა ჯერ არ დაფიქსირებულა')}</p> : selected.payments.map((p) => <div key={p.id} className="flex items-center justify-between rounded-lg border p-3 text-sm dark:border-dark-50">...
           <div><div className="flex items-center gap-2"><p className={p.status === 'reversed' ? 'line-through text-gray-400' : 'font-medium'}>{money(p.amount, selected.currency)} · {p.payment_date}</p>{p.status === 'reversed' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-dark-100 dark:text-gray-400">{t('გაუქმებული')}</span>}</div><p className="text-xs text-gray-500 dark:text-gray-400">{p.reference || p.payment_method}{p.reversal_reason ? ` · ${p.reversal_reason}` : ''}</p></div>
-          {p.status === 'active' && <button aria-label={t('გადახდის გაუქმება')} onClick={() => window.confirm('ნამდვილად გსურთ გადახდის გაუქმება?') && reversalMutation.mutate(p.id)} className="rounded p-2 text-red-600 hover:bg-red-50" title={t('გაუქმება')}><RotateCcw size={17} /></button>}
+          {p.status === 'active' && <button aria-label={t('გადახდის გაუქმება')} onClick={() => window.confirm(t('ნამდვილად გსურთ გადახდის გაუქმება?')) && reversalMutation.mutate(p.id)} className="rounded p-2 text-red-600 hover:bg-red-50" title={t('გაუქმება')}><RotateCcw size={17} /></button>}
         </div>)}</div>
         <h3 className="mt-6 font-semibold dark:text-gray-100">{t('Credit Note-ები')}</h3><div className="mt-2 space-y-2">{selected.credit_notes.length === 0 ? <p className="text-sm text-gray-500 dark:text-gray-400">{t('Credit Note არ არის')}</p> : selected.credit_notes.map((c) => <div key={c.id} className="rounded-lg border p-3 text-sm dark:border-dark-50"><p className="font-medium dark:text-gray-200">{c.credit_note_number} · {money(c.amount, selected.currency)}</p><p className="text-xs text-gray-500 dark:text-gray-400">{c.credit_date} · {c.reason}</p></div>)}</div>
         <h3 className="mt-6 font-semibold dark:text-gray-100">{t('საბანკო შეჯერებები')}</h3><div className="mt-2 space-y-2">{bankReconciliations.length === 0 ? <p className="text-sm text-gray-500 dark:text-gray-400">{t('საბანკო შეჯერება არ არის')}</p> : bankReconciliations.map((row) => <div key={row.id} className="flex items-center justify-between rounded-lg border p-3 text-sm dark:border-dark-50">
           <div><p className={row.status === 'reversed' ? 'line-through text-gray-400' : 'font-medium dark:text-gray-200'}>{money(row.amount, selected.currency)}</p><p className="text-xs text-gray-500 dark:text-gray-400">{new Date(row.created_at).toLocaleDateString('ka-GE')}{row.reversal_reason ? ` · ${row.reversal_reason}` : ''}</p></div>
-          {row.status === 'active' && <button aria-label={t('საბანკო შეჯერების გაუქმება')} onClick={() => window.confirm('ნამდვილად გსურთ საბანკო შეჯერების გაუქმება?') && bankReversalMutation.mutate(row.id)} className="rounded p-2 text-red-600 hover:bg-red-50" title={t('შეჯერების გაუქმება')}><RotateCcw size={17} /></button>}
+          {row.status === 'active' && <button aria-label={t('საბანკო შეჯერების გაუქმება')} onClick={() => window.confirm(t('ნამდვილად გსურთ საბანკო შეჯერების გაუქმება?')) && bankReversalMutation.mutate(row.id)} className="rounded p-2 text-red-600 hover:bg-red-50" title={t('შეჯერების გაუქმება')}><RotateCcw size={17} /></button>}
         </div>)}</div>
         {error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</p>}
       </div>
@@ -221,7 +221,7 @@ export default function CustomerFinancePage() {
         <label className="block text-sm">{t('თარიღი')}<input required type="date" value={payment.payment_date} onChange={(e) => setPayment({ ...payment, payment_date: e.target.value })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
         <label className="block text-sm">{t('გადახდის მეთოდი')}<select value={payment.payment_method} onChange={(e) => setPayment({ ...payment, payment_method: e.target.value as CustomerPaymentCreate['payment_method'] })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">{paymentMethods.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
         <label className="block text-sm">{t('გადახდის მითითება')}<input value={payment.reference} onChange={(e) => setPayment({ ...payment, reference: e.target.value })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
-        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}<button disabled={paymentMutation.isPending} className="w-full rounded-lg bg-primary-600 py-2 text-white disabled:opacity-50">{paymentMutation.isPending ? 'ინახება...' : 'გადახდის შენახვა'}</button>
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}<button disabled={paymentMutation.isPending} className="w-full rounded-lg bg-primary-600 py-2 text-white disabled:opacity-50">{paymentMutation.isPending ? t('ინახება...') : t('გადახდის შენახვა')}</button>
       </form>
     </Modal>
 
@@ -231,7 +231,7 @@ export default function CustomerFinancePage() {
         <label className="block text-sm">{t('თანხა')}<input required min="0.01" step="0.01" type="number" value={credit.amount || ''} onChange={(e) => setCredit({ ...credit, amount: Number(e.target.value) })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
         <label className="block text-sm">{t('თარიღი')}<input required type="date" value={credit.credit_date} onChange={(e) => setCredit({ ...credit, credit_date: e.target.value })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
         <label className="block text-sm">{t('მიზეზი')}<textarea required value={credit.reason} onChange={(e) => setCredit({ ...credit, reason: e.target.value })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
-        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}<button disabled={creditMutation.isPending} className="w-full rounded-lg bg-purple-600 py-2 text-white disabled:opacity-50">{creditMutation.isPending ? 'იქმნება...' : 'Credit Note-ის შექმნა'}</button>
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}<button disabled={creditMutation.isPending} className="w-full rounded-lg bg-purple-600 py-2 text-white disabled:opacity-50">{creditMutation.isPending ? t('იქმნება...') : t('Credit Note-ის შექმნა')}</button>
       </form>
     </Modal>
 
@@ -241,7 +241,7 @@ export default function CustomerFinancePage() {
         <label className="block text-sm">{t('შესაჯერებელი თანხა')}<input required min="0.01" step="0.01" type="number" value={bank.amount || ''} onChange={(e) => setBank({ ...bank, amount: Number(e.target.value) })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
         <label className="block text-sm">{t('შენიშვნა')}<textarea value={bank.notes} onChange={(e) => setBank({ ...bank, notes: e.target.value })} className="mt-1 w-full rounded-lg border p-2 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></label>
         {bankCredits.length === 0 && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">{t('შეუჯერებელი შემოსული საბანკო ტრანზაქცია არ არის.')}</p>}
-        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}<button disabled={bankMutation.isPending || !bank.transaction_id} className="w-full rounded-lg bg-blue-600 py-2 text-white disabled:opacity-50">{bankMutation.isPending ? 'მუშავდება...' : 'შეჯერება'}</button>
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}<button disabled={bankMutation.isPending || !bank.transaction_id} className="w-full rounded-lg bg-blue-600 py-2 text-white disabled:opacity-50">{bankMutation.isPending ? t('მუშავდება...') : t('შეჯერება')}</button>
       </form>
     </Modal>
   </div>

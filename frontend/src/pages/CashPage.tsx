@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Pencil, Trash2, Search, ArrowDownRight, ArrowUpRight, DollarSign, CalendarDays, Receipt, Building2
@@ -26,7 +27,7 @@ function money(value: number) {
 }
 
 function errorText(err: any) {
-  return err?.response?.data?.detail || 'ოპერაცია ვერ შესრულდა'
+  return err?.response?.data?.detail || i18n.t('ოპერაცია ვერ შესრულდა')
 }
 
 export default function CashPage() {
@@ -196,7 +197,7 @@ export default function CashPage() {
             key: 'is_active', label: 'სტატუსი',
             render: (a: CashAccount) => (
               <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${a.is_active ? 'bg-green-50 text-green-700 dark:bg-green-900/50 dark:text-green-200' : 'bg-gray-100 text-gray-500 dark:bg-dark-50 dark:text-gray-400'}`}>
-                {a.is_active ? 'აქტიური' : 'არააქტიური'}
+                {a.is_active ? t('აქტიური') : t('არააქტიური')}
               </span>
             ),
           },
@@ -222,7 +223,7 @@ export default function CashPage() {
                   <Pencil size={16} className="text-gray-400 dark:text-gray-500" />
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); if (confirm('წავშალოთ სალარო?')) deleteAccount.mutate(a.id) }}
+                  onClick={(e) => { e.stopPropagation(); if (confirm(t('წავშალოთ სალარო?'))) deleteAccount.mutate(a.id) }}
                   className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                 >
                   <Trash2 size={16} className="text-red-400" />
@@ -234,7 +235,7 @@ export default function CashPage() {
         data={visibleAccounts}
         clientPageSize={20}
         isLoading={accountsLoading}
-        emptyMessage="სალაროები არ მოიძებნა"
+        emptyMessage={t('სალაროები არ მოიძებნა')}
       />
 
       {/* Transactions Section */}
@@ -278,7 +279,7 @@ export default function CashPage() {
                           : 'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200'
                       }`}>
                         {tx.direction === 'inflow' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                        {tx.direction === 'inflow' ? 'შემოსავალი' : 'გასავალი'}
+                        {tx.direction === 'inflow' ? t('შემოსავალი') : t('გასავალი')}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">{money(tx.amount)}</td>
@@ -353,7 +354,7 @@ export default function CashPage() {
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setAccountModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button onClick={() => createAccount.mutate()} disabled={!accountForm.name.trim() || createAccount.isPending} className="btn-primary">
-              {createAccount.isPending ? 'იქმნება...' : 'შექმნა'}
+              {createAccount.isPending ? t('იქმნება...') : t('შექმნა')}
             </button>
           </div>
         </div>
@@ -378,7 +379,7 @@ export default function CashPage() {
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setAccountModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button onClick={() => updateAccount.mutate()} disabled={updateAccount.isPending} className="btn-primary">
-              {updateAccount.isPending ? 'ინახება...' : 'შენახვა'}
+              {updateAccount.isPending ? t('ინახება...') : t('შენახვა')}
             </button>
           </div>
         </div>
@@ -422,13 +423,13 @@ export default function CashPage() {
             <button onClick={() => setTxModal(false)} className="btn-secondary">{t('გაუქმება')}</button>
             <button
               onClick={() => {
-                if (!txForm.amount || !txForm.transaction_date) { setError('შეავსეთ სავალდებულო ველები'); return }
+                if (!txForm.amount || !txForm.transaction_date) { setError(t('შეავსეთ სავალდებულო ველები')); return }
                 createTx.mutate()
               }}
               disabled={createTx.isPending}
               className="btn-primary"
             >
-              {createTx.isPending ? 'ინახება...' : 'დაფიქსირება'}
+              {createTx.isPending ? t('ინახება...') : t('დაფიქსირება')}
             </button>
           </div>
         </div>

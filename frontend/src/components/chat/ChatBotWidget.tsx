@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { aiApi } from '../../services/api'
 import { Bot, X, Send, Sparkles, MessageSquare, Minimize2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import i18n from '../../i18n'
 
 interface ChatMsg {
   role: 'user' | 'assistant'
@@ -14,15 +16,16 @@ interface Props {
 }
 
 const suggestions = [
-  'რა არის ჩემი მიმდინარე შეკვეთები?',
-  'რომელ პროდუქტს აქვს დაბალი ნაშთი?',
-  'რამდენი კლიენტი მყავს?',
-  'მაჩვენე დაგვიანებული დავალებები',
+  i18n.t('რა არის ჩემი მიმდინარე შეკვეთები?'),
+  i18n.t('რომელ პროდუქტს აქვს დაბალი ნაშთი?'),
+  i18n.t('რამდენი კლიენტი მყავს?'),
+  i18n.t('მაჩვენე დაგვიანებული დავალებები'),
 ]
 
 export default function ChatBotWidget({ open, onToggle }: Props) {
+  const { t } = useTranslation()
   const [messages, setMessages] = useState<ChatMsg[]>([
-    { role: 'assistant', content: '👋 გამარჯობა! მე ვარ Business OS AI ასისტენტი. დამისვით შეკითხვა თქვენი ბიზნესის შესახებ.' }
+    { role: 'assistant', content: i18n.t('👋 გამარჯობა! მე ვარ Business OS AI ასისტენტი. დამისვით შეკითხვა თქვენი ბიზნესის შესახებ.') }
   ])
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -34,7 +37,7 @@ export default function ChatBotWidget({ open, onToggle }: Props) {
   const chatMutation = useMutation({
     mutationFn: (msg: string) => aiApi.chat(msg),
     onSuccess: (res) => {
-      const answer = res.data.data?.message || 'პასუხი ვერ მოიძებნა'
+      const answer = res.data.data?.message || t(i18n.t('პასუხი ვერ მოიძებნა'))
       setMessages(prev => [...prev, { role: 'assistant', content: answer }])
     },
     onError: () => {
@@ -54,7 +57,7 @@ export default function ChatBotWidget({ open, onToggle }: Props) {
     <>
       {!open && (
         <button
-          aria-label="AI ასისტენტის გახსნა"
+          aria-label={t('AI ასისტენტის გახსნა')}
           onClick={() => onToggle(true)}
           className="fixed bottom-6 right-6 z-50 hidden h-14 w-14 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg transition-all hover:scale-105 hover:bg-primary-700 md:flex"
         >
@@ -69,9 +72,9 @@ export default function ChatBotWidget({ open, onToggle }: Props) {
           <div className="flex items-center justify-between px-4 py-3 bg-primary-600 text-white dark:bg-primary-700">
             <div className="flex items-center gap-2">
               <Bot size={20} />
-              <span className="font-medium text-sm">AI ასისტენტი</span>
+              <span className="font-medium text-sm">{t('AI ასისტენტი')}</span>
             </div>
-            <button aria-label="AI ასისტენტის ჩაკეცვა" onClick={() => onToggle(false)} className="p-1 hover:bg-primary-500 rounded-lg transition-colors dark:hover:bg-primary-600">
+            <button aria-label={t('AI ასისტენტის ჩაკეცვა')} onClick={() => onToggle(false)} className="p-1 hover:bg-primary-500 rounded-lg transition-colors dark:hover:bg-primary-600">
               <Minimize2 size={18} />
             </button>
           </div>
@@ -92,7 +95,7 @@ export default function ChatBotWidget({ open, onToggle }: Props) {
               <div className="flex justify-start">
                 <div className="bg-white px-3.5 py-2.5 rounded-2xl text-sm text-gray-500 shadow-sm border border-gray-100 flex items-center gap-2 dark:bg-dark-200 dark:text-gray-400 dark:border-dark-50">
                   <Sparkles size={14} className="animate-pulse text-primary-500" />
-                  ფიქრობს...
+                  {t('ფიქრობს...')}
                 </div>
               </div>
             )}
@@ -117,7 +120,7 @@ export default function ChatBotWidget({ open, onToggle }: Props) {
             <div className="flex gap-2">
               <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="დაწერეთ შეკითხვა..." className="input text-sm flex-1" disabled={chatMutation.isPending} />
+                placeholder={t('დაწერეთ შეკითხვა...')} className="input text-sm flex-1" disabled={chatMutation.isPending} />
               <button aria-label="შეკითხვის გაგზავნა" onClick={handleSend} disabled={!input.trim() || chatMutation.isPending}
                 className="btn-primary px-3 py-0"><Send size={16} /></button>
             </div>

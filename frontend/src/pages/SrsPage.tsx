@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useQuery } from '@tanstack/react-query'
 import {
   FileText, Calculator, Scale, Download, Calendar, Building2, TrendingUp, TrendingDown, DollarSign
@@ -17,9 +18,9 @@ function money(value: number) {
 }
 
 const tabs = [
-  { id: 'vat', label: 'დღგ-ის დეკლარაცია', icon: Calculator },
-  { id: 'income', label: 'საშემოსავლო გადასახადი', icon: TrendingUp },
-  { id: 'balance', label: 'ბალანსის ფორმა', icon: Scale },
+  { id: 'vat', label: i18n.t('დღგ-ის დეკლარაცია'), icon: Calculator },
+  { id: 'income', label: i18n.t('საშემოსავლო გადასახადი'), icon: TrendingUp },
+  { id: 'balance', label: i18n.t('ბალანსის ფორმა'), icon: Scale },
 ]
 
 export default function SrsPage() {
@@ -101,7 +102,7 @@ export default function SrsPage() {
           ) : vatData ? (
             <div className="space-y-4">
               <div className="card dark:bg-dark-200 dark:border-dark-50">
-                <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-4">დღგ-ის დეკლარაცია — {vatData.period}</h3>
+                <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-4">{t('დღგ-ის დეკლარაცია')} — {vatData.period}</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-brandgray-50 dark:bg-dark-100">
@@ -184,7 +185,7 @@ export default function SrsPage() {
           ) : incomeData ? (
             <div className="space-y-4">
               <div className="card dark:bg-dark-200 dark:border-dark-50">
-                <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-4">საშემოსავლო გადასახადი — {incomeData.period}</h3>
+                <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-4">{t('საშემოსავლო გადასახადი')} — {incomeData.period}</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-brandgray-50 dark:bg-dark-100">
@@ -368,7 +369,7 @@ export default function SrsPage() {
                     </div>
                   </div>
                   <span className={`badge ${Math.abs(balanceData.total_assets - balanceData.total_liabilities - balanceData.total_equity) < 0.01 ? 'badge-green' : 'badge-red'}`}>
-                    {Math.abs(balanceData.total_assets - balanceData.total_liabilities - balanceData.total_equity) < 0.01 ? '✅ დაბალანსებულია' : '❌ შეუსაბამობა'}
+                    {Math.abs(balanceData.total_assets - balanceData.total_liabilities - balanceData.total_equity) < 0.01 ? t('✅ დაბალანსებულია') : t('❌ შეუსაბამობა')}
                   </span>
                 </div>
               </div>

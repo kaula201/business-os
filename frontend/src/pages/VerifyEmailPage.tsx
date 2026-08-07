@@ -14,17 +14,17 @@ export default function VerifyEmailPage() {
   useEffect(() => {
     if (!token) {
       setStatus('error')
-      setMessage('Verification token არ მოიძებნა')
+      setMessage(t('Verification token არ მოიძებნა'))
       return
     }
     authApi.verifyEmail(token)
       .then((res) => {
         setStatus('success')
-        setMessage(res.data.data?.message || 'ელფოსტა წარმატებით დადასტურდა')
+        setMessage(res.data.data?.message || t('ელფოსტა წარმატებით დადასტურდა'))
       })
       .catch((err) => {
         setStatus('error')
-        setMessage(err?.response?.data?.detail || 'ვერიფიკაცია ვერ შესრულდა')
+        setMessage(err?.response?.data?.detail || t('ვერიფიკაცია ვერ შესრულდა'))
       })
   }, [token])
 

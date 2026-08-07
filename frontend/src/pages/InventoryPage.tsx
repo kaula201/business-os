@@ -162,7 +162,7 @@ export default function InventoryPage() {
       queryClient.invalidateQueries({ queryKey: ['warehouses'] })
       closeWarehouseModal()
     },
-    onError: (error: any) => setFormError(error.response?.data?.detail || 'საწყობის შენახვა ვერ მოხერხდა'),
+    onError: (error: any) => setFormError(error.response?.data?.detail || t('საწყობის შენახვა ვერ მოხერხდა')),
   })
 
   const updateWarehouseMutation = useMutation({
@@ -171,7 +171,7 @@ export default function InventoryPage() {
       queryClient.invalidateQueries({ queryKey: ['warehouses'] })
       closeWarehouseModal()
     },
-    onError: (error: any) => setFormError(error.response?.data?.detail || 'საწყობის განახლება ვერ მოხერხდა'),
+    onError: (error: any) => setFormError(error.response?.data?.detail || t('საწყობის განახლება ვერ მოხერხდა')),
   })
 
   const setDefaultWarehouseMutation = useMutation({
@@ -180,7 +180,7 @@ export default function InventoryPage() {
       queryClient.invalidateQueries({ queryKey: ['warehouses'] })
       setFormError('')
     },
-    onError: (error: any) => setFormError(error.response?.data?.detail || 'მთავარი საწყობის შეცვლა ვერ მოხერხდა'),
+    onError: (error: any) => setFormError(error.response?.data?.detail || t('მთავარი საწყობის შეცვლა ვერ მოხერხდა')),
   })
 
   const archiveWarehouseMutation = useMutation({
@@ -191,7 +191,7 @@ export default function InventoryPage() {
       setFormError('')
     },
     onError: (error: any) => {
-      setFormError(error.response?.data?.detail || 'საწყობის დეაქტივაცია ვერ მოხერხდა')
+      setFormError(error.response?.data?.detail || t('საწყობის დეაქტივაცია ვერ მოხერხდა'))
       setWarehouseAction(null)
     },
   })
@@ -204,7 +204,7 @@ export default function InventoryPage() {
       setFormError('')
     },
     onError: (error: any) => {
-      setFormError(error.response?.data?.detail || 'საწყობის წაშლა ვერ მოხერხდა')
+      setFormError(error.response?.data?.detail || t('საწყობის წაშლა ვერ მოხერხდა'))
       setWarehouseAction(null)
     },
   })
@@ -216,7 +216,7 @@ export default function InventoryPage() {
       setStockProduct(null)
       setFormError('')
     },
-    onError: (error: any) => setFormError(error.response?.data?.detail || 'ოპერაცია ვერ შესრულდა'),
+    onError: (error: any) => setFormError(error.response?.data?.detail || t('ოპერაცია ვერ შესრულდა')),
   })
 
   const transferMutation = useMutation({
@@ -226,7 +226,7 @@ export default function InventoryPage() {
       setTransferModalOpen(false)
       setFormError('')
     },
-    onError: (error: any) => setFormError(error.response?.data?.detail || 'გადატანა ვერ შესრულდა'),
+    onError: (error: any) => setFormError(error.response?.data?.detail || t('გადატანა ვერ შესრულდა')),
   })
 
   const deleteMutation = useMutation({
@@ -451,7 +451,7 @@ export default function InventoryPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setShowArchived((value) => !value)} className="btn-secondary flex items-center gap-2">
-            <Archive size={18} /> {showArchived ? 'მხოლოდ აქტიური' : 'არქივის ჩვენება'}
+            <Archive size={18} /> {showArchived ? t('მხოლოდ აქტიური') : t('არქივის ჩვენება')}
           </button>
           <button onClick={openWarehouseCreate} className="btn-secondary flex items-center gap-2">
             <WarehouseIcon size={18} /> {t('ახალი საწყობი')}
@@ -552,7 +552,7 @@ export default function InventoryPage() {
       </div>
 
       {!productsError && (
-        <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage="პროდუქტები არ მოიძებნა" onRowClick={setCostProduct} page={page} totalPages={productsTotalPages} total={productsTotal} onPageChange={setPage} />
+        <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage={t('პროდუქტები არ მოიძებნა')} onRowClick={setCostProduct} page={page} totalPages={productsTotalPages} total={productsTotal} onPageChange={setPage} />
       )}
 
       <Modal open={!!costProduct} onClose={() => setCostProduct(null)} title={`შესყიდვის ფასების ისტორია — ${costProduct?.name || ''}`} size="xl">
@@ -625,7 +625,7 @@ export default function InventoryPage() {
         </div>
       </Modal>
 
-      <Modal open={productModalOpen} onClose={closeProductModal} title={editProduct ? 'პროდუქტის რედაქტირება' : 'ახალი პროდუქტი'} size="lg">
+      <Modal open={productModalOpen} onClose={closeProductModal} title={editProduct ? t('პროდუქტის რედაქტირება') : t('ახალი პროდუქტი')} size="lg">
         <form onSubmit={handleProductSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField label="SKU" required><input value={productForm.sku} onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })} className="input" required disabled={!!editProduct} /></FormField>
@@ -638,18 +638,18 @@ export default function InventoryPage() {
             {!editProduct && <FormField label={t('საწყისი ჯამური ნაშთი')}><input type="number" value={productForm.current_stock} onChange={(e) => setProductForm({ ...productForm, current_stock: Number(e.target.value) })} className="input" min={0} step="0.01" /></FormField>}
           </div>
           <FormField label={t('აღწერა')}><textarea value={productForm.description || ''} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} className="input" rows={2} /></FormField>
-          <div className="flex justify-end gap-3 border-t border-gray-200 dark:border-dark-50 pt-4"><button type="button" onClick={closeProductModal} className="btn-secondary">{t('გაუქმება')}</button><button type="submit" className="btn-primary">{editProduct ? 'განახლება' : 'დამატება'}</button></div>
+          <div className="flex justify-end gap-3 border-t border-gray-200 dark:border-dark-50 pt-4"><button type="button" onClick={closeProductModal} className="btn-secondary">{t('გაუქმება')}</button><button type="submit" className="btn-primary">{editProduct ? t('განახლება') : t('დამატება')}</button></div>
         </form>
       </Modal>
 
-      <Modal open={warehouseModalOpen} onClose={closeWarehouseModal} title={editWarehouse ? 'საწყობის რედაქტირება' : 'ახალი საწყობი'} size="md">
+      <Modal open={warehouseModalOpen} onClose={closeWarehouseModal} title={editWarehouse ? t('საწყობის რედაქტირება') : t('ახალი საწყობი')} size="md">
         <form onSubmit={handleWarehouseSubmit} className="space-y-4">
           <FormField label={t('კოდი')} required><input value={warehouseForm.code} onChange={(e) => setWarehouseForm({ ...warehouseForm, code: e.target.value.toUpperCase() })} className="input" placeholder="MAIN" required /></FormField>
           <FormField label={t('დასახელება')} required><input value={warehouseForm.name} onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })} className="input" placeholder={t('მთავარი საწყობი')} required /></FormField>
           <FormField label={t('მისამართი')}><input value={warehouseForm.address || ''} onChange={(e) => setWarehouseForm({ ...warehouseForm, address: e.target.value })} className="input" /></FormField>
           {!editWarehouse && <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input type="checkbox" checked={warehouseForm.is_default || false} onChange={(e) => setWarehouseForm({ ...warehouseForm, is_default: e.target.checked })} /> {t('მთავარი საწყობი')}</label>}
           {formError && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
-          <div className="flex justify-end gap-3 border-t border-gray-200 dark:border-dark-50 pt-4"><button type="button" onClick={closeWarehouseModal} className="btn-secondary">{t('გაუქმება')}</button><button type="submit" className="btn-primary" disabled={createWarehouseMutation.isPending || updateWarehouseMutation.isPending}>{editWarehouse ? 'განახლება' : 'შენახვა'}</button></div>
+          <div className="flex justify-end gap-3 border-t border-gray-200 dark:border-dark-50 pt-4"><button type="button" onClick={closeWarehouseModal} className="btn-secondary">{t('გაუქმება')}</button><button type="submit" className="btn-primary" disabled={createWarehouseMutation.isPending || updateWarehouseMutation.isPending}>{editWarehouse ? t('განახლება') : t('შენახვა')}</button></div>
         </form>
       </Modal>
 
@@ -686,11 +686,11 @@ export default function InventoryPage() {
         open={!!warehouseAction}
         onClose={() => setWarehouseAction(null)}
         onConfirm={confirmWarehouseAction}
-        title={warehouseAction?.action === 'delete' ? 'საწყობის წაშლა' : 'საწყობის დეაქტივაცია'}
+        title={warehouseAction?.action === 'delete' ? t('საწყობის წაშლა') : t('საწყობის დეაქტივაცია')}
         message={warehouseAction?.action === 'delete'
           ? `„${warehouseAction?.warehouse.name}“ სრულად წაიშლება მხოლოდ მაშინ, თუ არასოდეს გამოუყენებიათ.`
           : `„${warehouseAction?.warehouse.name}“ ახალ ოპერაციებში აღარ გამოჩნდება, ხოლო ისტორია შენარჩუნდება. ნაშთი განულებული უნდა იყოს.`}
-        confirmLabel={warehouseAction?.action === 'delete' ? 'წაშლა' : 'დეაქტივაცია'}
+        confirmLabel={warehouseAction?.action === 'delete' ? t('წაშლა') : t('დეაქტივაცია')}
         variant={warehouseAction?.action === 'delete' ? 'danger' : 'warning'}
         loading={archiveWarehouseMutation.isPending || deleteWarehouseMutation.isPending}
       />
@@ -724,9 +724,9 @@ export default function InventoryPage() {
                   setImportResult('')
                   try {
                     const res = await importApi.importProducts(importFile)
-                    setImportResult(res.data.data?.message || 'იმპორტი დასრულდა')
+                    setImportResult(res.data.data?.message || t('იმპორტი დასრულდა'))
                   } catch (err: any) {
-                    setImportResult(err?.response?.data?.detail || 'შეცდომა იმპორტის დროს')
+                    setImportResult(err?.response?.data?.detail || t('შეცდომა იმპორტის დროს'))
                   } finally {
                     setImportLoading(false)
                   }

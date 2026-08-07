@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowRightLeft, Calculator, Plus, RefreshCw, Search, Trash2 } from 'lucide-react'
 
@@ -7,6 +8,7 @@ import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import FormField, { Select } from '../components/ui/FormField'
 import { api } from '../services/api'
+import { useAuthStore } from '../store/authStore'
 import type { CurrencyConversion, CurrencyRate, CurrencyRateCreate } from '../types'
 
 const currencies = ['GEL', 'USD', 'EUR', 'GBP', 'TRY']
@@ -14,7 +16,7 @@ const today = new Date().toISOString().slice(0, 10)
 const options = currencies.map((value) => ({ value, label: value }))
 
 function errorText(error: any) {
-  return error?.response?.data?.detail || 'ოპერაცია ვერ შესრულდა'
+  return error?.response?.data?.detail || i18n.t('ოპერაცია ვერ შესრულდა')
 }
 
 export default function CurrencyPage() {
@@ -30,6 +32,7 @@ export default function CurrencyPage() {
   })
   const [conversionForm, setConversionForm] = useState({ amount: 1, from_currency: 'USD', to_currency: 'GEL', rate_date: today })
   const [conversion, setConversion] = useState<CurrencyConversion | null>(null)
+  const [baseCurrency, setBaseCurrency] = useState('GEL')
 
   const { data, isLoading } = useQuery({
     queryKey: ['currency-rates'],
@@ -40,6 +43,39 @@ export default function CurrencyPage() {
     queryKey: ['nbg-sync-status'],
     queryFn: () => api.get('/currency/rates/nbg-status').then((response) => response.data.data),
   })
+
+  // Live updates via WebSocket — no manual refresh needed
+  const companyId = useAuthStore((state) => state.user?.company_id)
+  useEffect(() => {
+    if (!companyId) return
+    let ws: WebSocket | null = null
+    let retry = 0
+    let closed = false
+
+    const connect = () => {
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+      ws = new WebSocket(`${proto}://${window.location.host}/api/v1/currency/ws/rates`)
+      ws.onopen = () => { ws?.send(companyId); retry = 0 }
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data)
+          if (msg.event === 'rates_updated') {
+            queryClient.invalidateQueries({ queryKey: ['currency-rates'] })
+            setNotice(t('კურსები განახლდა'))
+            setTimeout(() => setNotice(''), 3000)
+          }
+        } catch { /* ignore malformed frames */ }
+      }
+      ws.onclose = () => {
+        if (closed) return
+        retry += 1
+        setTimeout(connect, Math.min(1000 * retry, 10000))
+      }
+      ws.onerror = () => ws?.close()
+    }
+    connect()
+    return () => { closed = true; ws?.close() }
+  }, [companyId, queryClient, t])
 
   const createRate = useMutation({
     mutationFn: () => api.post('/currency/rates', rateForm),
@@ -75,10 +111,19 @@ export default function CurrencyPage() {
     onError: (e) => { setConversion(null); setError(errorText(e)) },
   })
 
-  const visible = rates.filter((rate) => {
-    const q = search.trim().toUpperCase()
-    return !q || `${rate.from_currency} ${rate.to_currency} ${rate.source}`.toUpperCase().includes(q)
-  })
+  // Base-currency view: pairs involving the selected base (default GEL), GEL pairs first
+  const visible = rates
+    .filter((rate) => {
+      const q = search.trim().toUpperCase()
+      const inBase = rate.from_currency === baseCurrency || rate.to_currency === baseCurrency
+      return inBase && (!q || `${rate.from_currency} ${rate.to_currency} ${rate.source}`.toUpperCase().includes(q))
+    })
+    .sort((a, b) => {
+      const aGel = a.from_currency === 'GEL' || a.to_currency === 'GEL' ? 0 : 1
+      const bGel = b.from_currency === 'GEL' || b.to_currency === 'GEL' ? 0 : 1
+      if (aGel !== bGel) return aGel - bGel
+      return `${a.from_currency}${a.to_currency}`.localeCompare(`${b.from_currency}${b.to_currency}`)
+    })
 
   return (
     <div className="space-y-6">
@@ -90,7 +135,7 @@ export default function CurrencyPage() {
         <div className="flex flex-wrap items-center gap-2">
           <input aria-label={t('ეროვნული ბანკის კურსის თარიღი')} className="input w-auto" type="date" value={syncDate} onChange={(e) => setSyncDate(e.target.value)} />
           <button className="btn-secondary flex items-center gap-2" disabled={syncNbg.isPending} onClick={() => syncNbg.mutate()}>
-            <RefreshCw size={18} className={syncNbg.isPending ? 'animate-spin' : ''} /> {syncNbg.isPending ? 'ახლდება...' : 'ეროვნული ბანკიდან განახლება'}
+            <RefreshCw size={18} className={syncNbg.isPending ? 'animate-spin' : ''} /> {syncNbg.isPending ? t('ახლდება...') : t('ეროვნული ბანკიდან განახლება')}
           </button>
           <button className="btn-primary flex items-center gap-2" onClick={() => { setError(''); setNotice(''); setRateModal(true) }}>
             <Plus size={18} /> {t('კურსის დამატება')}
@@ -109,14 +154,14 @@ export default function CurrencyPage() {
             </p>
           </div>
           <span className={`badge ${nbgStatus?.enabled ? 'badge-green' : 'badge-gray'}`}>
-            {nbgStatus?.enabled ? 'ჩართულია' : 'გამორთულია'}
+            {nbgStatus?.enabled ? t('ჩართულია') : t('გამორთულია')}
           </span>
         </div>
         {nbgStatus?.last_run_at && (
           <div className="mt-4 grid gap-3 border-t border-gray-100 pt-4 text-sm sm:grid-cols-3 dark:border-dark-50">
             <div><span className="text-gray-500 dark:text-gray-400">{t('ბოლო გაშვება')}</span><p className="mt-1 font-medium text-gray-900 dark:text-gray-200">{new Date(nbgStatus.last_run_at).toLocaleString('ka-GE')}</p></div>
-            <div><span className="text-gray-500 dark:text-gray-400">{t('ტიპი')}</span><p className="mt-1 font-medium text-gray-900 dark:text-gray-200">{nbgStatus.trigger === 'scheduled' ? 'ავტომატური' : 'ხელით'}</p></div>
-            <div><span className="text-gray-500 dark:text-gray-400">{t('შედეგი')}</span><p className={`mt-1 font-medium ${nbgStatus.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>{nbgStatus.status === 'success' ? `წარმატებული · ${nbgStatus.effective_date}` : nbgStatus.error_message || 'შეცდომა'}</p></div>
+            <div><span className="text-gray-500 dark:text-gray-400">{t('ტიპი')}</span><p className="mt-1 font-medium text-gray-900 dark:text-gray-200">{nbgStatus.trigger === 'scheduled' ? t('ავტომატური') : t('ხელით')}</p></div>
+            <div><span className="text-gray-500 dark:text-gray-400">{t('შედეგი')}</span><p className={`mt-1 font-medium ${nbgStatus.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>{nbgStatus.status === 'success' ? `წარმატებული · ${nbgStatus.effective_date}` : nbgStatus.error_message || t('შეცდომა')}</p></div>
           </div>
         )}
       </section>
@@ -146,9 +191,15 @@ export default function CurrencyPage() {
         {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
       </section>
 
-      <div className="relative max-w-xs">
-        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-        <input className="input pl-10" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('ვალუტის ძებნა...')} />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-xs">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+          <input className="input pl-10" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('ვალუტის ძებნა...')} />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500 dark:text-gray-400">{t('საბაზო ვალუტა')}</span>
+          <Select value={baseCurrency} options={options} onChange={(e) => setBaseCurrency(e.target.value)} className="w-28" />
+        </div>
       </div>
 
       <DataTable
@@ -157,12 +208,12 @@ export default function CurrencyPage() {
           { key: 'rate_date', label: 'თარიღი' },
           { key: 'rate', label: 'კურსი', render: (rate: CurrencyRate) => Number(rate.rate).toFixed(6) },
           { key: 'source', label: 'წყარო', render: (rate: CurrencyRate) => rate.source === 'manual' ? 'ხელით' : rate.source.toUpperCase() },
-          { key: 'actions', label: '', render: (rate: CurrencyRate) => <button title={t('წაშლა')} className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => { if (confirm('წავშალოთ კურსი?')) deleteRate.mutate(rate.id) }}><Trash2 size={16} className="text-red-500" /></button> },
+          { key: 'actions', label: '', render: (rate: CurrencyRate) => <button title={t('წაშლა')} className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => { if (confirm(t('წავშალოთ კურსი?'))) deleteRate.mutate(rate.id) }}><Trash2 size={16} className="text-red-500" /></button> },
         ]}
         data={visible}
         clientPageSize={20}
         isLoading={isLoading}
-        emptyMessage="ვალუტის კურსები არ არის"
+        emptyMessage={t('ვალუტის კურსები არ არის')}
       />
 
       <Modal open={rateModal} onClose={() => setRateModal(false)} title={t('ვალუტის კურსის დამატება')} size="md">
@@ -176,7 +227,7 @@ export default function CurrencyPage() {
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
             <button className="btn-secondary" onClick={() => setRateModal(false)}>{t('გაუქმება')}</button>
-            <button className="btn-primary" disabled={createRate.isPending || rateForm.rate <= 0 || rateForm.from_currency === rateForm.to_currency} onClick={() => createRate.mutate()}>{createRate.isPending ? 'ინახება...' : 'შენახვა'}</button>
+            <button className="btn-primary" disabled={createRate.isPending || rateForm.rate <= 0 || rateForm.from_currency === rateForm.to_currency} onClick={() => createRate.mutate()}>{createRate.isPending ? t('ინახება...') : t('შენახვა')}</button>
           </div>
         </div>
       </Modal>

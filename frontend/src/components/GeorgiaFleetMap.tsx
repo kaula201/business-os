@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { divIcon, latLngBounds } from 'leaflet'
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
+import { useTranslation } from 'react-i18next'
 
 import type { Vehicle } from '../types'
 
@@ -15,6 +16,7 @@ const vehicleIcon = divIcon({
 })
 
 function FitVehicleBounds({ vehicles }: { vehicles: Vehicle[] }) {
+  const { t } = useTranslation()
   const map = useMap()
 
   useEffect(() => {
@@ -75,6 +77,7 @@ interface GeorgiaFleetMapProps {
 }
 
 export default function GeorgiaFleetMap({ vehicles, onSelectVehicle }: GeorgiaFleetMapProps) {
+  const { t } = useTranslation()
   const locatedVehicles = useMemo(
     () => vehicles.filter((vehicle) => vehicle.latitude != null && vehicle.longitude != null),
     [vehicles],
@@ -116,7 +119,7 @@ export default function GeorgiaFleetMap({ vehicles, onSelectVehicle }: GeorgiaFl
                 <div className="min-w-48 space-y-2">
                   <div className="font-bold">{vehicle.plate_number}</div>
                   <div>{vehicle.brand} {vehicle.model}</div>
-                  <div className="text-sm text-gray-600">{vehicle.location_name || 'მდებარეობა მითითებულია კოორდინატებით'}</div>
+                  <div className="text-sm text-gray-600">{vehicle.location_name || t('მდებარეობა მითითებულია კოორდინატებით')}</div>
                   <button
                     type="button"
                     onClick={() => onSelectVehicle(vehicle)}

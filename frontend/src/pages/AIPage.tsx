@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { aiApi } from '../services/api'
 import { Send, Bot, Sparkles, RefreshCw, AlertCircle, TrendingUp, Clock, Package } from 'lucide-react'
@@ -46,7 +47,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
 export default function AIPage() {
   const { t } = useTranslation()
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'მოგესალმებით! 👋 მე ვარ Business OS AI ასისტენტი. დამისვით შეკითხვა თქვენი ბიზნეს მონაცემების შესახებ — შემოსავლები, კლიენტები, შეკვეთები, ნაშთები ან დავალებები.' }
+    { role: 'assistant', content: i18n.t('მოგესალმებით! 👋 მე ვარ Business OS AI ასისტენტი. დამისვით შეკითხვა თქვენი ბიზნეს მონაცემების შესახებ — შემოსავლები, კლიენტები, შეკვეთები, ნაშთები ან დავალებები.') }
   ])
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -54,7 +55,7 @@ export default function AIPage() {
   const chatMutation = useMutation({
     mutationFn: (message: string) => aiApi.chat(message),
     onSuccess: (res) => {
-      setMessages(prev => [...prev, { role: 'assistant', content: res.data.data?.message || 'პასუხი ვერ მოიძებნა' }])
+      setMessages(prev => [...prev, { role: 'assistant', content: res.data.data?.message || t('პასუხი ვერ მოიძებნა') }])
     },
     onError: () => {
       setMessages(prev => [...prev, { role: 'assistant', content: 'შეცდომა AI-სთან დაკავშირებისას. გთხოვთ სცადოთ თავიდან.' }])
@@ -74,10 +75,10 @@ export default function AIPage() {
   }
 
   const quickActions = [
-    { id: 'daily_summary', label: '📊 დღის შეჯამება', prompt: 'მომაწოდე დღის შეჯამება — შემოსავალი, ახალი შეკვეთები, დავალებები' },
-    { id: 'critical', label: '🚨 კრიტიკული საკითხები', prompt: 'რა არის კრიტიკული საკითხები? დაბალი ნაშთები, დაგვიანებული დავალებები' },
-    { id: 'stock', label: '📦 დაბალი ნაშთები', prompt: 'რომელ პროდუქტებს აქვთ დაბალი ნაშთი?' },
-    { id: 'overdue', label: '⏰ დაგვიანებული დავალებები', prompt: 'რა დავალებებია დაგვიანებული?' },
+    { id: 'daily_summary', label: i18n.t('📊 დღის შეჯამება'), prompt: 'მომაწოდე დღის შეჯამება — შემოსავალი, ახალი შეკვეთები, დავალებები' },
+    { id: 'critical', label: i18n.t('🚨 კრიტიკული საკითხები'), prompt: 'რა არის კრიტიკული საკითხები? დაბალი ნაშთები, დაგვიანებული დავალებები' },
+    { id: 'stock', label: i18n.t('📦 დაბალი ნაშთები'), prompt: 'რომელ პროდუქტებს აქვთ დაბალი ნაშთი?' },
+    { id: 'overdue', label: i18n.t('⏰ დაგვიანებული დავალებები'), prompt: 'რა დავალებებია დაგვიანებული?' },
   ]
 
   return (

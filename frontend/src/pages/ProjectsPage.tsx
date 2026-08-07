@@ -41,7 +41,7 @@ export default function ProjectsPage() {
   const createMutation = useMutation({
     mutationFn: (d: any) => api.post('/projects/', d),
     onSuccess: () => { setShowModal(false); setForm({ code: '', name: '', description: '', manager_id: '', start_date: '', end_date: '', budget_amount: 0, notes: '' }); queryClient.invalidateQueries({ queryKey: ['projects'] }) },
-    onError: (e: any) => setError(e.response?.data?.detail || 'შეცდომა'),
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
 
   const totalBudget = projects.reduce((s, p) => s + p.budget_amount, 0)
@@ -105,7 +105,7 @@ export default function ProjectsPage() {
                     <div className="font-medium text-brandgray-900 dark:text-gray-100">{p.name}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">{p.code}{p.description ? ` · ${p.description}` : ''}</div>
                   </td>
-                  <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[p.status] || ''}`}>{statusLabels[p.status] || p.status}</span></td>
+                  <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[p.status] || ''}`}>{t(statusLabels[p.status] || p.status)}</span></td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{p.start_date || '—'} {p.end_date ? `→ ${p.end_date}` : ''}</td>
                   <td className="px-4 py-3 text-right dark:text-gray-200">{money(p.budget_amount)}</td>
                   <td className="px-4 py-3 text-right text-amber-700 dark:text-amber-400">{money(p.spent_amount)}</td>
@@ -128,7 +128,7 @@ export default function ProjectsPage() {
             <div><label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('ბიუჯეტი (₾)')}</label><input type="number" value={form.budget_amount || ''} onChange={e => setForm({ ...form, budget_amount: Number(e.target.value) })} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></div>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <button type="submit" disabled={createMutation.isPending} className="w-full rounded-lg bg-primary-600 py-2 text-white disabled:opacity-50">{createMutation.isPending ? 'ინახება...' : 'პროექტის შექმნა'}</button>
+          <button type="submit" disabled={createMutation.isPending} className="w-full rounded-lg bg-primary-600 py-2 text-white disabled:opacity-50">{createMutation.isPending ? t('ინახება...') : t('პროექტის შექმნა')}</button>
         </form>
       </Modal>
     </div>

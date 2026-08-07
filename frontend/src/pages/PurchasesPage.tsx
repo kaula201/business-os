@@ -172,7 +172,7 @@ export default function PurchasesPage() {
       setSelectedId(response.data.data.id)
       setFormError('')
     },
-    onError: (error: any) => setFormError(error.response?.data?.detail || 'შესყიდვის შეკვეთის შექმნა ვერ მოხერხდა'),
+    onError: (error: any) => setFormError(error.response?.data?.detail || t('შესყიდვის შეკვეთის შექმნა ვერ მოხერხდა')),
   })
 
   const statusMutation = useMutation({
@@ -183,7 +183,7 @@ export default function PurchasesPage() {
       setFormError('')
     },
     onError: (error: any) => {
-      setFormError(error.response?.data?.detail || 'სტატუსის შეცვლა ვერ მოხერხდა')
+      setFormError(error.response?.data?.detail || t('სტატუსის შეცვლა ვერ მოხერხდა'))
       setAction(null)
     },
   })
@@ -199,7 +199,7 @@ export default function PurchasesPage() {
       setReceiptQuantities({})
       setReceiptError('')
     },
-    onError: (error: any) => setReceiptError(error.response?.data?.detail || 'საქონლის მიღება ვერ შესრულდა'),
+    onError: (error: any) => setReceiptError(error.response?.data?.detail || t('საქონლის მიღება ვერ შესრულდა')),
   })
 
   function openCreate() {
@@ -231,11 +231,11 @@ export default function PurchasesPage() {
     event.preventDefault()
     setFormError('')
     if (!form.supplier_id || !form.warehouse_id || form.items.some((item) => !item.product_id)) {
-      setFormError('შეავსეთ მომწოდებელი, საწყობი და ყველა პროდუქტი')
+      setFormError(t('შეავსეთ მომწოდებელი, საწყობი და ყველა პროდუქტი'))
       return
     }
     if (new Set(form.items.map((item) => item.product_id)).size !== form.items.length) {
-      setFormError('ერთი პროდუქტი შესყიდვის შეკვეთაში მხოლოდ ერთხელ შეიძლება იყოს')
+      setFormError(t('ერთი პროდუქტი შესყიდვის შეკვეთაში მხოლოდ ერთხელ შეიძლება იყოს'))
       return
     }
     createMutation.mutate({ ...form, expected_delivery_date: form.expected_delivery_date || undefined })
@@ -300,7 +300,7 @@ export default function PurchasesPage() {
         <Select className="sm:w-60" value={status} onChange={(e) => setStatus(e.target.value)} options={statusFilters} />
       </div>
 
-      <DataTable columns={columns} data={orders} isLoading={isLoading} onRowClick={(order) => { setFormError(''); setSelectedId(order.id) }} emptyMessage="შესყიდვის შეკვეთა ჯერ არ არის შექმნილი" page={page} totalPages={ordersTotalPages} total={ordersTotal} onPageChange={setPage} />
+      <DataTable columns={columns} data={orders} isLoading={isLoading} onRowClick={(order) => { setFormError(''); setSelectedId(order.id) }} emptyMessage={t('შესყიდვის შეკვეთა ჯერ არ არის შექმნილი')} page={page} totalPages={ordersTotalPages} total={ordersTotal} onPageChange={setPage} />
 
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title={t('ახალი შესყიდვის შეკვეთა')} size="xl">
         <form onSubmit={submitPurchaseOrder} className="space-y-5">
@@ -328,11 +328,11 @@ export default function PurchasesPage() {
             </div>
           </div>
           <FormField label={t('შენიშვნა')}><textarea className="input min-h-20" value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></FormField>
-          <div className="flex items-center justify-between pt-4 border-t"><div><p className="text-xs text-gray-500 dark:text-gray-400">{t('სავარაუდო ჯამი დღგ-ის ჩათვლით')}</p><p className="text-xl font-bold text-gray-900 dark:text-gray-100">{currency(draftTotal)}</p></div><div className="flex gap-3"><button type="button" className="btn-secondary" onClick={() => setCreateOpen(false)}>{t('გაუქმება')}</button><button className="btn-primary" disabled={createMutation.isPending}>{createMutation.isPending ? 'იქმნება...' : 'შესყიდვის შეკვეთის შექმნა'}</button></div></div>
+          <div className="flex items-center justify-between pt-4 border-t"><div><p className="text-xs text-gray-500 dark:text-gray-400">{t('სავარაუდო ჯამი დღგ-ის ჩათვლით')}</p><p className="text-xl font-bold text-gray-900 dark:text-gray-100">{currency(draftTotal)}</p></div><div className="flex gap-3"><button type="button" className="btn-secondary" onClick={() => setCreateOpen(false)}>{t('გაუქმება')}</button><button className="btn-primary" disabled={createMutation.isPending}>{createMutation.isPending ? t('იქმნება...') : t('შესყიდვის შეკვეთის შექმნა')}</button></div></div>
         </form>
       </Modal>
 
-      <Modal open={Boolean(selectedId)} onClose={() => { setSelectedId(null); setFormError('') }} title={selected?.purchase_order_number || 'შესყიდვის შეკვეთა'} size="xl">
+      <Modal open={Boolean(selectedId)} onClose={() => { setSelectedId(null); setFormError('') }} title={selected?.purchase_order_number || t('შესყიდვის შეკვეთა')} size="xl">
         {selected && (
           <div className="space-y-6">
             {formError && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{formError}</div>}
@@ -353,7 +353,7 @@ export default function PurchasesPage() {
               <div className={`p-4 rounded-xl ${selected.required_approval_role === 'admin' ? 'bg-purple-50' : 'bg-blue-50'}`}>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{t('საჭირო დამმტკიცებელი')}</p>
                 <p className={`font-semibold mt-1 ${selected.required_approval_role === 'admin' ? 'text-purple-700' : 'text-blue-700'}`}>
-                  {selected.required_approval_role === 'admin' ? 'ადმინისტრატორი' : 'მენეჯერი / ადმინისტრატორი'}
+                  {selected.required_approval_role === 'admin' ? t('ადმინისტრატორი') : t('მენეჯერი / ადმინისტრატორი')}
                 </p>
               </div>
             </div>
@@ -367,7 +367,7 @@ export default function PurchasesPage() {
 
             {selected.status === 'draft' && !canApproveSelected && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                ამ შესყიდვის შეკვეთის დამტკიცება შეუძლია {selected.required_approval_role === 'admin' ? 'მხოლოდ ადმინისტრატორს' : 'მენეჯერს ან ადმინისტრატორს'}.
+                ამ შესყიდვის შეკვეთის დამტკიცება შეუძლია {selected.required_approval_role === 'admin' ? t('მხოლოდ ადმინისტრატორს') : t('მენეჯერს ან ადმინისტრატორს')}.
               </div>
             )}
 
@@ -390,11 +390,11 @@ export default function PurchasesPage() {
           <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800"><CalendarDays size={17} className="inline mr-2" />{t('მარაგი დაემატება საწყობში:')} <strong>{selected.warehouse_name}</strong></div>
           <div className="space-y-3">{selected.items.filter((item) => item.remaining_quantity > 0).map((item) => <div key={item.id} className="grid grid-cols-3 gap-3 items-center p-3 border rounded-lg"><div className="col-span-2"><p className="font-medium">{item.product_name}</p><p className="text-xs text-gray-500 dark:text-gray-400">დარჩენილი: {item.remaining_quantity}</p></div><input type="number" min="0" max={item.remaining_quantity} step="0.001" className="input text-right" value={receiptQuantities[item.id] || 0} onChange={(e) => setReceiptQuantities({ ...receiptQuantities, [item.id]: Number(e.target.value) })} /></div>)}</div>
           <FormField label={t('შენიშვნა')}><textarea className="input min-h-20" value={receiptNotes} onChange={(e) => setReceiptNotes(e.target.value)} placeholder={t('ზედნადების ნომერი ან სხვა ინფორმაცია')} /></FormField>
-          <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={() => setReceiptOpen(false)}>{t('გაუქმება')}</button><button className="btn-primary" disabled={receiptMutation.isPending}>{receiptMutation.isPending ? 'მიღება მუშავდება...' : 'მიღების დაფიქსირება'}</button></div>
+          <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={() => setReceiptOpen(false)}>{t('გაუქმება')}</button><button className="btn-primary" disabled={receiptMutation.isPending}>{receiptMutation.isPending ? t('მიღება მუშავდება...') : t('მიღების დაფიქსირება')}</button></div>
         </form>}
       </Modal>
 
-      <ConfirmDialog open={Boolean(action && selected)} onClose={() => setAction(null)} onConfirm={() => selected && action && statusMutation.mutate({ id: selected.id, target: action })} title={action === 'approved' ? 'შესყიდვის შეკვეთის დამტკიცება' : 'შესყიდვის შეკვეთის გაუქმება'} message={action === 'approved' ? 'დამტკიცების შემდეგ შესაძლებელი გახდება საქონლის მიღება. მარაგი ამ ეტაპზე ჯერ არ შეიცვლება.' : 'გაუქმებული შესყიდვის შეკვეთის აღდგენა შეუძლებელი იქნება.'} confirmLabel={action === 'approved' ? 'დამტკიცება' : 'გაუქმება'} variant={action === 'approved' ? 'warning' : 'danger'} loading={statusMutation.isPending} />
+      <ConfirmDialog open={Boolean(action && selected)} onClose={() => setAction(null)} onConfirm={() => selected && action && statusMutation.mutate({ id: selected.id, target: action })} title={action === 'approved' ? t('შესყიდვის შეკვეთის დამტკიცება') : t('შესყიდვის შეკვეთის გაუქმება')} message={action === 'approved' ? t('დამტკიცების შემდეგ შესაძლებელი გახდება საქონლის მიღება. მარაგი ამ ეტაპზე ჯერ არ შეიცვლება.') : t('გაუქმებული შესყიდვის შეკვეთის აღდგენა შეუძლებელი იქნება.')} confirmLabel={action === 'approved' ? t('დამტკიცება') : t('გაუქმება')} variant={action === 'approved' ? 'warning' : 'danger'} loading={statusMutation.isPending} />
     </div>
   )
 }

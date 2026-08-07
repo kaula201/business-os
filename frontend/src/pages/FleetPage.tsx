@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Car,
@@ -55,11 +56,11 @@ const serviceTypes = [
 ]
 
 const tabs = [
-  { id: 'vehicles', label: 'ავტომობილები', icon: Car },
-  { id: 'map', label: 'საქართველოს რუკა', icon: MapPinned },
-  { id: 'fuel', label: 'საწვავი', icon: Fuel },
-  { id: 'services', label: 'მომსახურება', icon: Wrench },
-  { id: 'drivers', label: 'მძღოლები', icon: Users },
+  { id: 'vehicles', label: i18n.t('ავტომობილები'), icon: Car },
+  { id: 'map', label: i18n.t('საქართველოს რუკა'), icon: MapPinned },
+  { id: 'fuel', label: i18n.t('საწვავი'), icon: Fuel },
+  { id: 'services', label: i18n.t('მომსახურება'), icon: Wrench },
+  { id: 'drivers', label: i18n.t('მძღოლები'), icon: Users },
 ]
 
 const georgiaLocations = [
@@ -81,7 +82,7 @@ function money(value: number) {
 }
 
 function errorText(err: any) {
-  return err?.response?.data?.detail || 'ოპერაცია ვერ შესრულდა'
+  return err?.response?.data?.detail || i18n.t('ოპერაცია ვერ შესრულდა')
 }
 
 // ── Page ─────────────────────────────────────────────────────────────
@@ -411,7 +412,7 @@ export default function FleetPage() {
                   <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${
                     v.is_active ? 'bg-green-50 text-green-700' : 'bg-gray-100 dark:bg-dark-100 text-gray-500 dark:text-gray-400 dark:text-gray-500'
                   }`}>
-                    {v.is_active ? 'აქტიური' : 'არააქტიური'}
+                    {v.is_active ? t('აქტიური') : t('არააქტიური')}
                   </span>
                 ),
               },
@@ -426,7 +427,7 @@ export default function FleetPage() {
                       <Pencil size={16} className="text-gray-400 dark:text-gray-500" />
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); if (confirm('დარწმუნებული ხართ, რომ გსურთ ავტომობილის წაშლა?')) deleteVehicle.mutate(v.id) }}
+                      onClick={(e) => { e.stopPropagation(); if (confirm(t('დარწმუნებული ხართ, რომ გსურთ ავტომობილის წაშლა?'))) deleteVehicle.mutate(v.id) }}
                       className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <Trash2 size={16} className="text-red-400" />
@@ -438,7 +439,7 @@ export default function FleetPage() {
             data={visibleVehicles}
             clientPageSize={20}
             isLoading={vehiclesLoading}
-            emptyMessage="ავტომობილები არ მოიძებნა"
+            emptyMessage={t('ავტომობილები არ მოიძებნა')}
           />
         </>
       )}
@@ -476,7 +477,7 @@ export default function FleetPage() {
                   key: 'actions', label: '',
                   render: (f: FuelLog) => (
                     <button
-                      onClick={(e) => { e.stopPropagation(); if (confirm('წავშალოთ საწვავის ჩანაწერი?')) deleteFuel.mutate(f.id) }}
+                      onClick={(e) => { e.stopPropagation(); if (confirm(t('წავშალოთ საწვავის ჩანაწერი?'))) deleteFuel.mutate(f.id) }}
                       className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <Trash2 size={16} className="text-red-400" />
@@ -487,7 +488,7 @@ export default function FleetPage() {
               data={fuelLogs}
               clientPageSize={20}
               isLoading={fuelLoading}
-              emptyMessage="საწვავის ჩანაწერები არ მოიძებნა"
+              emptyMessage={t('საწვავის ჩანაწერები არ მოიძებნა')}
             />
           )}
         </>
@@ -523,7 +524,7 @@ export default function FleetPage() {
                   key: 'actions', label: '',
                   render: (s: ServiceRecord) => (
                     <button
-                      onClick={(e) => { e.stopPropagation(); if (confirm('წავშალოთ მომსახურების ჩანაწერი?')) deleteService.mutate(s.id) }}
+                      onClick={(e) => { e.stopPropagation(); if (confirm(t('წავშალოთ მომსახურების ჩანაწერი?'))) deleteService.mutate(s.id) }}
                       className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <Trash2 size={16} className="text-red-400" />
@@ -534,7 +535,7 @@ export default function FleetPage() {
               data={services}
               clientPageSize={20}
               isLoading={serviceLoading}
-              emptyMessage="მომსახურების ჩანაწერები არ მოიძებნა"
+              emptyMessage={t('მომსახურების ჩანაწერები არ მოიძებნა')}
             />
           )}
         </>
@@ -571,7 +572,7 @@ export default function FleetPage() {
                     <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       d.is_active ? 'bg-green-50 text-green-700' : 'bg-gray-100 dark:bg-dark-100 text-gray-500 dark:text-gray-400 dark:text-gray-500'
                     }`}>
-                      {d.is_active ? 'აქტიური' : 'არააქტიური'}
+                      {d.is_active ? t('აქტიური') : t('არააქტიური')}
                     </span>
                   ),
                 },
@@ -589,7 +590,7 @@ export default function FleetPage() {
                         <Pencil size={16} className="text-gray-400 dark:text-gray-500" />
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); if (confirm('წავშალოთ მძღოლის მინიჭება?')) deleteDriver.mutate(d.id) }}
+                        onClick={(e) => { e.stopPropagation(); if (confirm(t('წავშალოთ მძღოლის მინიჭება?'))) deleteDriver.mutate(d.id) }}
                         className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                       >
                         <Trash2 size={16} className="text-red-400" />
@@ -601,7 +602,7 @@ export default function FleetPage() {
               data={drivers}
               clientPageSize={20}
               isLoading={driverLoading}
-              emptyMessage="მძღოლები არ მოიძებნა"
+              emptyMessage={t('მძღოლები არ მოიძებნა')}
             />
           )}
         </>
@@ -693,7 +694,7 @@ export default function FleetPage() {
             <button
               onClick={() => {
                 if (!vehicleForm.plate_number.trim() || !vehicleForm.brand.trim() || !vehicleForm.model.trim()) {
-                  setError('ნომერი, ბრენდი და მოდელი სავალდებულოა')
+                  setError(t('ნომერი, ბრენდი და მოდელი სავალდებულოა'))
                   return
                 }
                 createVehicle.mutate(vehicleForm)
@@ -701,7 +702,7 @@ export default function FleetPage() {
               disabled={createVehicle.isPending}
               className="btn-primary"
             >
-              {createVehicle.isPending ? 'იქმნება...' : 'შექმნა'}
+              {createVehicle.isPending ? t('იქმნება...') : t('შექმნა')}
             </button>
           </div>
         </div>
@@ -779,7 +780,7 @@ export default function FleetPage() {
               disabled={updateVehicle.isPending}
               className="btn-primary"
             >
-              {updateVehicle.isPending ? 'ინახება...' : 'შენახვა'}
+              {updateVehicle.isPending ? t('ინახება...') : t('შენახვა')}
             </button>
           </div>
         </div>
@@ -824,7 +825,7 @@ export default function FleetPage() {
             <button
               onClick={() => {
                 if (!fuelForm.liters || !fuelForm.price_per_liter || !fuelForm.total_amount || !fuelForm.mileage_at_refuel) {
-                  setError('შეავსეთ სავალდებულო ველები')
+                  setError(t('შეავსეთ სავალდებულო ველები'))
                   return
                 }
                 createFuel.mutate({ vid: fuelVehicleId, d: fuelForm })
@@ -832,7 +833,7 @@ export default function FleetPage() {
               disabled={createFuel.isPending}
               className="btn-primary"
             >
-              {createFuel.isPending ? 'ინახება...' : 'შენახვა'}
+              {createFuel.isPending ? t('ინახება...') : t('შენახვა')}
             </button>
           </div>
         </div>
@@ -885,7 +886,7 @@ export default function FleetPage() {
             <button
               onClick={() => {
                 if (!serviceForm.description.trim() || !serviceForm.mileage_at_service) {
-                  setError('აღწერა და გარბენი სავალდებულოა')
+                  setError(t('აღწერა და გარბენი სავალდებულოა'))
                   return
                 }
                 createService.mutate({ vid: serviceVehicleId, d: serviceForm })
@@ -893,7 +894,7 @@ export default function FleetPage() {
               disabled={createService.isPending}
               className="btn-primary"
             >
-              {createService.isPending ? 'ინახება...' : 'შენახვა'}
+              {createService.isPending ? t('ინახება...') : t('შენახვა')}
             </button>
           </div>
         </div>
@@ -929,13 +930,13 @@ export default function FleetPage() {
             <button onClick={() => setDriverModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button
               onClick={() => {
-                if (!driverForm.driver_name.trim()) { setError('მძღოლის სახელი სავალდებულოა'); return }
+                if (!driverForm.driver_name.trim()) { setError(t('მძღოლის სახელი სავალდებულოა')); return }
                 createDriver.mutate({ vid: driverVehicleId, d: driverForm })
               }}
               disabled={createDriver.isPending}
               className="btn-primary"
             >
-              {createDriver.isPending ? 'ინახება...' : 'მინიჭება'}
+              {createDriver.isPending ? t('ინახება...') : t('მინიჭება')}
             </button>
           </div>
         </div>
@@ -983,7 +984,7 @@ export default function FleetPage() {
               disabled={updateDriver.isPending}
               className="btn-primary"
             >
-              {updateDriver.isPending ? 'ინახება...' : 'შენახვა'}
+              {updateDriver.isPending ? t('ინახება...') : t('შენახვა')}
             </button>
           </div>
         </div>

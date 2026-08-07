@@ -215,7 +215,7 @@ export default function SupplierFinancePage() {
       setSelectedInvoice(response.data.data)
       setError('')
     },
-    onError: (apiError: any) => setError(apiError.response?.data?.detail || 'მომწოდებლის ინვოისის შექმნა ვერ მოხერხდა'),
+    onError: (apiError: any) => setError(apiError.response?.data?.detail || t('მომწოდებლის ინვოისის შექმნა ვერ მოხერხდა')),
   })
 
   const statusMutation = useMutation({
@@ -228,7 +228,7 @@ export default function SupplierFinancePage() {
       setError('')
     },
     onError: (apiError: any) => {
-      setError(apiError.response?.data?.detail || 'Invoice-ის სტატუსის შეცვლა ვერ მოხერხდა')
+      setError(apiError.response?.data?.detail || t('Invoice-ის სტატუსის შეცვლა ვერ მოხერხდა'))
       setInvoiceAction(null)
     },
   })
@@ -242,7 +242,7 @@ export default function SupplierFinancePage() {
       setPaymentOpen(false)
       setPaymentError('')
     },
-    onError: (apiError: any) => setPaymentError(apiError.response?.data?.detail || 'გადახდა ვერ დაფიქსირდა'),
+    onError: (apiError: any) => setPaymentError(apiError.response?.data?.detail || t('გადახდა ვერ დაფიქსირდა')),
   })
 
   const creditMutation = useMutation({
@@ -254,7 +254,7 @@ export default function SupplierFinancePage() {
       setCreditOpen(false)
       setCreditError('')
     },
-    onError: (apiError: any) => setCreditError(apiError.response?.data?.detail || 'Credit Note ვერ დაფიქსირდა'),
+    onError: (apiError: any) => setCreditError(apiError.response?.data?.detail || t('Credit Note ვერ დაფიქსირდა')),
   })
 
   const reversalMutation = useMutation({
@@ -266,17 +266,17 @@ export default function SupplierFinancePage() {
       setReversalPayment(null)
       setReversalError('')
     },
-    onError: (apiError: any) => setReversalError(apiError.response?.data?.detail || 'გადახდის გაუქმება ვერ მოხერხდა'),
+    onError: (apiError: any) => setReversalError(apiError.response?.data?.detail || t('გადახდის გაუქმება ვერ მოხერხდა')),
   })
 
   function submitInvoice(event: React.FormEvent) {
     event.preventDefault()
     if (!form.purchase_order_id || !form.supplier_invoice_number.trim() || !form.items.length) {
-      setError('აირჩიეთ შესყიდვის შეკვეთა და შეავსეთ ინვოისის ნომერი')
+      setError(t('აირჩიეთ შესყიდვის შეკვეთა და შეავსეთ ინვოისის ნომერი'))
       return
     }
     if (form.items.some((item) => item.quantity <= 0)) {
-      setError('ყველა invoice line-ის რაოდენობა დადებითი უნდა იყოს')
+      setError(t('ყველა invoice line-ის რაოდენობა დადებითი უნდა იყოს'))
       return
     }
     createMutation.mutate(form)
@@ -385,9 +385,9 @@ export default function SupplierFinancePage() {
       </div>
 
       {tab === 'invoices' ? (
-        <DataTable columns={invoiceColumns} data={visibleInvoices} isLoading={invoicesLoading} onRowClick={setSelectedInvoice} emptyMessage="მომწოდებლის ინვოისი ჯერ არ არის შექმნილი" page={invoicePage} totalPages={invoiceTotalPages} total={invoicesTotal} onPageChange={setInvoicePage} />
+        <DataTable columns={invoiceColumns} data={visibleInvoices} isLoading={invoicesLoading} onRowClick={setSelectedInvoice} emptyMessage={t('მომწოდებლის ინვოისი ჯერ არ არის შექმნილი')} page={invoicePage} totalPages={invoiceTotalPages} total={invoicesTotal} onPageChange={setInvoicePage} />
       ) : (
-        <DataTable columns={payableColumns} data={visiblePayables} isLoading={payablesLoading} onRowClick={setSelectedPayable} emptyMessage="მომწოდებლის დავალიანება ჯერ არ არის" page={payablePage} totalPages={payableTotalPages} total={payablesTotal} onPageChange={setPayablePage} />
+        <DataTable columns={payableColumns} data={visiblePayables} isLoading={payablesLoading} onRowClick={setSelectedPayable} emptyMessage={t('მომწოდებლის დავალიანება ჯერ არ არის')} page={payablePage} totalPages={payableTotalPages} total={payablesTotal} onPageChange={setPayablePage} />
       )}
 
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title={t('ახალი მომწოდებლის ინვოისი')} size="xl">
@@ -409,11 +409,11 @@ export default function SupplierFinancePage() {
 
           {!form.purchase_order_id && <div className="p-4 bg-blue-50 rounded-xl text-sm text-blue-800"><FileCheck2 size={18} className="inline mr-2" />{t('ჯერ აირჩიეთ მიღებული შესყიდვის შეკვეთა. პროდუქტები ავტომატურად ჩაიტვირთება.')}</div>}
           <FormField label={t('შენიშვნა')}><textarea className="input min-h-20" value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></FormField>
-          <div className="flex items-center justify-between pt-4 border-t"><div><p className="text-xs text-gray-500 dark:text-gray-400">{t('Invoice ჯამი')}</p><p className="text-xl font-bold">{currency(invoiceDraftTotal)}</p></div><div className="flex gap-3"><button type="button" className="btn-secondary" onClick={() => setCreateOpen(false)}>{t('გაუქმება')}</button><button className="btn-primary" disabled={createMutation.isPending}>{createMutation.isPending ? 'იქმნება...' : 'შექმნა და შეჯერება'}</button></div></div>
+          <div className="flex items-center justify-between pt-4 border-t"><div><p className="text-xs text-gray-500 dark:text-gray-400">{t('Invoice ჯამი')}</p><p className="text-xl font-bold">{currency(invoiceDraftTotal)}</p></div><div className="flex gap-3"><button type="button" className="btn-secondary" onClick={() => setCreateOpen(false)}>{t('გაუქმება')}</button><button className="btn-primary" disabled={createMutation.isPending}>{createMutation.isPending ? t('იქმნება...') : t('შექმნა და შეჯერება')}</button></div></div>
         </form>
       </Modal>
 
-      <Modal open={Boolean(selectedInvoice)} onClose={() => { setSelectedInvoice(null); setError('') }} title={selectedInvoice?.internal_invoice_number || 'მომწოდებლის ინვოისი'} size="xl">
+      <Modal open={Boolean(selectedInvoice)} onClose={() => { setSelectedInvoice(null); setError('') }} title={selectedInvoice?.internal_invoice_number || t('მომწოდებლის ინვოისი')} size="xl">
         {selectedInvoice && <div className="space-y-5">
           {error && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{error}</div>}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -430,7 +430,7 @@ export default function SupplierFinancePage() {
         </div>}
       </Modal>
 
-      <Modal open={Boolean(selectedPayable) && !paymentOpen && !creditOpen && !reversalPayment} onClose={() => setSelectedPayable(null)} title={selectedPayable?.internal_invoice_number || 'დავალიანება'} size="lg">
+      <Modal open={Boolean(selectedPayable) && !paymentOpen && !creditOpen && !reversalPayment} onClose={() => setSelectedPayable(null)} title={selectedPayable?.internal_invoice_number || t('დავალიანება')} size="lg">
         {selectedPayable && <div className="space-y-5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-xl"><p className="text-xs text-gray-500 dark:text-gray-400">{t('საწყისი')}</p><p className="font-bold mt-1">{currency(selectedPayable.original_amount)}</p></div>
@@ -451,7 +451,7 @@ export default function SupplierFinancePage() {
           <div className="p-4 bg-blue-50 rounded-xl text-blue-900"><p className="text-sm">{t('დარჩენილი დავალიანება')}</p><p className="text-xl font-bold mt-1">{currency(selectedPayable.outstanding_amount)}</p></div>
           <div className="grid md:grid-cols-2 gap-4"><FormField label={t('თანხა')} required><input required type="number" min="0.01" max={selectedPayable.outstanding_amount} step="0.01" className="input" value={payment.amount || ''} onChange={(e) => setPayment({ ...payment, amount: Number(e.target.value) })} /></FormField><FormField label={t('გადახდის თარიღი')} required><input required type="date" className="input" value={payment.payment_date} onChange={(e) => setPayment({ ...payment, payment_date: e.target.value })} /></FormField><FormField label={t('მეთოდი')} required><Select value={payment.payment_method} onChange={(e) => setPayment({ ...payment, payment_method: e.target.value as SupplierPaymentCreate['payment_method'] })} options={paymentMethods} /></FormField><FormField label="Reference"><input className="input" value={payment.reference || ''} onChange={(e) => setPayment({ ...payment, reference: e.target.value })} placeholder={t('ბანკის ტრანზაქციის ნომერი')} /></FormField></div>
           <FormField label={t('შენიშვნა')}><textarea className="input min-h-20" value={payment.notes || ''} onChange={(e) => setPayment({ ...payment, notes: e.target.value })} /></FormField>
-          <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={() => setPaymentOpen(false)}>{t('გაუქმება')}</button><button className="btn-primary" disabled={paymentMutation.isPending}>{paymentMutation.isPending ? 'ინახება...' : 'გადახდის დაფიქსირება'}</button></div>
+          <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={() => setPaymentOpen(false)}>{t('გაუქმება')}</button><button className="btn-primary" disabled={paymentMutation.isPending}>{paymentMutation.isPending ? t('ინახება...') : t('გადახდის დაფიქსირება')}</button></div>
         </form>}
       </Modal>
 
@@ -461,7 +461,7 @@ export default function SupplierFinancePage() {
           <div className="p-4 bg-primary-50 rounded-xl text-primary-900"><p className="text-sm">{t('დარჩენილი დავალიანება')}</p><p className="text-xl font-bold mt-1">{currency(selectedPayable.outstanding_amount)}</p><p className="text-xs mt-2">{t('Credit Note ამ თანხას შეამცირებს. მარაგი ავტომატურად არ შეიცვლება.')}</p></div>
           <div className="grid md:grid-cols-2 gap-4"><FormField label={t('Credit Note ნომერი')} required><input required className="input" value={credit.supplier_credit_note_number} onChange={(e) => setCredit({ ...credit, supplier_credit_note_number: e.target.value })} placeholder={t('მაგ. CN-2026-001')} /></FormField><FormField label={t('თარიღი')} required><input required type="date" className="input" value={credit.credit_date} onChange={(e) => setCredit({ ...credit, credit_date: e.target.value })} /></FormField><FormField label={t('თანხა')} required><input required type="number" min="0.01" max={selectedPayable.outstanding_amount} step="0.01" className="input" value={credit.amount || ''} onChange={(e) => setCredit({ ...credit, amount: Number(e.target.value) })} /></FormField></div>
           <FormField label={t('მიზეზი')} required><textarea required className="input min-h-24" value={credit.reason} onChange={(e) => setCredit({ ...credit, reason: e.target.value })} placeholder={t('მაგ. ფასის კორექტირება ან მომწოდებლის ფასდაკლება')} /></FormField>
-          <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={() => setCreditOpen(false)}>{t('გაუქმება')}</button><button className="btn-primary" disabled={creditMutation.isPending}>{creditMutation.isPending ? 'ინახება...' : 'Credit Note-ის დაფიქსირება'}</button></div>
+          <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={() => setCreditOpen(false)}>{t('გაუქმება')}</button><button className="btn-primary" disabled={creditMutation.isPending}>{creditMutation.isPending ? t('ინახება...') : t('Credit Note-ის დაფიქსირება')}</button></div>
         </form>}
       </Modal>
 
@@ -470,11 +470,11 @@ export default function SupplierFinancePage() {
           {reversalError && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{reversalError}</div>}
           <div className="p-4 bg-red-50 rounded-xl text-red-900"><p className="font-medium flex items-center gap-2"><RotateCcw size={18} /> {t('გადახდა გაუქმდება')}</p><p className="text-xl font-bold mt-2">{currency(reversalPayment.amount)}</p><p className="text-sm mt-2">{t('თანხა დაბრუნდება მომწოდებლის დავალიანებაში. ჩანაწერი ისტორიაში დარჩება.')}</p></div>
           <FormField label={t('გაუქმების მიზეზი')} required><textarea required className="input min-h-24" value={reversal.reason} onChange={(e) => setReversal({ ...reversal, reason: e.target.value })} placeholder={t('მიუთითეთ, რატომ უქმდება გადახდა')} /></FormField>
-          <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={() => setReversalPayment(null)}>{t('დახურვა')}</button><button className="btn-primary bg-red-600 hover:bg-red-700" disabled={reversalMutation.isPending}>{reversalMutation.isPending ? 'უქმდება...' : 'გადახდის გაუქმება'}</button></div>
+          <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={() => setReversalPayment(null)}>{t('დახურვა')}</button><button className="btn-primary bg-red-600 hover:bg-red-700" disabled={reversalMutation.isPending}>{reversalMutation.isPending ? t('უქმდება...') : t('გადახდის გაუქმება')}</button></div>
         </form>}
       </Modal>
 
-      <ConfirmDialog open={Boolean(invoiceAction && selectedInvoice)} onClose={() => setInvoiceAction(null)} onConfirm={() => selectedInvoice && invoiceAction && statusMutation.mutate({ id: selectedInvoice.id, target: invoiceAction })} title={invoiceAction === 'approved' ? 'მომწოდებლის ინვოისის დამტკიცება' : 'მომწოდებლის ინვოისის გაუქმება'} message={invoiceAction === 'approved' ? 'დამტკიცების შემდეგ ავტომატურად შეიქმნება მომწოდებლის დავალიანება. თანხისა და მიღების შეჯერება გავლილია.' : 'გაუქმებული invoice payable-ს აღარ შექმნის.'} confirmLabel={invoiceAction === 'approved' ? 'დამტკიცება' : 'გაუქმება'} variant={invoiceAction === 'approved' ? 'warning' : 'danger'} loading={statusMutation.isPending} />
+      <ConfirmDialog open={Boolean(invoiceAction && selectedInvoice)} onClose={() => setInvoiceAction(null)} onConfirm={() => selectedInvoice && invoiceAction && statusMutation.mutate({ id: selectedInvoice.id, target: invoiceAction })} title={invoiceAction === 'approved' ? t('მომწოდებლის ინვოისის დამტკიცება') : t('მომწოდებლის ინვოისის გაუქმება')} message={invoiceAction === 'approved' ? t('დამტკიცების შემდეგ ავტომატურად შეიქმნება მომწოდებლის დავალიანება. თანხისა და მიღების შეჯერება გავლილია.') : t('გაუქმებული invoice payable-ს აღარ შექმნის.')} confirmLabel={invoiceAction === 'approved' ? t('დამტკიცება') : t('გაუქმება')} variant={invoiceAction === 'approved' ? 'warning' : 'danger'} loading={statusMutation.isPending} />
     </div>
   )
 }

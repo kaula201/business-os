@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Pencil, Trash2, Search, Building2, Calendar, TrendingDown, Calculator, FileText, Wrench
@@ -38,7 +39,7 @@ function money(value: number) {
 }
 
 function errorText(err: any) {
-  return err?.response?.data?.detail || 'ოპერაცია ვერ შესრულდა'
+  return err?.response?.data?.detail || i18n.t('ოპერაცია ვერ შესრულდა')
 }
 
 export default function AssetsPage() {
@@ -238,7 +239,7 @@ export default function AssetsPage() {
                   <Pencil size={16} className="text-gray-400 dark:text-gray-500" />
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); if (confirm('წავშალოთ აქტივი?')) deleteAsset.mutate(a.id) }}
+                  onClick={(e) => { e.stopPropagation(); if (confirm(t('წავშალოთ აქტივი?'))) deleteAsset.mutate(a.id) }}
                   className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                 >
                   <Trash2 size={16} className="text-red-400" />
@@ -250,7 +251,7 @@ export default function AssetsPage() {
         data={visible}
         clientPageSize={20}
         isLoading={isLoading}
-        emptyMessage="ძირითადი საშუალებები არ მოიძებნა"
+        emptyMessage={t('ძირითადი საშუალებები არ მოიძებნა')}
       />
 
       {/* Depreciation Result */}
@@ -335,7 +336,7 @@ export default function AssetsPage() {
             <button
               onClick={() => {
                 if (!assetForm.name.trim() || !assetForm.purchase_cost || !assetForm.useful_life_years) {
-                  setError('სახელი, ღირებულება და ვადა სავალდებულოა')
+                  setError(t('სახელი, ღირებულება და ვადა სავალდებულოა'))
                   return
                 }
                 createAsset.mutate()
@@ -343,7 +344,7 @@ export default function AssetsPage() {
               disabled={createAsset.isPending}
               className="btn-primary"
             >
-              {createAsset.isPending ? 'იქმნება...' : 'შექმნა'}
+              {createAsset.isPending ? t('იქმნება...') : t('შექმნა')}
             </button>
           </div>
         </div>
@@ -372,7 +373,7 @@ export default function AssetsPage() {
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setAssetModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button onClick={() => updateAsset.mutate()} disabled={updateAsset.isPending} className="btn-primary">
-              {updateAsset.isPending ? 'ინახება...' : 'შენახვა'}
+              {updateAsset.isPending ? t('ინახება...') : t('შენახვა')}
             </button>
           </div>
         </div>

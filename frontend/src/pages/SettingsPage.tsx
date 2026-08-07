@@ -46,7 +46,7 @@ export default function SettingsPage() {
   const waybillMutation = useMutation({
     mutationFn: () => api.get(`/integrations/rs/waybills/${encodeURIComponent(waybillNumber)}`),
     onSuccess: (response) => { setWaybillResult(response.data.data); setIntegrationError('') },
-    onError: (error: any) => { setWaybillResult(null); setIntegrationError(error?.response?.data?.detail || 'ზედნადების მიღება ვერ მოხერხდა') },
+    onError: (error: any) => { setWaybillResult(null); setIntegrationError(error?.response?.data?.detail || t('ზედნადების მიღება ვერ მოხერხდა')) },
   })
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['my-company'] })
       setCompanyMessage('კომპანიის ინფორმაცია შენახულია.')
     },
-    onError: (error: any) => setCompanyMessage(error?.response?.data?.detail || 'შენახვა ვერ მოხერხდა'),
+    onError: (error: any) => setCompanyMessage(error?.response?.data?.detail || t('შენახვა ვერ მოხერხდა')),
   })
 
   const approvalMutation = useMutation({
@@ -89,7 +89,7 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['purchase-order'] })
       setApprovalMessage('Approval ზღვარი შენახულია.')
     },
-    onError: (error: any) => setApprovalMessage(error.response?.data?.detail || 'Approval ზღვრის შენახვა ვერ მოხერხდა.'),
+    onError: (error: any) => setApprovalMessage(error.response?.data?.detail || t('Approval ზღვრის შენახვა ვერ მოხერხდა.')),
   })
 
   const users: UserType[] = usersData?.items || []
@@ -102,7 +102,7 @@ export default function SettingsPage() {
       setInviteModal(false)
       setInviteForm({ email: '', full_name: '', role: 'employee' })
     } catch (err: any) {
-      alert(err?.response?.data?.detail || 'მოწვევა ვერ შესრულდა')
+      alert(err?.response?.data?.detail || t('მოწვევა ვერ შესრულდა'))
     }
   }
 
@@ -112,11 +112,11 @@ export default function SettingsPage() {
 
       <div className="flex gap-2">
         {[
-          { id: 'account', label: 'ჩემი ანგარიში', icon: User },
-          { id: 'company', label: 'კომპანია', icon: Settings },
-          ...(user?.role === 'admin' ? [{ id: 'users', label: 'მომხმარებლები', icon: Shield }] : []),
-          ...(user?.role === 'admin' ? [{ id: 'purchasing', label: 'შესყიდვების approval', icon: SlidersHorizontal }] : []),
-          ...(['admin', 'accountant'].includes(user?.role || '') ? [{ id: 'integrations', label: 'ინტეგრაციები', icon: Plug }] : []),
+          { id: 'account', label: t('ჩემი ანგარიში'), icon: User },
+          { id: 'company', label: t('კომპანია'), icon: Settings },
+          ...(user?.role === 'admin' ? [{ id: 'users', label: t('მომხმარებლები'), icon: Shield }] : []),
+          ...(user?.role === 'admin' ? [{ id: 'purchasing', label: t('შესყიდვების approval'), icon: SlidersHorizontal }] : []),
+          ...(['admin', 'accountant'].includes(user?.role || '') ? [{ id: 'integrations', label: t('ინტეგრაციები'), icon: Plug }] : []),
         ].map(tab => (
           <button
             key={tab.id}
@@ -156,7 +156,7 @@ export default function SettingsPage() {
               </div>
               <div className="p-3 border border-gray-200 rounded-lg dark:border-dark-50">
                 <p className="text-xs text-gray-500 dark:text-gray-400">{t('სტატუსი')}</p>
-                <p className="font-medium dark:text-gray-200">{user?.is_active ? 'აქტიური' : 'არააქტიური'}</p>
+                <p className="font-medium dark:text-gray-200">{user?.is_active ? t('აქტიური') : t('არააქტიური')}</p>
               </div>
               <div className="p-3 border border-gray-200 rounded-lg dark:border-dark-50">
                 <p className="text-xs text-gray-500 dark:text-gray-400">{t('ბოლო შესვლა')}</p>
@@ -183,7 +183,7 @@ export default function SettingsPage() {
                   setPwMessage('პაროლი წარმატებით შეიცვალა')
                   setPwForm({ current_password: '', new_password: '', confirm: '' })
                 } catch (err: any) {
-                  setPwMessage(err?.response?.data?.detail || 'შეცდომა')
+                  setPwMessage(err?.response?.data?.detail || t('შეცდომა'))
                 } finally {
                   setPwLoading(false)
                 }
@@ -199,7 +199,7 @@ export default function SettingsPage() {
                 </FormField>
                 {pwMessage && <p className={`text-sm ${pwMessage.includes('წარმატებით') ? 'text-green-600' : 'text-red-600'}`}>{pwMessage}</p>}
                 <button type="submit" className="btn-primary" disabled={pwLoading}>
-                  {pwLoading ? 'ინახება...' : 'პაროლის შეცვლა'}
+                  {pwLoading ? t('ინახება...') : t('პაროლის შეცვლა')}
                 </button>
               </form>
             </div>
@@ -242,7 +242,7 @@ export default function SettingsPage() {
             {companyMessage && <p className={`rounded-lg p-3 text-sm ${companyMessage.includes('შენახულია') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{companyMessage}</p>}
             <div className="flex justify-end border-t border-gray-200 pt-4 dark:border-dark-50">
               <button type="submit" className="btn-primary" disabled={companyMutation.isPending}>
-                {companyMutation.isPending ? 'ინახება...' : 'შენახვა'}
+                {companyMutation.isPending ? t('ინახება...') : t('შენახვა')}
               </button>
             </div>
           </form>
@@ -283,7 +283,7 @@ export default function SettingsPage() {
             {approvalMessage && <p className={`rounded-lg p-3 text-sm ${approvalMessage.includes('შენახულია') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{approvalMessage}</p>}
             <div className="flex justify-end border-t border-gray-200 pt-4 dark:border-dark-50">
               <button type="submit" className="btn-primary" disabled={approvalMutation.isPending}>
-                {approvalMutation.isPending ? 'ინახება...' : 'Approval ზღვრის შენახვა'}
+                {approvalMutation.isPending ? t('ინახება...') : t('Approval ზღვრის შენახვა')}
               </button>
             </div>
           </form>
@@ -297,13 +297,13 @@ export default function SettingsPage() {
               <div className="rounded-lg bg-blue-50 p-3 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"><Plug size={22} /></div>
               <div><h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('RS.ge — სასაქონლო ზედნადებები')}</h3><p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('Revenue Service-ის ოფიციალური WayBill SOAP სერვისი')}</p></div>
             </div>
-            <button className="btn-secondary" onClick={() => refetchRsStatus()} disabled={rsStatusLoading}>{rsStatusLoading ? 'მოწმდება...' : 'კავშირის შემოწმება'}</button>
+            <button className="btn-secondary" onClick={() => refetchRsStatus()} disabled={rsStatusLoading}>{rsStatusLoading ? t('მოწმდება...') : t('კავშირის შემოწმება')}</button>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-gray-200 p-4 dark:border-dark-50"><p className="text-xs text-gray-500 dark:text-gray-400">{t('სერვერი')}</p><p className={`mt-1 font-semibold ${rsStatus?.reachable ? 'text-green-600' : 'text-red-600'}`}>{rsStatusLoading ? 'მოწმდება...' : rsStatus?.reachable ? 'ხელმისაწვდომია' : 'მიუწვდომელია'}</p></div>
-            <div className="rounded-lg border border-gray-200 p-4 dark:border-dark-50"><p className="text-xs text-gray-500 dark:text-gray-400">{t('რეკვიზიტები')}</p><p className={`mt-1 font-semibold ${rsStatus?.configured ? 'text-green-600' : 'text-amber-600'}`}>{rsStatus?.configured ? 'დაყენებულია' : 'არ არის დაყენებული'}</p></div>
-            <div className="rounded-lg border border-gray-200 p-4 dark:border-dark-50"><p className="text-xs text-gray-500 dark:text-gray-400">{t('ავტორიზაცია')}</p><p className={`mt-1 font-semibold ${rsStatus?.authenticated ? 'text-green-600' : 'text-gray-500'}`}>{rsStatus?.authenticated ? 'წარმატებულია' : 'არ შემოწმებულა'}</p></div>
+            <div className="rounded-lg border border-gray-200 p-4 dark:border-dark-50"><p className="text-xs text-gray-500 dark:text-gray-400">{t('სერვერი')}</p><p className={`mt-1 font-semibold ${rsStatus?.reachable ? 'text-green-600' : 'text-red-600'}`}>{rsStatusLoading ? 'მოწმდება...' : rsStatus?.reachable ? t('ხელმისაწვდომია') : t('მიუწვდომელია')}</p></div>
+            <div className="rounded-lg border border-gray-200 p-4 dark:border-dark-50"><p className="text-xs text-gray-500 dark:text-gray-400">{t('რეკვიზიტები')}</p><p className={`mt-1 font-semibold ${rsStatus?.configured ? 'text-green-600' : 'text-amber-600'}`}>{rsStatus?.configured ? t('დაყენებულია') : t('არ არის დაყენებული')}</p></div>
+            <div className="rounded-lg border border-gray-200 p-4 dark:border-dark-50"><p className="text-xs text-gray-500 dark:text-gray-400">{t('ავტორიზაცია')}</p><p className={`mt-1 font-semibold ${rsStatus?.authenticated ? 'text-green-600' : 'text-gray-500'}`}>{rsStatus?.authenticated ? t('წარმატებულია') : t('არ შემოწმებულა')}</p></div>
           </div>
 
           {!rsStatus?.configured && <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">{t('Backend environment-ში დაამატეთ')} <code>RS_SERVICE_USER</code> {t('და')} <code>RS_SERVICE_PASSWORD</code>{t('. მნიშვნელობები UI-ში არ ინახება.')}</div>}
@@ -311,7 +311,7 @@ export default function SettingsPage() {
 
           <div className="border-t border-gray-200 pt-5 dark:border-dark-50">
             <h4 className="font-medium text-gray-900 dark:text-gray-100">{t('ზედნადების მოძებნა ნომრით')}</h4>
-            <div className="mt-3 flex max-w-xl gap-2"><input className="input" value={waybillNumber} onChange={(e) => setWaybillNumber(e.target.value)} placeholder={t('ზედნადების ნომერი')}/><button className="btn-primary flex items-center gap-2" disabled={!rsStatus?.configured || !waybillNumber.trim() || waybillMutation.isPending} onClick={() => waybillMutation.mutate()}><Search size={16}/>{waybillMutation.isPending ? 'იძებნება...' : 'მოძებნა'}</button></div>
+            <div className="mt-3 flex max-w-xl gap-2"><input className="input" value={waybillNumber} onChange={(e) => setWaybillNumber(e.target.value)} placeholder={t('ზედნადების ნომერი')}/><button className="btn-primary flex items-center gap-2" disabled={!rsStatus?.configured || !waybillNumber.trim() || waybillMutation.isPending} onClick={() => waybillMutation.mutate()}><Search size={16}/>{waybillMutation.isPending ? t('იძებნება...') : t('მოძებნა')}</button></div>
             {integrationError && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{integrationError}</p>}
             {waybillResult && <pre className="mt-4 max-h-96 overflow-auto rounded-lg bg-gray-950 p-4 text-xs text-green-300">{JSON.stringify(waybillResult.data, null, 2)}</pre>}
           </div>
@@ -361,10 +361,10 @@ export default function SettingsPage() {
           </FormField>
           <FormField label={t('როლი')}>
             <Select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })} options={[
-              { value: 'admin', label: 'ადმინისტრატორი' },
-              { value: 'manager', label: 'მენეჯერი' },
-              { value: 'employee', label: 'თანამშრომელი' },
-              { value: 'accountant', label: 'ბუღალტერი' },
+              { value: 'admin', label: t('ადმინისტრატორი') },
+              { value: 'manager', label: t('მენეჯერი') },
+              { value: 'employee', label: t('თანამშრომელი') },
+              { value: 'accountant', label: t('ბუღალტერი') },
             ]} />
           </FormField>
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">

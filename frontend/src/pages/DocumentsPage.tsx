@@ -50,7 +50,7 @@ export default function DocumentsPage() {
   const createMutation = useMutation({
     mutationFn: (d: any) => api.post('/documents/', d),
     onSuccess: () => { setShowModal(false); resetForm(); queryClient.invalidateQueries({ queryKey: ['documents'] }) },
-    onError: (e: any) => setError(e.response?.data?.detail || 'შეცდომა'),
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
 
   const archiveMutation = useMutation({
@@ -172,7 +172,7 @@ export default function DocumentsPage() {
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button type="submit" disabled={createMutation.isPending}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
-            {createMutation.isPending ? 'ინახება...' : 'დოკუმენტის დამატება'}
+            {createMutation.isPending ? t('ინახება...') : t('დოკუმენტის დამატება')}
           </button>
         </form>
       </Modal>

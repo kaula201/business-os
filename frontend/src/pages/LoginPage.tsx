@@ -32,7 +32,7 @@ export default function LoginPage() {
       const res = await authApi.login({ email, password })
       setAuth(res.data.data)
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'შეცდომა შესვლისას')
+      setError(err.response?.data?.detail || t('შეცდომა შესვლისას'))
     } finally {
       setLoading(false)
     }
@@ -134,7 +134,7 @@ export default function LoginPage() {
               await authApi.forgotPassword(forgotEmail)
               setForgotSent(true)
             } catch (err: any) {
-              setForgotError(err?.response?.data?.detail || 'შეცდომა')
+              setForgotError(err?.response?.data?.detail || t('შეცდომა'))
             } finally {
               setForgotLoading(false)
             }

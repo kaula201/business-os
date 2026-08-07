@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Pencil, Trash2, Search, DollarSign, Target, TrendingDown, Calendar } from 'lucide-react'
 
@@ -16,7 +17,7 @@ function money(value: number) {
 }
 
 function errorText(err: any) {
-  return err?.response?.data?.detail || 'ოპერაცია ვერ შესრულდა'
+  return err?.response?.data?.detail || i18n.t('ოპერაცია ვერ შესრულდა')
 }
 
 export default function BudgetingPage() {
@@ -127,8 +128,8 @@ export default function BudgetingPage() {
           { key: 'fiscal_year', label: 'წელი' },
           { key: 'status', label: 'სტატუსი', render: (p: BudgetPlan) => {
             const cls = p.status === 'active' ? 'badge-green' : p.status === 'draft' ? 'badge-yellow' : 'badge-gray'
-            const label = p.status === 'active' ? 'აქტიური' : p.status === 'draft' ? 'მონახაზი' : 'დახურული'
-            return <span className={`badge ${cls}`}>{label}</span>
+            const label = p.status === 'active' ? 'აქტიური' : p.status === 'draft' ? t('მონახაზი') : t('დახურული')
+            return <span className={`badge ${cls}`}>{t(label)}</span>
           }},
           { key: 'total_planned', label: 'დაგეგმილი', render: (p: BudgetPlan) => money(p.total_planned) },
           { key: 'total_actual', label: 'ფაქტობრივი', render: (p: BudgetPlan) => money(p.total_actual) },
@@ -139,7 +140,7 @@ export default function BudgetingPage() {
                 <button onClick={(e) => { e.stopPropagation(); setSelectedPlanId(p.id) }} className="p-1.5 hover:bg-primary-50 rounded-lg" title={t('ხაზები')}>
                   <Target size={16} className="text-primary-500" />
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); if (confirm('წავშალოთ ბიუჯეტი?')) deletePlan.mutate(p.id) }} className="p-1.5 hover:bg-red-50 rounded-lg">
+                <button onClick={(e) => { e.stopPropagation(); if (confirm(t('წავშალოთ ბიუჯეტი?'))) deletePlan.mutate(p.id) }} className="p-1.5 hover:bg-red-50 rounded-lg">
                   <Trash2 size={16} className="text-red-400" />
                 </button>
               </div>
@@ -149,7 +150,7 @@ export default function BudgetingPage() {
         data={visible}
         clientPageSize={20}
         isLoading={isLoading}
-        emptyMessage="ბიუჯეტები არ მოიძებნა"
+        emptyMessage={t('ბიუჯეტები არ მოიძებნა')}
       />
 
       {/* Budget Lines Section */}
@@ -220,8 +221,8 @@ export default function BudgetingPage() {
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setPlanModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
-            <button onClick={() => { if (!planForm.name.trim()) { setError('სახელი სავალდებულოა'); return }; createPlan.mutate() }} disabled={createPlan.isPending} className="btn-primary">
-              {createPlan.isPending ? 'იქმნება...' : 'შექმნა'}
+            <button onClick={() => { if (!planForm.name.trim()) { setError(t('სახელი სავალდებულოა')); return }; createPlan.mutate() }} disabled={createPlan.isPending} className="btn-primary">
+              {createPlan.isPending ? t('იქმნება...') : t('შექმნა')}
             </button>
           </div>
         </div>

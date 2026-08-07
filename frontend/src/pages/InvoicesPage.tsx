@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import {
@@ -18,7 +19,7 @@ function money(value: number, currency = 'GEL') {
 }
 
 function errorText(error: any) {
-  return error?.response?.data?.detail || 'ოპერაცია ვერ შესრულდა'
+  return error?.response?.data?.detail || i18n.t('ოპერაცია ვერ შესრულდა')
 }
 
 async function saveBlob(request: Promise<any>, filename: string, mime: string) {
@@ -59,9 +60,9 @@ function draftFromInvoice(invoice: CustomerInvoice): CustomerInvoiceDraftUpdate 
 
 function StatusSteps({ issued = false }: { issued?: boolean }) {
   const steps = [
-    { label: 'შევსება', done: true },
-    { label: 'დადასტურება', done: issued },
-    { label: 'ჩამოტვირთვა', done: issued },
+    { label: i18n.t('შევსება'), done: true },
+    { label: i18n.t('დადასტურება'), done: issued },
+    { label: i18n.t('ჩამოტვირთვა'), done: issued },
   ]
   return (
     <div className="flex items-center rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-dark-50 dark:bg-dark-200">
@@ -81,11 +82,12 @@ function StatusSteps({ issued = false }: { issued?: boolean }) {
 }
 
 function PartyCard({ title, name, code, address }: { title: string; name: string; code: string; address?: string }) {
+  const { t } = useTranslation()
   return (
     <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-dark-50 dark:bg-dark-100">
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{title}</div>
       <div className="font-semibold text-gray-900 dark:text-gray-100">{name}</div>
-      <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">ს/კ {code}</div>
+      <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('ს/კ')} {code}</div>
       {address && <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">{address}</div>}
     </div>
   )
@@ -215,7 +217,7 @@ export default function InvoicesPage() {
       const response = await invoicesApi.updateDraft(selected.id, draft)
       const invoice = response.data.data as CustomerInvoice
       setDraft(draftFromInvoice(invoice))
-      setMessage('ცვლილებები შენახულია')
+      setMessage(t('ცვლილებები შენახულია'))
       await refresh(invoice.id)
       return invoice
     } catch (saveError) {
@@ -244,7 +246,7 @@ export default function InvoicesPage() {
       setEditorOpen(false)
       setConfirmIssue(false)
       setDraft(null)
-      setMessage('ინვოისი დადასტურებულია — ჩამოტვირთვა უკვე შესაძლებელია')
+      setMessage(t('ინვოისი დადასტურებულია — ჩამოტვირთვა უკვე შესაძლებელია'))
       await refresh(invoice.id)
     } catch (issueError) {
       setError(errorText(issueError))
@@ -276,12 +278,12 @@ export default function InvoicesPage() {
   )
 
   const columns = [
-    { key: 'invoice_number', label: 'ინვოისი', render: (invoice: CustomerInvoiceSummary) => <div><div className="font-mono font-semibold text-gray-900 dark:text-gray-100">{invoice.invoice_number}</div><div className="mt-1 text-xs text-gray-500 dark:text-gray-400">შეკვეთა {invoice.order_number}</div></div> },
-    { key: 'client_name', label: 'მყიდველი', render: (invoice: CustomerInvoiceSummary) => <div><div className="font-medium text-gray-900 dark:text-gray-100">{invoice.client_name}</div><div className="text-xs text-gray-500 dark:text-gray-400">ს/კ {invoice.client_identification_code}</div></div> },
-    { key: 'status', label: 'სტატუსი', render: (invoice: CustomerInvoiceSummary) => <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${invoice.status === 'draft' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'}`}>{invoice.status === 'draft' ? 'მოსამზადებელი' : 'დადასტურებული'}</span> },
+    { key: 'invoice_number', label: t('ინვოისი'), render: (invoice: CustomerInvoiceSummary) => <div><div className="font-mono font-semibold text-gray-900 dark:text-gray-100">{invoice.invoice_number}</div><div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('შეკვეთა')} {invoice.order_number}</div></div> },
+    { key: 'client_name', label: 'მყიდველი', render: (invoice: CustomerInvoiceSummary) => <div><div className="font-medium text-gray-900 dark:text-gray-100">{invoice.client_name}</div><div className="text-xs text-gray-500 dark:text-gray-400">{t('ს/კ')} {invoice.client_identification_code}</div></div> },
+    { key: 'status', label: 'სტატუსი', render: (invoice: CustomerInvoiceSummary) => <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${invoice.status === 'draft' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'}`}>{invoice.status === 'draft' ? t('მოსამზადებელი') : t('დადასტურებული')}</span> },
     { key: 'invoice_date', label: 'თარიღი', hideOnMobile: true, render: (invoice: CustomerInvoiceSummary) => <div><div>{new Date(invoice.invoice_date).toLocaleDateString('ka-GE')}</div><div className="text-xs text-gray-500 dark:text-gray-400">ვადა {new Date(invoice.due_date).toLocaleDateString('ka-GE')}</div></div> },
     { key: 'total', label: 'სულ', className: 'text-right', render: (invoice: CustomerInvoiceSummary) => <span className="font-semibold">{money(invoice.total, invoice.currency)}</span> },
-    { key: 'actions', label: '', render: (invoice: CustomerInvoiceSummary) => <div className="flex justify-end"><button onClick={event => { event.stopPropagation(); void openInvoice(invoice) }} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${invoice.status === 'draft' ? 'bg-primary-50 text-primary-700 hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-100'}`}>{invoice.status === 'draft' ? <Pencil size={16} /> : <Eye size={16} />}{invoice.status === 'draft' ? 'შევსება' : 'ნახვა'}<ChevronRight size={15} /></button></div> },
+    { key: 'actions', label: '', render: (invoice: CustomerInvoiceSummary) => <div className="flex justify-end"><button onClick={event => { event.stopPropagation(); void openInvoice(invoice) }} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${invoice.status === 'draft' ? 'bg-primary-50 text-primary-700 hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-100'}`}>{invoice.status === 'draft' ? <Pencil size={16} /> : <Eye size={16} />}{invoice.status === 'draft' ? t('შევსება') : t('ნახვა')}<ChevronRight size={15} /></button></div> },
   ]
 
   return (
@@ -297,9 +299,9 @@ export default function InvoicesPage() {
 
       <div className="card flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="relative w-full max-w-xl"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} /><input value={searchInput} onChange={event => setSearchInput(event.target.value)} className="input pl-10" placeholder={t('ინვოისის ნომერი, შეკვეთა ან მყიდველი')} /></div>
-        <div className="flex rounded-lg bg-gray-100 p-1 dark:bg-dark-100">{([['all', 'ყველა'], ['draft', 'შესავსები'], ['issued', 'დადასტურებული']] as const).map(([value, label]) => <button key={value} onClick={() => { setStatusFilter(value); setPage(1) }} className={`rounded-md px-3 py-2 text-sm transition-colors ${statusFilter === value ? 'bg-white font-medium text-gray-900 shadow-sm dark:bg-dark-200' : 'text-gray-500 hover:text-gray-800'}`}>{label}</button>)}</div>
+        <div className="flex rounded-lg bg-gray-100 p-1 dark:bg-dark-100">{([['all', t('ყველა')], ['draft', t('შესავსები')], ['issued', t('დადასტურებული')]] as const).map(([value, label]) => <button key={value} onClick={() => { setStatusFilter(value); setPage(1) }} className={`rounded-md px-3 py-2 text-sm transition-colors ${statusFilter === value ? 'bg-white font-medium text-gray-900 shadow-sm dark:bg-dark-200' : 'text-gray-500 hover:text-gray-800'}`}>{t(label)}</button>)}</div>
       </div>
-      <DataTable columns={columns} data={invoices} isLoading={listQuery.isLoading} emptyMessage="არჩეული სტატუსით ინვოისი არ მოიძებნა" onRowClick={invoice => void openInvoice(invoice)} page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
+      <DataTable columns={columns} data={invoices} isLoading={listQuery.isLoading} emptyMessage={t('არჩეული სტატუსით ინვოისი არ მოიძებნა')} onRowClick={invoice => void openInvoice(invoice)} page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
       {statusFilter === 'all' && issuedInvoices.length > 0 && <div className="text-right text-sm text-gray-500 dark:text-gray-400">{t('მიმდინარე გვერდზე დადასტურებული ინვოისების ჯამი:')} <span className="font-semibold text-gray-800 dark:text-gray-200">{money(issuedTotal)}</span></div>}
 
       <Modal open={!!selectedId && !editorOpen && !previewUrl} onClose={() => setSelectedId(null)} title={t('გაყიდვის ინვოისის ნახვა')} size="xl">
@@ -331,7 +333,7 @@ export default function InvoicesPage() {
             <aside className="space-y-4 lg:sticky lg:top-0 lg:self-start"><div className="rounded-xl border border-primary-200 bg-primary-50 p-5 dark:border-primary-900/50 dark:bg-primary-900/20"><div className="text-sm font-semibold text-primary-900 dark:text-primary-200">{t('ინვოისის ჯამი')}</div><div className="mt-4 space-y-2 text-sm"><div className="flex justify-between"><span className="text-primary-700 dark:text-primary-300">{t('ქვე-ჯამი')}</span><span>{money(draftTotals.subtotal, draft.currency)}</span></div><div className="flex justify-between"><span className="text-primary-700 dark:text-primary-300">{t('დღგ')}</span><span>{money(draftTotals.vat, draft.currency)}</span></div><div className="mt-3 flex justify-between border-t border-primary-200 pt-3 text-lg font-bold dark:border-primary-800"><span>{t('სულ')}</span><span>{money(draftTotals.total, draft.currency)}</span></div></div></div>
               {!validDraft && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">{t('შეავსეთ ყველა სავალდებულო ველი და გადაამოწმეთ პოზიციები.')}</div>}
               {error && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">{error}</div>}
-              {!confirmIssue ? <div className="space-y-2"><button className="btn-secondary flex w-full items-center justify-center gap-2" disabled={saving || !validDraft} onClick={() => void saveCurrentDraft()}><Pencil size={16} /> {saving ? 'ინახება...' : 'ცვლილებების შენახვა'}</button><button className="btn-secondary flex w-full items-center justify-center gap-2" disabled={saving || !validDraft} onClick={() => void previewCurrentDraft()}><Eye size={16} /> {t('შენახვა და PDF ნახვა')}</button><button className="btn-primary flex w-full items-center justify-center gap-2" disabled={saving || !validDraft} onClick={() => setConfirmIssue(true)}><CheckCircle2 size={17} /> {t('დადასტურებაზე გადასვლა')}</button></div> : <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20"><div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-200"><ShieldCheck size={18} /> {t('საბოლოო დადასტურება')}</div><p className="mt-2 text-sm text-amber-800 dark:text-amber-300">{t('დადასტურების შემდეგ ფინანსური მონაცემები ჩაიკეტება და შეიქმნება დავალიანება და GL გატარება.')}</p><div className="mt-4 space-y-2"><button className="btn-primary w-full" disabled={issuing || saving} onClick={() => void issueCurrentDraft()}>{issuing ? 'მუშავდება...' : 'დიახ, დაადასტურე'}</button><button className="btn-secondary w-full" disabled={issuing} onClick={() => setConfirmIssue(false)}>{t('უკან დაბრუნება')}</button></div></div>}
+              {!confirmIssue ? <div className="space-y-2"><button className="btn-secondary flex w-full items-center justify-center gap-2" disabled={saving || !validDraft} onClick={() => void saveCurrentDraft()}><Pencil size={16} /> {saving ? t('ინახება...') : t('ცვლილებების შენახვა')}</button><button className="btn-secondary flex w-full items-center justify-center gap-2" disabled={saving || !validDraft} onClick={() => void previewCurrentDraft()}><Eye size={16} /> {t('შენახვა და PDF ნახვა')}</button><button className="btn-primary flex w-full items-center justify-center gap-2" disabled={saving || !validDraft} onClick={() => setConfirmIssue(true)}><CheckCircle2 size={17} /> {t('დადასტურებაზე გადასვლა')}</button></div> : <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20"><div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-200"><ShieldCheck size={18} /> {t('საბოლოო დადასტურება')}</div><p className="mt-2 text-sm text-amber-800 dark:text-amber-300">{t('დადასტურების შემდეგ ფინანსური მონაცემები ჩაიკეტება და შეიქმნება დავალიანება და GL გატარება.')}</p><div className="mt-4 space-y-2"><button className="btn-primary w-full" disabled={issuing || saving} onClick={() => void issueCurrentDraft()}>{issuing ? t('მუშავდება...') : t('დიახ, დაადასტურე')}</button><button className="btn-secondary w-full" disabled={issuing} onClick={() => setConfirmIssue(false)}>{t('უკან დაბრუნება')}</button></div></div>}
             </aside>
           </div>
         </div>}

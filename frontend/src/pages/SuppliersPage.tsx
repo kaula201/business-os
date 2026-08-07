@@ -60,7 +60,7 @@ export default function SuppliersPage() {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] })
       closeModal()
     },
-    onError: (error: any) => setFormError(error.response?.data?.detail || 'მომწოდებლის შენახვა ვერ მოხერხდა'),
+    onError: (error: any) => setFormError(error.response?.data?.detail || t('მომწოდებლის შენახვა ვერ მოხერხდა')),
   })
 
   const archiveMutation = useMutation({
@@ -70,7 +70,7 @@ export default function SuppliersPage() {
       setArchiveTarget(null)
     },
     onError: (error: any) => {
-      setFormError(error.response?.data?.detail || 'მომწოდებლის დეაქტივაცია ვერ მოხერხდა')
+      setFormError(error.response?.data?.detail || t('მომწოდებლის დეაქტივაცია ვერ მოხერხდა'))
       setArchiveTarget(null)
     },
   })
@@ -134,7 +134,7 @@ export default function SuppliersPage() {
     ) },
     { key: 'terms', label: 'გადახდის ვადა', hideOnMobile: true, render: (supplier: Supplier) => `${supplier.payment_terms_days} დღე` },
     { key: 'status', label: 'სტატუსი', render: (supplier: Supplier) => (
-      <span className={`badge ${supplier.is_active ? 'badge-green' : 'badge-gray'}`}>{supplier.is_active ? 'აქტიური' : 'არააქტიური'}</span>
+      <span className={`badge ${supplier.is_active ? 'badge-green' : 'badge-gray'}`}>{supplier.is_active ? t('აქტიური') : t('არააქტიური')}</span>
     ) },
     { key: 'actions', label: '', render: (supplier: Supplier) => (
       <div className="flex justify-end gap-1">
@@ -172,9 +172,9 @@ export default function SuppliersPage() {
         </label>
       </div>
 
-      <DataTable columns={columns} data={suppliers} isLoading={isLoading} emptyMessage="მომწოდებელი ჯერ არ არის დამატებული" page={page} totalPages={suppliersTotalPages} total={suppliersTotal} onPageChange={setPage} />
+      <DataTable columns={columns} data={suppliers} isLoading={isLoading} emptyMessage={t('მომწოდებელი ჯერ არ არის დამატებული')} page={page} totalPages={suppliersTotalPages} total={suppliersTotal} onPageChange={setPage} />
 
-      <Modal open={modalOpen} onClose={closeModal} title={editing ? 'მომწოდებლის რედაქტირება' : 'ახალი მომწოდებელი'} size="lg">
+      <Modal open={modalOpen} onClose={closeModal} title={editing ? t('მომწოდებლის რედაქტირება') : t('ახალი მომწოდებელი')} size="lg">
         <form onSubmit={submit} className="space-y-5">
           {formError && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{formError}</div>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -190,7 +190,7 @@ export default function SuppliersPage() {
           <FormField label={t('მისამართი')}><input className="input" value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} /></FormField>
           <FormField label={t('შენიშვნა')}><textarea className="input min-h-20" value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></FormField>
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input type="checkbox" checked={form.is_vat_payer || false} onChange={(e) => setForm({ ...form, is_vat_payer: e.target.checked })} /> {t('დღგ-ის გადამხდელი')}</label>
-          <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={closeModal}>{t('გაუქმება')}</button><button className="btn-primary" disabled={saveMutation.isPending}>{saveMutation.isPending ? 'ინახება...' : 'შენახვა'}</button></div>
+          <div className="flex justify-end gap-3 pt-4 border-t"><button type="button" className="btn-secondary" onClick={closeModal}>{t('გაუქმება')}</button><button className="btn-primary" disabled={saveMutation.isPending}>{saveMutation.isPending ? t('ინახება...') : t('შენახვა')}</button></div>
         </form>
       </Modal>
 

@@ -111,9 +111,9 @@ export default function ClientsPage() {
         </div>
       ),
     },
-    { key: 'client_type', label: 'ტიპი', render: (c: Client) => c.client_type === 'legal' ? 'იურ. პირი' : 'ფიზ. პირი', hideOnMobile: true },
+    { key: 'client_type', label: 'ტიპი', render: (c: Client) => c.client_type === 'legal' ? t('იურ. პირი') : t('ფიზ. პირი'), hideOnMobile: true },
     {
-      key: 'contact', label: 'საკონტაქტო', hideOnMobile: true,
+      key: 'contact', label: t('საკონტაქტო'), hideOnMobile: true,
       render: (c: Client) => (
         <div>
           {c.phone && <span className="block text-xs">{c.phone}</span>}
@@ -164,10 +164,10 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage="კლიენტების რეესტრში ჩანაწერი არ მოიძებნა" onRowClick={(c) => setViewClient(c)} page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
+      <DataTable columns={columns} data={items} isLoading={isLoading} emptyMessage={t('კლიენტების რეესტრში ჩანაწერი არ მოიძებნა')} onRowClick={(c) => setViewClient(c)} page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
 
       {/* Create / Edit Modal */}
-      <Modal open={modalOpen} onClose={closeModal} title={editClient ? 'კლიენტის რედაქტირება' : 'ახალი კლიენტი'} size="lg">
+      <Modal open={modalOpen} onClose={closeModal} title={editClient ? t('კლიენტის რედაქტირება') : t('ახალი კლიენტი')} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField label={t('სახელი / კომპანიის სახელი')} required>
@@ -198,7 +198,7 @@ export default function ClientsPage() {
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
             <button type="button" onClick={closeModal} className="btn-secondary">{t('გაუქმება')}</button>
             <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'შენახვა...' : editClient ? 'განახლება' : 'დამატება'}
+              {createMutation.isPending ? 'შენახვა...' : editClient ? t('განახლება') : t('დამატება')}
             </button>
           </div>
         </form>
@@ -219,8 +219,8 @@ export default function ClientsPage() {
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('კოდი:')}</span> <span className="font-medium">{viewClient.identification_code}</span></div>
-              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('ტიპი:')}</span> <span className="font-medium">{viewClient.client_type === 'legal' ? 'იურ. პირი' : 'ფიზ. პირი'}</span></div>
-              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('დღგ:')}</span> <span className="font-medium">{viewClient.is_vat_payer ? 'გადამხდელი' : 'არ არის'}</span></div>
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('ტიპი:')}</span> <span className="font-medium">{viewClient.client_type === 'legal' ? t('იურ. პირი') : t('ფიზ. პირი')}</span></div>
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('დღგ:')}</span> <span className="font-medium">{viewClient.is_vat_payer ? t('გადამხდელი') : t('არ არის')}</span></div>
               <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('შექმნილი:')}</span> <span className="font-medium">{new Date(viewClient.created_at).toLocaleDateString('ka-GE')}</span></div>
               {viewClient.phone && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-1"><Phone size={14} className="inline mr-1" />{viewClient.phone}</div>}
               {viewClient.email && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-1"><Mail size={14} className="inline mr-1" />{viewClient.email}</div>}
@@ -273,9 +273,9 @@ export default function ClientsPage() {
                   setImportResult('')
                   try {
                     const res = await importApi.importClients(importFile)
-                    setImportResult(res.data.data?.message || 'იმპორტი დასრულდა')
+                    setImportResult(res.data.data?.message || t('იმპორტი დასრულდა'))
                   } catch (err: any) {
-                    setImportResult(err?.response?.data?.detail || 'შეცდომა იმპორტის დროს')
+                    setImportResult(err?.response?.data?.detail || t('შეცდომა იმპორტის დროს'))
                   } finally {
                     setImportLoading(false)
                   }

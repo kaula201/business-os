@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarRange, ChevronLeft, ChevronRight, History, LockKeyhole, ShieldCheck, Unlock } from 'lucide-react'
 import Modal from '../components/ui/Modal'
@@ -27,10 +28,10 @@ interface PeriodEvent {
 }
 
 const months = [
-  'იანვარი', 'თებერვალი', 'მარტი', 'აპრილი', 'მაისი', 'ივნისი',
-  'ივლისი', 'აგვისტო', 'სექტემბერი', 'ოქტომბერი', 'ნოემბერი', 'დეკემბერი',
+  i18n.t('იანვარი'), i18n.t('თებერვალი'), i18n.t('მარტი'), i18n.t('აპრილი'), i18n.t('მაისი'), i18n.t('ივნისი'),
+  i18n.t('ივლისი'), i18n.t('აგვისტო'), i18n.t('სექტემბერი'), i18n.t('ოქტომბერი'), i18n.t('ნოემბერი'), i18n.t('დეკემბერი'),
 ]
-const errorText = (error: any) => error?.response?.data?.detail || 'ოპერაცია ვერ შესრულდა'
+const errorText = (error: any) => error?.response?.data?.detail || i18n.t('ოპერაცია ვერ შესრულდა')
 const formatDateTime = (value: string | null) => value
   ? new Intl.DateTimeFormat('ka-GE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
   : '—'
@@ -127,7 +128,7 @@ export default function AccountingPeriodsPage() {
                     <p className="text-xs font-medium uppercase tracking-wider text-brandgray-400">{year}-{String(month).padStart(2, '0')}</p>
                     <h2 className="mt-1 text-lg font-semibold text-brandgray-900 dark:text-gray-100">{monthName}</h2>
                   </div>
-                  <span className={`badge ${isClosed ? 'badge-yellow' : 'badge-green'}`}>{isClosed ? 'დახურული' : 'ღია'}</span>
+                  <span className={`badge ${isClosed ? 'badge-yellow' : 'badge-green'}`}>{isClosed ? t('დახურული') : t('ღია')}</span>
                 </div>
                 <div className="min-h-20 border-y border-brandgray-100 bg-brandgray-50/50 px-5 py-3 text-sm dark:border-dark-50 dark:bg-dark-300/40">
                   {isClosed ? <><p className="line-clamp-2 text-brandgray-700 dark:text-gray-300">{period?.close_reason}</p><p className="mt-1 text-xs text-brandgray-400">{formatDateTime(period?.closed_at || null)}</p></> : <p className="text-brandgray-500 dark:text-gray-400">{t('ფინანსური ოპერაციები ნებადართულია')}</p>}
@@ -156,11 +157,11 @@ export default function AccountingPeriodsPage() {
       <Modal open={Boolean(action)} onClose={() => setAction(null)} title={action?.type === 'close' ? `${months[(action?.month || 1) - 1]} — პერიოდის დახურვა` : `${months[(action?.month || 1) - 1]} — პერიოდის გახსნა`}>
         <div className="space-y-4">
           <p className="text-sm text-brandgray-600 dark:text-gray-300">
-            {action?.type === 'close' ? 'დახურვის შემდეგ ამ თვის ფინანსური ცვლილებები დაიბლოკება.' : 'ხელახლა გახსნის შემდეგ ამ თვის ფინანსური ცვლილებები კვლავ შესაძლებელი იქნება.'}
+            {action?.type === 'close' ? t('დახურვის შემდეგ ამ თვის ფინანსური ცვლილებები დაიბლოკება.') : t('ხელახლა გახსნის შემდეგ ამ თვის ფინანსური ცვლილებები კვლავ შესაძლებელი იქნება.')}
           </p>
           <FormField label={t('მიზეზი')} required><textarea className="input" rows={4} value={reason} onChange={(event) => setReason(event.target.value)} placeholder={t('მიუთითეთ მოქმედების მიზეზი')} /></FormField>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-          <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setAction(null)}>{t('გაუქმება')}</button><button className="btn-primary" disabled={reason.trim().length < 3 || periodMutation.isPending} onClick={submitAction}>{periodMutation.isPending ? 'მუშავდება...' : action?.type === 'close' ? 'პერიოდის დახურვა' : 'პერიოდის გახსნა'}</button></div>
+          <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setAction(null)}>{t('გაუქმება')}</button><button className="btn-primary" disabled={reason.trim().length < 3 || periodMutation.isPending} onClick={submitAction}>{periodMutation.isPending ? 'მუშავდება...' : action?.type === 'close' ? t('პერიოდის დახურვა') : t('პერიოდის გახსნა')}</button></div>
         </div>
       </Modal>
 
@@ -169,7 +170,7 @@ export default function AccountingPeriodsPage() {
           {historyQuery.isLoading && <p className="text-sm text-brandgray-500">{t('ისტორია იტვირთება...')}</p>}
           {(historyQuery.data || []).map((event) => (
             <div key={event.id} className="rounded-xl border border-brandgray-200 p-4 dark:border-dark-50">
-              <div className="flex items-center justify-between gap-3"><span className={`badge ${event.action === 'closed' ? 'badge-yellow' : 'badge-green'}`}>{event.action === 'closed' ? 'დაიხურა' : 'გაიხსნა'}</span><span className="text-xs text-brandgray-400">{formatDateTime(event.created_at)}</span></div>
+              <div className="flex items-center justify-between gap-3"><span className={`badge ${event.action === 'closed' ? 'badge-yellow' : 'badge-green'}`}>{event.action === 'closed' ? t('დაიხურა') : t('გაიხსნა')}</span><span className="text-xs text-brandgray-400">{formatDateTime(event.created_at)}</span></div>
               <p className="mt-2 text-sm text-brandgray-700 dark:text-gray-300">{event.reason}</p>
             </div>
           ))}

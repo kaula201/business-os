@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search, Users, DollarSign, Calendar, Clock, Building2, Briefcase, ChevronDown, ChevronRight } from 'lucide-react'
 
@@ -40,12 +41,12 @@ const statusColors: Record<string, string> = {
 }
 
 const contractLabels: Record<string, string> = {
-  permanent: 'მუდმივი', fixed_term: 'ვადიანი', contract: 'ხელშეკრულება',
+  permanent: i18n.t('მუდმივი'), fixed_term: i18n.t('ვადიანი'), contract: i18n.t('ხელშეკრულება'),
 }
 
 const tabs = [
-  { id: 'employees', label: 'თანამშრომლები', icon: Users },
-  { id: 'payroll', label: 'ხელფასები', icon: DollarSign },
+  { id: 'employees', label: i18n.t('თანამშრომლები'), icon: Users },
+  { id: 'payroll', label: i18n.t('ხელფასები'), icon: DollarSign },
   { id: 'timesheets', label: 'Timesheets', icon: Clock },
 ]
 
@@ -91,13 +92,13 @@ export default function HRPage() {
       ? api.patch(`/hr/employees/${editId}`, data)
       : api.post('/hr/employees', data),
     onSuccess: () => { setShowModal(false); setEditId(null); resetForm(); queryClient.invalidateQueries({ queryKey: ['hr-employees'] }) },
-    onError: (e: any) => setError(e.response?.data?.detail || 'შეცდომა'),
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
 
   const calcMutation = useMutation({
     mutationFn: () => api.post('/hr/payroll/calculate', { year: payrollYear, month: payrollMonth }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr-payroll'] }),
-    onError: (e: any) => setError(e.response?.data?.detail || 'შეცდომა'),
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
 
   function resetForm() {
@@ -198,7 +199,7 @@ export default function HRPage() {
                       <td className="px-4 py-3 text-right font-medium dark:text-gray-100">{money(emp.base_salary, emp.salary_currency)}</td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[emp.status] || ''}`}>
-                          {emp.status === 'active' ? 'აქტიური' : emp.status === 'on_leave' ? 'შვებულება' : 'გათავისუფლებული'}
+                          {emp.status === 'active' ? 'აქტიური' : emp.status === 'on_leave' ? t('შვებულება') : t('გათავისუფლებული')}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -228,7 +229,7 @@ export default function HRPage() {
             </div>
             <button onClick={() => calcMutation.mutate()} disabled={calcMutation.isPending}
               className="btn btn-primary text-sm flex items-center gap-2">
-              <DollarSign size={16} /> {calcMutation.isPending ? 'მუშავდება...' : 'ხელფასების გაანგარიშება'}
+              <DollarSign size={16} /> {calcMutation.isPending ? t('მუშავდება...') : t('ხელფასების გაანგარიშება')}
             </button>
           </div>
 
@@ -281,7 +282,7 @@ export default function HRPage() {
                           entry.status === 'approved' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
                           'bg-gray-50 text-gray-600 dark:bg-dark-100 dark:text-gray-400'
                         }`}>
-                          {entry.status === 'paid' ? 'გადახდილი' : entry.status === 'approved' ? 'დამტკიცებული' : 'დრაფტი'}
+                          {entry.status === 'paid' ? 'გადახდილი' : entry.status === 'approved' ? t('დამტკიცებული') : t('დრაფტი')}
                         </span>
                       </td>
                     </tr>
@@ -301,7 +302,7 @@ export default function HRPage() {
       )}
 
       {/* ── Employee Modal ─────────────────────────────────────────── */}
-      <Modal open={showModal} onClose={() => setShowModal(false)} title={editId ? 'თანამშრომლის რედაქტირება' : 'ახალი თანამშრომელი'} size="lg">
+      <Modal open={showModal} onClose={() => setShowModal(false)} title={editId ? t('თანამშრომლის რედაქტირება') : t('ახალი თანამშრომელი')} size="lg">
         <form onSubmit={submit} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <FormField label={t('სრული სახელი')} required>
@@ -344,7 +345,7 @@ export default function HRPage() {
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button type="submit" disabled={createMutation.isPending}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
-            {createMutation.isPending ? 'ინახება...' : editId ? 'შენახვა' : 'თანამშრომლის დამატება'}
+            {createMutation.isPending ? 'ინახება...' : editId ? t('შენახვა') : t('თანამშრომლის დამატება')}
           </button>
         </form>
       </Modal>

@@ -38,12 +38,12 @@ export default function ProductionPage() {
   const createBom = useMutation({
     mutationFn: (d: any) => api.post('/production/boms', d),
     onSuccess: () => { setShowBomModal(false); queryClient.invalidateQueries({ queryKey: ['boms'] }) },
-    onError: (e: any) => setError(e.response?.data?.detail || 'შეცდომა'),
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
   const createWo = useMutation({
     mutationFn: (d: any) => api.post('/production/work-orders', d),
     onSuccess: () => { setShowWoModal(false); queryClient.invalidateQueries({ queryKey: ['work-orders'] }) },
-    onError: (e: any) => setError(e.response?.data?.detail || 'შეცდომა'),
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
 
   return (
@@ -82,7 +82,7 @@ export default function ProductionPage() {
                     <td className="px-4 py-3 font-mono text-brandgray-600 dark:text-gray-400">{b.code}</td>
                     <td className="px-4 py-3 font-medium dark:text-gray-100">{b.name}</td>
                     <td className="px-4 py-3 text-right dark:text-gray-200">{b.quantity}</td>
-                    <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${b.is_active ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-50 text-gray-600 dark:bg-dark-100 dark:text-gray-400'}`}>{b.is_active ? 'აქტიური' : 'არააქტიური'}</span></td>
+                    <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${b.is_active ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-50 text-gray-600 dark:bg-dark-100 dark:text-gray-400'}`}>{b.is_active ? t('აქტიური') : t('არააქტიური')}</span></td>
                   </tr>
                 ))}
                 {boms.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('BOM არ მოიძებნა')}</td></tr>}
@@ -127,7 +127,7 @@ export default function ProductionPage() {
             <div><label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('რაოდენობა')}</label><input type="number" value={bomForm.quantity} onChange={e => setBomForm({ ...bomForm, quantity: Number(e.target.value) })} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></div>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <button type="submit" disabled={createBom.isPending} className="w-full rounded-lg bg-primary-600 py-2 text-white disabled:opacity-50">{createBom.isPending ? 'ინახება...' : 'BOM-ის შექმნა'}</button>
+          <button type="submit" disabled={createBom.isPending} className="w-full rounded-lg bg-primary-600 py-2 text-white disabled:opacity-50">{createBom.isPending ? t('ინახება...') : t('BOM-ის შექმნა')}</button>
         </form>
       </Modal>
 
@@ -139,7 +139,7 @@ export default function ProductionPage() {
             <div><label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('დაგეგმილი რაოდენობა')}</label><input type="number" value={woForm.planned_quantity} onChange={e => setWoForm({ ...woForm, planned_quantity: Number(e.target.value) })} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" /></div>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <button type="submit" disabled={createWo.isPending} className="w-full rounded-lg bg-primary-600 py-2 text-white disabled:opacity-50">{createWo.isPending ? 'ინახება...' : 'დავალების შექმნა'}</button>
+          <button type="submit" disabled={createWo.isPending} className="w-full rounded-lg bg-primary-600 py-2 text-white disabled:opacity-50">{createWo.isPending ? t('ინახება...') : t('დავალების შექმნა')}</button>
         </form>
       </Modal>
     </div>

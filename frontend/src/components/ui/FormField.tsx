@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface FormFieldProps {
   label: string
@@ -9,13 +10,14 @@ interface FormFieldProps {
 }
 
 export default function FormField({ label, error, required, children, name }: FormFieldProps) {
+  const { t } = useTranslation()
   const autoId = useId()
   const fieldId = name || autoId
 
   return (
     <div className="space-y-1">
       <label htmlFor={fieldId} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-        {label}
+        {t(label)}
         {required && <span className="text-red-500 ml-1" aria-hidden="true">*</span>}
       </label>
       <div id={fieldId}>
@@ -33,14 +35,15 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export function Select({ options, placeholder, className = '', ...props }: SelectProps) {
+  const { t } = useTranslation()
   return (
     <select
       {...props}
       className={`input ${className}`}
     >
-      {placeholder && <option value="">{placeholder}</option>}
+      {placeholder && <option value="">{t(placeholder)}</option>}
       {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
+        <option key={opt.value} value={opt.value}>{t(opt.label)}</option>
       ))}
     </select>
   )

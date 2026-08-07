@@ -9,11 +9,12 @@ function money(value: number) {
 }
 
 function SectionHeader({ label, positive }: { label: string; positive: boolean }) {
+  const { t } = useTranslation()
   return (
     <div className={`border-b px-4 py-2 text-sm font-semibold ${positive
       ? 'border-green-200 bg-green-50 text-green-800 dark:border-green-900/50 dark:bg-green-950/40 dark:text-green-300'
       : 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300'}`}>
-      {label}
+      {t(label)}
     </div>
   )
 }
@@ -116,7 +117,7 @@ export default function ProfitLossPage() {
             <div className="flex justify-between items-center px-4 py-4">
               <span className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100">
                 {profitable ? <TrendingUp size={20} className="text-green-600 dark:text-green-400" /> : <TrendingDown size={20} className="text-red-600 dark:text-red-400" />}
-                {profitable ? 'წმინდა მოგება' : 'წმინდა ზარალი'}
+                {profitable ? t('წმინდა მოგება') : t('წმინდა ზარალი')}
               </span>
               <span className={`text-xl font-bold font-mono ${profitable ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
                 {money(Math.abs(netProfit))}

@@ -44,11 +44,11 @@ export default function ReportsPage() {
   const tasks = tasksData?.items || []
 
   const tabs = [
-    { id: 'sales', label: 'გაყიდვები', icon: BarChart2, exportFn: () => downloadBlob(exportsApi.orders(), 'orders.xlsx') },
-    { id: 'orders', label: 'შეკვეთები', icon: ShoppingCart, exportFn: () => downloadBlob(exportsApi.orders(), 'orders.xlsx') },
-    { id: 'inventory', label: 'საწყობი', icon: Package, exportFn: () => downloadBlob(exportsApi.products(), 'products.xlsx') },
-    { id: 'clients', label: 'კლიენტები', icon: Users, exportFn: () => downloadBlob(exportsApi.clients(), 'clients.xlsx') },
-    { id: 'tasks', label: 'დავალებები', icon: Bot, exportFn: () => downloadBlob(exportsApi.tasks(), 'tasks.xlsx') },
+    { id: 'sales', label: t('გაყიდვები'), icon: BarChart2, exportFn: () => downloadBlob(exportsApi.orders(), 'orders.xlsx') },
+    { id: 'orders', label: t('შეკვეთები'), icon: ShoppingCart, exportFn: () => downloadBlob(exportsApi.orders(), 'orders.xlsx') },
+    { id: 'inventory', label: t('საწყობი'), icon: Package, exportFn: () => downloadBlob(exportsApi.products(), 'products.xlsx') },
+    { id: 'clients', label: t('კლიენტები'), icon: Users, exportFn: () => downloadBlob(exportsApi.clients(), 'clients.xlsx') },
+    { id: 'tasks', label: t('დავალებები'), icon: Bot, exportFn: () => downloadBlob(exportsApi.tasks(), 'tasks.xlsx') },
   ]
 
   const currentTab = tabs.find(t => t.id === activeTab)
@@ -141,7 +141,7 @@ export default function ReportsPage() {
                 )
               })}
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">სულ შეკვეთები: {orders.length}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">{t('სულ შეკვეთები')}: {orders.length}</p>
           </div>
           <div className="card">
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('შეკვეთების განაწილება')}</h3>
@@ -169,9 +169,9 @@ export default function ReportsPage() {
             </div>
             <div className="space-y-3">
               {[
-                { label: 'კარგი', status: 'good', color: 'bg-green-500' },
-                { label: 'დაბალი', status: 'low', color: 'bg-yellow-500' },
-                { label: 'კრიტიკული', status: 'critical', color: 'bg-red-500' },
+                { label: t('კარგი'), status: 'good', color: 'bg-green-500' },
+                { label: t('დაბალი'), status: 'low', color: 'bg-yellow-500' },
+                { label: t('კრიტიკული'), status: 'critical', color: 'bg-red-500' },
               ].map(s => {
                 const count = products.filter((p: any) => p.stock_status === s.status).length
                 return (
@@ -185,7 +185,7 @@ export default function ReportsPage() {
                 )
               })}
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">სულ პროდუქტები: {products.length}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">{t('სულ პროდუქტები')}: {products.length}</p>
           </div>
           <div className="card">
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('პროდუქტების სია')}</h3>
@@ -232,7 +232,7 @@ export default function ReportsPage() {
               <p className="text-sm text-gray-500 dark:text-gray-400">{t('არააქტიური')}</p>
             </div>
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">სულ კლიენტები: {clients.length}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('სულ კლიენტები')}: {clients.length}</p>
         </div>
       )}
 

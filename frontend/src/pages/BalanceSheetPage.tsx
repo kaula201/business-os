@@ -9,13 +9,14 @@ function money(value: number) {
 }
 
 function SectionHeader({ label, color }: { label: string; color: 'blue' | 'amber' | 'purple' }) {
+  const { t } = useTranslation()
   const map = {
     blue: 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-300',
     amber: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300',
     purple: 'border-purple-200 bg-purple-50 text-purple-800 dark:border-purple-900/50 dark:bg-purple-950/40 dark:text-purple-300',
   }
   return (
-    <div className={`border-b px-4 py-2 text-sm font-semibold ${map[color]}`}>{label}</div>
+    <div className={`border-b px-4 py-2 text-sm font-semibold ${map[color]}`}>{t(label)}</div>
   )
 }
 

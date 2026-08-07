@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tasksApi, usersApi, clientsApi } from '../services/api'
 import { Plus, CheckSquare, Clock, Calendar, User as UserIcon, Search } from 'lucide-react'
@@ -10,10 +11,10 @@ import { StatusBadge, priorityMap, taskStatusMap } from '../components/ui/Badges
 import type { Task, TaskCreate, TaskComment, TaskStatus } from '../types'
 
 const statusColumns: { status: TaskStatus; label: string }[] = [
-  { status: 'todo', label: 'საჭიროებს' },
-  { status: 'in_progress', label: 'პროცესში' },
-  { status: 'done', label: 'დასრულებული' },
-  { status: 'cancelled', label: 'გაუქმებული' },
+  { status: 'todo', label: i18n.t('საჭიროებს') },
+  { status: 'in_progress', label: i18n.t('პროცესში') },
+  { status: 'done', label: i18n.t('დასრულებული') },
+  { status: 'cancelled', label: i18n.t('გაუქმებული') },
 ]
 
 export default function TasksPage() {
@@ -111,11 +112,11 @@ export default function TasksPage() {
   }
 
   const listColumns = [
-    { key: 'title', label: 'დავალება', render: (t: Task) => <span className="font-medium text-gray-900 dark:text-gray-100">{t.title}</span> },
-    { key: 'priority', label: 'პრიორიტეტი', render: (t: Task) => <StatusBadge status={t.priority} map={priorityMap} /> },
-    { key: 'status', label: 'სტატუსი', render: (t: Task) => <StatusBadge status={t.status} map={taskStatusMap} /> },
+    { key: 'title', label: i18n.t('დავალება'), render: (t: Task) => <span className="font-medium text-gray-900 dark:text-gray-100">{t.title}</span> },
+    { key: 'priority', label: i18n.t('პრიორიტეტი'), render: (t: Task) => <StatusBadge status={t.priority} map={priorityMap} /> },
+    { key: 'status', label: i18n.t('სტატუსი'), render: (t: Task) => <StatusBadge status={t.status} map={taskStatusMap} /> },
     {
-      key: 'due_date', label: 'ვადა', hideOnMobile: true,
+      key: 'due_date', label: i18n.t('ვადა'), hideOnMobile: true,
       render: (t: Task) => {
         if (!t.due_date) return <span className="text-gray-400 dark:text-gray-500">—</span>
         const d = new Date(t.due_date)
@@ -124,7 +125,7 @@ export default function TasksPage() {
       },
     },
     {
-      key: 'assigned_to_name', label: 'პასუხისმგებელი', hideOnMobile: true,
+      key: 'assigned_to_name', label: i18n.t('პასუხისმგებელი'), hideOnMobile: true,
       render: (t: Task) => t.assigned_to_name || '—',
     },
     {
@@ -163,19 +164,19 @@ export default function TasksPage() {
         <div className="flex gap-1 flex-wrap">
           <button onClick={() => setStatusFilter('')} className={`btn-secondary text-sm ${!statusFilter ? 'ring-2 ring-primary-500' : ''}`}>{t('ყველა')}</button>
           {Object.entries(taskStatusMap).map(([key, { label }]) => (
-            <button key={key} onClick={() => setStatusFilter(key)} className={`btn-secondary text-sm ${statusFilter === key ? 'ring-2 ring-primary-500' : ''}`}>{label}</button>
+            <button key={key} onClick={() => setStatusFilter(key)} className={`btn-secondary text-sm ${statusFilter === key ? 'ring-2 ring-primary-500' : ''}`}>{t(label)}</button>
           ))}
         </div>
         <div className="flex gap-1 flex-wrap">
           <button onClick={() => setPriorityFilter('')} className={`btn-secondary text-sm ${!priorityFilter ? 'ring-2 ring-primary-500' : ''}`}>{t('პრიორიტეტი')}</button>
           {Object.entries(priorityMap).map(([key, { label }]) => (
-            <button key={key} onClick={() => setPriorityFilter(key)} className={`btn-secondary text-sm ${priorityFilter === key ? 'ring-2 ring-primary-500' : ''}`}>{label}</button>
+            <button key={key} onClick={() => setPriorityFilter(key)} className={`btn-secondary text-sm ${priorityFilter === key ? 'ring-2 ring-primary-500' : ''}`}>{t(label)}</button>
           ))}
         </div>
       </div>
 
       {view === 'list' ? (
-        <DataTable columns={listColumns} data={tasks} isLoading={isLoading} emptyMessage="დავალებები არ მოიძებნა" onRowClick={(t) => setViewTask(t)} page={page} totalPages={tasksTotalPages} total={tasksTotal} onPageChange={setPage} />
+        <DataTable columns={listColumns} data={tasks} isLoading={isLoading} emptyMessage={t('დავალებები არ მოიძებნა')} onRowClick={(t) => setViewTask(t)} page={page} totalPages={tasksTotalPages} total={tasksTotal} onPageChange={setPage} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {statusColumns.map(({ status, label }) => {
@@ -225,7 +226,7 @@ export default function TasksPage() {
       )}
 
       {/* Task Create/Edit Modal */}
-      <Modal open={modalOpen} onClose={closeModal} title={editTask ? 'დავალების რედაქტირება' : 'ახალი დავალება'} size="lg">
+      <Modal open={modalOpen} onClose={closeModal} title={editTask ? t('დავალების რედაქტირება') : t('ახალი დავალება')} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
           <FormField label={t('სათაური')} required>
             <input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input" required />
@@ -235,7 +236,7 @@ export default function TasksPage() {
           </FormField>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <FormField label={t('პრიორიტეტი')}>
-              <Select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as any })} options={[{ value: 'low', label: 'დაბალი' }, { value: 'medium', label: 'საშუალო' }, { value: 'high', label: 'მაღალი' }]} />
+              <Select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as any })} options={[{ value: 'low', label: i18n.t('დაბალი') }, { value: 'medium', label: i18n.t('საშუალო') }, { value: 'high', label: i18n.t('მაღალი') }]} />
             </FormField>
             <FormField label={t('ვადა')}>
               <input type="date" value={form.due_date || ''} onChange={(e) => setForm({ ...form, due_date: e.target.value })} className="input" />
@@ -255,7 +256,7 @@ export default function TasksPage() {
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
             <button type="button" onClick={closeModal} className="btn-secondary">{t('გაუქმება')}</button>
             <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'შენახვა...' : editTask ? 'განახლება' : 'დამატება'}
+              {createMutation.isPending ? 'შენახვა...' : editTask ? t('განახლება') : t('დამატება')}
             </button>
           </div>
         </form>
@@ -277,10 +278,10 @@ export default function TasksPage() {
                 value={viewTask.status}
                 onChange={(e) => { handleStatusChange(viewTask, e.target.value as TaskStatus); setViewTask({ ...viewTask, status: e.target.value as TaskStatus }) }}
                 options={[
-                  { value: 'todo', label: 'საჭიროებს' },
-                  { value: 'in_progress', label: 'პროცესში' },
-                  { value: 'done', label: 'დასრულებული' },
-                  { value: 'cancelled', label: 'გაუქმებული' },
+                  { value: 'todo', label: i18n.t('საჭიროებს') },
+                  { value: 'in_progress', label: i18n.t('პროცესში') },
+                  { value: 'done', label: i18n.t('დასრულებული') },
+                  { value: 'cancelled', label: i18n.t('გაუქმებული') },
                 ]}
                 className="w-40"
               />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Pencil, Search, DollarSign, CheckCircle, XCircle, Clock, User, Tag, FileText
@@ -25,7 +26,7 @@ function money(value: number) {
 }
 
 function errorText(err: any) {
-  return err?.response?.data?.detail || 'ოპერაცია ვერ შესრულდა'
+  return err?.response?.data?.detail || i18n.t('ოპერაცია ვერ შესრულდა')
 }
 
 export default function ExpensesPage() {
@@ -212,7 +213,7 @@ export default function ExpensesPage() {
         ]}
         data={visible}
         isLoading={isLoading}
-        emptyMessage="ხარჯები არ მოიძებნა"
+        emptyMessage={t('ხარჯები არ მოიძებნა')}
         page={page}
         totalPages={totalPages}
         total={total}
@@ -247,8 +248,8 @@ export default function ExpensesPage() {
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
-            <button onClick={() => { if (!form.description.trim() || !form.amount) { setError('აღწერა და თანხა სავალდებულოა'); return }; createExpense.mutate() }} disabled={createExpense.isPending} className="btn-primary">
-              {createExpense.isPending ? 'ინახება...' : 'დაფიქსირება'}
+            <button onClick={() => { if (!form.description.trim() || !form.amount) { setError(t('აღწერა და თანხა სავალდებულოა')); return }; createExpense.mutate() }} disabled={createExpense.isPending} className="btn-primary">
+              {createExpense.isPending ? t('ინახება...') : t('დაფიქსირება')}
             </button>
           </div>
         </div>
@@ -270,7 +271,7 @@ export default function ExpensesPage() {
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setModal(null)} className="btn-secondary">{t('გაუქმება')}</button>
             <button onClick={() => updateExpense.mutate()} disabled={updateExpense.isPending} className="btn-primary">
-              {updateExpense.isPending ? 'ინახება...' : 'შენახვა'}
+              {updateExpense.isPending ? t('ინახება...') : t('შენახვა')}
             </button>
           </div>
         </div>
