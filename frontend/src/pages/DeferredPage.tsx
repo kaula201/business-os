@@ -24,7 +24,7 @@ export default function DeferredPage() {
   const [form, setForm] = useState({ name:'', deferral_type:'expense', total_amount:0, start_date:today, periods:12, source_gl_account_id:'', recognition_gl_account_id:'', notes:'' })
 
   const schedulesQuery = useQuery({ queryKey:['deferred-schedules'], queryFn:()=>api.get('/deferred/schedules').then(r=>r.data.data) })
-  const accountsQuery = useQuery({ queryKey:['gl-accounts-deferred'], queryFn:()=>api.get('/gl/accounts/?page_size=200&is_active=true').then(r=>r.data.data.items) })
+  const accountsQuery = useQuery({ queryKey:['gl-accounts-deferred'], queryFn:()=>api.get('/gl/accounts/?page_size=100&is_active=true').then(r=>r.data.data.items) })
   const schedules: DeferredSchedule[] = schedulesQuery.data || []
   const accounts: GLAccount[] = accountsQuery.data || []
   const selected = schedules.find(s=>s.id===selectedId) || null

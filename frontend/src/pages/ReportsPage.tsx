@@ -19,22 +19,22 @@ export default function ReportsPage() {
 
   const { data: ordersData } = useQuery({
     queryKey: ['orders-all'],
-    queryFn: () => ordersApi.list({ page_size: 200 }).then(r => r.data.data),
+    queryFn: () => ordersApi.list({ page_size: 100 }).then(r => r.data.data),
   })
 
   const { data: productsData } = useQuery({
     queryKey: ['products-all'],
-    queryFn: () => productsApi.list({ page_size: 200 }).then(r => r.data.data),
+    queryFn: () => productsApi.list({ page_size: 100 }).then(r => r.data.data),
   })
 
   const { data: clientsData } = useQuery({
     queryKey: ['clients-all'],
-    queryFn: () => clientsApi.list({ page_size: 200 }).then(r => r.data.data),
+    queryFn: () => clientsApi.list({ page_size: 100 }).then(r => r.data.data),
   })
 
   const { data: tasksData } = useQuery({
     queryKey: ['tasks-all'],
-    queryFn: () => tasksApi.list({ page_size: 200 }).then(r => r.data.data),
+    queryFn: () => tasksApi.list({ page_size: 100 }).then(r => r.data.data),
   })
 
   const revenueData = dashboardData?.revenue_chart?.data || []
