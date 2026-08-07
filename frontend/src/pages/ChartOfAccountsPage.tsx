@@ -74,11 +74,11 @@ export default function ChartOfAccountsPage() {
       <span className="inline-flex items-center rounded-full bg-gray-100 dark:bg-dark-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">{accountTypes[a.account_type] || a.account_type}</span>
     )},
     { key: 'is_active', label: 'სტატუსი', render: (a: GLAccount) => a.is_active
-      ? <span className="inline-flex items-center gap-1 text-green-600"><Check size={14} />{t('აქტიური')}</span>
+      ? <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400"><Check size={14} />{t('აქტიური')}</span>
       : <span className="inline-flex items-center gap-1 text-gray-400 dark:text-gray-500"><X size={14} />{t('არააქტიური')}</span>
     },
     { key: 'actions', label: '', render: (a: GLAccount) => (
-      <button onClick={e => { e.stopPropagation(); openEdit(a) }} className="rounded px-3 py-1 text-sm text-primary-600 hover:bg-primary-50">{t('რედაქტირება')}</button>
+      <button onClick={e => { e.stopPropagation(); openEdit(a) }} className="rounded px-3 py-1 text-sm text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/30">{t('რედაქტირება')}</button>
     )},
   ]
 
@@ -101,7 +101,7 @@ export default function ChartOfAccountsPage() {
         </div>
       </div>
 
-      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</div>}
       <DataTable columns={columns} data={accounts} isLoading={isLoading} emptyMessage={t('ანგარიშები ჯერ არ არის შექმნილი')} page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
 
       <Modal open={showForm} onClose={() => { setShowForm(false); resetForm() }} title={editId ? t('ანგარიშის რედაქტირება') : t('ახალი ანგარიში')}>

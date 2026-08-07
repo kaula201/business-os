@@ -77,16 +77,16 @@ export default function LoginPage() {
 
           <div className="p-7 sm:p-10 lg:p-12">
             <div className="mb-10 lg:hidden">
-              <div className="text-xl font-bold text-brandgray-800">Business OS</div>
-              <div className="mt-1 text-xs font-medium text-primary-700">{t('ქართული ბიზნესისთვის')}</div>
+              <div className="text-xl font-bold text-brandgray-800 dark:text-gray-100">Business OS</div>
+              <div className="mt-1 text-xs font-medium text-primary-700 dark:text-primary-400">{t('ქართული ბიზნესისთვის')}</div>
             </div>
             <div className="mb-8">
-              <p className="text-sm font-semibold text-primary-700">{t('კეთილი იყოს თქვენი დაბრუნება')}</p>
+              <p className="text-sm font-semibold text-primary-700 dark:text-primary-400">{t('კეთილი იყოს თქვენი დაბრუნება')}</p>
               <h2 className="mt-2 text-3xl font-bold text-brandgray-900 dark:text-gray-100">{t('ანგარიშზე შესვლა')}</h2>
-              <p className="mt-2 text-sm text-brandgray-400">{t('გამოიყენეთ თქვენი სამუშაო ელფოსტა და პაროლი.')}</p>
+              <p className="mt-2 text-sm text-brandgray-400 dark:text-gray-400">{t('გამოიყენეთ თქვენი სამუშაო ელფოსტა და პაროლი.')}</p>
             </div>
 
-            {error && <div className="mb-5 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+            {error && <div className="mb-5 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">{error}</div>}
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
@@ -104,14 +104,14 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-4 text-center">
-              <button onClick={() => { setForgotOpen(true); setForgotEmail(email); setForgotSent(false); setForgotError('') }} className="text-sm text-primary-700 hover:text-primary-800 hover:underline">
+              <button onClick={() => { setForgotOpen(true); setForgotEmail(email); setForgotSent(false); setForgotError('') }} className="text-sm text-primary-700 hover:text-primary-800 hover:underline dark:text-primary-400 dark:hover:text-primary-300">
                 {t('დაგავიწყდათ პაროლი?')}
               </button>
             </div>
 
-            <p className="mt-7 text-center text-sm text-brandgray-400">
+            <p className="mt-7 text-center text-sm text-brandgray-400 dark:text-gray-400">
               არ გაქვთ ანგარიში?{' '}
-              <Link to="/register" className="font-semibold text-primary-700 hover:text-primary-800 hover:underline">{t('დარეგისტრირდით')}</Link>
+              <Link to="/register" className="font-semibold text-primary-700 hover:text-primary-800 hover:underline dark:text-primary-400 dark:hover:text-primary-300">{t('დარეგისტრირდით')}</Link>
             </p>
           </div>
         </div>
@@ -144,7 +144,7 @@ export default function LoginPage() {
               <label className="mb-1.5 block text-sm font-medium text-brandgray-700 dark:text-gray-300">{t('ელფოსტა')}</label>
               <input type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} className="input h-11" required />
             </div>
-            {forgotError && <p className="text-sm text-red-600">{forgotError}</p>}
+            {forgotError && <p className="text-sm text-red-600 dark:text-red-400">{forgotError}</p>}
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setForgotOpen(false)} className="btn-secondary">{t('გაუქმება')}</button>
               <button type="submit" className="btn-primary" disabled={forgotLoading}>

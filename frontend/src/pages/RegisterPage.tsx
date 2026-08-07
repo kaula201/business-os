@@ -32,7 +32,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dark-100 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-600">Business OS</h1>
+          <h1 className="text-3xl font-bold text-primary-600 dark:text-primary-400">Business OS</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2">{t('ქართული ბიზნეს ოპერაციული სისტემა')}</p>
         </div>
 
@@ -40,7 +40,7 @@ export default function RegisterPage() {
           <h2 className="text-xl font-semibold mb-6">{t('რეგისტრაცია')}</h2>
 
           {error && (
-            <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+            <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm dark:bg-red-950/40 dark:text-red-300">{error}</div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -67,7 +67,7 @@ export default function RegisterPage() {
 
           <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
             უკვე გაქვთ ანგარიში?{' '}
-            <Link to="/login" className="text-primary-600 hover:underline font-medium">{t('შესვლა')}</Link>
+            <Link to="/login" className="text-primary-600 hover:underline font-medium dark:text-primary-400">{t('შესვლა')}</Link>
           </p>
         </div>
       </div>

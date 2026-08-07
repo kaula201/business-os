@@ -32,14 +32,14 @@ export default function VerifyEmailPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dark-100 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-600">Business OS</h1>
+          <h1 className="text-3xl font-bold text-primary-600 dark:text-primary-400">Business OS</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2">{t('ქართული ბიზნეს ოპერაციული სისტემა')}</p>
         </div>
 
         <div className="card text-center py-10">
           {status === 'loading' && (
             <div>
-              <Loader2 size={48} className="mx-auto text-primary-600 animate-spin mb-4" />
+              <Loader2 size={48} className="mx-auto text-primary-600 animate-spin mb-4 dark:text-primary-400" />
               <p className="text-gray-600 dark:text-gray-400">{t('ელფოსტის დადასტურება...')}</p>
             </div>
           )}
