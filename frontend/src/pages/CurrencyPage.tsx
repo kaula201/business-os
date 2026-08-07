@@ -60,9 +60,8 @@ export default function CurrencyPage() {
         try {
           const msg = JSON.parse(event.data)
           if (msg.event === 'rates_updated') {
+            // Quiet refresh — no notice, no page jump
             queryClient.invalidateQueries({ queryKey: ['currency-rates'] })
-            setNotice(t('კურსები განახლდა'))
-            setTimeout(() => setNotice(''), 3000)
           }
         } catch { /* ignore malformed frames */ }
       }
@@ -106,13 +105,23 @@ export default function CurrencyPage() {
     onError: (e) => { setNotice(''); setError(errorText(e)) },
   })
 
-  // Auto-refresh NBG rates every 10 seconds (silent; no user action needed)
+  // Silent background refresh — no notice, no visible jump; only refreshes the table data
+  const silentSync = useMutation({
+    mutationFn: () => api.post(`/currency/rates/sync-nbg?rate_date=${syncDate}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['currency-rates'] })
+      queryClient.invalidateQueries({ queryKey: ['nbg-sync-status'] })
+    },
+    onError: () => { /* silent — background refresh must not disturb the user */ },
+  })
+
+  // Auto-refresh NBG rates every 10 seconds in the background
   useEffect(() => {
     const interval = setInterval(() => {
-      syncNbg.mutate()
+      silentSync.mutate()
     }, 10000)
     return () => clearInterval(interval)
-  }, [syncNbg])
+  }, [silentSync])
 
   const convert = useMutation({
     mutationFn: () => api.post('/currency/convert', conversionForm),
