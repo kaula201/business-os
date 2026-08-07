@@ -1138,6 +1138,7 @@ const en: Record<string, string> = {
   'მენეჯერი': 'Manager',
   'საბაზო ვალუტა': 'Base currency',
   'კურსები განახლდა': 'Rates updated',
+  'მანუალური განახლება': 'Manual refresh',
 }
 
 i18n.use(initReactI18next).init({

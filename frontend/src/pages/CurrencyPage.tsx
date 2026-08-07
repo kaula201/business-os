@@ -77,6 +77,7 @@ export default function CurrencyPage() {
     return () => { closed = true; ws?.close() }
   }, [companyId, queryClient, t])
 
+
   const createRate = useMutation({
     mutationFn: () => api.post('/currency/rates', rateForm),
     onSuccess: () => {
@@ -104,6 +105,14 @@ export default function CurrencyPage() {
     },
     onError: (e) => { setNotice(''); setError(errorText(e)) },
   })
+
+  // Auto-refresh NBG rates every 10 seconds (silent; no user action needed)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      syncNbg.mutate()
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [syncNbg])
 
   const convert = useMutation({
     mutationFn: () => api.post('/currency/convert', conversionForm),
@@ -135,7 +144,7 @@ export default function CurrencyPage() {
         <div className="flex flex-wrap items-center gap-2">
           <input aria-label={t('ეროვნული ბანკის კურსის თარიღი')} className="input w-auto" type="date" value={syncDate} onChange={(e) => setSyncDate(e.target.value)} />
           <button className="btn-secondary flex items-center gap-2" disabled={syncNbg.isPending} onClick={() => syncNbg.mutate()}>
-            <RefreshCw size={18} className={syncNbg.isPending ? 'animate-spin' : ''} /> {syncNbg.isPending ? t('ახლდება...') : t('ეროვნული ბანკიდან განახლება')}
+            <RefreshCw size={18} className={syncNbg.isPending ? 'animate-spin' : ''} /> {syncNbg.isPending ? t('ახლდება...') : t('მანუალური განახლება')}
           </button>
           <button className="btn-primary flex items-center gap-2" onClick={() => { setError(''); setNotice(''); setRateModal(true) }}>
             <Plus size={18} /> {t('კურსის დამატება')}
