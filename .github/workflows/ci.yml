@@ -60,7 +60,8 @@ jobs:
             -c "CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions" \
             -c "CREATE ROLE business_os_app LOGIN PASSWORD 'ci-app-secret' NOSUPERUSER NOBYPASSRLS" \
             -c "ALTER DATABASE business_os_test OWNER TO business_os_app" \
-            -c "GRANT USAGE ON SCHEMA extensions TO business_os_app"
+            -c "GRANT USAGE ON SCHEMA extensions TO business_os_app" \
+            -c "ALTER ROLE business_os_app SET search_path = public, extensions"
 
       - name: Run tests
         env:
