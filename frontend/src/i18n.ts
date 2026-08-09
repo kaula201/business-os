@@ -1164,6 +1164,7 @@ const en: Record<string, string> = {
   'ყველა ვალუტა': 'All currencies',
   'მხოლოდ არჩეული': 'Selected only',
   'ნახვის რეჟიმი': 'View mode',
+  'გადართვა': 'Swap',
   'მოგება-ზარალი აჩვენებს მხოლოდ არჩეულ პერიოდს (დან–მდე), ხოლო ბალანსში „მიმდინარე მოგება" მთელი პერიოდის (წლის დასაწყისიდან) დაგროვებულ შედეგს ასახავს.': "P&L shows only the selected period (from–to), while the balance sheet's 'current profit' reflects the accumulated result since the start of the year.",
 }
 

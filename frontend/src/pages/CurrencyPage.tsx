@@ -142,9 +142,13 @@ export default function CurrencyPage() {
       return true
     })
     .sort((a, b) => {
-      const aGel = a.from_currency === 'GEL' || a.to_currency === 'GEL' ? 0 : 1
-      const bGel = b.from_currency === 'GEL' || b.to_currency === 'GEL' ? 0 : 1
-      if (aGel !== bGel) return aGel - bGel
+      // GEL → X pairs first (GEL is the base), then X → GEL, then non-GEL pairs
+      const rank = (r: CurrencyRate) =>
+        r.from_currency === 'GEL' ? 0 : r.to_currency === 'GEL' ? 1 : 2
+      const ar = rank(a), br = rank(b)
+      if (ar !== br) return ar - br
+      if (ar === 0) return a.to_currency.localeCompare(b.to_currency)
+      if (ar === 1) return a.from_currency.localeCompare(b.from_currency)
       return `${a.from_currency}${a.to_currency}`.localeCompare(`${b.from_currency}${b.to_currency}`)
     })
 
@@ -216,11 +220,12 @@ export default function CurrencyPage() {
             <button
               type="button"
               onClick={() => setConversionForm((f) => ({ ...f, from_currency: f.to_currency, to_currency: f.from_currency }))}
-              className="btn-secondary h-11 w-11 flex items-center justify-center rounded-lg"
+              className="btn-secondary h-11 px-3 flex items-center justify-center gap-1.5 rounded-lg whitespace-nowrap"
               title={t('ადგილების გადართვა')}
               aria-label={t('ადგილების გადართვა')}
             >
               <ArrowLeftRight size={17} />
+              <span className="text-xs font-medium">{t('გადართვა')}</span>
             </button>
           </div>
           <FormField label={t('მიზნობრივი ვალუტა')}><Select value={conversionForm.to_currency} options={options} onChange={(e) => setConversionForm({ ...conversionForm, to_currency: e.target.value })} /></FormField>
