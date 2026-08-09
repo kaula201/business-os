@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRightLeft, Calculator, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react'
+import { ArrowRightLeft, Calculator, Plus, RefreshCw, Search, Trash2, X , ArrowLeftRight } from 'lucide-react'
 
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
@@ -30,7 +30,7 @@ export default function CurrencyPage() {
   const [rateForm, setRateForm] = useState<CurrencyRateCreate>({
     from_currency: 'USD', to_currency: 'GEL', rate_date: today, rate: 0, source: 'manual',
   })
-  const [conversionForm, setConversionForm] = useState({ amount: 1, from_currency: 'USD', to_currency: 'GEL', rate_date: today })
+  const [conversionForm, setConversionForm] = useState({ amount: 1, from_currency: 'GEL', to_currency: 'USD', rate_date: today })
   const [conversion, setConversion] = useState<CurrencyConversion | null>(null)
   const [baseCurrency, setBaseCurrency] = useState('GEL')
 
@@ -207,6 +207,17 @@ export default function CurrencyPage() {
             <input className="input" type="number" min="0.01" step="0.01" value={conversionForm.amount || ''} onChange={(e) => setConversionForm({ ...conversionForm, amount: Number(e.target.value) })} />
           </FormField>
           <FormField label={t('საწყისი ვალუტა')}><Select value={conversionForm.from_currency} options={options} onChange={(e) => setConversionForm({ ...conversionForm, from_currency: e.target.value })} /></FormField>
+          <div className="flex items-end justify-center">
+            <button
+              type="button"
+              onClick={() => setConversionForm((f) => ({ ...f, from_currency: f.to_currency, to_currency: f.from_currency }))}
+              className="btn-secondary h-11 w-11 flex items-center justify-center rounded-lg"
+              title={t('ადგილების გადართვა')}
+              aria-label={t('ადგილების გადართვა')}
+            >
+              <ArrowLeftRight size={17} />
+            </button>
+          </div>
           <FormField label={t('მიზნობრივი ვალუტა')}><Select value={conversionForm.to_currency} options={options} onChange={(e) => setConversionForm({ ...conversionForm, to_currency: e.target.value })} /></FormField>
           <FormField label={t('თარიღი')}><input className="input" type="date" value={conversionForm.rate_date} onChange={(e) => setConversionForm({ ...conversionForm, rate_date: e.target.value })} /></FormField>
           <div className="flex items-end"><button className="btn-primary w-full flex items-center justify-center gap-2" disabled={convert.isPending} onClick={() => convert.mutate()}><ArrowRightLeft size={17} /> {t('გადაყვანა')}</button></div>
@@ -229,7 +240,23 @@ export default function CurrencyPage() {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">{t('საბაზო ვალუტა')}</span>
-          <Select value={baseCurrency} options={options} onChange={(e) => setBaseCurrency(e.target.value)} className="w-28" />
+          <div className="flex rounded-lg border border-brandgray-200 bg-white p-0.5 dark:border-dark-50 dark:bg-dark-200" role="group" aria-label={t('საბაზო ვალუტა')}>
+            {currencies.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setBaseCurrency(c)}
+                aria-pressed={baseCurrency === c}
+                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                  baseCurrency === c
+                    ? 'bg-primary-600 text-white shadow-sm'
+                    : 'text-brandgray-600 hover:bg-brandgray-50 dark:text-gray-400 dark:hover:bg-dark-100'
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

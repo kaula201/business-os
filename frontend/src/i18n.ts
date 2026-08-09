@@ -1160,6 +1160,7 @@ const en: Record<string, string> = {
   'სალაროს შექმნა': 'Create cash account',
   'ანგარიშის დამატება': 'Add account',
   'რატომ განსხვავდება ბალანსის მოგებისგან?': 'Why does this differ from the balance sheet?',
+  'ადგილების გადართვა': 'Swap currencies',
   'მოგება-ზარალი აჩვენებს მხოლოდ არჩეულ პერიოდს (დან–მდე), ხოლო ბალანსში „მიმდინარე მოგება" მთელი პერიოდის (წლის დასაწყისიდან) დაგროვებულ შედეგს ასახავს.': "P&L shows only the selected period (from–to), while the balance sheet's 'current profit' reflects the accumulated result since the start of the year.",
 }
 
