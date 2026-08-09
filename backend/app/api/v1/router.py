@@ -33,6 +33,7 @@ from app.api.v1.endpoints import (
     fleet_enhanced,
     gl,
     gl_enhanced,
+    recurring,
     helpdesk,
     hr,
     hr_enhanced,
@@ -112,6 +113,7 @@ api_router.include_router(purchase_costs.router)
 api_router.include_router(purchase_approvals.router)
 api_router.include_router(supplier_finance.router)
 api_router.include_router(gl.router)
+api_router.include_router(recurring.router)
 api_router.include_router(gl_enhanced.router)
 api_router.include_router(company.router)
 api_router.include_router(currency.router)

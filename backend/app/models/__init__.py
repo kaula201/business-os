@@ -120,3 +120,5 @@ __all__ = [
     "QualityCheck",
     "ChatMessage", "Embedding",
 ]
+
+from app.models.recurring import RecurringJournalEntry  # noqa: F401
