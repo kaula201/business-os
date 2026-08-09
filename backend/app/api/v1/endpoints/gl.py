@@ -1,4 +1,5 @@
 """General Ledger API endpoints: Chart of Accounts, Journal Entries, automated posting."""
+import uuid
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
@@ -18,6 +19,7 @@ from app.schemas.gl import (
     GLAccountCreate,
     GLAccountResponse,
     GLAccountUpdate,
+    JournalEntryCreate,
     JournalEntryListResponse,
     JournalEntryLineResponse,
     JournalEntryResponse,
@@ -226,6 +228,121 @@ async def list_journal_entries(
             description=e.description, reference_type=e.reference_type,
             is_reversal=e.is_reversal, created_at=e.created_at,
         ) for e in rows],
+    ))
+
+
+@router.post("/journal-entries/", response_model=ResponseBase[JournalEntryResponse], status_code=201)
+async def create_manual_journal_entry(
+    data: JournalEntryCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a manual journal entry (double-entry). Validates balance and tenant-scoped accounts."""
+    require_gl_role(current_user)
+
+    # ── Validate accounting period is open ────────────────────────────
+    from app.services.accounting_periods import ensure_period_open
+    try:
+        await ensure_period_open(db, current_user.company_id, data.entry_date)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # ── Validate accounts belong to company + are active ───────────────
+    account_ids = [l.gl_account_id for l in data.lines]
+    rows = (
+        await db.execute(
+            select(GLAccount).where(
+                GLAccount.company_id == current_user.company_id,
+                GLAccount.id.in_(account_ids),
+                GLAccount.is_active == True,
+            )
+        )
+    ).scalars().all()
+    found = {a.id: a for a in rows}
+    missing = [str(aid) for aid in account_ids if aid not in found]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"ანგარიში ვერ მოიძებნა ან არააქტიურია: {', '.join(missing)}")
+
+    # ── Balance validation: sum(debits) == sum(credits), each line one-sided ──
+    total_debit = Decimal("0")
+    total_credit = Decimal("0")
+    normalized_lines = []
+    for i, line in enumerate(data.lines, start=1):
+        dr = money(line.debit_amount)
+        cr = money(line.credit_amount)
+        if dr > 0 and cr > 0:
+            raise HTTPException(status_code=400, detail=f"სტრიქონი {i}: debit და credit ერთდროულად არ შეიძლება")
+        if dr == 0 and cr == 0:
+            raise HTTPException(status_code=400, detail=f"სტრიქონი {i}: თანხა უნდა იყოს ნულისგან განსხვავებული")
+        total_debit += dr
+        total_credit += cr
+        normalized_lines.append((i, dr, cr, line.gl_account_id, line.description))
+    if total_debit != total_credit:
+        raise HTTPException(
+            status_code=400,
+            detail=f"ბალანსი არ იყრის თავს: debit={total_debit}, credit={total_credit}",
+        )
+
+    # ── Generate entry number (JE-YYYYMMDD-NNN) ────────────────────────
+    prefix = f"JE-{data.entry_date.strftime('%Y%m%d')}"
+    same_day = (
+        await db.execute(
+            select(func.count(JournalEntry.id)).where(
+                JournalEntry.company_id == current_user.company_id,
+                JournalEntry.entry_number.like(f"{prefix}-%"),
+            )
+        )
+    ).scalar_one()
+    entry_number = f"{prefix}-{same_day + 1:03d}"
+
+    # ── Create entry + lines ───────────────────────────────────────────
+    entry = JournalEntry(
+        company_id=current_user.company_id,
+        entry_number=entry_number,
+        entry_date=data.entry_date,
+        description=data.description,
+        reference_type="manual",
+        reference_id=uuid.uuid4(),
+        created_by=current_user.id,
+    )
+    db.add(entry)
+    await db.flush()
+    for line_number, dr, cr, gl_account_id, desc in normalized_lines:
+        db.add(JournalEntryLine(
+            journal_entry_id=entry.id,
+            gl_account_id=gl_account_id,
+            line_number=line_number,
+            debit_amount=dr,
+            credit_amount=cr,
+            description=desc,
+        ))
+    await db.commit()
+    await db.refresh(entry)
+
+    add_audit(db, current_user, "journal_entry.created", "journal_entry", entry.id, {
+        "entry_number": entry_number,
+        "entry_date": str(data.entry_date),
+        "description": data.description,
+    })
+    await db.commit()
+
+    result = (
+        await db.execute(
+            select(JournalEntry).options(selectinload(JournalEntry.lines)).where(JournalEntry.id == entry.id)
+        )
+    ).scalar_one()
+    return ResponseBase(data=JournalEntryResponse(
+        id=result.id, company_id=result.company_id, entry_number=result.entry_number,
+        entry_date=result.entry_date, description=result.description,
+        reference_type=result.reference_type, reference_id=result.reference_id,
+        is_reversal=result.is_reversal, reversed_entry_id=result.reversed_entry_id,
+        created_by=result.created_by, created_at=result.created_at,
+        lines=[JournalEntryLineResponse(
+            id=l.id, journal_entry_id=l.journal_entry_id, gl_account_id=l.gl_account_id,
+            line_number=l.line_number, debit_amount=float(l.debit_amount),
+            credit_amount=float(l.credit_amount), description=l.description,
+            created_at=l.created_at,
+        ) for l in result.lines],
     ))
 
 

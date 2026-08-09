@@ -67,3 +67,16 @@ class JournalEntryListResponse(BaseModel):
     reference_type: str
     is_reversal: bool
     created_at: datetime
+
+
+class JournalEntryLineCreate(BaseModel):
+    gl_account_id: UUID
+    debit_amount: float = 0
+    credit_amount: float = 0
+    description: str | None = None
+
+
+class JournalEntryCreate(BaseModel):
+    entry_date: date
+    description: str = Field(min_length=1, max_length=1000)
+    lines: list[JournalEntryLineCreate] = Field(min_length=2, max_length=200)
