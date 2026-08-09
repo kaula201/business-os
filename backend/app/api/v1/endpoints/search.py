@@ -17,6 +17,46 @@ router = APIRouter(prefix="/search", tags=["ძებნა"])
 
 MAX_RESULTS = 5
 
+# Georgian ↔ Latin transliteration maps (standard Georgian National System)
+_GEO_TO_LATIN = {
+    "ა": "a", "ბ": "b", "გ": "g", "დ": "d", "ე": "e", "ვ": "v", "ზ": "z",
+    "თ": "t", "ი": "i", "კ": "k", "ლ": "l", "მ": "m", "ნ": "n", "ო": "o",
+    "პ": "p", "ჟ": "zh", "რ": "r", "ს": "s", "ტ": "t", "უ": "u", "ფ": "p",
+    "ქ": "k", "ღ": "gh", "ყ": "q", "შ": "sh", "ჩ": "ch", "ც": "ts", "ძ": "dz",
+    "წ": "ts", "ჭ": "ch", "ხ": "kh", "ჯ": "j", "ჰ": "h",
+}
+_LATIN_TO_GEO = {
+    "a": "ა", "b": "ბ", "g": "გ", "d": "დ", "e": "ე", "v": "ვ", "z": "ზ",
+    "t": "თ", "i": "ი", "k": "კ", "l": "ლ", "m": "მ", "n": "ნ", "o": "ო",
+    "p": "პ", "r": "რ", "s": "ს", "u": "უ", "q": "ყ", "h": "ჰ", "j": "ჯ",
+}
+# Multi-char Latin digraphs must be replaced first
+_LATIN_DIGRAPHS = {"sh": "შ", "ch": "ჩ", "ts": "ც", "dz": "ძ", "gh": "ღ", "kh": "ხ", "zh": "ჟ"}
+
+
+def geo_to_latin(text: str) -> str:
+    return "".join(_GEO_TO_LATIN.get(ch, ch) for ch in text)
+
+
+def latin_to_geo(text: str) -> str:
+    result = text
+    for digraph, geo in _LATIN_DIGRAPHS.items():
+        result = result.replace(digraph, geo)
+    return "".join(_LATIN_TO_GEO.get(ch.lower(), ch) for ch in result)
+
+
+def search_patterns(q: str) -> list[str]:
+    """Build OR-search patterns: original, latin→geo, geo→latin."""
+    q = q.strip()
+    patterns = {f"%{q}%"}
+    latinized = geo_to_latin(q)
+    if latinized.lower() != q.lower():
+        patterns.add(f"%{latinized}%")
+    georgianized = latin_to_geo(q)
+    if georgianized != q:
+        patterns.add(f"%{georgianized}%")
+    return list(patterns)
+
 
 @router.get("", response_model=ResponseBase[dict])
 async def global_search(
@@ -24,8 +64,12 @@ async def global_search(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Search clients, products, orders, invoices and suppliers by name/number."""
-    term = f"%{q.strip()}%"
+    """Search clients, products, orders, invoices and suppliers by name/number.
+
+    Handles Georgian and Latin input: typing 'iveria' finds 'შპს ივერია' and
+    vice versa via transliteration.
+    """
+    patterns = search_patterns(q)
     company_id = current_user.company_id
 
     clients = (
@@ -33,7 +77,7 @@ async def global_search(
             select(Client.id, Client.name, Client.identification_code, Client.status)
             .where(
                 Client.company_id == company_id,
-                or_(Client.name.ilike(term), Client.identification_code.ilike(term)),
+                or_(*(Client.name.ilike(p) for p in patterns), *(Client.identification_code.ilike(p) for p in patterns)),
             )
             .limit(MAX_RESULTS)
         )
@@ -42,7 +86,10 @@ async def global_search(
     products = (
         await db.execute(
             select(Product.id, Product.name, Product.sku)
-            .where(Product.company_id == company_id, or_(Product.name.ilike(term), Product.sku.ilike(term)))
+            .where(
+                Product.company_id == company_id,
+                or_(*(Product.name.ilike(p) for p in patterns), *(Product.sku.ilike(p) for p in patterns)),
+            )
             .limit(MAX_RESULTS)
         )
     ).all()
@@ -51,7 +98,7 @@ async def global_search(
         await db.execute(
             select(Order.id, Order.order_number, Client.name.label("client_name"))
             .join(Client, Client.id == Order.client_id)
-            .where(Order.company_id == company_id, Order.order_number.ilike(term))
+            .where(Order.company_id == company_id, Order.order_number.ilike(q.strip()))
             .limit(MAX_RESULTS)
         )
     ).all()
@@ -60,7 +107,7 @@ async def global_search(
         await db.execute(
             select(Invoice.id, Invoice.invoice_number, Client.name.label("client_name"))
             .join(Client, Client.id == Invoice.client_id)
-            .where(Invoice.company_id == company_id, Invoice.invoice_number.ilike(term))
+            .where(Invoice.company_id == company_id, Invoice.invoice_number.ilike(q.strip()))
             .limit(MAX_RESULTS)
         )
     ).all()
@@ -68,7 +115,10 @@ async def global_search(
     suppliers = (
         await db.execute(
             select(Supplier.id, Supplier.name, Supplier.identification_code)
-            .where(Supplier.company_id == company_id, Supplier.name.ilike(term))
+            .where(
+                Supplier.company_id == company_id,
+                or_(*(Supplier.name.ilike(p) for p in patterns), *(Supplier.identification_code.ilike(p) for p in patterns)),
+            )
             .limit(MAX_RESULTS)
         )
     ).all()
