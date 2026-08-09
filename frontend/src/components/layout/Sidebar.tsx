@@ -2,7 +2,7 @@
 import { NavLink } from 'react-router-dom'
 import { 
   LayoutDashboard, Users, ShoppingCart, Package, 
-  CheckSquare, Bot, Settings, X, ReceiptText, Building2, WalletCards, Landmark, BookOpen, FileText, TrendingUp, Scale, Car, ChevronDown, ChevronRight, DollarSign, Banknote, HandCoins, Wrench, BarChart3, Target, Coins, Network, CalendarClock, CalendarRange, Loader2
+  CheckSquare, Bot, Settings, X, ReceiptText, Building2, WalletCards, Landmark, BookOpen, FileText, TrendingUp, Scale, Car, ChevronDown, ChevronRight, DollarSign, Banknote, HandCoins, Wrench, BarChart3, Target, Coins, Network, CalendarClock, CalendarRange, Loader2, Star
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -42,7 +42,7 @@ const categoryGroups: NavGroup[] = [
 
 // ── Sub-components ──────────────────────────────────────────────────
 
-function NavLinkItem({ item, onClose, depth = 0 }: { item: { to: string; icon: any; label: string }; onClose: () => void; depth?: number }) {
+function NavLinkItem({ item, onClose, depth = 0, isFav, onToggleFav }: { item: { to: string; icon: any; label: string }; onClose: () => void; depth?: number; isFav?: boolean; onToggleFav?: (to: string) => void }) {
   const { t } = useTranslation()
   return (
     <NavLink
@@ -57,7 +57,18 @@ function NavLinkItem({ item, onClose, depth = 0 }: { item: { to: string; icon: a
       }
     >
       <item.icon size={depth === 0 ? 20 : 17} className="transition-transform group-hover:scale-105 shrink-0" />
-      <span className="truncate">{t(item.label)}</span>
+      <span className="truncate flex-1">{t(item.label)}</span>
+      {onToggleFav && (
+        <button
+          type="button"
+          title={isFav ? t('რჩეულებიდან ამოღება') : t('რჩეულებში დამატება')}
+          aria-label={isFav ? t('რჩეულებიდან ამოღება') : t('რჩეულებში დამატება')}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFav(item.to) }}
+          className={`shrink-0 rounded-md p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-amber-100 dark:hover:bg-amber-900/40 ${isFav ? 'opacity-100' : ''}`}
+        >
+          <Star size={14} className={isFav ? 'fill-amber-400 text-amber-400' : 'text-brandgray-400 dark:text-gray-500'} />
+        </button>
+      )}
     </NavLink>
   )
 }
@@ -111,6 +122,23 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
   const [modules, setModules] = useState<CompanyModuleStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('bos_favs') || '[]')
+    } catch {
+      return []
+    }
+  })
+
+  const toggleFav = (to: string) => {
+    setFavorites((current) => {
+      const next = current.includes(to)
+        ? current.filter((p) => p !== to)
+        : [...current, to]
+      localStorage.setItem('bos_favs', JSON.stringify(next))
+      return next
+    })
+  }
 
   const toggleGroup = (groupId: string) => {
     setOpenGroups((current) => {
@@ -200,6 +228,23 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
     items: financeItems.filter((i) => group.codes.some((c) => i.to.startsWith(`/${c}`))),
   })).filter((g) => g.items.length > 0)
 
+  // Favorites: resolve stored routes to nav items (only those still accessible)
+  const favoriteItems: { to: string; icon: any; label: string }[] = favorites
+    .map((favTo) => {
+      const found = [
+        ...crmItems,
+        ...salesItems,
+        ...getNavItems('operations'),
+        ...getNavItems('purchases'),
+        ...getNavItems('finance'),
+        ...getNavItems('accounting'),
+        ...getNavItems('fleet'),
+        ...getNavItems('other'),
+      ].find((i) => i.to === favTo)
+      return found ? { ...found, to: favTo } : null
+    })
+    .filter((i): i is { to: string; icon: any; label: string } => i !== null)
+
   return (
     <>
       {open && (
@@ -243,7 +288,23 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                   item={{ to: '/dashboard', icon: LayoutDashboard, label: 'მიმოხილვა' }}
                   onClose={onClose}
                   depth={0}
+                  isFav={favorites.includes('/dashboard')}
+                  onToggleFav={toggleFav}
                 />
+              )}
+
+              {/* Favorites */}
+              {favorites.length > 0 && (
+                <div className="pt-2">
+                  <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    {t('რჩეულები')}
+                  </p>
+                  <div className="space-y-0.5">
+                    {favoriteItems.map((item) => (
+                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav onToggleFav={toggleFav} />
+                    ))}
+                  </div>
+                </div>
               )}
 
               {/* CRM group */}
@@ -256,7 +317,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                     onToggle={() => toggleGroup('crm')}
                   >
                     {crmItems.map((item) => (
-                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
+                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
                     ))}
                   </CollapsibleGroup>
                 </div>
@@ -272,7 +333,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                     onToggle={() => toggleGroup('sales')}
                   >
                     {salesItems.map((item) => (
-                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
+                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
                     ))}
                   </CollapsibleGroup>
                 </div>
@@ -280,7 +341,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
 
               {/* Operations */}
               {getNavItems('operations').map((item) => (
-                <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} />
+                <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
               ))}
 
               {/* Purchases group */}
@@ -293,7 +354,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                     onToggle={() => toggleGroup('purchases')}
                   >
                     {getNavItems('purchases').map((item) => (
-                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
+                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
                     ))}
                   </CollapsibleGroup>
                 </div>
@@ -321,7 +382,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                             {group.title}
                           </p>
                           {group.items.map((item) => (
-                            <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
+                            <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
                           ))}
                         </div>
                       ))}
@@ -340,7 +401,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                     onToggle={() => toggleGroup('accounting')}
                   >
                     {getNavItems('accounting').map((item) => (
-                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
+                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
                     ))}
                   </CollapsibleGroup>
                 </div>
@@ -348,12 +409,12 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
 
               {/* Fleet */}
               {getNavItems('fleet').map((item) => (
-                <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} />
+                <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
               ))}
 
               {/* Other items */}
               {getNavItems('other').map((item) => (
-                <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} />
+                <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
               ))}
             </>
           )}

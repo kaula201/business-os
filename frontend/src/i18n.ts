@@ -1142,6 +1142,9 @@ const en: Record<string, string> = {
   'სალარო და ბანკი': 'Cash & Banking',
   'მოვალეები და ვალდებულებები': 'Receivables & Payables',
   'ხარჯები და აქტივები': 'Expenses & Assets',
+  'რჩეულები': 'Favorites',
+  'რჩეულებში დამატება': 'Add to favorites',
+  'რჩეულებიდან ამოღება': 'Remove from favorites',
 }
 
 i18n.use(initReactI18next).init({
