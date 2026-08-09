@@ -142,9 +142,9 @@ export default function CurrencyPage() {
       return true
     })
     .sort((a, b) => {
-      // GEL → X pairs first (GEL is the base), then X → GEL, then non-GEL pairs
+      // Base → X pairs first (selected base), then X → Base, then non-base pairs
       const rank = (r: CurrencyRate) =>
-        r.from_currency === 'GEL' ? 0 : r.to_currency === 'GEL' ? 1 : 2
+        r.from_currency === baseCurrency ? 0 : r.to_currency === baseCurrency ? 1 : 2
       const ar = rank(a), br = rank(b)
       if (ar !== br) return ar - br
       if (ar === 0) return a.to_currency.localeCompare(b.to_currency)
@@ -251,7 +251,16 @@ export default function CurrencyPage() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500 dark:text-gray-400">{t('საბაზო ვალუტა')}</span>
-            <Select value={baseCurrency} options={options} onChange={(e) => setBaseCurrency(e.target.value)} className="w-28" />
+            <Select
+              value={baseCurrency}
+              options={options}
+              onChange={(e) => {
+                setBaseCurrency(e.target.value)
+                // Auto-narrow the table to the selected base currency
+                setShowAll(false)
+              }}
+              className="w-28"
+            />
           </div>
           <div className="flex items-center rounded-lg border border-brandgray-200 bg-white p-0.5 dark:border-dark-50 dark:bg-dark-200" role="group" aria-label={t('ნახვის რეჟიმი')}>
             <button
