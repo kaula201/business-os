@@ -120,8 +120,21 @@ export default function DashboardPage() {
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200 mb-4">{t('გაფრთხილებები')}</h3>
           <div className="space-y-2">
             {alerts.map((alert: any, i: number) => {
-              const target =
-                alert.type === 'low_stock' ? `/inventory?highlight=${alert.entity_id}`
+  // Translate alert titles: backend sends Georgian prefixes, but the
+  // entity name (product/task title) is business data — keep it as-is.
+  const alertTitle = (alert: any) => {
+    const raw: string = alert.title || ''
+    if (alert.type === 'low_stock') {
+      return `${t('დაბალი ნაშთი')}: ${raw.replace(/^დაბალი ნაშთი:?\s*/i, '')}`
+    }
+    if (alert.type === 'overdue_task') {
+      return `${t('დაგვიანებული დავალება')}: ${raw.replace(/^დაგვიანებული დავალება:?\s*/i, '')}`
+    }
+    return raw
+  }
+
+  const target =
+    alert.type === 'low_stock' ? `/inventory?highlight=${alert.entity_id}`
                 : alert.type === 'overdue_task' ? `/tasks?highlight=${alert.entity_id}`
                 : alert.type === 'overdue_invoice' ? `/invoices?highlight=${alert.entity_id}`
                 : null
@@ -129,7 +142,7 @@ export default function DashboardPage() {
                 <>
                   <AlertTriangle size={18} className="shrink-0" />
                   <div className="min-w-0">
-                    <p className="font-medium text-sm">{alert.title}</p>
+                    <p className="font-medium text-sm">{alertTitle(alert)}</p>
                     <p className="text-xs opacity-75">{alert.description}</p>
                   </div>
                 </>
@@ -182,11 +195,11 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{t('მოთხოვნები (AR)')}</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{Number(aging.ar_total).toLocaleString('ka-GE')} {aging.currency}</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{money(aging.ar_total)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-500 dark:text-gray-400">{t('ვალდებულებები (AP)')}</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{Number(aging.ap_total).toLocaleString('ka-GE')} {aging.currency}</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{money(aging.ap_total)}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -194,7 +207,7 @@ export default function DashboardPage() {
                   {aging.ar_buckets.map((b: any) => (
                     <div key={b.bucket} className="flex items-center justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">{t(b.label)}</span>
-                      <span className="font-medium">{Number(b.amount).toLocaleString('ka-GE')} {aging.currency}</span>
+                      <span className="font-medium">{money(b.amount)}</span>
                     </div>
                   ))}
                 </div>
@@ -202,7 +215,7 @@ export default function DashboardPage() {
                   {aging.ap_buckets.map((b: any) => (
                     <div key={b.bucket} className="flex items-center justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">{t(b.label)}</span>
-                      <span className="font-medium">{Number(b.amount).toLocaleString('ka-GE')} {aging.currency}</span>
+                      <span className="font-medium">{money(b.amount)}</span>
                     </div>
                   ))}
                 </div>
@@ -223,7 +236,7 @@ export default function DashboardPage() {
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{t('წმინდა ნაკადი (6 თვე)')}</p>
                   <p className={`text-xl font-bold ${Number(cashFlow.net_6m) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {Number(cashFlow.net_6m).toLocaleString('ka-GE')} {cashFlow.currency}
+                    {money(cashFlow.net_6m)}
                   </p>
                 </div>
                 <div className="flex gap-4 text-xs">
