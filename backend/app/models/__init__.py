@@ -122,3 +122,4 @@ __all__ = [
 ]
 
 from app.models.recurring import RecurringJournalEntry  # noqa: F401
+from app.models.exchange_difference import ExchangeDifference  # noqa: F401
