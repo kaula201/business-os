@@ -405,7 +405,7 @@ export default function FleetPage() {
               { key: 'model', label: 'მოდელი' },
               { key: 'year', label: 'წელი', render: (v: Vehicle) => v.year ?? '—' },
               { key: 'fuel_type', label: 'საწვავი', render: (v: Vehicle) => fuelTypes.find((f) => f.value === v.fuel_type)?.label || v.fuel_type },
-              { key: 'current_mileage', label: 'გარბენი (კმ)', render: (v: Vehicle) => v.current_mileage.toLocaleString() },
+              { key: 'current_mileage', label: 'გარბენი (კმ)', render: (v: Vehicle) => v.current_mileage.toLocaleString('ka-GE') },
               {
                 key: 'is_active', label: 'სტატუსი',
                 render: (v: Vehicle) => (
@@ -471,7 +471,7 @@ export default function FleetPage() {
                 { key: 'liters', label: 'ლიტრი', render: (f: FuelLog) => f.liters.toFixed(2) },
                 { key: 'price_per_liter', label: 'ფასი/ლ', render: (f: FuelLog) => money(f.price_per_liter) },
                 { key: 'total_amount', label: 'თანხა', render: (f: FuelLog) => money(f.total_amount) },
-                { key: 'mileage_at_refuel', label: 'გარბენი (კმ)', render: (f: FuelLog) => f.mileage_at_refuel.toLocaleString() },
+                { key: 'mileage_at_refuel', label: 'გარბენი (კმ)', render: (f: FuelLog) => f.mileage_at_refuel.toLocaleString('ka-GE') },
                 { key: 'station', label: 'ბენზინგასამართი', render: (f: FuelLog) => f.station || '—' },
                 {
                   key: 'actions', label: '',
@@ -517,7 +517,7 @@ export default function FleetPage() {
                 { key: 'description', label: 'აღწერა', render: (s: ServiceRecord) => (
                   <div className="max-w-[300px] truncate" title={s.description}>{s.description}</div>
                 )},
-                { key: 'mileage_at_service', label: 'გარბენი (კმ)', render: (s: ServiceRecord) => s.mileage_at_service.toLocaleString() },
+                { key: 'mileage_at_service', label: 'გარბენი (კმ)', render: (s: ServiceRecord) => s.mileage_at_service.toLocaleString('ka-GE') },
                 { key: 'cost', label: 'ღირებულება', render: (s: ServiceRecord) => money(s.cost) },
                 { key: 'service_provider', label: 'სერვის ცენტრი', render: (s: ServiceRecord) => s.service_provider || '—' },
                 {

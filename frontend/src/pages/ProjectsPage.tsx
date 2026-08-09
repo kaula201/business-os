@@ -21,7 +21,7 @@ const statusColors: Record<string, string> = {
   completed: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   cancelled: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 }
-const statusLabels: Record<string, string> = { draft: 'დრაფტი', active: 'აქტიური', on_hold: 'შეჩერებული', completed: 'დასრულებული', cancelled: 'გაუქმებული' }
+const statusLabels: Record<string, string> = { draft: 'მონახაზი', active: 'აქტიური', on_hold: 'შეჩერებული', completed: 'დასრულებული', cancelled: 'გაუქმებული' }
 const money = (v: number) => new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL' }).format(v)
 
 export default function ProjectsPage() {

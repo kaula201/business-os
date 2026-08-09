@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tasksApi, usersApi, clientsApi } from '../services/api'
-import { Plus, CheckSquare, Clock, Calendar, User as UserIcon, Search } from 'lucide-react'
+import {Plus, CheckSquare, Clock, Calendar, User as UserIcon, Search, Play, CheckCircle2, RotateCcw, Eye} from 'lucide-react'
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import FormField, { Select } from '../components/ui/FormField'
@@ -132,10 +132,15 @@ export default function TasksPage() {
       key: 'actions', label: '',
       render: (t: Task) => (
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => handleStatusChange(t, t.status === 'todo' ? 'in_progress' : t.status === 'in_progress' ? 'done' : 'todo')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400 hover:text-green-600">
-            {t.status === 'todo' ? '▶️' : t.status === 'in_progress' ? '✅' : '↩️'}
+          <button
+            onClick={() => handleStatusChange(t, t.status === 'todo' ? 'in_progress' : t.status === 'in_progress' ? 'done' : 'todo')}
+            title={t.status === 'todo' ? i18n.t('სტატუსის შეცვლა: პროცესში') : t.status === 'in_progress' ? i18n.t('სტატუსის შეცვლა: დასრულებული') : i18n.t('სტატუსის შეცვლა: საჭიროებს')}
+            aria-label={t.status === 'todo' ? i18n.t('სტატუსის შეცვლა: პროცესში') : t.status === 'in_progress' ? i18n.t('სტატუსის შეცვლა: დასრულებული') : i18n.t('სტატუსის შეცვლა: საჭიროებს')}
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400 hover:text-green-600"
+          >
+            {t.status === 'todo' ? <Play size={16} /> : t.status === 'in_progress' ? <CheckCircle2 size={16} /> : <RotateCcw size={16} />}
           </button>
-          <button onClick={() => setViewTask(t)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400">👁️</button>
+          <button onClick={() => setViewTask(t)} title={i18n.t('ნახვა')} aria-label={i18n.t('ნახვა')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400"><Eye size={16} /></button>
         </div>
       ),
     },

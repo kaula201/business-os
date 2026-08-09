@@ -140,7 +140,7 @@ export default function AssetsPage() {
             setAssetModal('create')
           }}
         >
-          <Plus size={18} /> {t('აქტივი')}
+          <Plus size={18} /> {t('აქტივის დამატება')}
         </button>
       </div>
 

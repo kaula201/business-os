@@ -10,6 +10,9 @@ import Modal from '../components/ui/Modal'
 import FormField, { Select } from '../components/ui/FormField'
 import { StatusBadge, orderStatusMap } from '../components/ui/Badges'
 import type { Client, ClientCreate, InventoryReservation, Order, OrderCreate, OrderStatus, OrderStatusHistory, OrderSummary, Warehouse } from '../types'
+// Unified currency format: "590 ₾"
+const money = (v: number | string | null | undefined) =>
+  new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL' }).format(Number(v || 0))
 
 const nextStatusActions: Partial<Record<OrderStatus, { status: OrderStatus; label: string; danger?: boolean }[]>> = {
   new: [
@@ -191,7 +194,7 @@ export default function OrdersPage() {
     { key: 'order_number', label: i18n.t('შეკვეთა'), render: (o: OrderSummary) => <span className="font-mono font-medium text-gray-900 dark:text-gray-100 dark:text-gray-200">{o.order_number}</span> },
     { key: 'client_name', label: i18n.t('კლიენტი'), render: (o: OrderSummary) => o.client_name || '—', hideOnMobile: true },
     { key: 'status', label: i18n.t('სტატუსი'), render: (o: OrderSummary) => <StatusBadge status={o.status} map={orderStatusMap} /> },
-    { key: 'total', label: i18n.t('თანხა'), render: (o: OrderSummary) => `${o.total?.toLocaleString()} ₾`, className: 'font-medium' },
+    { key: 'total', label: i18n.t('თანხა'), render: (o: OrderSummary) => `${money(o.total)}`, className: 'font-medium' },
     { key: 'created_at', label: i18n.t('თარიღი'), render: (o: OrderSummary) => new Date(o.created_at).toLocaleDateString('ka-GE'), hideOnMobile: true },
     {
       key: 'actions', label: '',
@@ -421,16 +424,16 @@ export default function OrdersPage() {
                   <tr key={i}>
                     <td className="px-4 py-2">{item.product_name}</td>
                     <td className="px-4 py-2 text-right">{item.quantity}</td>
-                    <td className="px-4 py-2 text-right">{item.unit_price?.toFixed(2)} ₾</td>
+                    <td className="px-4 py-2 text-right">{money(item.unit_price)}</td>
                     <td className="px-4 py-2 text-right">{item.discount_percent || 0}%</td>
-                    <td className="px-4 py-2 text-right font-medium">{item.total?.toFixed(2)} ₾</td>
+                    <td className="px-4 py-2 text-right font-medium">{money(item.total)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot className="border-t-2 border-gray-200 dark:border-dark-50">
-                <tr><td colSpan={4} className="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{t('ქვე-ჯამი')}</td><td className="px-4 py-2 text-right font-medium">{viewOrder.subtotal?.toFixed(2)} ₾</td></tr>
-                <tr><td colSpan={4} className="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{t('დღგ')}</td><td className="px-4 py-2 text-right font-medium">{viewOrder.vat_amount?.toFixed(2)} ₾</td></tr>
-                <tr><td colSpan={4} className="px-4 py-2 text-right text-sm font-bold">{t('სულ')}</td><td className="px-4 py-2 text-right font-bold text-lg">{viewOrder.total?.toFixed(2)} ₾</td></tr>
+                <tr><td colSpan={4} className="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{t('ქვე-ჯამი')}</td><td className="px-4 py-2 text-right font-medium">{money(viewOrder.subtotal)}</td></tr>
+                <tr><td colSpan={4} className="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{t('დღგ')}</td><td className="px-4 py-2 text-right font-medium">{money(viewOrder.vat_amount)}</td></tr>
+                <tr><td colSpan={4} className="px-4 py-2 text-right text-sm font-bold">{t('სულ')}</td><td className="px-4 py-2 text-right font-bold text-lg">{money(viewOrder.total)}</td></tr>
               </tfoot>
             </table>
 

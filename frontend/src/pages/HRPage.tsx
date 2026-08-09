@@ -282,7 +282,7 @@ export default function HRPage() {
                           entry.status === 'approved' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
                           'bg-gray-50 text-gray-600 dark:bg-dark-100 dark:text-gray-400'
                         }`}>
-                          {entry.status === 'paid' ? 'გადახდილი' : entry.status === 'approved' ? t('დამტკიცებული') : t('დრაფტი')}
+                          {entry.status === 'paid' ? 'გადახდილი' : entry.status === 'approved' ? t('დამტკიცებული') : t('მონახაზი')}
                         </span>
                       </td>
                     </tr>

@@ -184,7 +184,7 @@ export default function BankingPage() {
         </div>
         {canManage && <div className="flex gap-2">
           <button className="btn-secondary flex items-center gap-2" onClick={() => { setError(''); setAccountOpen(true) }}>
-            <Plus size={17} /> {t('ანგარიში')}
+            <Plus size={17} /> {t('ანგარიშის დამატება')}
           </button>
           <button className="btn-primary flex items-center gap-2" onClick={() => { setError(''); setImportAccountId(accounts[0]?.id || ''); setImportOpen(true) }} disabled={!accounts.length}>
             <FileUp size={17} /> {t('CSV იმპორტი')}
@@ -231,7 +231,7 @@ export default function BankingPage() {
 
       <section className="card overflow-hidden">
         <div className="border-b border-brandgray-100 dark:border-dark-50 px-5 py-4"><h2 className="font-semibold text-brandgray-900 dark:text-gray-100">{t('შეჯერების ისტორია')}</h2></div>
-        <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-brandgray-50 dark:bg-dark-100 text-left text-brandgray-600 dark:text-gray-400"><tr><th className="px-4 py-3">reference</th><th className="px-4 py-3">{t('მომწოდებელი / ინვოისი')}</th><th className="px-4 py-3 text-right">{t('თანხა')}</th><th className="px-4 py-3">{t('სტატუსი')}</th><th className="px-4 py-3"></th></tr></thead><tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
+        <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-brandgray-50 dark:bg-dark-100 text-left text-brandgray-600 dark:text-gray-400"><tr><th className="px-4 py-3">{t('რეფერენსი')}</th><th className="px-4 py-3">{t('მომწოდებელი / ინვოისი')}</th><th className="px-4 py-3 text-right">{t('თანხა')}</th><th className="px-4 py-3">{t('სტატუსი')}</th><th className="px-4 py-3"></th></tr></thead><tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
           {!reconciliations.length && <tr><td colSpan={5} className="px-4 py-8 text-center text-brandgray-500 dark:text-gray-400">{t('შეჯერების ისტორია ჯერ არ არის.')}</td></tr>}
           {reconciliations.map((row) => <tr key={row.id}><td className="px-4 py-3">{row.transaction_reference}</td><td className="px-4 py-3"><div>{row.supplier_name}</div><div className="text-xs text-brandgray-500 dark:text-gray-400">{row.supplier_invoice_number}</div></td><td className="px-4 py-3 text-right font-medium">{money(row.amount)}</td><td className="px-4 py-3"><span className={`badge ${row.status === 'active' ? 'badge-green' : 'badge-gray'}`}>{row.status === 'active' ? t('აქტიური') : t('გაუქმებული')}</span></td><td className="px-4 py-3 text-right">{canManage && row.status === 'active' && <button className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-800" onClick={() => { setError(''); setReversalRow(row) }}><RotateCcw size={15} /> {t('გაუქმება')}</button>}</td></tr>)}
         </tbody></table></div>
@@ -260,7 +260,7 @@ export default function BankingPage() {
 
       <Modal open={!!reconcileTransaction} onClose={() => setReconcileTransaction(null)} title={t('Supplier Payable-თან შეჯერება')} size="lg">
         {reconcileTransaction && <div className="space-y-4">
-          <div className="grid gap-3 rounded-lg bg-brandgray-50 dark:bg-dark-100 p-4 sm:grid-cols-3"><div><div className="text-xs text-brandgray-500 dark:text-gray-400">reference</div><div className="font-medium">{reconcileTransaction.reference}</div></div><div><div className="text-xs text-brandgray-500 dark:text-gray-400">{t('თანხა')}</div><div className="font-medium">{money(reconcileTransaction.amount)}</div></div><div><div className="text-xs text-brandgray-500 dark:text-gray-400">{t('დარჩენილი')}</div><div className="font-medium">{money(reconcileTransaction.unmatched_amount)}</div></div></div>
+          <div className="grid gap-3 rounded-lg bg-brandgray-50 dark:bg-dark-100 p-4 sm:grid-cols-3"><div><div className="text-xs text-brandgray-500 dark:text-gray-400">{t('რეფერენსი')}</div><div className="font-medium">{reconcileTransaction.reference}</div></div><div><div className="text-xs text-brandgray-500 dark:text-gray-400">{t('თანხა')}</div><div className="font-medium">{money(reconcileTransaction.amount)}</div></div><div><div className="text-xs text-brandgray-500 dark:text-gray-400">{t('დარჩენილი')}</div><div className="font-medium">{money(reconcileTransaction.unmatched_amount)}</div></div></div>
           <FormField label="Supplier Payable" required><Select value={reconcileForm.payable_id} onChange={(e) => setReconcileForm({ ...reconcileForm, payable_id: e.target.value })} placeholder={t('აირჩიეთ payable')} options={payables.map((row) => ({ value: row.id, label: `${row.supplier_name} — ${row.supplier_invoice_number} — ${money(row.outstanding_amount)}` }))} /></FormField>
           <FormField label={t('შეჯერების თანხა')} required><input className={inputClass} type="number" min="0.01" step="0.01" max={reconcileTransaction.unmatched_amount} value={reconcileForm.amount || ''} onChange={(e) => setReconcileForm({ ...reconcileForm, amount: Number(e.target.value) })} /></FormField>
           <FormField label={t('შენიშვნა')}><textarea className={inputClass} rows={3} value={reconcileForm.notes} onChange={(e) => setReconcileForm({ ...reconcileForm, notes: e.target.value })} /></FormField>

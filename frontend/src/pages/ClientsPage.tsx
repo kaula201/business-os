@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { clientsApi, importApi } from '../services/api'
-import { Plus, Search, Building2, User, Phone, Mail, MapPin, Upload, Loader2 } from 'lucide-react'
+import {Plus, Search, Building2, User, Phone, Mail, MapPin, Upload, Loader2, Pencil, Trash2} from 'lucide-react'
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import FormField, { Select } from '../components/ui/FormField'
@@ -129,11 +129,11 @@ export default function ClientsPage() {
       key: 'actions', label: '',
       render: (c: Client) => (
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => openEdit(c)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400 hover:text-primary-600">
-            ✏️
+          <button onClick={() => openEdit(c)} title={t('რედაქტირება')} aria-label={t('რედაქტირება')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400 hover:text-primary-600">
+            <Pencil size={16} />
           </button>
-          <button onClick={() => setDeleteTarget(c)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400 hover:text-red-600">
-            🗑️
+          <button onClick={() => setDeleteTarget(c)} title={t('წაშლა')} aria-label={t('წაშლა')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400 hover:text-red-600">
+            <Trash2 size={16} />
           </button>
         </div>
       ),

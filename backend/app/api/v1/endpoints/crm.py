@@ -135,6 +135,32 @@ async def update_lead(
         setattr(lead, field, value)
     # Track last activity on any update
     lead.last_activity_at = utc_now()
+    # Auto-create a pipeline opportunity the moment a lead is qualified,
+    # so the pipeline forecast is never empty for qualified leads.
+    if before_status != "qualified" and lead.status == "qualified":
+        existing_opp = (
+            await db.execute(
+                select(CRMOpportunity.id).where(
+                    CRMOpportunity.company_id == current_user.company_id,
+                    CRMOpportunity.lead_id == lead.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if not existing_opp:
+            estimated_value = data.estimated_value if data.estimated_value is not None else lead.estimated_value
+            db.add(CRMOpportunity(
+                company_id=current_user.company_id,
+                lead_id=lead.id,
+                name=lead.company_name or lead.contact_name or lead.email or "უსახელო შესაძლებლობა",
+                stage="qualification",
+                amount=estimated_value if estimated_value is not None else 0,
+                expected_close_date=lead.next_action_date,
+                owner_id=data.owner_id or lead.owner_id,
+            ))
+            add_audit(db, current_user, "crm.opportunity_auto_created", "crm_opportunity", lead.id, {
+                "lead_id": str(lead.id),
+                "stage": "qualification",
+            })
     add_audit(db, current_user, "crm.lead_updated", "crm_lead", lead.id, {
         "before_status": before_status,
         "after_status": lead.status,

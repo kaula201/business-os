@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -6,6 +7,9 @@ import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, Arrow
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts'
 import { StatusBadge, orderStatusMap } from '../components/ui/Badges'
 import type { DashboardData } from '../types'
+// Unified currency format: "590 ₾"
+const money = (v: number | string | null | undefined) =>
+  new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL' }).format(Number(v || 0))
 
 const COLORS = ['#16A6D4', '#4CAF32', '#7C6966', '#8EDFF7', '#94DF79', '#BCAEAB']
 
@@ -59,7 +63,7 @@ export default function DashboardPage() {
         <KPICard
           icon={TrendingUp}
           label={t('შემოსავალი')}
-          value={kpi?.total_revenue != null ? `${kpi.total_revenue.toLocaleString()} ₾` : '0 ₾'}
+          value={kpi?.total_revenue != null ? money(kpi.total_revenue) : money(0)}
           change={kpi?.revenue_change}
           color="blue"
           hint={`${t('ინვოისირებული შეკვეთები')}: ${data?.invoiced_orders_count ?? 0} / ${data?.total_orders_count ?? 0}`}
@@ -115,17 +119,39 @@ export default function DashboardPage() {
         <div className="card">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200 mb-4">{t('გაფრთხილებები')}</h3>
           <div className="space-y-2">
-            {alerts.map((alert: any, i: number) => (
-              <div key={i} className={`flex items-center gap-3 p-3 rounded-lg ${
-                alert.severity === 'high' ? 'bg-red-50 text-red-800' : 'bg-yellow-50 text-yellow-800'
-              }`}>
-                <AlertTriangle size={18} />
-                <div>
-                  <p className="font-medium text-sm">{alert.title}</p>
-                  <p className="text-xs opacity-75">{alert.description}</p>
+            {alerts.map((alert: any, i: number) => {
+              const target =
+                alert.type === 'low_stock' ? `/inventory?highlight=${alert.entity_id}`
+                : alert.type === 'overdue_task' ? `/tasks?highlight=${alert.entity_id}`
+                : alert.type === 'overdue_invoice' ? `/invoices?highlight=${alert.entity_id}`
+                : null
+              const inner = (
+                <>
+                  <AlertTriangle size={18} className="shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm">{alert.title}</p>
+                    <p className="text-xs opacity-75">{alert.description}</p>
+                  </div>
+                </>
+              )
+              return target ? (
+                <Link
+                  key={i}
+                  to={target}
+                  className={`flex items-center gap-3 p-3 rounded-lg transition-colors hover:brightness-95 ${
+                    alert.severity === 'high' ? 'bg-red-50 text-red-800' : 'bg-yellow-50 text-yellow-800'
+                  }`}
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div key={i} className={`flex items-center gap-3 p-3 rounded-lg ${
+                  alert.severity === 'high' ? 'bg-red-50 text-red-800' : 'bg-yellow-50 text-yellow-800'
+                }`}>
+                  {inner}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -156,27 +182,27 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{t('მოთხოვნები (AR)')}</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{Number(aging.ar_total).toLocaleString()} {aging.currency}</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{Number(aging.ar_total).toLocaleString('ka-GE')} {aging.currency}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-500 dark:text-gray-400">{t('ვალდებულებები (AP)')}</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{Number(aging.ap_total).toLocaleString()} {aging.currency}</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{Number(aging.ap_total).toLocaleString('ka-GE')} {aging.currency}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   {aging.ar_buckets.map((b: any) => (
                     <div key={b.bucket} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">{b.label}</span>
-                      <span className="font-medium">{Number(b.amount).toLocaleString()} {aging.currency}</span>
+                      <span className="text-gray-600 dark:text-gray-400">{t(b.label)}</span>
+                      <span className="font-medium">{Number(b.amount).toLocaleString('ka-GE')} {aging.currency}</span>
                     </div>
                   ))}
                 </div>
                 <div className="space-y-1.5">
                   {aging.ap_buckets.map((b: any) => (
                     <div key={b.bucket} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">{b.label}</span>
-                      <span className="font-medium">{Number(b.amount).toLocaleString()} {aging.currency}</span>
+                      <span className="text-gray-600 dark:text-gray-400">{t(b.label)}</span>
+                      <span className="font-medium">{Number(b.amount).toLocaleString('ka-GE')} {aging.currency}</span>
                     </div>
                   ))}
                 </div>
@@ -197,7 +223,7 @@ export default function DashboardPage() {
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{t('წმინდა ნაკადი (6 თვე)')}</p>
                   <p className={`text-xl font-bold ${Number(cashFlow.net_6m) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {Number(cashFlow.net_6m).toLocaleString()} {cashFlow.currency}
+                    {Number(cashFlow.net_6m).toLocaleString('ka-GE')} {cashFlow.currency}
                   </p>
                 </div>
                 <div className="flex gap-4 text-xs">

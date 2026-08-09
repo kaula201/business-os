@@ -5,6 +5,9 @@ import { ordersApi, productsApi, dashboardApi, clientsApi, tasksApi, exportsApi 
 import { BarChart2, Download, FileText, Users, ShoppingCart, Package, Bot } from 'lucide-react'
 import { downloadBlob } from '../services/download'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+// Unified currency format: "590 ₾"
+const money = (v: number | string | null | undefined) =>
+  new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL' }).format(Number(v || 0))
 
 const COLORS = ['#16A6D4', '#4CAF32', '#7C6966', '#8EDFF7', '#94DF79', '#BCAEAB']
 
@@ -103,11 +106,11 @@ export default function ReportsPage() {
           <div className="mt-4 grid grid-cols-3 gap-4">
             <div className="p-3 bg-blue-50 rounded-lg text-center">
               <p className="text-xs text-gray-500 dark:text-gray-400">{t('ჯამური შემოსავალი')}</p>
-              <p className="text-xl font-bold text-blue-700">{revenueData.reduce((s: number, d: any) => s + (d.amount || 0), 0).toLocaleString()} ₾</p>
+              <p className="text-xl font-bold text-blue-700">{revenueData.reduce((s: number, d: any) => s + (d.amount || 0), 0).toLocaleString('ka-GE')} ₾</p>
             </div>
             <div className="p-3 bg-green-50 rounded-lg text-center">
               <p className="text-xs text-gray-500 dark:text-gray-400">{t('საშუალო დღიური')}</p>
-              <p className="text-xl font-bold text-green-700">{revenueData.length ? Math.round(revenueData.reduce((s: number, d: any) => s + (d.amount || 0), 0) / revenueData.length).toLocaleString() : 0} ₾</p>
+              <p className="text-xl font-bold text-green-700">{revenueData.length ? Math.round(revenueData.reduce((s: number, d: any) => s + (d.amount || 0), 0) / revenueData.length).toLocaleString('ka-GE') : 0} ₾</p>
             </div>
             <div className="p-3 bg-purple-50 rounded-lg text-center">
               <p className="text-xs text-gray-500 dark:text-gray-400">{t('დღეები')}</p>
@@ -200,7 +203,7 @@ export default function ReportsPage() {
                     <span className={`badge ${p.stock_status === 'good' ? 'badge-green' : p.stock_status === 'low' ? 'badge-yellow' : 'badge-red'} text-xs`}>
                       {p.current_stock} {p.unit}
                     </span>
-                    <span className="font-medium">{p.sale_price} ₾</span>
+                    <span className="font-medium">{money(p.sale_price)}</span>
                   </div>
                 </div>
               ))}

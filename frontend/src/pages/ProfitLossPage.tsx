@@ -95,6 +95,14 @@ export default function ProfitLossPage() {
         </div>
       </div>
 
+      {/* Period explanation: why P&L may differ from Balance Sheet net income */}
+      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-300">
+        <p className="font-medium">{t('რატომ განსხვავდება ბალანსის მოგებისგან?')}</p>
+        <p className="mt-1 opacity-90">
+          {t('მოგება-ზარალი აჩვენებს მხოლოდ არჩეულ პერიოდს (დან–მდე), ხოლო ბალანსში „მიმდინარე მოგება" მთელი პერიოდის (წლის დასაწყისიდან) დაგროვებულ შედეგს ასახავს.')}
+        </p>
+      </div>
+
       {isLoading ? (
         <div className="card py-12 text-center text-gray-500 dark:text-gray-400" role="status">{t('იტვირთება...')}</div>
       ) : (

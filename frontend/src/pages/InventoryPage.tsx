@@ -412,7 +412,7 @@ export default function InventoryPage() {
     {
       key: 'sale_price',
       label: 'ფასი',
-      render: (product: Product) => `${product.sale_price?.toLocaleString()} ₾`,
+      render: (product: Product) => `${product.sale_price?.toLocaleString('ka-GE')} ₾`,
       className: 'font-medium',
       hideOnMobile: true,
     },
@@ -435,8 +435,8 @@ export default function InventoryPage() {
           >
             {product.current_stock === 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
           </button>
-          <button onClick={() => openProductEdit(product)} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 hover:text-primary-600">✏️</button>
-          <button onClick={() => setDeleteTarget(product)} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 hover:text-red-600">🗑️</button>
+          <button onClick={() => openProductEdit(product)} title={t('რედაქტირება')} aria-label={t('რედაქტირება')} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 hover:text-primary-600"><Pencil size={16} /></button>
+          <button onClick={() => setDeleteTarget(product)} title={t('წაშლა')} aria-label={t('წაშლა')} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 hover:text-red-600"><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -512,7 +512,7 @@ export default function InventoryPage() {
               <p className="text-xs font-medium text-gray-400 dark:text-gray-500">{warehouse.code}</p>
               <div className="mt-3 flex items-end justify-between">
                 <span className="text-sm text-gray-500 dark:text-gray-400">{t('ჯამური ერთეული')}</span>
-                <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{balancesError ? '—' : (warehouseTotals[warehouse.id] || 0).toLocaleString()}</span>
+                <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{balancesError ? '—' : (warehouseTotals[warehouse.id] || 0).toLocaleString('ka-GE')}</span>
               </div>
               {warehouse.address && <p className="mt-2 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"><MapPin size={12} /> {warehouse.address}</p>}
               {warehouse.is_active && (

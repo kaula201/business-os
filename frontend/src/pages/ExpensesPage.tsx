@@ -121,7 +121,7 @@ export default function ExpensesPage() {
             setModal('create')
           }}
         >
-          <Plus size={18} /> {t('ხარჯი')}
+          <Plus size={18} /> {t('ახალი ხარჯი')}
         </button>
       </div>
 

@@ -125,7 +125,7 @@ export default function CashPage() {
             className="btn-primary flex items-center gap-2"
             onClick={() => { setAccountForm({ name: '', currency: 'GEL', notes: '' }); setError(''); setAccountModal('create') }}
           >
-            <Plus size={18} /> {t('სალარო')}
+            <Plus size={18} /> {t('სალაროს შექმნა')}
           </button>
         </div>
       </div>
