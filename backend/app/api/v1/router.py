@@ -35,6 +35,7 @@ from app.api.v1.endpoints import (
     gl_enhanced,
     exchange_differences,
     recurring,
+    inventory_valuation,
     bank_rules,
     helpdesk,
     hr,
@@ -117,6 +118,7 @@ api_router.include_router(supplier_finance.router)
 api_router.include_router(gl.router)
 api_router.include_router(recurring.router)
 api_router.include_router(bank_rules.router)
+api_router.include_router(inventory_valuation.router)
 api_router.include_router(gl_enhanced.router)
 api_router.include_router(exchange_differences.router)
 api_router.include_router(company.router)
