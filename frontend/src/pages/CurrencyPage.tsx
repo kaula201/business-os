@@ -33,6 +33,7 @@ export default function CurrencyPage() {
   const [conversionForm, setConversionForm] = useState({ amount: 1, from_currency: 'GEL', to_currency: 'USD', rate_date: today })
   const [conversion, setConversion] = useState<CurrencyConversion | null>(null)
   const [baseCurrency, setBaseCurrency] = useState('GEL')
+  const [showAll, setShowAll] = useState(true)
 
   const { data, isLoading } = useQuery({
     queryKey: ['currency-rates'],
@@ -129,12 +130,16 @@ export default function CurrencyPage() {
     onError: (e) => { setConversion(null); setError(errorText(e)) },
   })
 
-  // Base-currency view: pairs involving the selected base (default GEL), GEL pairs first
+  // Rates view: all pairs visible by default (GEL pairs first); the
+  // toggle narrows the list to pairs involving the selected base currency.
   const visible = rates
     .filter((rate) => {
       const q = search.trim().toUpperCase()
-      const inBase = rate.from_currency === baseCurrency || rate.to_currency === baseCurrency
-      return inBase && (!q || `${rate.from_currency} ${rate.to_currency} ${rate.source}`.toUpperCase().includes(q))
+      if (q && !`${rate.from_currency} ${rate.to_currency} ${rate.source}`.toUpperCase().includes(q)) return false
+      if (!showAll) {
+        return rate.from_currency === baseCurrency || rate.to_currency === baseCurrency
+      }
+      return true
     })
     .sort((a, b) => {
       const aGel = a.from_currency === 'GEL' || a.to_currency === 'GEL' ? 0 : 1
@@ -238,24 +243,28 @@ export default function CurrencyPage() {
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           <input className="input pl-10" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('ვალუტის ძებნა...')} />
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400">{t('საბაზო ვალუტა')}</span>
-          <div className="flex rounded-lg border border-brandgray-200 bg-white p-0.5 dark:border-dark-50 dark:bg-dark-200" role="group" aria-label={t('საბაზო ვალუტა')}>
-            {currencies.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setBaseCurrency(c)}
-                aria-pressed={baseCurrency === c}
-                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                  baseCurrency === c
-                    ? 'bg-primary-600 text-white shadow-sm'
-                    : 'text-brandgray-600 hover:bg-brandgray-50 dark:text-gray-400 dark:hover:bg-dark-100'
-                }`}
-              >
-                {c}
-              </button>
-            ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400">{t('საბაზო ვალუტა')}</span>
+            <Select value={baseCurrency} options={options} onChange={(e) => setBaseCurrency(e.target.value)} className="w-28" />
+          </div>
+          <div className="flex items-center rounded-lg border border-brandgray-200 bg-white p-0.5 dark:border-dark-50 dark:bg-dark-200" role="group" aria-label={t('ნახვის რეჟიმი')}>
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              aria-pressed={showAll}
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${showAll ? 'bg-primary-600 text-white shadow-sm' : 'text-brandgray-600 hover:bg-brandgray-50 dark:text-gray-400 dark:hover:bg-dark-100'}`}
+            >
+              {t('ყველა ვალუტა')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              aria-pressed={!showAll}
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${!showAll ? 'bg-primary-600 text-white shadow-sm' : 'text-brandgray-600 hover:bg-brandgray-50 dark:text-gray-400 dark:hover:bg-dark-100'}`}
+            >
+              {t('მხოლოდ არჩეული')}
+            </button>
           </div>
         </div>
       </div>
