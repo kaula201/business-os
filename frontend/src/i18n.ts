@@ -1145,6 +1145,7 @@ const en: Record<string, string> = {
   'რჩეულები': 'Favorites',
   'რჩეულებში დამატება': 'Add to favorites',
   'რჩეულებიდან ამოღება': 'Remove from favorites',
+  'ბოლო ნანახი': 'Recent',
 }
 
 i18n.use(initReactI18next).init({

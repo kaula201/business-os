@@ -3,10 +3,12 @@ import Sidebar from './Sidebar'
 import Header from './Header'
 import Breadcrumbs from './Breadcrumbs'
 import ChatBotWidget from '../chat/ChatBotWidget'
+import { useRecentTracker } from '../../hooks/useRecent'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
+  useRecentTracker()
 
   return (
     <div className="flex h-screen bg-[#f7f8f8] dark:bg-dark-300">

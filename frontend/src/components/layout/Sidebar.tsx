@@ -1,5 +1,5 @@
 // frontend/src/components/layout/Sidebar.tsx
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { 
   LayoutDashboard, Users, ShoppingCart, Package, 
   CheckSquare, Bot, Settings, X, ReceiptText, Building2, WalletCards, Landmark, BookOpen, FileText, TrendingUp, Scale, Car, ChevronDown, ChevronRight, DollarSign, Banknote, HandCoins, Wrench, BarChart3, Target, Coins, Network, CalendarClock, CalendarRange, Loader2, Star
@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { modulesApi } from '../../services/api'
 import { useAuthStore } from '../../store/authStore'
+import { readRecent } from '../../hooks/useRecent'
 import type { CompanyModuleStatus } from '../../types'
 
 // ── Icon map ─────────────────────────────────────────────────────────
@@ -119,6 +120,7 @@ interface SidebarProps {
 export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
   const { t } = useTranslation()
   const { user } = useAuthStore()
+  const { pathname } = useLocation()
   const [modules, setModules] = useState<CompanyModuleStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
@@ -245,6 +247,26 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
     })
     .filter((i): i is { to: string; icon: any; label: string } => i !== null)
 
+  // Recent: last visited module routes (excluding dashboard itself).
+  // Plain computation (no hook): Sidebar re-renders on route change via
+  // useLocation, so readRecent() re-reads localStorage each render.
+  const recentItems: { to: string; icon: any; label: string }[] = readRecent()
+    .filter((r) => r !== '/dashboard')
+    .map((r) => {
+      const found = [
+        ...crmItems,
+        ...salesItems,
+        ...getNavItems('operations'),
+        ...getNavItems('purchases'),
+        ...getNavItems('finance'),
+        ...getNavItems('accounting'),
+        ...getNavItems('fleet'),
+        ...getNavItems('other'),
+      ].find((i) => i.to === r)
+      return found ? { ...found, to: r } : null
+    })
+    .filter((i): i is { to: string; icon: any; label: string } => i !== null)
+
   return (
     <>
       {open && (
@@ -302,6 +324,20 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                   <div className="space-y-0.5">
                     {favoriteItems.map((item) => (
                       <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav onToggleFav={toggleFav} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent */}
+              {recentItems.length > 0 && (
+                <div className="pt-2">
+                  <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-brandgray-400 dark:text-gray-500">
+                    {t('ბოლო ნანახი')}
+                  </p>
+                  <div className="space-y-0.5">
+                    {recentItems.map((item) => (
+                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
                     ))}
                   </div>
                 </div>
