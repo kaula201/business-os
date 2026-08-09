@@ -7,6 +7,7 @@ import {
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { modulesApi } from '../../services/api'
+import { useAuthStore } from '../../store/authStore'
 import type { CompanyModuleStatus } from '../../types'
 
 // ── Icon map ─────────────────────────────────────────────────────────
@@ -106,6 +107,7 @@ interface SidebarProps {
 
 export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
   const { t } = useTranslation()
+  const { user } = useAuthStore()
   const [modules, setModules] = useState<CompanyModuleStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
@@ -158,12 +160,24 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
     )
   }
 
-  // Build nav items from enabled modules
+  // Build nav items from enabled modules + role-based access
   const enabledModules = modules.filter((m) => m.enabled && m.module.is_active)
+
+  // Role-based menu: hide modules the current user's role cannot access.
+  // Admin/owner always see everything; other roles need can_access=true.
+  const canAccess = (moduleCode: string): boolean => {
+    if (!user) return false
+    if (user.role === 'admin' || user.role === 'owner') return true
+    const status = enabledModules.find((m) => m.module.code === moduleCode)
+    if (!status) return false
+    return status.permissions.some(
+      (p) => p.role === user.role && p.can_access,
+    )
+  }
 
   const getNavItems = (category: string) =>
     enabledModules
-      .filter((m) => m.module.category === category)
+      .filter((m) => m.module.category === category && canAccess(m.module.code))
       .map((m) => ({
         to: m.module.route || `/${m.module.code}`,
         icon: iconMap[m.module.icon || 'FileText'] || FileText,
