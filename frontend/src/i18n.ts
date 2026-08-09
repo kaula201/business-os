@@ -1139,6 +1139,9 @@ const en: Record<string, string> = {
   'საბაზო ვალუტა': 'Base currency',
   'კურსები განახლდა': 'Rates updated',
   'მანუალური განახლება': 'Manual refresh',
+  'სალარო და ბანკი': 'Cash & Banking',
+  'მოვალეები და ვალდებულებები': 'Receivables & Payables',
+  'ხარჯები და აქტივები': 'Expenses & Assets',
 }
 
 i18n.use(initReactI18next).init({

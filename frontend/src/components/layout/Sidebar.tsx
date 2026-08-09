@@ -174,6 +174,18 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
   const crmItems = getNavItems('sales').filter((i) => i.to.startsWith('/crm'))
   const salesItems = getNavItems('sales').filter((i) => !i.to.startsWith('/crm'))
 
+  // Finance items grouped into compact sub-sections so the menu stays short
+  const financeItems = getNavItems('finance')
+  const financeGroups = [
+    { title: t('სალარო და ბანკი'), codes: ['cash', 'banking'] },
+    { title: t('მოვალეები და ვალდებულებები'), codes: ['customer-finance', 'supplier-finance'] },
+    { title: t('ხარჯები და აქტივები'), codes: ['expenses', 'assets'] },
+    { title: t('ვალუტა'), codes: ['currency'] },
+  ].map((group) => ({
+    ...group,
+    items: financeItems.filter((i) => group.codes.some((c) => i.to.startsWith(`/${c}`))),
+  })).filter((g) => g.items.length > 0)
+
   return (
     <>
       {open && (
@@ -273,8 +285,8 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                 </div>
               )}
 
-              {/* Finance group */}
-              {getNavItems('finance').length > 0 && (
+              {/* Finance group — compact sub-sections */}
+              {financeGroups.length > 0 && (
                 <div className="pt-2">
                   <button
                     type="button"
@@ -289,8 +301,15 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
 
                   {openGroups.has('finance') && (
                     <div className="ml-3 pl-3 border-l border-brandgray-200 dark:border-dark-50 space-y-1 mt-1">
-                      {getNavItems('finance').map((item) => (
-                        <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
+                      {financeGroups.map((group) => (
+                        <div key={group.title}>
+                          <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-brandgray-400 dark:text-gray-500">
+                            {group.title}
+                          </p>
+                          {group.items.map((item) => (
+                            <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} />
+                          ))}
+                        </div>
                       ))}
                     </div>
                   )}
