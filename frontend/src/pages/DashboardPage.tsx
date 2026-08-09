@@ -1,9 +1,9 @@
-import { Link } from 'react-router-dom'
+import { Link , useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { dashboardApi } from '../services/api'
-import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, ArrowDown, Wallet, Clock } from 'lucide-react'
+import { dashboardApi, usersApi } from '../services/api'
+import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, ArrowDown, Wallet, Clock , ArrowUpRight } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts'
 import { StatusBadge, orderStatusMap } from '../components/ui/Badges'
 import type { DashboardData } from '../types'
@@ -16,10 +16,16 @@ const COLORS = ['#16A6D4', '#4CAF32', '#7C6966', '#8EDFF7', '#94DF79', '#BCAEAB'
 export default function DashboardPage() {
   const { t } = useTranslation()
   const [period, setPeriod] = useState('30d')
+  const [ownerId, setOwnerId] = useState('')
+
+  const { data: users } = useQuery({
+    queryKey: ['dashboard-users'],
+    queryFn: () => usersApi.list({ page_size: 100 }).then(r => r.data.data),
+  })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['dashboard', period],
-    queryFn: () => dashboardApi.getSummary(period).then(r => r.data.data),
+    queryKey: ['dashboard', period, ownerId],
+    queryFn: () => dashboardApi.getSummary(period, ownerId || undefined).then(r => r.data.data),
   })
   const { data: aging } = useQuery({
     queryKey: ['dashboard-aging'],
@@ -41,20 +47,33 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200">{t('მიმოხილვა')}</h1>
-        <div className="flex gap-2 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-50 p-1 dark:bg-dark-200 dark:border-dark-50">
-          {[
-            { key: '7d', label: t('7 დღე') },
-            { key: '30d', label: t('30 დღე') },
-            { key: '90d', label: t('90 დღე') },
-          ].map(p => (
-            <button
-              key={p.key}
-              onClick={() => setPeriod(p.key)}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${period === p.key ? 'bg-primary-600 text-white' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 dark:text-gray-400 dark:text-gray-500 dark:hover:bg-dark-100'}`}
-            >
-              {p.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={ownerId}
+            onChange={(e) => setOwnerId(e.target.value)}
+            className="input h-9 w-auto text-sm"
+            aria-label={t('პასუხისმგებელი ფილტრი')}
+          >
+            <option value="">{t('ყველა თანამშრომელი')}</option>
+            {(users?.items || users || []).map((u: any) => (
+              <option key={u.id} value={u.id}>{u.full_name}</option>
+            ))}
+          </select>
+          <div className="flex gap-2 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-50 p-1 dark:bg-dark-200 dark:border-dark-50">
+            {[
+              { key: '7d', label: t('7 დღე') },
+              { key: '30d', label: t('30 დღე') },
+              { key: '90d', label: t('90 დღე') },
+            ].map(p => (
+              <button
+                key={p.key}
+                onClick={() => setPeriod(p.key)}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${period === p.key ? 'bg-primary-600 text-white' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 dark:text-gray-400 dark:text-gray-500 dark:hover:bg-dark-100'}`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -67,10 +86,11 @@ export default function DashboardPage() {
           change={kpi?.revenue_change}
           color="blue"
           hint={`${t('ინვოისირებული შეკვეთები')}: ${data?.invoiced_orders_count ?? 0} / ${data?.total_orders_count ?? 0}`}
+          to="/invoices"
         />
-        <KPICard icon={Users} label={t('აქტიური კლიენტები')} value={String(kpi?.active_clients || 0)} color="green" />
-        <KPICard icon={ShoppingCart} label={t('მიმდინარე შეკვეთები')} value={String(kpi?.active_orders || 0)} color="gray" />
-        <KPICard icon={AlertTriangle} label={t('დაგვიანებული დავალებები')} value={String(kpi?.overdue_tasks || 0)} color="red" />
+        <KPICard icon={Users} label={t('აქტიური კლიენტები')} value={String(kpi?.active_clients || 0)} color="green" to="/clients" />
+        <KPICard icon={ShoppingCart} label={t('მიმდინარე შეკვეთები')} value={String(kpi?.active_orders || 0)} color="gray" to="/orders" />
+        <KPICard icon={AlertTriangle} label={t('დაგვიანებული დავალებები')} value={String(kpi?.overdue_tasks || 0)} color="red" to="/tasks" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -261,8 +281,9 @@ export default function DashboardPage() {
   )
 }
 
-function KPICard({ icon: Icon, label, value, change, color, hint }: { icon: any; label: string; value: string; change?: number; color: string; hint?: string }) {
+function KPICard({ icon: Icon, label, value, change, color, hint, to }: { icon: any; label: string; value: string; change?: number; color: string; hint?: string; to?: string }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const colorMap: Record<string, string> = {
     blue: 'bg-primary-50 text-primary-700',
     green: 'bg-accent-50 text-accent-700',
@@ -270,7 +291,7 @@ function KPICard({ icon: Icon, label, value, change, color, hint }: { icon: any;
     gray: 'bg-brandgray-100 dark:bg-dark-100 text-brandgray-700 dark:text-gray-300',
   }
 
-  return (
+  const content = (
     <div className="card flex items-center gap-4 dark:bg-dark-200 dark:border-dark-50">
       <div className={`p-3 rounded-xl ${colorMap[color] || colorMap.blue}`}>
         <Icon size={24} />
@@ -288,6 +309,22 @@ function KPICard({ icon: Icon, label, value, change, color, hint }: { icon: any;
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1" title={t('შემოსავალი ითვლება მხოლოდ გაცემული (issued) ინვოისებიდან')}>{hint}</p>
         )}
       </div>
+      {to && (
+        <ArrowUpRight size={16} className="text-gray-300 dark:text-gray-600 transition-colors group-hover:text-primary-500" />
+      )}
     </div>
+  )
+
+  return to ? (
+    <button
+      type="button"
+      onClick={() => navigate(to)}
+      title={t('დეტალურად ნახვა')}
+      className="group text-left transition-transform hover:-translate-y-0.5"
+    >
+      {content}
+    </button>
+  ) : (
+    content
   )
 }

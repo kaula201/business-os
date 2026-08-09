@@ -1,8 +1,9 @@
 # backend/app/api/v1/endpoints/dashboard.py
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from datetime import datetime, timedelta
+from uuid import UUID
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.time import utc_now
@@ -26,11 +27,22 @@ router = APIRouter(prefix="/dashboard", tags=["დეშბორდი"])
 @router.get("/summary", response_model=ResponseBase[DashboardSummary])
 async def get_dashboard_summary(
     period: str = "30d",
+    owner_id: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     company_id = current_user.company_id
     now = utc_now()
+
+    # Optional owner filter: narrows orders + tasks to one assignee
+    owner_uuid = None
+    if owner_id:
+        owner_uuid = UUID(owner_id)
+        owner_exists = (await db.execute(
+            select(User.id).where(User.id == owner_uuid, User.company_id == company_id)
+        )).scalar_one_or_none()
+        if not owner_exists:
+            raise HTTPException(status_code=404, detail="თანამშრომელი არ მოიძებნა")
 
     # Period mapping
     days = {"7d": 7, "30d": 30, "90d": 90}.get(period, 30)
@@ -45,16 +57,22 @@ async def get_dashboard_summary(
         )
     )).scalar() or 0
 
+    order_scope = [Order.company_id == company_id]
+    if owner_uuid:
+        order_scope.append(Order.assigned_to == owner_uuid)
     active_orders_count = (await db.execute(
         select(func.count()).where(
-            Order.company_id == company_id,
+            *order_scope,
             Order.status.notin_([OrderStatus.COMPLETED, OrderStatus.CANCELLED])
         )
     )).scalar() or 0
 
+    task_scope = [Task.company_id == company_id]
+    if owner_uuid:
+        task_scope.append(Task.assigned_to == owner_uuid)
     overdue_tasks_count = (await db.execute(
         select(func.count()).where(
-            Task.company_id == company_id,
+            *task_scope,
             Task.due_date < now,
             Task.status.notin_([TaskStatus.DONE, TaskStatus.CANCELLED])
         )
@@ -126,7 +144,7 @@ async def get_dashboard_summary(
     }
     status_result = await db.execute(
         select(Order.status, func.count()).where(
-            Order.company_id == company_id
+            *order_scope
         ).group_by(Order.status)
     )
     order_status_dist = [
@@ -139,7 +157,7 @@ async def get_dashboard_summary(
 
     # Recent activity (last 10)
     recent_orders = (await db.execute(
-        select(Order).where(Order.company_id == company_id)
+        select(Order).where(*order_scope)
         .order_by(Order.created_at.desc()).limit(10)
     )).scalars().all()
 
