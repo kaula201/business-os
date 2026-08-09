@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Sidebar from './Sidebar'
 import Header from './Header'
+import Breadcrumbs from './Breadcrumbs'
 import ChatBotWidget from '../chat/ChatBotWidget'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -13,6 +14,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(true)} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          <Breadcrumbs />
           {children}
         </main>
       </div>
