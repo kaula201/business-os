@@ -1,5 +1,5 @@
 # backend/app/api/v1/endpoints/auth.py
-from datetime import datetime, timedelta
+from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +32,7 @@ async def get_sso_token(current_user: User = Depends(get_current_user)):
     Signed with the same JWT_SECRET_KEY (HS256) that CRM OS trusts.
     Payload carries the user's email + name + type='sso'; expires in 5 minutes.
     """
-    expire = datetime.utcnow() + timedelta(minutes=5)
+    expire = utc_now() + timedelta(minutes=5)
     payload = {
         "sub": str(current_user.id),
         "email": current_user.email,

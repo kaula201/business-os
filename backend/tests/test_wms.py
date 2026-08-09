@@ -1,5 +1,5 @@
 """WMS: batch/lot and serial-number tracking tests."""
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
@@ -47,7 +47,7 @@ async def test_batch_crud_and_receive(client, auth_headers, test_company, db_ses
             "warehouse_id": str(warehouse.id),
             "product_id": str(product.id),
             "batch_number": "LOT-2026-001",
-            "expiry_date": (datetime.now() + timedelta(days=20)).isoformat(),
+            "expiry_date": (date.today() + timedelta(days=20)).isoformat(),
             "quantity": 10,
             "unit_cost": 20,
         },
