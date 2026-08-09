@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import LanguageSwitcher from '../LanguageSwitcher'
+import GlobalSearch from './GlobalSearch'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -36,6 +37,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
         >
           <Menu size={20} />
         </button>
+      </div>
+
+      {/* Global search */}
+      <div className="hidden md:flex flex-1 justify-center">
+        <GlobalSearch />
       </div>
 
       {/* Right */}

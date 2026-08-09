@@ -1146,6 +1146,8 @@ const en: Record<string, string> = {
   'რჩეულებში დამატება': 'Add to favorites',
   'რჩეულებიდან ამოღება': 'Remove from favorites',
   'ბოლო ნანახი': 'Recent',
+  'გლობალური ძებნა...': 'Global search...',
+  'შედეგი არ მოიძებნა': 'No results found',
 }
 
 i18n.use(initReactI18next).init({

@@ -56,6 +56,7 @@ from app.api.v1.endpoints import (
     quality_control,
     recruitment,
     srs,
+    search,
     suppliers,
     supplier_finance,
     settings_enhanced,
@@ -121,6 +122,7 @@ api_router.include_router(cash.router)
 api_router.include_router(assets.router)
 api_router.include_router(budgeting.router)
 api_router.include_router(srs.router)
+api_router.include_router(search.router)
 api_router.include_router(expenses.router)
 api_router.include_router(helpdesk.router)
 api_router.include_router(import_data.router)
