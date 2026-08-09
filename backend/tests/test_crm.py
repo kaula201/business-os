@@ -343,3 +343,44 @@ async def test_crm_forecast_shows_correct_pipeline_total(client, auth_headers, t
         f"Forecast sum shows {qual_stage['total_amount']} instead of 120000.00"
     )
     assert Decimal(str(data["total_pipeline"])) >= Decimal("120000.00")
+
+
+async def test_qualified_lead_auto_creates_pipeline_opportunity(client, auth_headers, test_company):
+    """Qualifying a lead must auto-create an opportunity so the pipeline
+    forecast is never empty for qualified leads."""
+    lead_response = await client.post(
+        "/api/v1/crm/leads",
+        headers=auth_headers,
+        json={
+            "company_name": "Pipeline Auto Co",
+            "email": "auto@example.ge",
+            "source": "other",
+            "estimated_value": 75000,
+        },
+    )
+    assert lead_response.status_code == 201, lead_response.text
+    lead_id = lead_response.json()["data"]["id"]
+
+    # Before qualification: pipeline has no qualification-stage amount from this lead
+    forecast_before = await client.get("/api/v1/crm/forecast", headers=auth_headers)
+    assert forecast_before.status_code == 200, forecast_before.text
+    stages_before = forecast_before.json()["data"]["stages"]
+
+    # Qualify the lead
+    qualified = await client.patch(
+        f"/api/v1/crm/leads/{lead_id}",
+        headers=auth_headers,
+        json={"status": "qualified"},
+    )
+    assert qualified.status_code == 200, qualified.text
+
+    # After qualification: the pipeline must contain the auto-created opportunity
+    forecast_after = await client.get("/api/v1/crm/forecast", headers=auth_headers)
+    assert forecast_after.status_code == 200, forecast_after.text
+    data = forecast_after.json()["data"]
+    qual_stage = next((s for s in data["stages"] if s["stage"] == "qualification"), None)
+    assert qual_stage is not None, f"Qualification stage missing in {data['stages']}"
+    assert Decimal(str(qual_stage["total_amount"])) >= Decimal("75000.00"), (
+        f"Pipeline shows {qual_stage['total_amount']}, expected >= 75000.00"
+    )
+    assert Decimal(str(data["total_pipeline"])) >= Decimal("75000.00")
