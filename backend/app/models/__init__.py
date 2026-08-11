@@ -129,3 +129,5 @@ from app.models.pricing import PriceList, PriceListItem  # noqa: F401
 from app.models.quotation import Quotation, QuotationItem  # noqa: F401
 from app.models.payment_term import PaymentTerm  # noqa: F401
 from app.models.sales_team import SalesTeam, SalesTeamMember, SalesTarget, CommissionRule, CommissionAccrual  # noqa: F401
+from app.models.email_tracking import EmailEvent  # noqa: F401
+from app.models.signature import SignatureRequest  # noqa: F401
