@@ -1214,6 +1214,17 @@ const en: Record<string, string> = {
   'GEL ეკვივალენტი': 'GEL equivalent',
   'გაშვებულია': 'Posted',
   'შემდეგი გაშვება': 'Next run',
+  'ახალი ხელით ჩანაწერი': 'New manual entry',
+  'სტრიქონის დამატება': 'Add line',
+  'ბალანსი იყრის თავს': 'Balanced',
+  'ბალანსი არ იყრის თავს': 'Not balanced',
+  'ხელით ჩანაწერი': 'Manual entry',
+  'განმეორებადი': 'Recurring',
+  'საკურსო სხვაობა': 'Exchange difference',
+  'ჩაწერა': 'Post entry',
+  'კომენტარი': 'Comment',
+  'მაგ: ბანკის საკომისიო': 'e.g. bank fee',
+  'შეცდომა ჩანაწერის შექმნისას': 'Error creating entry',
 }
 
 i18n.use(initReactI18next).init({
