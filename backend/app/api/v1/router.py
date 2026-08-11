@@ -38,6 +38,7 @@ from app.api.v1.endpoints import (
     consolidated,
     quotations,
     price_lists,
+    sales_teams,
     inventory_valuation,
     bank_rules,
     helpdesk,
@@ -125,6 +126,7 @@ api_router.include_router(inventory_valuation.router)
 api_router.include_router(consolidated.router)
 api_router.include_router(quotations.router)
 api_router.include_router(price_lists.router)
+api_router.include_router(sales_teams.router)
 api_router.include_router(gl_enhanced.router)
 api_router.include_router(exchange_differences.router)
 api_router.include_router(company.router)
