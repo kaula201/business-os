@@ -81,7 +81,7 @@ export default function BankRulesPage() {
     { key: 'rule_type', label: 'ტიპი', render: (r: Rule) => ruleTypeLabels[r.rule_type] || r.rule_type },
     { key: 'action', label: 'მოქმედება', render: (r: Rule) => (
       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${r.action === 'auto_reconcile' ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300' : 'bg-brandgray-50 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400'}`}>
-        {actionLabels[r.action] || r.action}
+        {t(actionLabels[r.action] || r.action)}
       </span>) },
     { key: 'priority', label: 'პრიორიტეტი', render: (r: Rule) => r.priority },
     { key: 'is_active', label: 'სტატუსი', render: (r: Rule) => r.is_active
