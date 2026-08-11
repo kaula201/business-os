@@ -267,6 +267,20 @@ export const bankingApi = {
     api.get('/bank-reconciliations/', { params }),
   reverseReconciliation: (id: string, data: { idempotency_key: string; reason: string }) =>
     api.post(`/bank-reconciliations/${id}/reversal`, data),
+  // Reconciliation rules
+  listRules: (params?: { page?: number; page_size?: number; is_active?: boolean }) =>
+    api.get('/banking/reconciliation-rules/', { params }),
+  createRule: (data: Record<string, unknown>) => api.post('/banking/reconciliation-rules/', data),
+  updateRule: (id: string, data: Record<string, unknown>) => api.patch(`/banking/reconciliation-rules/${id}`, data),
+  deleteRule: (id: string) => api.delete(`/banking/reconciliation-rules/${id}`),
+  applyRules: (on_date?: string) => api.post('/banking/reconciliation-rules/apply', null, { params: on_date ? { on_date } : {} }),
+}
+
+// Inventory valuation API
+export const inventoryValuationApi = {
+  get: (productId: string) => api.get(`/inventory/valuation/${productId}`),
+  adjust: (data: { product_id: string; quantity: number; unit_cost: number; note?: string }) =>
+    api.post('/inventory/valuation/adjust', data),
 }
 
 export const customerFinanceApi = {
@@ -307,6 +321,26 @@ export const glApi = {
   trialBalance: (params?: { as_of_date?: string }) => api.get('/gl/trial-balance/', { params }),
   profitLoss: (params?: { date_from?: string; date_to?: string }) => api.get('/gl/profit-loss/', { params }),
   balanceSheet: (params?: { as_of_date?: string }) => api.get('/gl/balance-sheet/', { params }),
+  // Manual journal entry
+  createJournalEntry: (data: { entry_date: string; description: string; lines: { gl_account_id: string; debit_amount?: number; credit_amount?: number; description?: string }[] }) =>
+    api.post('/gl/journal-entries/', data),
+  // Recurring entries
+  listRecurring: (params?: { page?: number; page_size?: number; is_active?: boolean }) =>
+    api.get('/gl/recurring/', { params }),
+  createRecurring: (data: Record<string, unknown>) => api.post('/gl/recurring/', data),
+  updateRecurring: (id: string, data: Record<string, unknown>) => api.patch(`/gl/recurring/${id}`, data),
+  deleteRecurring: (id: string) => api.delete(`/gl/recurring/${id}`),
+  runRecurring: (through_date?: string) => api.post('/gl/recurring/run', null, { params: through_date ? { through_date } : {} }),
+  // Exchange differences
+  runExchangeDifferences: (on_date?: string) => api.post('/gl/exchange-differences/run', null, { params: on_date ? { on_date } : {} }),
+  listExchangeDifferences: (params?: { page?: number; page_size?: number; currency?: string; date_from?: string; date_to?: string }) =>
+    api.get('/gl/exchange-differences/', { params }),
+  // Consolidated reports
+  consolidatedCompanies: () => api.get('/gl/consolidated/companies'),
+  consolidatedProfitLoss: (params?: { date_from?: string; date_to?: string }) =>
+    api.get('/gl/consolidated/profit-loss', { params }),
+  consolidatedBalanceSheet: (params?: { as_of_date?: string }) =>
+    api.get('/gl/consolidated/balance-sheet', { params }),
 }
 
 // Company API

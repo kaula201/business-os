@@ -35,6 +35,11 @@ const CurrencyPage = lazy(() => import('./pages/CurrencyPage'))
 const AnalyticAccountingPage = lazy(() => import('./pages/AnalyticAccountingPage'))
 const DeferredPage = lazy(() => import('./pages/DeferredPage'))
 const AccountingPeriodsPage = lazy(() => import('./pages/AccountingPeriodsPage'))
+const RecurringEntriesPage = lazy(() => import('./pages/RecurringEntriesPage'))
+const ExchangeDifferencesPage = lazy(() => import('./pages/ExchangeDifferencesPage'))
+const ConsolidatedReportsPage = lazy(() => import('./pages/ConsolidatedReportsPage'))
+const BankRulesPage = lazy(() => import('./pages/BankRulesPage'))
+const InventoryValuationPage = lazy(() => import('./pages/InventoryValuationPage'))
 const CRMPage = lazy(() => import('./pages/CRMPage'))
 const HRPage = lazy(() => import('./pages/HRPage'))
 const DocumentsPage = lazy(() => import('./pages/DocumentsPage'))
@@ -97,6 +102,11 @@ function App() {
                   <Route path="/analytic-accounting" element={<AnalyticAccountingPage />} />
                   <Route path="/deferred" element={<DeferredPage />} />
                   <Route path="/accounting-periods" element={<AccountingPeriodsPage />} />
+                  <Route path="/gl-recurring" element={<RecurringEntriesPage />} />
+                  <Route path="/gl-exchange-differences" element={<ExchangeDifferencesPage />} />
+                  <Route path="/gl-consolidated" element={<ConsolidatedReportsPage />} />
+                  <Route path="/banking-rules" element={<BankRulesPage />} />
+                  <Route path="/inventory-valuation" element={<InventoryValuationPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Routes>
               </Layout>

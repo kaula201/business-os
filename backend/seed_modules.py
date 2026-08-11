@@ -37,6 +37,11 @@ MODULES = [
     ("analytic",      "ანალიტიკური აღრიცხვა","Analytic accounting",           "Network",          "/analytic-accounting","accounting",230, "gl"),
     ("deferred",      "გადავადებული ოპერაციები","Deferred operations",        "CalendarClock",    "/deferred",      "accounting",240, "gl"),
     ("accounting-periods","სააღრიცხვო პერიოდები","Accounting periods",       "CalendarRange",    "/accounting-periods","accounting",250, None),
+    ("gl-recurring",   "განმეორებადი ჩანაწერები", "Recurring journal entries",  "CalendarClock",    "/gl-recurring",  "accounting",255, "gl"),
+    ("exchange-differences","საკურსო სხვაობები", "FX revaluation",            "TrendingDown",     "/gl-exchange-differences","accounting",256, "gl"),
+    ("consolidated",   "კონსოლიდირებული ანგარიშები","Multi-company reports", "Scale",            "/gl-consolidated","accounting",257, "gl"),
+    ("banking-rules",  "შეჯერების წესები",        "Reconciliation rules",      "Landmark",         "/banking-rules", "finance",   115,  "banking"),
+    ("inventory-valuation","მარაგების შეფასება", "WAC valuation",             "Package",          "/inventory-valuation","operations",55, "inventory"),
     ("fleet",         "ავტოპარკი",          "Vehicle fleet management",        "Car",              "/fleet",         "fleet",     260,  None),
     ("reports",       "რეპორტები",           "Reports & analytics",             "BarChart3",        "/reports",       "other",     270,  None),
     ("ai",            "AI ასისტენტი",       "AI chat & RAG",                   "Bot",              "/ai",            "other",     280,  None),
@@ -52,7 +57,7 @@ DEFAULT_PERMISSIONS = {
 }
 
 # Financial modules where accountant gets create/edit
-FINANCIAL_MODULES = {"cash", "banking", "currency", "gl", "journal-entries", "trial-balance", "profit-loss", "balance-sheet", "expenses", "assets", "customer-finance", "supplier-finance", "srs", "budgeting", "analytic", "deferred", "accounting-periods"}
+FINANCIAL_MODULES = {"cash", "banking", "currency", "gl", "journal-entries", "trial-balance", "profit-loss", "balance-sheet", "expenses", "assets", "customer-finance", "supplier-finance", "srs", "budgeting", "analytic", "deferred", "accounting-periods", "gl-recurring", "exchange-differences", "consolidated", "banking-rules"}
 
 # Operational modules where manager gets create/edit
 OPERATIONAL_MODULES = {"clients", "orders", "invoices", "inventory", "tasks", "purchases", "suppliers", "fleet", "crm"}

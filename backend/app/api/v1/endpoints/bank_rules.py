@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.bank_rule import BankReconciliationRule
 from app.models.user import User
+from app.schemas.common import PaginatedResponse, ResponseBase
 from app.schemas.bank_rule import (
     BankReconciliationRuleCreate,
     BankReconciliationRuleResponse,
@@ -39,7 +40,7 @@ def _to_response(r: BankReconciliationRule) -> BankReconciliationRuleResponse:
     )
 
 
-@router.get("/", response_model=BankReconciliationRuleResponse)
+@router.get("/", response_model=ResponseBase[PaginatedResponse[BankReconciliationRuleResponse]])
 async def list_rules(
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=200),
@@ -61,7 +62,10 @@ async def list_rules(
             .limit(page_size)
         )
     ).scalars().all()
-    return {"total": total, "page": page, "page_size": page_size, "items": [_to_response(r) for r in rows]}
+    return ResponseBase(data=PaginatedResponse(
+        total=total, page=page, page_size=page_size,
+        items=[_to_response(r) for r in rows],
+    ))
 
 
 @router.post("/", response_model=BankReconciliationRuleResponse, status_code=201)
