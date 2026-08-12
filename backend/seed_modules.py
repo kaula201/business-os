@@ -42,6 +42,11 @@ MODULES = [
     ("consolidated",   "კონსოლიდირებული ანგარიშები","Multi-company reports", "Scale",            "/gl-consolidated","accounting",257, "gl"),
     ("banking-rules",  "შეჯერების წესები",        "Reconciliation rules",      "Landmark",         "/banking-rules", "finance",   115,  "banking"),
     ("inventory-valuation","მარაგების შეფასება", "WAC valuation",             "Package",          "/inventory-valuation","operations",55, "inventory"),
+    ("quotations",     "კომერციული შემოთავაზებები","Quotations (convert to order)", "FileText",      "/quotations",    "sales",     45,  "clients"),
+    ("price-lists",    "ფასების სიები",            "Price lists & payment terms","Tags",           "/price-lists",   "sales",     46,  "products"),
+    ("sales-teams",    "გაყიდვების გუნდები",       "Teams, targets, commissions","Users",          "/sales-teams",   "sales",     47,  None),
+    ("email-tracking", "ელ.ფოსტა და ხელმოწერები",  "Email tracking & e-signature","Mail",          "/email-tracking","sales",     48,  None),
+    ("subscriptions",  "გამოწერები",               "Recurring subscriptions",     "RefreshCw",       "/subscriptions", "sales",     49,  "invoices"),
     ("fleet",         "ავტოპარკი",          "Vehicle fleet management",        "Car",              "/fleet",         "fleet",     260,  None),
     ("reports",       "რეპორტები",           "Reports & analytics",             "BarChart3",        "/reports",       "other",     270,  None),
     ("ai",            "AI ასისტენტი",       "AI chat & RAG",                   "Bot",              "/ai",            "other",     280,  None),
@@ -60,7 +65,7 @@ DEFAULT_PERMISSIONS = {
 FINANCIAL_MODULES = {"cash", "banking", "currency", "gl", "journal-entries", "trial-balance", "profit-loss", "balance-sheet", "expenses", "assets", "customer-finance", "supplier-finance", "srs", "budgeting", "analytic", "deferred", "accounting-periods", "gl-recurring", "exchange-differences", "consolidated", "banking-rules"}
 
 # Operational modules where manager gets create/edit
-OPERATIONAL_MODULES = {"clients", "orders", "invoices", "inventory", "tasks", "purchases", "suppliers", "fleet", "crm"}
+OPERATIONAL_MODULES = {"clients", "orders", "invoices", "inventory", "tasks", "purchases", "suppliers", "fleet", "crm", "quotations", "price-lists", "sales-teams", "email-tracking", "subscriptions"}
 
 
 async def seed_modules():

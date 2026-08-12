@@ -399,3 +399,61 @@ export const modulesApi = {
   upsertPermission: (moduleId: string, data: { role: string; can_access?: boolean; can_create?: boolean; can_edit?: boolean; can_delete?: boolean; can_approve?: boolean }) =>
     api.post(`/modules/permissions/${moduleId}`, data),
 }
+
+// Sales tools API — quotations, price lists, payment terms
+export const salesToolsApi = {
+  listQuotations: (params?: Record<string, unknown>) => api.get('/quotations/', { params }),
+  getQuotation: (id: string) => api.get(`/quotations/${id}`),
+  createQuotation: (data: Record<string, unknown>) => api.post('/quotations/', data),
+  updateQuotationStatus: (id: string, status: string) => api.patch(`/quotations/${id}/status`, { status }),
+  convertQuotation: (id: string) => api.post(`/quotations/${id}/convert`),
+  deleteQuotation: (id: string) => api.delete(`/quotations/${id}`),
+  listPriceLists: (params?: Record<string, unknown>) => api.get('/price-lists/', { params }),
+  createPriceList: (data: Record<string, unknown>) => api.post('/price-lists/', data),
+  updatePriceList: (id: string, data: Record<string, unknown>) => api.patch(`/price-lists/${id}`, data),
+  deletePriceList: (id: string) => api.delete(`/price-lists/${id}`),
+  listPaymentTerms: (params?: Record<string, unknown>) => api.get('/payment-terms/', { params }),
+  createPaymentTerm: (data: Record<string, unknown>) => api.post('/payment-terms/', data),
+  updatePaymentTerm: (id: string, data: Record<string, unknown>) => api.patch(`/payment-terms/${id}`, data),
+  deletePaymentTerm: (id: string) => api.delete(`/payment-terms/${id}`),
+}
+
+// Sales org API — teams, targets, commissions
+export const salesOrgApi = {
+  listTeams: (params?: Record<string, unknown>) => api.get('/sales/teams/', { params }),
+  createTeam: (data: Record<string, unknown>) => api.post('/sales/teams/', data),
+  updateTeam: (id: string, data: Record<string, unknown>) => api.patch(`/sales/teams/${id}`, data),
+  deleteTeam: (id: string) => api.delete(`/sales/teams/${id}`),
+  addMember: (teamId: string, userId: string) => api.post(`/sales/teams/${teamId}/members`, { user_id: userId }),
+  removeMember: (teamId: string, userId: string) => api.delete(`/sales/teams/${teamId}/members/${userId}`),
+  listTargets: (params?: Record<string, unknown>) => api.get('/sales/targets/', { params }),
+  createTarget: (data: Record<string, unknown>) => api.post('/sales/targets/', data),
+  updateTarget: (id: string, data: Record<string, unknown>) => api.patch(`/sales/targets/${id}`, data),
+  deleteTarget: (id: string) => api.delete(`/sales/targets/${id}`),
+  listRules: (params?: Record<string, unknown>) => api.get('/sales/commission-rules/', { params }),
+  createRule: (data: Record<string, unknown>) => api.post('/sales/commission-rules/', data),
+  updateRule: (id: string, data: Record<string, unknown>) => api.patch(`/sales/commission-rules/${id}`, data),
+  deleteRule: (id: string) => api.delete(`/sales/commission-rules/${id}`),
+  listCommissions: (params?: Record<string, unknown>) => api.get('/sales/commissions/', { params }),
+  markCommissionPaid: (id: string) => api.post(`/sales/commissions/${id}/mark-paid`),
+}
+
+// Communication API — email tracking, e-signature, subscriptions, portal
+export const commApi = {
+  recordEmailEvent: (data: { campaign_id: string; recipient_email: string; event_type: string }) =>
+    api.post('/email-events/', data),
+  listEmailEvents: (params?: Record<string, unknown>) => api.get('/email-events/', { params }),
+  campaignStats: (campaignId: string) => api.get(`/email-campaigns/${campaignId}/stats`),
+  listSignatureRequests: (params?: Record<string, unknown>) => api.get('/signature-requests/', { params }),
+  createSignatureRequest: (data: Record<string, unknown>) => api.post('/signature-requests/', data),
+  signRequest: (data: { token: string; signer_email: string; decision: string }) =>
+    api.post('/signature-requests/sign', data),
+  listSubscriptions: (params?: Record<string, unknown>) => api.get('/subscriptions/', { params }),
+  createSubscription: (data: Record<string, unknown>) => api.post('/subscriptions/', data),
+  updateSubscription: (id: string, data: Record<string, unknown>) => api.patch(`/subscriptions/${id}`, data),
+  renewSubscription: (id: string) => api.post(`/subscriptions/${id}/renew`),
+  deleteSubscription: (id: string) => api.delete(`/subscriptions/${id}`),
+  listPortalUsers: (params?: Record<string, unknown>) => api.get('/customer-portal/', { params }),
+  createPortalUser: (data: Record<string, unknown>) => api.post('/customer-portal/', data),
+  portalSummary: (clientId: string) => api.get(`/customer-portal/clients/${clientId}/summary`),
+}

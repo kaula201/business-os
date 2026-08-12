@@ -40,6 +40,11 @@ const ExchangeDifferencesPage = lazy(() => import('./pages/ExchangeDifferencesPa
 const ConsolidatedReportsPage = lazy(() => import('./pages/ConsolidatedReportsPage'))
 const BankRulesPage = lazy(() => import('./pages/BankRulesPage'))
 const InventoryValuationPage = lazy(() => import('./pages/InventoryValuationPage'))
+const QuotationsPage = lazy(() => import('./pages/QuotationsPage'))
+const PriceListsPage = lazy(() => import('./pages/PriceListsPage'))
+const SalesTeamsPage = lazy(() => import('./pages/SalesTeamsPage'))
+const EmailTrackingPage = lazy(() => import('./pages/EmailTrackingPage'))
+const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage'))
 const CRMPage = lazy(() => import('./pages/CRMPage'))
 const HRPage = lazy(() => import('./pages/HRPage'))
 const DocumentsPage = lazy(() => import('./pages/DocumentsPage'))
@@ -107,6 +112,11 @@ function App() {
                   <Route path="/gl-consolidated" element={<ConsolidatedReportsPage />} />
                   <Route path="/banking-rules" element={<BankRulesPage />} />
                   <Route path="/inventory-valuation" element={<InventoryValuationPage />} />
+                  <Route path="/quotations" element={<QuotationsPage />} />
+                  <Route path="/price-lists" element={<PriceListsPage />} />
+                  <Route path="/sales-teams" element={<SalesTeamsPage />} />
+                  <Route path="/email-tracking" element={<EmailTrackingPage />} />
+                  <Route path="/subscriptions" element={<SubscriptionsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Routes>
               </Layout>
