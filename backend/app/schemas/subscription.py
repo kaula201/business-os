@@ -15,6 +15,7 @@ class SubscriptionCreate(BaseModel):
     frequency: str = Field(default="monthly", max_length=20)
     start_date: date | None = None
     end_date: date | None = None
+    next_billing_date: date | None = None
     status: str = Field(default="active", max_length=20)
 
     @field_validator("frequency")
@@ -43,6 +44,7 @@ class SubscriptionUpdate(BaseModel):
     frequency: str | None = Field(default=None, max_length=20)
     start_date: date | None = None
     end_date: date | None = None
+    next_billing_date: date | None = None
     status: str | None = Field(default=None, max_length=20)
 
     @field_validator("frequency")
@@ -73,6 +75,7 @@ class SubscriptionResponse(BaseModel):
     frequency: str
     start_date: date | None
     end_date: date | None
+    next_billing_date: date | None
     status: str
     created_at: datetime
     updated_at: datetime

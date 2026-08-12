@@ -117,6 +117,63 @@ async def update_portal_user(
     return ResponseBase(data=PortalUserResponse.model_validate(portal_user))
 
 
+
+
+@router.get("/clients/{client_id}/summary", response_model=ResponseBase[dict])
+async def client_portal_summary(
+    client_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("customer-portal", "can_access")),
+):
+    """Client's own financial picture: invoices, orders, outstanding balance."""
+    from datetime import date
+    from app.models.invoice import Invoice
+    from app.models.order import Order
+    from app.models.receivable import CustomerReceivable
+
+    # invoices
+    inv_rows = (await db.execute(
+        select(Invoice).where(
+            Invoice.company_id == current_user.company_id,
+            Invoice.client_id == client_id,
+        ).order_by(Invoice.invoice_date.desc()).limit(50)
+    )).scalars().all()
+    invoices = [{
+        "id": str(i.id), "number": i.invoice_number, "date": str(i.invoice_date),
+        "due_date": str(i.due_date), "total": float(i.total), "status": i.status,
+    } for i in inv_rows]
+
+    # orders
+    ord_rows = (await db.execute(
+        select(Order).where(
+            Order.company_id == current_user.company_id,
+            Order.client_id == client_id,
+        ).order_by(Order.created_at.desc()).limit(50)
+    )).scalars().all()
+    orders = [{
+        "id": str(o.id), "number": o.order_number, "date": str(o.created_at.date()),
+        "total": float(o.total or 0), "status": o.status,
+    } for o in ord_rows]
+
+    # outstanding receivables
+    rec_rows = (await db.execute(
+        select(CustomerReceivable).where(
+            CustomerReceivable.company_id == current_user.company_id,
+            CustomerReceivable.client_id == client_id,
+            CustomerReceivable.outstanding_amount > 0,
+        )
+    )).scalars().all()
+    outstanding = float(sum(r.outstanding_amount for r in rec_rows))
+
+    return ResponseBase(data={
+        "client_id": str(client_id),
+        "outstanding_balance": round(outstanding, 2),
+        "open_invoices": sum(1 for i in inv_rows if i.status in ("issued", "overdue")),
+        "total_orders": len(orders),
+        "invoices": invoices,
+        "orders": orders,
+    })
+
 @router.delete("/{portal_user_id}", response_model=ResponseBase[dict])
 async def delete_portal_user(
     portal_user_id: UUID,
