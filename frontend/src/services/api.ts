@@ -176,7 +176,7 @@ export const tasksApi = {
   addDependency: (id: string, data: { depends_on_task_id: string; dependency_type?: string }) =>
     api.post(`/tasks/${id}/dependencies`, data),
   removeDependency: (id: string, depId: string) => api.delete(`/tasks/${id}/dependencies/${depId}`),
-  calendar: (params?: any) => api.get('/tasks-enhanced/calendar', { params }),
+  calendar: (params?: any) => api.get('/tasks/calendar', { params }),
 }
 
 // Dashboard API

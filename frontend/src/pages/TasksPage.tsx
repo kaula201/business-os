@@ -20,7 +20,7 @@ const statusColumns: { status: TaskStatus; label: string }[] = [
 export default function TasksPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [view, setView] = useState<'list' | 'kanban'>('list')
+  const [view, setView] = useState<'list' | 'kanban' | 'calendar' | 'gantt'>('list')
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [page, setPage] = useState(1)
@@ -51,6 +51,11 @@ export default function TasksPage() {
   })
   const { data: usersData } = useQuery({ queryKey: ['users-list'], queryFn: () => usersApi.list({ page_size: 100 }).then(r => r.data.data) })
   const { data: clientsData } = useQuery({ queryKey: ['clients-ref'], queryFn: () => clientsApi.list({ page_size: 100 }).then(r => r.data.data) })
+  const { data: calendarData } = useQuery({
+    queryKey: ['tasks-calendar'],
+    queryFn: () => tasksApi.calendar().then(r => r.data.data),
+    enabled: view === 'calendar' || view === 'gantt',
+  })
 
   const tasks: Task[] = data?.items || []
   const tasksTotal = data?.total || 0
@@ -176,6 +181,8 @@ export default function TasksPage() {
           <div className="flex gap-2">
             <button onClick={() => setView('list')} className={`btn-secondary text-sm ${view === 'list' ? 'ring-2 ring-primary-500' : ''}`}>{t('სია')}</button>
             <button onClick={() => setView('kanban')} className={`btn-secondary text-sm ${view === 'kanban' ? 'ring-2 ring-primary-500' : ''}`}>{t('დოსკა')}</button>
+            <button onClick={() => setView('calendar')} className={`btn-secondary text-sm ${view === 'calendar' ? 'ring-2 ring-primary-500' : ''}`}>{t('კალენდარი')}</button>
+            <button onClick={() => setView('gantt')} className={`btn-secondary text-sm ${view === 'gantt' ? 'ring-2 ring-primary-500' : ''}`}>{t('Gantt')}</button>
           </div>
           <button onClick={openCreate} className="btn-primary flex items-center gap-2">
             <Plus size={18} /> {t('ახალი დავალება')}
@@ -249,6 +256,68 @@ export default function TasksPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {view === 'calendar' && (
+        <div className="rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('თარიღი')}</th>
+                  <th className="px-4 py-3">{t('დავალება')}</th>
+                  <th className="px-4 py-3">{t('სტატუსი')}</th>
+                  <th className="px-4 py-3">{t('პრიორიტეტი')}</th>
+                  <th className="px-4 py-3">{t('პასუხისმგებელი')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {!calendarData || calendarData.length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('კალენდარში დავალებები არ არის')}</td></tr>
+                ) : calendarData.map((ev: any) => (
+                  <tr key={ev.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-mono text-gray-600 dark:text-gray-400">{ev.start ? new Date(ev.start).toLocaleDateString('ka-GE') : '—'}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{ev.title}</td>
+                    <td className="px-4 py-3"><StatusBadge status={ev.status} map={taskStatusMap} /></td>
+                    <td className="px-4 py-3"><StatusBadge status={ev.priority} map={priorityMap} /></td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{ev.assigned_to_name || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {view === 'gantt' && (
+        <div className="rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200 overflow-hidden">
+          <div className="overflow-x-auto p-4">
+            {!calendarData || calendarData.length === 0 ? (
+              <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">{t('Gantt-ისთვის დავალებები არ არის')}</p>
+            ) : (
+              <div className="space-y-2 min-w-[600px]">
+                {calendarData.map((ev: any) => {
+                  const start = ev.start ? new Date(ev.start) : null
+                  const end = ev.end ? new Date(ev.end) : start
+                  const today = new Date()
+                  const min = start ? Math.min(start.getTime(), today.getTime()) : today.getTime()
+                  const max = end ? Math.max(end.getTime(), today.getTime()) : today.getTime()
+                  const span = Math.max(1, (max - min) / (1000 * 60 * 60 * 24))
+                  const left = start ? ((start.getTime() - min) / (1000 * 60 * 60 * 24)) / span * 100 : 0
+                  const width = start && end ? Math.max(4, ((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) / span * 100) : 4
+                  return (
+                    <div key={ev.id} className="flex items-center gap-3">
+                      <div className="w-48 truncate text-sm text-gray-700 dark:text-gray-300">{ev.title}</div>
+                      <div className="relative flex-1 h-6 rounded bg-gray-100 dark:bg-dark-100">
+                        <div className="absolute top-1 bottom-1 rounded bg-primary-500/80" style={{ left: `${left}%`, width: `${width}%` }} title={ev.title} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
