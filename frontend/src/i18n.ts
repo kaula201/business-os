@@ -1403,6 +1403,23 @@ const en: Record<string, string> = {
   'ბოლო ჩეკის ბეჭდვა': 'Print last receipt',
   'გმადლობთ!': 'Thank you!',
   'ქულების დარიცხვა': 'Earn points',
+  'Payslips': 'Payslips',
+  'Payslips-ის გენერაცია': 'Generate payslips',
+  'Payslips არ არის. ჯერ ხელფასები გამოთვალეთ, მერე გენერაცია გაუშვით.': 'No payslips. Calculate payroll first, then generate.',
+  'პენსია 2%': 'Pension 2%',
+  'გადასახადი 15%': 'Income tax 15%',
+  'შვებულების მოთხოვნები არ არის': 'No leave requests',
+  'დასწრება': 'Attendance',
+  'დასწრების ჩანაწერები არ არის': 'No attendance records',
+  'არყოფნა': 'Absent',
+  'დაგვიანება': 'Late',
+  'საათები': 'Hours',
+  'შეფასება': 'Appraisal',
+  'შეფასებები არ არის': 'No reviews',
+  'რეიტინგი': 'Rating',
+  'რეკრუტირება': 'Recruitment',
+  'ვაკანსიები არ არის': 'No job postings',
+  'ბოლო ვადა': 'Deadline',
 }
 
 i18n.use(initReactI18next).init({

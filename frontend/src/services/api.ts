@@ -553,3 +553,25 @@ export const posApi = {
   registerFiscalDevice: (data: { name: string; device_type: string; serial_number: string }) =>
     api.post('/pos/fiscal-devices', null, { params: data }),
 }
+
+// HR API — payroll, payslips, leave, attendance, appraisal, recruitment
+export const hrApi = {
+  listEmployees: (params?: Record<string, unknown>) => api.get('/hr/employees', { params }),
+  createEmployee: (data: Record<string, unknown>) => api.post('/hr/employees', data),
+  updateEmployee: (id: string, data: Record<string, unknown>) => api.patch(`/hr/employees/${id}`, data),
+  listDepartments: () => api.get('/hr/departments'),
+  calculatePayroll: (year: number, month: number) => api.post('/hr/payroll/calculate', { year, month }),
+  listPayroll: (params?: Record<string, unknown>) => api.get('/hr/payroll', { params }),
+  generatePayslips: (year: number, month: number) => api.post('/hr/payslips/generate', null, { params: { year, month } }),
+  listPayslips: (params?: { year?: number; month?: number }) => api.get('/hr/payslips', { params }),
+  listTimesheets: (params?: Record<string, unknown>) => api.get('/hr/timesheets', { params }),
+  createTimesheet: (data: Record<string, unknown>) => api.post('/hr/timesheets', data),
+  listLeaveRequests: (params?: Record<string, unknown>) => api.get('/hr/leave-requests', { params }),
+  createLeaveRequest: (data: Record<string, unknown>) => api.post('/hr/leave-requests', data),
+  listAttendance: (params?: Record<string, unknown>) => api.get('/hr/attendance', { params }),
+  createAttendance: (data: Record<string, unknown>) => api.post('/hr/attendance', data),
+  listReviews: (params?: Record<string, unknown>) => api.get('/hr/reviews', { params }),
+  createReview: (data: Record<string, unknown>) => api.post('/hr/reviews', data),
+  listJobPostings: (params?: Record<string, unknown>) => api.get('/recruitment/job-postings', { params }),
+  createJobPosting: (data: Record<string, unknown>) => api.post('/recruitment/job-postings', data),
+}
