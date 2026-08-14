@@ -459,3 +459,20 @@ export const commApi = {
   deletePortalUser: (id: string) => api.delete(`/customer-portal/${id}`),
   portalSummary: (clientId: string) => api.get(`/customer-portal/clients/${clientId}/summary`),
 }
+
+// WMS API — batches (lots) and serial numbers
+export const wmsApi = {
+  listBatches: (params?: { product_id?: string; expiring_soon?: boolean; limit?: number }) =>
+    api.get('/wms/batches', { params }),
+  createBatch: (data: Record<string, unknown>) => api.post('/wms/batches', data),
+  receiveBatch: (id: string, quantity: number) => api.post(`/wms/batches/${id}/receive`, null, { params: { quantity } }),
+  adjustBatch: (id: string, data: { quantity_delta: number; reason: string }) =>
+    api.post(`/wms/batches/${id}/adjust`, data),
+  transferBatch: (id: string, data: { destination_warehouse_id: string; reason?: string }) =>
+    api.post(`/wms/batches/${id}/transfer`, data),
+  listSerials: (params?: { product_id?: string; status?: string; limit?: number }) =>
+    api.get('/wms/serials', { params }),
+  registerSerial: (data: Record<string, unknown>) => api.post('/wms/serials', data),
+  updateSerialStatus: (id: string, status: string) =>
+    api.patch(`/wms/serials/${id}/status`, null, { params: { status } }),
+}
