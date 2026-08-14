@@ -35,7 +35,7 @@ const ROUTE_LABELS: Record<string, string> = {
   '/reports': 'რეპორტები',
   '/ai': 'AI ასისტენტი',
   '/settings': 'პარამეტრები',
-  '/hr': 'კადრები',
+  '/hr': 'ადამიანური რესურსები',
   '/documents': 'დოკუმენტები',
   '/production': 'წარმოება',
   '/projects': 'პროექტები',
