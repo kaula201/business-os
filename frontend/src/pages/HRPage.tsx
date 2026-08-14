@@ -46,6 +46,7 @@ const contractLabels: Record<string, string> = {
 
 const tabs = [
   { id: 'employees', label: 'თანამშრომლები', icon: Users },
+  { id: 'contracts', label: 'კონტრაქტები', icon: FileText },
   { id: 'payroll', label: 'ხელფასები', icon: DollarSign },
   { id: 'payslips', label: 'Payslips', icon: FileText },
   { id: 'leave', label: 'შვებულება', icon: Plane },
@@ -290,6 +291,72 @@ export default function HRPage() {
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{emp.personal_number}</td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{emp.department_name || '—'}</td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{contractLabels[emp.contract_type] || emp.contract_type}</td>
+                      <td className="px-4 py-3 text-right font-medium dark:text-gray-100">{money(emp.base_salary, emp.salary_currency)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[emp.status] || ''}`}>
+                          {emp.status === 'active' ? 'აქტიური' : emp.status === 'on_leave' ? t('შვებულება') : t('გათავისუფლებული')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => openEdit(emp)} className="text-primary-600 hover:underline text-xs dark:text-primary-400">{t('რედაქტირება')}</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Contracts Tab ───────────────────────────────────────────── */}
+      {tab === 'contracts' && (
+        <>
+          <div className="flex flex-wrap gap-3">
+            <div className="relative min-w-64 flex-1">
+              <Search className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500" size={18} />
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder={t('ძებნა სახელით, პოზიციით...')}
+                className="w-full rounded-lg border py-2 pl-10 pr-3 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                  <tr>
+                    <th className="px-4 py-3">{t('თანამშრომელი')}</th>
+                    <th className="px-4 py-3">{t('ხელშეკრულების ტიპი')}</th>
+                    <th className="px-4 py-3">{t('დაქირავების თარიღი')}</th>
+                    <th className="px-4 py-3 text-right">{t('ხელფასი')}</th>
+                    <th className="px-4 py-3">{t('სტატუსი')}</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y dark:divide-dark-50">
+                  {empLoading ? (
+                    <tr><td colSpan={6} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('იტვირთება...')}</td></tr>
+                  ) : employees.length === 0 ? (
+                    <tr><td colSpan={6} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('კონტრაქტები არ მოიძებნა')}</td></tr>
+                  ) : employees.map(emp => (
+                    <tr key={emp.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-brandgray-900 dark:text-gray-100">{emp.full_name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{emp.position}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                          emp.contract_type === 'permanent' ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : emp.contract_type === 'fixed_term' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                          : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                        }`}>
+                          {contractLabels[emp.contract_type] || emp.contract_type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                        {emp.hire_date ? new Date(emp.hire_date).toLocaleDateString('ka-GE') : '—'}
+                      </td>
                       <td className="px-4 py-3 text-right font-medium dark:text-gray-100">{money(emp.base_salary, emp.salary_currency)}</td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[emp.status] || ''}`}>
