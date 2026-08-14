@@ -172,6 +172,11 @@ export const tasksApi = {
   update: (id: string, data: any) => api.patch(`/tasks/${id}`, data),
   addComment: (id: string, data: { content: string }) =>
     api.post(`/tasks/${id}/comments`, data),
+  dependencies: (id: string) => api.get(`/tasks/${id}/dependencies`),
+  addDependency: (id: string, data: { depends_on_task_id: string; dependency_type?: string }) =>
+    api.post(`/tasks/${id}/dependencies`, data),
+  removeDependency: (id: string, depId: string) => api.delete(`/tasks/${id}/dependencies/${depId}`),
+  calendar: (params?: any) => api.get('/tasks-enhanced/calendar', { params }),
 }
 
 // Dashboard API
@@ -574,4 +579,19 @@ export const hrApi = {
   createReview: (data: Record<string, unknown>) => api.post('/hr/reviews', data),
   listJobPostings: (params?: Record<string, unknown>) => api.get('/recruitment/job-postings', { params }),
   createJobPosting: (data: Record<string, unknown>) => api.post('/recruitment/job-postings', data),
+}
+
+// Projects API
+export const projectsApi = {
+  list: (params?: Record<string, unknown>) => api.get('/projects/', { params }),
+  get: (id: string) => api.get(`/projects/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/projects/', data),
+  update: (id: string, data: Record<string, unknown>) => api.patch(`/projects/${id}`, data),
+  remove: (id: string) => api.delete(`/projects/${id}`),
+  milestones: (projectId: string) => api.get(`/projects/${projectId}/milestones`),
+  createMilestone: (projectId: string, data: Record<string, unknown>) => api.post(`/projects/${projectId}/milestones`, data),
+  updateMilestone: (projectId: string, milestoneId: string, data: Record<string, unknown>) => api.patch(`/projects/${projectId}/milestones/${milestoneId}`, data),
+  removeMilestone: (projectId: string, milestoneId: string) => api.delete(`/projects/${projectId}/milestones/${milestoneId}`),
+  progress: (projectId: string) => api.get(`/projects/${projectId}/progress`),
+  profitability: (projectId: string) => api.get(`/projects/${projectId}/profitability`),
 }

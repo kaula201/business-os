@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tasksApi, usersApi, clientsApi } from '../services/api'
-import {Plus, CheckSquare, Clock, Calendar, User as UserIcon, Search, Play, CheckCircle2, RotateCcw, Eye} from 'lucide-react'
+import {Plus, CheckSquare, Clock, Calendar, User as UserIcon, Search, Play, CheckCircle2, RotateCcw, Eye, X} from 'lucide-react'
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import FormField, { Select } from '../components/ui/FormField'
@@ -30,6 +30,8 @@ export default function TasksPage() {
   const [editTask, setEditTask] = useState<Task | null>(null)
   const [viewTask, setViewTask] = useState<Task | null>(null)
   const [comment, setComment] = useState('')
+  const [depTaskId, setDepTaskId] = useState('')
+  const [deps, setDeps] = useState<any[]>([])
 
   // Debounce: search იგზავნება server-ზე მხოლოდ აკრეფის შეწყვეტის შემდეგ
   useEffect(() => {
@@ -74,6 +76,26 @@ export default function TasksPage() {
     mutationFn: ({ taskId, content }: { taskId: string; content: string }) => tasksApi.addComment(taskId, { content }),
     onSuccess: () => { setComment(''); queryClient.invalidateQueries({ queryKey: ['tasks'] }) },
   })
+
+  const depMutation = useMutation({
+    mutationFn: ({ taskId, depId }: { taskId: string; depId: string }) => tasksApi.addDependency(taskId, { depends_on_task_id: depId }),
+    onSuccess: () => { setDepTaskId(''); loadDeps() },
+  })
+
+  const removeDepMutation = useMutation({
+    mutationFn: ({ taskId, depId }: { taskId: string; depId: string }) => tasksApi.removeDependency(taskId, depId),
+    onSuccess: () => loadDeps(),
+  })
+
+  async function loadDeps() {
+    if (!viewTask) return
+    try {
+      const res = await tasksApi.dependencies(viewTask.id)
+      setDeps(res.data.data || [])
+    } catch { setDeps([]) }
+  }
+
+  useEffect(() => { if (viewTask) loadDeps() }, [viewTask?.id])
 
   function openCreate() {
     setEditTask(null)
@@ -258,6 +280,14 @@ export default function TasksPage() {
               <input type="text" value={form.order_id || ''} onChange={(e) => setForm({ ...form, order_id: e.target.value })} className="input" placeholder={t('შეკვეთის ID')} />
             </FormField>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField label={t('გამეორება')}>
+              <Select value={form.recurrence || ''} onChange={(e) => setForm({ ...form, recurrence: e.target.value })} placeholder={t('არა')} options={[{ value: 'daily', label: t('ყოველდღიური') }, { value: 'weekly', label: t('ყოველკვირეული') }, { value: 'monthly', label: t('ყოველთვიური') }]} />
+            </FormField>
+            <FormField label={t('გამეორების ბოლო თარიღი')}>
+              <input type="date" value={form.recurrence_end || ''} onChange={(e) => setForm({ ...form, recurrence_end: e.target.value })} className="input" />
+            </FormField>
+          </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
             <button type="button" onClick={closeModal} className="btn-secondary">{t('გაუქმება')}</button>
             <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
@@ -301,6 +331,34 @@ export default function TasksPage() {
               {viewTask.due_date && <div className="flex items-center gap-2"><Calendar size={14} /> ვადა: {new Date(viewTask.due_date).toLocaleDateString('ka-GE')}</div>}
               {viewTask.client_name && <div>კლიენტი: {viewTask.client_name}</div>}
               {viewTask.order_number && <div>შეკვეთა: {viewTask.order_number}</div>}
+              {viewTask.project_name && <div>პროექტი: {viewTask.project_name}</div>}
+              {viewTask.recurrence && <div className="flex items-center gap-2"><RotateCcw size={14} /> {t('გამეორება')}: {viewTask.recurrence}{viewTask.recurrence_end ? ` → ${new Date(viewTask.recurrence_end).toLocaleDateString('ka-GE')}` : ''}</div>}
+            </div>
+
+            {/* Dependencies */}
+            <div className="pt-4 border-t border-gray-200 dark:border-dark-50">
+              <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">{t('დამოკიდებულებები')}</h4>
+              <div className="space-y-2 mb-3">
+                {deps.length === 0 ? (
+                  <p className="text-sm text-gray-400 dark:text-gray-500">{t('დამოკიდებულებები არ არის')}</p>
+                ) : deps.map((d: any) => (
+                  <div key={d.id} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-dark-50 px-3 py-2 text-sm">
+                    <span className="text-gray-700 dark:text-gray-300">{d.depends_on_task?.title || d.depends_on_task_id}</span>
+                    <button onClick={() => removeDepMutation.mutate({ taskId: viewTask.id, depId: d.id })} className="text-red-500 hover:text-red-700" title={t('წაშლა')}>
+                      <X size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <select value={depTaskId} onChange={(e) => setDepTaskId(e.target.value)} className="input flex-1">
+                  <option value="">{t('აირჩიეთ დავალება')}</option>
+                  {tasks.filter((x: Task) => x.id !== viewTask.id).map((x: Task) => <option key={x.id} value={x.id}>{x.title}</option>)}
+                </select>
+                <button onClick={() => depTaskId && depMutation.mutate({ taskId: viewTask.id, depId: depTaskId })} className="btn-primary" disabled={!depTaskId}>
+                  <Plus size={15} />
+                </button>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-gray-200 dark:border-dark-50">

@@ -957,6 +957,11 @@ export interface Task {
   client_id?: string
   order_number?: string
   order_id?: string
+  project_id?: string
+  project_name?: string
+  parent_id?: string
+  recurrence?: string
+  recurrence_end?: string
   created_at: string
   updated_at: string
 }
@@ -969,6 +974,10 @@ export interface TaskCreate {
   priority?: TaskPriority
   client_id?: string
   order_id?: string
+  project_id?: string
+  parent_id?: string
+  recurrence?: string
+  recurrence_end?: string
 }
 
 export interface TaskComment {

@@ -184,11 +184,14 @@ async def create_task(
         client_id=data.client_id,
         order_id=data.order_id,
         project_id=data.project_id,
+        parent_id=data.parent_id,
         title=data.title,
         description=data.description,
         assigned_to=data.assigned_to,
         priority=data.priority,
         due_date=data.due_date,
+        recurrence=data.recurrence,
+        recurrence_end=data.recurrence_end,
         created_by=current_user.id,
     )
     db.add(task)
@@ -213,7 +216,7 @@ async def update_task(
     task = await _get_task_or_404(db, task_id, current_user.company_id)
 
     update_data = data.model_dump(exclude_unset=True)
-    tracked_fields = {"title", "description", "status", "priority", "due_date", "assigned_to", "client_id", "order_id", "project_id"}
+    tracked_fields = {"title", "description", "status", "priority", "due_date", "assigned_to", "client_id", "order_id", "project_id", "parent_id", "recurrence", "recurrence_end"}
 
     for field, value in update_data.items():
         old_value = getattr(task, field, None)

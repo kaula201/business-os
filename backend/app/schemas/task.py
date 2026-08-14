@@ -1,7 +1,7 @@
 # backend/app/schemas/task.py
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 from app.models.task import TaskStatus, TaskPriority, TaskDependencyType
 
@@ -15,6 +15,9 @@ class TaskCreate(BaseModel):
     client_id: Optional[UUID] = None
     order_id: Optional[UUID] = None
     project_id: Optional[UUID] = None
+    parent_id: Optional[UUID] = None
+    recurrence: Optional[str] = None
+    recurrence_end: Optional[date] = None
 
 
 class TaskUpdate(BaseModel):
@@ -27,6 +30,9 @@ class TaskUpdate(BaseModel):
     client_id: Optional[UUID] = None
     order_id: Optional[UUID] = None
     project_id: Optional[UUID] = None
+    parent_id: Optional[UUID] = None
+    recurrence: Optional[str] = None
+    recurrence_end: Optional[date] = None
 
 
 class TaskResponse(BaseModel):
@@ -46,6 +52,9 @@ class TaskResponse(BaseModel):
     assigned_to: Optional[UUID]
     assigned_to_name: Optional[str] = None
     created_by: Optional[UUID] = None
+    parent_id: Optional[UUID] = None
+    recurrence: Optional[str] = None
+    recurrence_end: Optional[date] = None
     created_at: datetime
     updated_at: datetime
 
