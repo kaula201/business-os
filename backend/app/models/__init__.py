@@ -67,6 +67,7 @@ from app.models.projects import Project, ProjectMilestone
 from app.models.report import ReportPreference
 from app.models.helpdesk import HelpdeskTicket
 from app.models.pos import POSSession, POSOrder, POSOrderItem
+from app.models.pos import POSRefund, POSLoyaltyAccount, POSLoyaltyTransaction, POSOfflineQueue, POSFiscalDevice
 from app.models.ecommerce import EcomCategory, EcomProduct
 from app.models.purchase import (
     GoodsReceipt,
@@ -119,6 +120,7 @@ __all__ = [
     "Project", "ProjectMilestone", "ReportPreference",
     "HelpdeskTicket",
     "POSSession", "POSOrder", "POSOrderItem",
+    "POSRefund", "POSLoyaltyAccount", "POSLoyaltyTransaction", "POSOfflineQueue", "POSFiscalDevice",
     "EcomCategory", "EcomProduct",
     "GLAccount", "JournalEntry", "JournalEntryLine",
     "Vehicle", "FuelLog", "ServiceRecord", "DriverAssignment", "OdometerReading",
