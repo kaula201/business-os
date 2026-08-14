@@ -11,7 +11,7 @@ from sqlalchemy.orm import joinedload
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.models.user import User
-from app.models.hr import Department, Employee, PayrollEntry, Timesheet
+from app.models.hr import Department, Employee, PayrollEntry, Timesheet, Payslip
 from app.schemas.common import ResponseBase, PaginatedResponse
 from app.schemas.hr import (
     DepartmentCreate, DepartmentResponse, DepartmentUpdate,
@@ -262,8 +262,9 @@ async def calculate_payroll(
             continue
 
         gross_pay = emp.base_salary
+        pension_contribution = (gross_pay * Decimal("0.02")).quantize(Decimal("0.01"))
         income_tax = (gross_pay * Decimal("0.15")).quantize(Decimal("0.01"))
-        net_pay = (gross_pay - income_tax).quantize(Decimal("0.01"))
+        net_pay = (gross_pay - pension_contribution - income_tax).quantize(Decimal("0.01"))
 
         entry = PayrollEntry(
             company_id=current_user.company_id,
@@ -274,6 +275,7 @@ async def calculate_payroll(
             gross_pay=gross_pay,
             additions=Decimal("0"),
             deductions=Decimal("0"),
+            pension_contribution=pension_contribution,
             income_tax=income_tax,
             net_pay=net_pay,
         )
@@ -433,3 +435,95 @@ async def create_timesheet(
     resp = TimesheetResponse.model_validate(ts)
     resp.employee_name = emp_result.scalar_one().full_name
     return ResponseBase(data=resp)
+
+
+# ── Payslips ───────────────────────────────────────────────────────────────────
+
+@router.post("/payslips/generate", response_model=ResponseBase[list[dict]], status_code=201)
+async def generate_payslips(
+    year: int = Query(...),
+    month: int = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("hr", "can_create")),
+):
+    """Generate payslips from approved payroll entries for a period."""
+    company_id = current_user.company_id
+    entries = (await db.execute(
+        select(PayrollEntry).where(
+            PayrollEntry.company_id == company_id,
+            PayrollEntry.period_year == year,
+            PayrollEntry.period_month == month,
+        )
+    )).scalars().all()
+    if not entries:
+        raise HTTPException(status_code=404, detail="ამ პერიოდისთვის ხელფასის ჩანაწერები არ არის")
+
+    created = []
+    for entry in entries:
+        existing = (await db.execute(
+            select(Payslip).where(Payslip.payroll_entry_id == entry.id)
+        )).scalar_one_or_none()
+        if existing:
+            continue
+        count = (await db.execute(
+            select(func.count(Payslip.id)).where(Payslip.company_id == company_id)
+        )).scalar() or 0
+        payslip = Payslip(
+            company_id=company_id,
+            employee_id=entry.employee_id,
+            payroll_entry_id=entry.id,
+            payslip_number=f"PS-{year}{month:02d}-{count + 1:04d}",
+            period_year=year,
+            period_month=month,
+            base_salary=entry.base_salary,
+            gross_pay=entry.gross_pay,
+            additions=entry.additions,
+            deductions=entry.deductions,
+            pension_contribution=entry.pension_contribution,
+            income_tax=entry.income_tax,
+            net_pay=entry.net_pay,
+        )
+        db.add(payslip)
+        await db.flush()
+        emp = (await db.execute(select(Employee).where(Employee.id == entry.employee_id))).scalar_one_or_none()
+        created.append({
+            "id": str(payslip.id),
+            "payslip_number": payslip.payslip_number,
+            "employee_name": emp.full_name if emp else "—",
+            "net_pay": float(payslip.net_pay),
+        })
+    return ResponseBase(data=created, message=f"შექმნილია {len(created)} payslip")
+
+
+@router.get("/payslips", response_model=ResponseBase[list[dict]])
+async def list_payslips(
+    year: int | None = None,
+    month: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("hr", "can_access")),
+):
+    filters = [Payslip.company_id == current_user.company_id]
+    if year:
+        filters.append(Payslip.period_year == year)
+    if month:
+        filters.append(Payslip.period_month == month)
+    rows = (await db.execute(
+        select(Payslip).where(*filters).order_by(Payslip.created_at.desc())
+    )).scalars().all()
+    result = []
+    for p in rows:
+        emp = (await db.execute(select(Employee).where(Employee.id == p.employee_id))).scalar_one_or_none()
+        result.append({
+            "id": str(p.id),
+            "payslip_number": p.payslip_number,
+            "employee_id": str(p.employee_id),
+            "employee_name": emp.full_name if emp else "—",
+            "period": f"{p.period_year}-{p.period_month:02d}",
+            "gross_pay": float(p.gross_pay),
+            "pension_contribution": float(p.pension_contribution),
+            "income_tax": float(p.income_tax),
+            "net_pay": float(p.net_pay),
+            "status": p.status,
+            "created_at": p.created_at.isoformat(),
+        })
+    return ResponseBase(data=result)

@@ -57,6 +57,7 @@ from app.models.hr import (
     Department, Employee, PayrollEntry, Timesheet,
     EmployeeDocument, LeaveType, LeaveBalance, LeaveRequest,
     Attendance, PerformanceReview, PerformanceGoal,
+    Payslip,
 )
 from app.models.documents import DocumentCategory, Document, DocumentVersion, DocumentApproval
 from app.models.production import (
@@ -113,7 +114,7 @@ __all__ = [
     "AppModule", "CompanyModule", "ModulePermission",
     "Department", "Employee", "PayrollEntry", "Timesheet",
     "EmployeeDocument", "LeaveType", "LeaveBalance", "LeaveRequest",
-    "Attendance", "PerformanceReview", "PerformanceGoal",
+    "Attendance", "PerformanceReview", "PerformanceGoal", "Payslip",
     "DocumentCategory", "Document", "DocumentVersion", "DocumentApproval",
     "BillOfMaterial", "BOMItem", "WorkOrder", "WorkCenter",
     "ProductionReservation", "FinishedGoodsReceipt",
