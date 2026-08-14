@@ -47,6 +47,7 @@ const EmailTrackingPage = lazy(() => import('./pages/EmailTrackingPage'))
 const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage'))
 const PortalPage = lazy(() => import('./pages/PortalPage'))
 const WmsPage = lazy(() => import('./pages/WmsPage'))
+const ProcurementPage = lazy(() => import('./pages/ProcurementPage'))
 const CRMPage = lazy(() => import('./pages/CRMPage'))
 const HRPage = lazy(() => import('./pages/HRPage'))
 const DocumentsPage = lazy(() => import('./pages/DocumentsPage'))
@@ -121,6 +122,7 @@ function App() {
                   <Route path="/subscriptions" element={<SubscriptionsPage />} />
                   <Route path="/customer-portal" element={<PortalPage />} />
                   <Route path="/wms" element={<WmsPage />} />
+                  <Route path="/procurement" element={<ProcurementPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Routes>
               </Layout>

@@ -498,3 +498,24 @@ export const wmsOpsApi = {
   allocationSuggestion: (productId: string, strategy: 'fifo' | 'fefo', quantity: number) =>
     api.get(`/wms-ops/allocation/${productId}`, { params: { strategy, quantity } }),
 }
+
+// Procurement API — RFQ, comparison, vendor pricelists, blanket orders, scorecards
+export const procurementApi = {
+  listRfqs: (params?: { status?: string; limit?: number }) => api.get('/procurement/rfqs', { params }),
+  createRfq: (data: Record<string, unknown>) => api.post('/procurement/rfqs', data),
+  submitRfqResponse: (rfqId: string, data: Record<string, unknown>) =>
+    api.post(`/procurement/rfqs/${rfqId}/responses`, data),
+  rfqComparison: (rfqId: string) => api.get(`/procurement/rfqs/${rfqId}/comparison`),
+  awardRfq: (rfqId: string, supplierId: string) =>
+    api.post(`/procurement/rfqs/${rfqId}/award`, null, { params: { supplier_id: supplierId } }),
+  listPriceLists: (params?: { supplier_id?: string; product_id?: string }) =>
+    api.get('/procurement/price-lists', { params }),
+  upsertPriceList: (data: Record<string, unknown>) => api.post('/procurement/price-lists', data),
+  listBlanketOrders: (params?: { status?: string }) => api.get('/procurement/blanket-orders', { params }),
+  createBlanketOrder: (data: Record<string, unknown>) => api.post('/procurement/blanket-orders', data),
+  activateBlanketOrder: (id: string) => api.post(`/procurement/blanket-orders/${id}/activate`),
+  listScorecards: (params?: { supplier_id?: string }) => api.get('/procurement/scorecards', { params }),
+  upsertScorecard: (data: Record<string, unknown>) => api.post('/procurement/scorecards', data),
+  autoReplenish: (warehouseId?: string) =>
+    api.post('/procurement/auto-replenish', null, { params: warehouseId ? { warehouse_id: warehouseId } : {} }),
+}
