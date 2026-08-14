@@ -476,3 +476,23 @@ export const wmsApi = {
   updateSerialStatus: (id: string, status: string) =>
     api.patch(`/wms/serials/${id}/status`, null, { params: { status } }),
 }
+
+// WMS operations API — picking, packing, replenishment, landed cost, traceability
+export const wmsOpsApi = {
+  listPickLists: (params?: { status?: string; limit?: number }) => api.get('/wms-ops/pick-lists', { params }),
+  createPickList: (data: Record<string, unknown>) => api.post('/wms-ops/pick-lists', data),
+  pickItem: (pickListId: string, data: { item_id: string; quantity: number }) =>
+    api.post(`/wms-ops/pick-lists/${pickListId}/pick`, data),
+  completePickList: (id: string) => api.post(`/wms-ops/pick-lists/${id}/complete`),
+  listPackingSlips: (params?: { status?: string; limit?: number }) => api.get('/wms-ops/packing-slips', { params }),
+  createPackingSlip: (data: Record<string, unknown>) => api.post('/wms-ops/packing-slips', data),
+  listReplenishmentRules: () => api.get('/wms-ops/replenishment-rules'),
+  createReplenishmentRule: (data: Record<string, unknown>) => api.post('/wms-ops/replenishment-rules', data),
+  replenishmentSuggestions: () => api.get('/wms-ops/replenishment/suggestions'),
+  listLandedCosts: () => api.get('/wms-ops/landed-costs'),
+  createLandedCost: (data: Record<string, unknown>) => api.post('/wms-ops/landed-costs', data),
+  allocateLandedCost: (id: string, data: { allocations: { batch_id: string; amount: number }[] }) =>
+    api.post(`/wms-ops/landed-costs/${id}/allocate`, data),
+  batchTrace: (batchId: string) => api.get(`/wms-ops/trace/${batchId}`),
+  serialTrace: (serialId: string) => api.get(`/wms-ops/trace/serial/${serialId}`),
+}

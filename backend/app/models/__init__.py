@@ -25,6 +25,10 @@ from app.models.receivable import (
     CustomerBankReconciliationReversal,
 )
 from app.models.warehouse import Warehouse, InventoryBalance, InventoryMovement, WarehouseZone, ZoneBalance, InventoryCount, InventoryCountLine
+from app.models.wms_ops import (
+    PickList, PickListItem, PackingSlip, ReplenishmentRule,
+    LandedCost, LandedCostAllocation, BatchTraceEvent,
+)
 from app.models.audit import AuditLog
 from app.models.gl import GLAccount, JournalEntry, JournalEntryLine
 from app.models.fleet import Vehicle, FuelLog, ServiceRecord, DriverAssignment, OdometerReading
@@ -93,6 +97,7 @@ __all__ = [
     "Product", "ProductCategory", "ProductVariant", "ProductImage", "StockMovement", "Task", "TaskComment", "TaskAttachment", "TaskHistory", "TaskReminder", "TaskDependency", "Invoice", "InvoiceItem",
     "CustomerReceivable", "CustomerPayment", "CustomerPaymentReversal", "CustomerCreditNote", "CustomerBankReconciliation", "CustomerBankReconciliationReversal",
     "Warehouse", "InventoryBalance", "InventoryMovement", "WarehouseZone", "ZoneBalance", "InventoryCount", "InventoryCountLine", "AuditLog",
+    "PickList", "PickListItem", "PackingSlip", "ReplenishmentRule", "LandedCost", "LandedCostAllocation", "BatchTraceEvent",
     "Supplier", "SupplierBankDetail", "SupplierRatingHistory", "PurchaseOrder", "PurchaseOrderItem", "PurchaseOrderStatusHistory",
     "GoodsReceipt", "GoodsReceiptItem",
     "SupplierInvoice", "SupplierInvoiceItem", "SupplierPayable", "SupplierPayment",
