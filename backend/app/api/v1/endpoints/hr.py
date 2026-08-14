@@ -10,8 +10,12 @@ from sqlalchemy.orm import joinedload
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.time import utc_now
 from app.models.user import User
-from app.models.hr import Department, Employee, PayrollEntry, Timesheet, Payslip
+from app.models.hr import (
+    Department, Employee, PayrollEntry, Timesheet, Payslip,
+    LeaveRequest, LeaveType, Attendance, PerformanceReview,
+)
 from app.schemas.common import ResponseBase, PaginatedResponse
 from app.schemas.hr import (
     DepartmentCreate, DepartmentResponse, DepartmentUpdate,
@@ -19,6 +23,9 @@ from app.schemas.hr import (
     PayrollEntryCreate, PayrollEntryResponse, PayrollEntryUpdate,
     PayrollCalculateRequest,
     TimesheetCreate, TimesheetResponse, TimesheetUpdate,
+    LeaveRequestCreate, LeaveRequestResponse,
+    AttendanceCreate, AttendanceResponse,
+    PerformanceReviewCreate, PerformanceReviewResponse,
 )
 
 router = APIRouter(prefix="/hr", tags=["HR / ადამიანური რესურსები"])
@@ -527,3 +534,172 @@ async def list_payslips(
             "created_at": p.created_at.isoformat(),
         })
     return ResponseBase(data=result)
+
+
+# ── Leave requests ────────────────────────────────────────────────────────────
+
+@router.get("/leave-requests", response_model=ResponseBase[list[dict]])
+async def list_leave_requests(
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("hr", "can_access")),
+):
+    filters = [LeaveRequest.company_id == current_user.company_id]
+    if status:
+        filters.append(LeaveRequest.status == status)
+    rows = (await db.execute(
+        select(LeaveRequest).where(*filters).order_by(LeaveRequest.created_at.desc())
+    )).scalars().all()
+    result = []
+    for lr in rows:
+        emp = (await db.execute(select(Employee).where(Employee.id == lr.employee_id))).scalar_one_or_none()
+        lt = (await db.execute(select(LeaveType).where(LeaveType.id == lr.leave_type_id))).scalar_one_or_none()
+        result.append({
+            "id": str(lr.id),
+            "employee_id": str(lr.employee_id),
+            "employee_name": emp.full_name if emp else "—",
+            "leave_type": lt.name if lt else "—",
+            "start_date": lr.start_date.isoformat(),
+            "end_date": lr.end_date.isoformat(),
+            "total_days": lr.total_days,
+            "reason": lr.reason,
+            "status": lr.status,
+            "created_at": lr.created_at.isoformat(),
+        })
+    return ResponseBase(data=result)
+
+
+@router.post("/leave-requests", response_model=ResponseBase[dict], status_code=201)
+async def create_leave_request(
+    data: LeaveRequestCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("hr", "can_create")),
+):
+    emp = (await db.execute(
+        select(Employee).where(Employee.id == data.employee_id, Employee.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not emp:
+        raise HTTPException(status_code=404, detail="თანამშრომელი არ მოიძებნა")
+    lr = LeaveRequest(company_id=current_user.company_id, **data.model_dump())
+    db.add(lr)
+    await db.flush()
+    await db.refresh(lr)
+    return ResponseBase(data={"id": str(lr.id)}, message="შვებულების მოთხოვნა შექმნილია")
+
+
+@router.post("/leave-requests/{leave_id}/approve", response_model=ResponseBase[dict])
+async def approve_leave_request(
+    leave_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("hr", "can_edit")),
+):
+    lr = (await db.execute(
+        select(LeaveRequest).where(LeaveRequest.id == leave_id, LeaveRequest.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not lr:
+        raise HTTPException(status_code=404, detail="მოთხოვნა არ მოიძებნა")
+    lr.status = LeaveRequest.Status.APPROVED
+    lr.approved_by = current_user.id
+    lr.approved_at = utc_now()
+    await db.flush()
+    return ResponseBase(data={"id": str(lr.id)}, message="მოთხოვნა დამტკიცდა")
+
+
+# ── Attendance ─────────────────────────────────────────────────────────────────
+
+@router.get("/attendance", response_model=ResponseBase[list[dict]])
+async def list_attendance(
+    date_from: date | None = None,
+    date_to: date | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("hr", "can_access")),
+):
+    filters = [Attendance.company_id == current_user.company_id]
+    if date_from:
+        filters.append(Attendance.date >= date_from)
+    if date_to:
+        filters.append(Attendance.date <= date_to)
+    rows = (await db.execute(
+        select(Attendance).where(*filters).order_by(Attendance.date.desc())
+    )).scalars().all()
+    result = []
+    for a in rows:
+        emp = (await db.execute(select(Employee).where(Employee.id == a.employee_id))).scalar_one_or_none()
+        result.append({
+            "id": str(a.id),
+            "employee_id": str(a.employee_id),
+            "employee_name": emp.full_name if emp else "—",
+            "date": a.date.isoformat(),
+            "status": a.status,
+            "clock_in": a.clock_in.isoformat() if a.clock_in else None,
+            "clock_out": a.clock_out.isoformat() if a.clock_out else None,
+            "hours_worked": float(a.hours_worked) if a.hours_worked else None,
+            "late_minutes": a.late_minutes,
+        })
+    return ResponseBase(data=result)
+
+
+@router.post("/attendance", response_model=ResponseBase[dict], status_code=201)
+async def create_attendance(
+    data: AttendanceCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("hr", "can_create")),
+):
+    emp = (await db.execute(
+        select(Employee).where(Employee.id == data.employee_id, Employee.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not emp:
+        raise HTTPException(status_code=404, detail="თანამშრომელი არ მოიძებნა")
+    existing = (await db.execute(
+        select(Attendance).where(Attendance.employee_id == data.employee_id, Attendance.date == data.date)
+    )).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=409, detail="ამ თარიღისთვის ჩანაწერი უკვე არსებობს")
+    att = Attendance(company_id=current_user.company_id, **data.model_dump())
+    db.add(att)
+    await db.flush()
+    await db.refresh(att)
+    return ResponseBase(data={"id": str(att.id)}, message="დასწრება დაფიქსირდა")
+
+
+# ── Performance reviews (appraisal) ───────────────────────────────────────────
+
+@router.get("/reviews", response_model=ResponseBase[list[dict]])
+async def list_reviews(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("hr", "can_access")),
+):
+    rows = (await db.execute(
+        select(PerformanceReview).where(PerformanceReview.company_id == current_user.company_id).order_by(PerformanceReview.created_at.desc())
+    )).scalars().all()
+    result = []
+    for r in rows:
+        emp = (await db.execute(select(Employee).where(Employee.id == r.employee_id))).scalar_one_or_none()
+        result.append({
+            "id": str(r.id),
+            "employee_id": str(r.employee_id),
+            "employee_name": emp.full_name if emp else "—",
+            "review_period": r.review_period,
+            "rating": r.overall_rating,
+            "status": r.status,
+            "created_at": r.created_at.isoformat(),
+        })
+    return ResponseBase(data=result)
+
+
+@router.post("/reviews", response_model=ResponseBase[dict], status_code=201)
+async def create_review(
+    data: PerformanceReviewCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("hr", "can_create")),
+):
+    emp = (await db.execute(
+        select(Employee).where(Employee.id == data.employee_id, Employee.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not emp:
+        raise HTTPException(status_code=404, detail="თანამშრომელი არ მოიძებნა")
+    review = PerformanceReview(company_id=current_user.company_id, **data.model_dump())
+    db.add(review)
+    await db.flush()
+    await db.refresh(review)
+    return ResponseBase(data={"id": str(review.id)}, message="შეფასება შექმნილია")
