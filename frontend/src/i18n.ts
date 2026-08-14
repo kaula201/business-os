@@ -1336,6 +1336,8 @@ const en: Record<string, string> = {
   'ახალი ინვენტარიზაცია': 'New inventory count',
   'ახალი ლოკაცია': 'New location',
   'ინვენტარიზაცია': 'Inventory count',
+  'Barcode-ის სკანირება / ძიება': 'Scan / search barcode',
+  'მარაგი': 'Stock',
   'ინვენტარიზაციები არ არის': 'No inventory counts',
   'ლოკაციები': 'Locations',
   'ლოკაციები არ არის': 'No locations',

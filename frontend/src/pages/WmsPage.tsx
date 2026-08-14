@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, ArrowRightLeft, PackagePlus, Trash2, ScanBarcode, ClipboardList, Boxes, Truck, History } from 'lucide-react'
@@ -46,6 +46,8 @@ export default function WmsPage() {
   const [traceFor, setTraceFor] = useState<Batch | null>(null)
   const [transferFor, setTransferFor] = useState<Batch | null>(null)
   const [allocOpen, setAllocOpen] = useState(false)
+  const [barcode, setBarcode] = useState('')
+  const [barcodeResult, setBarcodeResult] = useState<any | null>(null)
   const [allocForm, setAllocForm] = useState({ product_id: '', strategy: 'fefo', quantity: '' })
   const [allocResult, setAllocResult] = useState<any[] | null>(null)
   const [form, setForm] = useState({
@@ -77,6 +79,15 @@ export default function WmsPage() {
     queryKey: ['warehouses-all-wms'],
     queryFn: () => warehousesApi.list().then(r => r.data.data),
   })
+
+  const searchBarcode = useMutation({
+    mutationFn: (code: string) => productsApi.list({ barcode: code, page_size: 1 }).then(r => r.data.data.items[0] || null),
+    onSuccess: (res) => setBarcodeResult(res),
+  })
+  const barcodeBatches = useMemo(() => {
+    if (!barcodeResult) return []
+    return batches.filter((b: any) => b.product_id === barcodeResult.id)
+  }, [barcodeResult, batches])
 
   const productName = (id: string) => {
     const p = (products || []).find((x: any) => x.id === id)
@@ -375,7 +386,50 @@ export default function WmsPage() {
             <ScanBarcode size={15} /> {t('FIFO/FEFO')}
           </button>
         </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-72">
+            <ScanBarcode size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-brandgray-400" />
+            <input
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { setBarcodeResult(null); searchBarcode.mutate(barcode.trim()) } }}
+              placeholder={t('Barcode-ის სკანირება / ძიება')}
+              className="w-full pl-9 pr-3 py-2 rounded-lg border border-brandgray-200 dark:border-dark-50 bg-white dark:bg-dark-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+            />
+          </div>
+          <button onClick={() => { setBarcodeResult(null); searchBarcode.mutate(barcode.trim()) }}
+            className="px-3 py-2 rounded-lg text-sm font-medium bg-brandgray-100 text-brandgray-700 hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-300">
+            {t('ძიება')}
+          </button>
+        </div>
       </div>
+
+      {barcodeResult && (
+        <div className="rounded-lg border border-primary-200 dark:border-primary-900/40 bg-primary-50/50 dark:bg-primary-900/10 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-semibold text-gray-900 dark:text-gray-100">{barcodeResult.name}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">{barcodeResult.barcode || '—'}</span>
+          </div>
+          <div className="text-sm text-brandgray-600 dark:text-gray-400">
+            {t('მარაგი')}: <span className="font-mono font-semibold">{barcodeResult.stock_quantity ?? '—'}</span>
+            {barcodeResult.sku && <span className="ml-3">SKU: <span className="font-mono">{barcodeResult.sku}</span></span>}
+          </div>
+          {barcodeBatches.length > 0 && (
+            <div className="mt-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-brandgray-500 dark:text-gray-500 mb-2">{t('პარტიები')}</div>
+              <div className="space-y-1.5">
+                {barcodeBatches.map((b: any) => (
+                  <div key={b.id} className="flex items-center justify-between text-sm rounded-md bg-white dark:bg-dark-100 px-3 py-2">
+                    <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{b.batch_number}</span>
+                    <span className="text-brandgray-500 dark:text-gray-400">{b.quantity} {t('ცალი')}</span>
+                    <span className="text-xs text-brandgray-500 dark:text-gray-400">{b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('ka-GE') : '—'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {tab === 'batches' && (
         <DataTable columns={batchColumns} data={batches} isLoading={batchesLoading} emptyMessage={t('პარტიები არ არის')} />
