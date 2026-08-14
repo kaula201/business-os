@@ -455,5 +455,7 @@ export const commApi = {
   deleteSubscription: (id: string) => api.delete(`/subscriptions/${id}`),
   listPortalUsers: (params?: Record<string, unknown>) => api.get('/customer-portal/', { params }),
   createPortalUser: (data: Record<string, unknown>) => api.post('/customer-portal/', data),
+  updatePortalUser: (id: string, data: Record<string, unknown>) => api.patch(`/customer-portal/${id}`, data),
+  deletePortalUser: (id: string) => api.delete(`/customer-portal/${id}`),
   portalSummary: (clientId: string) => api.get(`/customer-portal/clients/${clientId}/summary`),
 }

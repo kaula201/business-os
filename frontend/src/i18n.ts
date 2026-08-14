@@ -1275,6 +1275,16 @@ const en: Record<string, string> = {
   'ხელმომწერის სახელი': 'Signer name',
   'ხელმოწერის მოთხოვნები': 'Signature requests',
   'ხელმოწერის მოთხოვნები არ არის': 'No signature requests',
+  'ახალი პორტალის მომხმარებელი': 'New portal user',
+  'გათიშული': 'Disabled',
+  'ელ.ფოსტა': 'Email',
+  'ინვოისები არ არის': 'No invoices',
+  'კლიენტის მიმოხილვა': 'Client overview',
+  'კლიენტის პორტალი': 'Customer portal',
+  'პორტალის მომხმარებლები არ არის': 'No portal users',
+  'პორტალის მომხმარებლები — კლიენტის წვდომა ინვოისებსა და შეკვეთებზე': 'Portal users — client access to invoices and orders',
+  'ღია ინვოისები': 'Open invoices',
+  'შეკვეთები არ არის': 'No orders',
 }
 
 i18n.use(initReactI18next).init({
