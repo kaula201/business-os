@@ -42,6 +42,7 @@ const emptyProduct: ProductCreate = {
   name: '',
   description: '',
   category_id: '',
+  barcode: '',
   sale_price: 0,
   purchase_price: undefined,
   unit: 'ცალი',
@@ -301,6 +302,7 @@ export default function InventoryPage() {
       name: product.name,
       description: product.description || '',
       category_id: product.category_id || '',
+      barcode: product.barcode || '',
       sale_price: product.sale_price,
       purchase_price: product.purchase_price,
       unit: product.unit,
@@ -361,6 +363,13 @@ export default function InventoryPage() {
       key: 'sku',
       label: 'SKU',
       render: (product: Product) => <span className="font-mono text-sm text-gray-500 dark:text-gray-400">{product.sku}</span>,
+    },
+    {
+      key: 'barcode',
+      label: t('შტრიხკოდი'),
+      render: (product: Product) => product.barcode
+        ? <span className="font-mono text-sm text-gray-500 dark:text-gray-400">{product.barcode}</span>
+        : <span className="text-gray-300 dark:text-gray-600">—</span>,
     },
     {
       key: 'name',
@@ -629,6 +638,7 @@ export default function InventoryPage() {
         <form onSubmit={handleProductSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField label="SKU" required><input value={productForm.sku} onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })} className="input" required disabled={!!editProduct} /></FormField>
+            <FormField label={t('შტრიხკოდი (Barcode)')}><input value={productForm.barcode || ''} onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })} className="input" placeholder="4801234567890" /></FormField>
             <FormField label={t('დასახელება')} required><input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} className="input" required /></FormField>
             <FormField label={t('კატეგორია')}><Select value={productForm.category_id || ''} onChange={(e) => setProductForm({ ...productForm, category_id: e.target.value })} placeholder={t('აირჩიეთ კატეგორია')} options={categories.map((category: any) => ({ value: category.id, label: category.name }))} /></FormField>
             <FormField label={t('ერთეული')}><Select options={[{ value: 'ცალი', label: 'ცალი' }, { value: 'კგ', label: 'კილოგრამი' }, { value: 'ლ', label: 'ლიტრი' }, { value: 'მ²', label: 'კვ. მეტრი' }, { value: 'მ', label: 'მეტრი' }]} value={productForm.unit} onChange={(e) => setProductForm({ ...productForm, unit: e.target.value })} /></FormField>

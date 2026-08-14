@@ -1341,6 +1341,8 @@ const en: Record<string, string> = {
   'ლოკაციები არ არის': 'No locations',
   'ნომერი': 'Number',
   'პიკაბელური': 'Pickable',
+  'შტრიხკოდი': 'Barcode',
+  'შტრიხკოდი (Barcode)': 'Barcode',
 }
 
 i18n.use(initReactI18next).init({

@@ -714,6 +714,8 @@ export interface Product {
   description?: string
   category_id?: string
   category_name?: string
+  barcode?: string
+  gtin?: string
   sale_price: number
   purchase_price?: number
   average_cost?: number
@@ -731,6 +733,8 @@ export interface ProductCreate {
   name: string
   description?: string
   category_id?: string
+  barcode?: string
+  gtin?: string
   sale_price: number
   purchase_price?: number
   unit?: string
