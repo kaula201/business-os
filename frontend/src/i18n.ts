@@ -1333,6 +1333,14 @@ const en: Record<string, string> = {
   'საკმარისი მარაგი არ არის': 'Insufficient stock',
   'სტრატეგია': 'Strategy',
   'ვადის მიხედვით': 'By expiry',
+  'ახალი ინვენტარიზაცია': 'New inventory count',
+  'ახალი ლოკაცია': 'New location',
+  'ინვენტარიზაცია': 'Inventory count',
+  'ინვენტარიზაციები არ არის': 'No inventory counts',
+  'ლოკაციები': 'Locations',
+  'ლოკაციები არ არის': 'No locations',
+  'ნომერი': 'Number',
+  'პიკაბელური': 'Pickable',
 }
 
 i18n.use(initReactI18next).init({

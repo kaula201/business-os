@@ -37,7 +37,7 @@ const inputCls = 'w-full rounded-lg border border-brandgray-200 bg-white px-3 py
 export default function WmsPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'batches' | 'serials' | 'picking' | 'replenishment' | 'landed'>('batches')
+  const [tab, setTab] = useState<'batches' | 'serials' | 'picking' | 'replenishment' | 'landed' | 'zones' | 'counts'>('batches')
   const [open, setOpen] = useState(false)
   const [serialOpen, setSerialOpen] = useState(false)
   const [pickOpen, setPickOpen] = useState(false)
@@ -222,6 +222,36 @@ export default function WmsPage() {
     onSuccess: (d) => setAllocResult(d),
   })
 
+  // ── Zones (locations/bins) and cycle counts ──
+  const { data: zonesData, isLoading: zonesLoading } = useQuery({
+    queryKey: ['wms-zones'],
+    queryFn: () => warehousesApi.listZones({ include_inactive: true }).then(r => r.data.data),
+  })
+  const zones: any[] = zonesData || []
+
+  const { data: countsData, isLoading: countsLoading } = useQuery({
+    queryKey: ['wms-counts'],
+    queryFn: () => warehousesApi.listCounts({ limit: 100 }).then(r => r.data.data),
+  })
+  const counts: any[] = countsData || []
+
+  const [zoneForm, setZoneForm] = useState({ warehouse_id: '', code: '', name: '', zone_type: 'bin' })
+  const [countForm, setCountForm] = useState({ warehouse_id: '', count_type: 'cycle', notes: '' })
+
+  const createZone = useMutation({
+    mutationFn: () => warehousesApi.createZone({
+      warehouse_id: zoneForm.warehouse_id, code: zoneForm.code, name: zoneForm.name, zone_type: zoneForm.zone_type,
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['wms-zones'] }); setZoneForm({ warehouse_id: '', code: '', name: '', zone_type: 'bin' }) },
+  })
+
+  const createCount = useMutation({
+    mutationFn: () => warehousesApi.createCount({
+      warehouse_id: countForm.warehouse_id, count_type: countForm.count_type, notes: countForm.notes || null,
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['wms-counts'] }); setCountForm({ warehouse_id: '', count_type: 'cycle', notes: '' }) },
+  })
+
   const statusBadge = (status: string) => {
     const map: Record<string, string> = {
       in_stock: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
@@ -320,15 +350,25 @@ export default function WmsPage() {
             className={`px-3 py-2 rounded-lg text-sm font-medium ${tab === 'landed' ? 'bg-brandgray-800 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400'}`}>
             <Truck size={14} className="inline mr-1" /> {t('ლენდედ ქოსთი')}
           </button>
+          <button onClick={() => setTab('zones')}
+            className={`px-3 py-2 rounded-lg text-sm font-medium ${tab === 'zones' ? 'bg-brandgray-800 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400'}`}>
+            {t('ლოკაციები')}
+          </button>
+          <button onClick={() => setTab('counts')}
+            className={`px-3 py-2 rounded-lg text-sm font-medium ${tab === 'counts' ? 'bg-brandgray-800 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400'}`}>
+            {t('ინვენტარიზაცია')}
+          </button>
           <button onClick={() => {
             if (tab === 'batches') setOpen(true)
             else if (tab === 'serials') setSerialOpen(true)
             else if (tab === 'picking') setPickOpen(true)
             else if (tab === 'replenishment') setReplenishOpen(true)
-            else setLandedOpen(true)
+            else if (tab === 'landed') setLandedOpen(true)
+            else if (tab === 'zones') setZoneForm({ warehouse_id: '', code: '', name: '', zone_type: 'bin' })
+            else setCountForm({ warehouse_id: '', count_type: 'cycle', notes: '' })
           }}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700">
-            <Plus size={15} /> {tab === 'batches' ? t('ახალი პარტია') : tab === 'serials' ? t('ახალი სერიული ნომერი') : tab === 'picking' ? t('ახალი პიკინგი') : tab === 'replenishment' ? t('ახალი წესი') : t('ახალი ლენდედ ქოსთი')}
+            <Plus size={15} /> {tab === 'batches' ? t('ახალი პარტია') : tab === 'serials' ? t('ახალი სერიული ნომერი') : tab === 'picking' ? t('ახალი პიკინგი') : tab === 'replenishment' ? t('ახალი წესი') : tab === 'landed' ? t('ახალი ლენდედ ქოსთი') : tab === 'zones' ? t('ახალი ლოკაცია') : t('ახალი ინვენტარიზაცია')}
           </button>
           <button onClick={() => { setAllocResult(null); setAllocOpen(true) }}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-brandgray-100 text-brandgray-700 hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-300">
@@ -433,6 +473,28 @@ export default function WmsPage() {
             ) },
           ]}
           data={landedCosts} isLoading={landedLoading} emptyMessage={t('ლენდედ ქოსთები არ არის')} />
+      )}
+      {tab === 'zones' && (
+        <DataTable
+          columns={[
+            { key: 'code', label: t('კოდი'), priority: true, render: (z: any) => <span className="font-semibold text-gray-900 dark:text-gray-100 font-mono">{z.code}</span> },
+            { key: 'name', label: t('სახელი'), render: (z: any) => <span className="text-sm">{z.name}</span> },
+            { key: 'warehouse_id', label: t('საწყობი'), render: (z: any) => <span className="text-sm">{warehouseName(z.warehouse_id)}</span> },
+            { key: 'zone_type', label: t('ტიპი'), render: (z: any) => <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400">{z.zone_type}</span> },
+            { key: 'is_pickable', label: t('პიკაბელური'), render: (z: any) => z.is_pickable ? '✓' : '—' },
+          ]}
+          data={zones} isLoading={zonesLoading} emptyMessage={t('ლოკაციები არ არის')} />
+      )}
+      {tab === 'counts' && (
+        <DataTable
+          columns={[
+            { key: 'count_number', label: t('ნომერი'), priority: true, render: (c: any) => <span className="font-semibold text-gray-900 dark:text-gray-100 font-mono">{c.count_number}</span> },
+            { key: 'warehouse_id', label: t('საწყობი'), render: (c: any) => <span className="text-sm">{warehouseName(c.warehouse_id)}</span> },
+            { key: 'count_type', label: t('ტიპი'), render: (c: any) => <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400">{c.count_type}</span> },
+            { key: 'status', label: t('სტატუსი'), render: (c: any) => <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">{c.status}</span> },
+            { key: 'created_at', label: t('თარიღი'), render: (c: any) => <span className="font-mono text-sm">{new Date(c.created_at).toLocaleDateString('ka-GE')}</span> },
+          ]}
+          data={counts} isLoading={countsLoading} emptyMessage={t('ინვენტარიზაციები არ არის')} />
       )}
 
       <Modal open={open} onClose={() => setOpen(false)} title={t('ახალი პარტია')}>
