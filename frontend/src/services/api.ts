@@ -529,3 +529,27 @@ export const contractsApi = {
   update: (id: string, data: Record<string, unknown>) => api.patch(`/contracts/${id}`, data),
   remove: (id: string) => api.delete(`/contracts/${id}`),
 }
+
+// POS API — sessions, orders, refunds, loyalty, offline, fiscal devices
+export const posApi = {
+  listSessions: (params?: { status?: string }) => api.get('/pos/sessions', { params }),
+  openSession: (data: { name: string }) => api.post('/pos/sessions', data),
+  closeSession: (id: string) => api.post(`/pos/sessions/${id}/close`),
+  listOrders: (params?: { session_id?: string }) => api.get('/pos/orders', { params }),
+  createOrder: (data: Record<string, unknown>) => api.post('/pos/orders', data),
+  refundOrder: (id: string, amount: number, reason?: string) =>
+    api.post(`/pos/orders/${id}/refund`, null, { params: { amount, reason } }),
+  listRefunds: () => api.get('/pos/refunds'),
+  loyaltyBalance: (clientId: string) => api.get(`/pos/loyalty/${clientId}`),
+  earnLoyalty: (clientId: string, orderId: string, points: number) =>
+    api.post('/pos/loyalty/earn', null, { params: { client_id: clientId, order_id: orderId, points } }),
+  redeemLoyalty: (clientId: string, points: number) =>
+    api.post('/pos/loyalty/redeem', null, { params: { client_id: clientId, points } }),
+  listOfflineQueue: (params?: { status?: string }) => api.get('/pos/offline/queue', { params }),
+  queueOfflineOrder: (deviceId: string, payload: Record<string, unknown>) =>
+    api.post('/pos/offline/queue', payload, { params: { device_id: deviceId } }),
+  syncOfflineOrder: (id: string) => api.post(`/pos/offline/queue/${id}/sync`),
+  listFiscalDevices: () => api.get('/pos/fiscal-devices'),
+  registerFiscalDevice: (data: { name: string; device_type: string; serial_number: string }) =>
+    api.post('/pos/fiscal-devices', null, { params: data }),
+}

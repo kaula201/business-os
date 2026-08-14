@@ -50,6 +50,7 @@ MODULES = [
     ("customer-portal","კლიენტის პორტალი",          "Customer portal users",       "Globe",           "/customer-portal","sales",    50,  "clients"),
     ("wms",           "საწყობის მართვა (WMS)",     "Batches, serials, expiry",    "Boxes",           "/wms",           "operations", 56,  "inventory"),
     ("procurement",   "შესყიდვები — Procurement", "RFQ, pricelists, blanket",   "ShoppingCart",    "/procurement",  "purchases", 60,  "suppliers"),
+    ("pos",           "სალარო (POS)",              "Cashier, shifts, checks",   "ShoppingCart",    "/pos",          "sales",     51,  "inventory"),
     ("fleet",         "ავტოპარკი",          "Vehicle fleet management",        "Car",              "/fleet",         "fleet",     260,  None),
     ("reports",       "რეპორტები",           "Reports & analytics",             "BarChart3",        "/reports",       "other",     270,  None),
     ("ai",            "AI ასისტენტი",       "AI chat & RAG",                   "Bot",              "/ai",            "other",     280,  None),
@@ -68,7 +69,7 @@ DEFAULT_PERMISSIONS = {
 FINANCIAL_MODULES = {"cash", "banking", "currency", "gl", "journal-entries", "trial-balance", "profit-loss", "balance-sheet", "expenses", "assets", "customer-finance", "supplier-finance", "srs", "budgeting", "analytic", "deferred", "accounting-periods", "gl-recurring", "exchange-differences", "consolidated", "banking-rules"}
 
 # Operational modules where manager gets create/edit
-OPERATIONAL_MODULES = {"clients", "orders", "invoices", "inventory", "tasks", "purchases", "suppliers", "fleet", "crm", "quotations", "price-lists", "sales-teams", "email-tracking", "subscriptions", "customer-portal", "wms", "procurement"}
+OPERATIONAL_MODULES = {"clients", "orders", "invoices", "inventory", "tasks", "purchases", "suppliers", "fleet", "crm", "quotations", "price-lists", "sales-teams", "email-tracking", "subscriptions", "customer-portal", "wms", "procurement", "pos"}
 
 
 async def seed_modules():
