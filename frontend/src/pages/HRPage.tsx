@@ -79,6 +79,8 @@ export default function HRPage() {
   const [leaveForm, setLeaveForm] = useState({ employee_id: '', leave_type_id: '', start_date: '', end_date: '', total_days: 1, reason: '' })
   const [jobForm, setJobForm] = useState({ title: '', department: '', status: 'open', deadline: '' })
   const [reviewForm, setReviewForm] = useState({ employee_id: '', review_period: '', overall_rating: 5 })
+  const [tsModal, setTsModal] = useState(false)
+  const [tsForm, setTsForm] = useState({ employee_id: '', work_date: new Date().toISOString().slice(0, 10), hours_worked: 8, overtime_hours: 0, description: '' })
 
   // ── Queries ──────────────────────────────────────────────────────
 
@@ -115,6 +117,10 @@ export default function HRPage() {
     queryKey: ['hr-jobs'],
     queryFn: () => api.get('/recruitment/job-postings', { params: { page_size: 100 } }).then(r => r.data.data),
   })
+  const { data: tsData, isLoading: tsLoading } = useQuery({
+    queryKey: ['hr-timesheets'],
+    queryFn: () => api.get('/hr/timesheets', { params: { page_size: 100 } }).then(r => r.data.data),
+  })
 
   const employees: Employee[] = empData?.items || []
   const departments: Department[] = deptData || []
@@ -124,6 +130,7 @@ export default function HRPage() {
   const attendanceRecords: any[] = attendanceData || []
   const reviews: any[] = reviewData || []
   const jobPostings: any[] = jobData?.items || []
+  const timesheets: any[] = tsData?.items || tsData || []
 
   // ── Mutations ─────────────────────────────────────────────────────
 
@@ -167,6 +174,12 @@ export default function HRPage() {
   const createJob = useMutation({
     mutationFn: () => api.post('/recruitment/job-postings', jobForm),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['hr-jobs'] }); setJobModal(false); setJobForm({ title: '', department: '', status: 'open', deadline: '' }) },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+
+  const createTimesheet = useMutation({
+    mutationFn: () => api.post('/hr/timesheets', tsForm),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['hr-timesheets'] }); setTsModal(false); setTsForm({ employee_id: '', work_date: new Date().toISOString().slice(0, 10), hours_worked: 8, overtime_hours: 0, description: '' }) },
     onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
 
@@ -232,6 +245,11 @@ export default function HRPage() {
         {tab === 'appraisal' && (
           <button onClick={() => setReviewModal(true)} className="btn btn-primary flex items-center gap-2">
             <Plus size={18} /> {t('ახალი შეფასება')}
+          </button>
+        )}
+        {tab === 'timesheets' && (
+          <button onClick={() => setTsModal(true)} className="btn btn-primary flex items-center gap-2">
+            <Plus size={18} /> {t('ახალი ჩანაწერი')}
           </button>
         )}
       </div>
@@ -457,8 +475,37 @@ export default function HRPage() {
 
       {/* ── Timesheets Tab ──────────────────────────────────────────── */}
       {tab === 'timesheets' && (
-        <div className="rounded-xl border bg-white p-8 text-center text-sm text-gray-500 dark:border-dark-50 dark:bg-dark-200 dark:text-gray-400">
-          {t('Timesheets ფუნქციონალი API-ში მზადაა. Frontend UI მალე დაემატება.')}
+        <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('თანამშრომელი')}</th>
+                  <th className="px-4 py-3">{t('თარიღი')}</th>
+                  <th className="px-4 py-3 text-right">{t('საათები')}</th>
+                  <th className="px-4 py-3 text-right">{t('ზეგანაკვეთური')}</th>
+                  <th className="px-4 py-3">{t('აღწერა')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {tsLoading ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('იტვირთება...')}</td></tr>
+                ) : timesheets.length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('Timesheets ჩანაწერები არ არის')}</td></tr>
+                ) : timesheets.map((ts: any) => (
+                  <tr key={ts.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">
+                      {employees.find(e => e.id === ts.employee_id)?.full_name || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{new Date(ts.work_date).toLocaleDateString('ka-GE')}</td>
+                    <td className="px-4 py-3 text-right font-mono dark:text-gray-100">{ts.hours_worked}</td>
+                    <td className="px-4 py-3 text-right font-mono text-amber-600 dark:text-amber-400">{ts.overtime_hours || 0}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{ts.description || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -861,6 +908,42 @@ export default function HRPage() {
           </FormField>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button onClick={() => createReview.mutate()} disabled={createReview.isPending || !reviewForm.employee_id || !reviewForm.review_period}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+
+      {/* ── Timesheet Modal ───────────────────────────────────────────── */}
+      <Modal open={tsModal} onClose={() => setTsModal(false)} title={t('ახალი ჩანაწერი')}>
+        <div className="space-y-4">
+          <FormField label={t('თანამშრომელი')} required>
+            <select value={tsForm.employee_id} onChange={e => setTsForm({ ...tsForm, employee_id: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+              <option value="">{t('აირჩიეთ')}</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}
+            </select>
+          </FormField>
+          <FormField label={t('თარიღი')} required>
+            <input type="date" value={tsForm.work_date} onChange={e => setTsForm({ ...tsForm, work_date: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label={t('საათები')}>
+              <input type="number" min={0} max={24} value={tsForm.hours_worked} onChange={e => setTsForm({ ...tsForm, hours_worked: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+            <FormField label={t('ზეგანაკვეთური')}>
+              <input type="number" min={0} value={tsForm.overtime_hours} onChange={e => setTsForm({ ...tsForm, overtime_hours: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+          </div>
+          <FormField label={t('აღწერა')}>
+            <textarea value={tsForm.description} onChange={e => setTsForm({ ...tsForm, description: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" rows={2} />
+          </FormField>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => createTimesheet.mutate()} disabled={createTimesheet.isPending || !tsForm.employee_id || !tsForm.work_date}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
             {t('შენახვა')}
           </button>

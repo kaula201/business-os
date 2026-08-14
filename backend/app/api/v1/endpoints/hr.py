@@ -134,6 +134,7 @@ async def list_employees(
             status=emp.status, contract_type=emp.contract_type,
             hire_date=emp.hire_date, termination_date=emp.termination_date,
             email=emp.email, phone=emp.phone, created_at=emp.created_at,
+            base_salary=emp.base_salary, salary_currency=emp.salary_currency,
         )
         items.append(resp)
 
@@ -204,6 +205,7 @@ async def get_employee(
             status=emp.status, contract_type=emp.contract_type,
             hire_date=emp.hire_date, termination_date=emp.termination_date,
             email=emp.email, phone=emp.phone, created_at=emp.created_at,
+            base_salary=emp.base_salary, salary_currency=emp.salary_currency,
         )
     return ResponseBase(data=resp)
 

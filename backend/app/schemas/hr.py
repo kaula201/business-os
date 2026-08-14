@@ -143,6 +143,8 @@ class EmployeeListResponse(BaseModel):
     department_id: Optional[UUID] = None
     manager_id: Optional[UUID] = None
     manager_name: Optional[str] = None
+    base_salary: Optional[Decimal] = None
+    salary_currency: Optional[str] = "GEL"
     created_at: datetime
 
     model_config = {"from_attributes": True}
