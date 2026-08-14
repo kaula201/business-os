@@ -51,7 +51,7 @@ MODULES = [
     ("wms",           "საწყობის მართვა (WMS)",     "Batches, serials, expiry",    "Boxes",           "/wms",           "operations", 56,  "inventory"),
     ("procurement",   "შესყიდვები — Procurement", "RFQ, pricelists, blanket",   "ShoppingCart",    "/procurement",  "purchases", 60,  "suppliers"),
     ("pos",           "სალარო (POS)",              "Cashier, shifts, checks",   "ShoppingCart",    "/pos",          "sales",     51,  "inventory"),
-    ("hr",            "HR / კადრები",               "Employees, payroll, leave", "Users",           "/hr",           "other",     250,  None),
+    ("hr",            "HR / ადამიანური რესურსები",   "Employees, payroll, leave", "Users",           "/hr",           "other",     250,  None),
     ("fleet",         "ავტოპარკი",          "Vehicle fleet management",        "Car",              "/fleet",         "fleet",     260,  None),
     ("reports",       "რეპორტები",           "Reports & analytics",             "BarChart3",        "/reports",       "other",     270,  None),
     ("ai",            "AI ასისტენტი",       "AI chat & RAG",                   "Bot",              "/ai",            "other",     280,  None),

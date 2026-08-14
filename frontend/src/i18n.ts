@@ -254,7 +254,7 @@ const en: Record<string, string> = {
   'Excel ჩამოტვირთვა': 'Download Excel',
   'GL შექმნილია': 'GL created',
   'Goods Receipt-ით მიღების ისტორია ჯერ არ არსებობს.': 'No goods receipt history yet.',
-  'HR / კადრები': 'HR / People',
+  'HR / ადამიანური რესურსები': 'HR / Human Resources',
   'Invoice ჯამი': 'Invoice total',
   'მენეჯერის დამტკიცების მაქსიმალური თანხა': 'Max amount for manager approval',
   'PDF ნახვა': 'View PDF',
