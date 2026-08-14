@@ -357,6 +357,9 @@ export default function TasksPage() {
               <input type="date" value={form.recurrence_end || ''} onChange={(e) => setForm({ ...form, recurrence_end: e.target.value })} className="input" />
             </FormField>
           </div>
+          <FormField label={t('მშობელი დავალება (ქვე-დავალება)')}>
+            <Select value={form.parent_id || ''} onChange={(e) => setForm({ ...form, parent_id: e.target.value })} placeholder={t('არა')} options={tasks.filter((x: Task) => x.id !== editTask?.id).map((x: Task) => ({ value: x.id, label: x.title }))} />
+          </FormField>
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
             <button type="button" onClick={closeModal} className="btn-secondary">{t('გაუქმება')}</button>
             <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
@@ -402,6 +405,21 @@ export default function TasksPage() {
               {viewTask.order_number && <div>შეკვეთა: {viewTask.order_number}</div>}
               {viewTask.project_name && <div>პროექტი: {viewTask.project_name}</div>}
               {viewTask.recurrence && <div className="flex items-center gap-2"><RotateCcw size={14} /> {t('გამეორება')}: {viewTask.recurrence}{viewTask.recurrence_end ? ` → ${new Date(viewTask.recurrence_end).toLocaleDateString('ka-GE')}` : ''}</div>}
+            </div>
+
+            {/* Subtasks */}
+            <div className="pt-4 border-t border-gray-200 dark:border-dark-50">
+              <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">{t('ქვე-დავალებები')}</h4>
+              <div className="space-y-2">
+                {tasks.filter((x: Task) => x.parent_id === viewTask.id).length === 0 ? (
+                  <p className="text-sm text-gray-400 dark:text-gray-500">{t('ქვე-დავალებები არ არის')}</p>
+                ) : tasks.filter((x: Task) => x.parent_id === viewTask.id).map((sub: Task) => (
+                  <div key={sub.id} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-dark-50 px-3 py-2 text-sm">
+                    <span className="text-gray-700 dark:text-gray-300">{sub.title}</span>
+                    <StatusBadge status={sub.status} map={taskStatusMap} />
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Dependencies */}
