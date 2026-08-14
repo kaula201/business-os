@@ -29,6 +29,10 @@ from app.models.wms_ops import (
     PickList, PickListItem, PackingSlip, ReplenishmentRule,
     LandedCost, LandedCostAllocation, BatchTraceEvent,
 )
+from app.models.procurement import (
+    RFQ, RFQLine, RFQResponse, RFQResponseLine,
+    SupplierPriceList, BlanketOrder, BlanketOrderLine, SupplierScorecard,
+)
 from app.models.audit import AuditLog
 from app.models.gl import GLAccount, JournalEntry, JournalEntryLine
 from app.models.fleet import Vehicle, FuelLog, ServiceRecord, DriverAssignment, OdometerReading
@@ -98,6 +102,7 @@ __all__ = [
     "CustomerReceivable", "CustomerPayment", "CustomerPaymentReversal", "CustomerCreditNote", "CustomerBankReconciliation", "CustomerBankReconciliationReversal",
     "Warehouse", "InventoryBalance", "InventoryMovement", "WarehouseZone", "ZoneBalance", "InventoryCount", "InventoryCountLine", "AuditLog",
     "PickList", "PickListItem", "PackingSlip", "ReplenishmentRule", "LandedCost", "LandedCostAllocation", "BatchTraceEvent",
+    "RFQ", "RFQLine", "RFQResponse", "RFQResponseLine", "SupplierPriceList", "BlanketOrder", "BlanketOrderLine", "SupplierScorecard",
     "Supplier", "SupplierBankDetail", "SupplierRatingHistory", "PurchaseOrder", "PurchaseOrderItem", "PurchaseOrderStatusHistory",
     "GoodsReceipt", "GoodsReceiptItem",
     "SupplierInvoice", "SupplierInvoiceItem", "SupplierPayable", "SupplierPayment",
