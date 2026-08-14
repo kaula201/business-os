@@ -70,6 +70,14 @@ export default function HRPage() {
     base_salary: 0, salary_currency: 'GEL', notes: '',
   })
   const [error, setError] = useState('')
+  const [attModal, setAttModal] = useState(false)
+  const [leaveModal, setLeaveModal] = useState(false)
+  const [jobModal, setJobModal] = useState(false)
+  const [reviewModal, setReviewModal] = useState(false)
+  const [attForm, setAttForm] = useState({ employee_id: '', date: new Date().toISOString().slice(0, 10), status: 'present' })
+  const [leaveForm, setLeaveForm] = useState({ employee_id: '', leave_type_id: '', start_date: '', end_date: '', total_days: 1, reason: '' })
+  const [jobForm, setJobForm] = useState({ title: '', department: '', status: 'open', deadline: '' })
+  const [reviewForm, setReviewForm] = useState({ employee_id: '', review_period: '', overall_rating: 5 })
 
   // ── Queries ──────────────────────────────────────────────────────
 
@@ -143,6 +151,30 @@ export default function HRPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr-leave'] }),
   })
 
+  const createAttendance = useMutation({
+    mutationFn: () => api.post('/hr/attendance', attForm),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['hr-attendance'] }); setAttModal(false); setAttForm({ employee_id: '', date: new Date().toISOString().slice(0, 10), status: 'present' }) },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+
+  const createLeave = useMutation({
+    mutationFn: () => api.post('/hr/leave-requests', leaveForm),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['hr-leave'] }); setLeaveModal(false); setLeaveForm({ employee_id: '', leave_type_id: '', start_date: '', end_date: '', total_days: 1, reason: '' }) },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+
+  const createJob = useMutation({
+    mutationFn: () => api.post('/recruitment/job-postings', jobForm),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['hr-jobs'] }); setJobModal(false); setJobForm({ title: '', department: '', status: 'open', deadline: '' }) },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+
+  const createReview = useMutation({
+    mutationFn: () => api.post('/hr/reviews', reviewForm),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['hr-reviews'] }); setReviewModal(false); setReviewForm({ employee_id: '', review_period: '', overall_rating: 5 }) },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+
   function resetForm() {
     setForm({ personal_number: '', full_name: '', position: '', department_id: '', email: '', phone: '', contract_type: 'permanent', hire_date: '', base_salary: 0, salary_currency: 'GEL', notes: '' })
     setError('')
@@ -179,6 +211,26 @@ export default function HRPage() {
         {tab === 'employees' && (
           <button onClick={() => { setEditId(null); resetForm(); setShowModal(true) }} className="btn btn-primary flex items-center gap-2">
             <Plus size={18} /> {t('თანამშრომლის დამატება')}
+          </button>
+        )}
+        {tab === 'attendance' && (
+          <button onClick={() => setAttModal(true)} className="btn btn-primary flex items-center gap-2">
+            <Plus size={18} /> {t('დასწრების დაფიქსირება')}
+          </button>
+        )}
+        {tab === 'leave' && (
+          <button onClick={() => setLeaveModal(true)} className="btn btn-primary flex items-center gap-2">
+            <Plus size={18} /> {t('შვებულების მოთხოვნა')}
+          </button>
+        )}
+        {tab === 'recruitment' && (
+          <button onClick={() => setJobModal(true)} className="btn btn-primary flex items-center gap-2">
+            <Plus size={18} /> {t('ახალი ვაკანსია')}
+          </button>
+        )}
+        {tab === 'appraisal' && (
+          <button onClick={() => setReviewModal(true)} className="btn btn-primary flex items-center gap-2">
+            <Plus size={18} /> {t('ახალი შეფასება')}
           </button>
         )}
       </div>
@@ -628,6 +680,124 @@ export default function HRPage() {
             {createMutation.isPending ? 'ინახება...' : editId ? t('შენახვა') : t('თანამშრომლის დამატება')}
           </button>
         </form>
+      </Modal>
+
+      {/* ── Attendance Modal ─────────────────────────────────────────── */}
+      <Modal open={attModal} onClose={() => setAttModal(false)} title={t('დასწრების დაფიქსირება')}>
+        <div className="space-y-4">
+          <FormField label={t('თანამშრომელი')} required>
+            <select value={attForm.employee_id} onChange={e => setAttForm({ ...attForm, employee_id: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+              <option value="">{t('აირჩიეთ')}</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}
+            </select>
+          </FormField>
+          <FormField label={t('თარიღი')} required>
+            <input type="date" value={attForm.date} onChange={e => setAttForm({ ...attForm, date: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          <FormField label={t('სტატუსი')}>
+            <select value={attForm.status} onChange={e => setAttForm({ ...attForm, status: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+              <option value="present">{t('დასწრება')}</option>
+              <option value="absent">{t('არყოფნა')}</option>
+              <option value="late">{t('დაგვიანება')}</option>
+              <option value="half_day">Half day</option>
+            </select>
+          </FormField>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => createAttendance.mutate()} disabled={createAttendance.isPending || !attForm.employee_id}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+
+      {/* ── Leave Modal ──────────────────────────────────────────────── */}
+      <Modal open={leaveModal} onClose={() => setLeaveModal(false)} title={t('შვებულების მოთხოვნა')}>
+        <div className="space-y-4">
+          <FormField label={t('თანამშრომელი')} required>
+            <select value={leaveForm.employee_id} onChange={e => setLeaveForm({ ...leaveForm, employee_id: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+              <option value="">{t('აირჩიეთ')}</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}
+            </select>
+          </FormField>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label={t('დაწყება')} required>
+              <input type="date" value={leaveForm.start_date} onChange={e => setLeaveForm({ ...leaveForm, start_date: e.target.value })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+            <FormField label={t('დასრულება')} required>
+              <input type="date" value={leaveForm.end_date} onChange={e => setLeaveForm({ ...leaveForm, end_date: e.target.value })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+          </div>
+          <FormField label={t('დღეები')}>
+            <input type="number" min={1} value={leaveForm.total_days} onChange={e => setLeaveForm({ ...leaveForm, total_days: Number(e.target.value) })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          <FormField label={t('მიზეზი')}>
+            <textarea value={leaveForm.reason} onChange={e => setLeaveForm({ ...leaveForm, reason: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" rows={2} />
+          </FormField>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => createLeave.mutate()} disabled={createLeave.isPending || !leaveForm.employee_id || !leaveForm.start_date}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+
+      {/* ── Job Posting Modal ────────────────────────────────────────── */}
+      <Modal open={jobModal} onClose={() => setJobModal(false)} title={t('ახალი ვაკანსია')}>
+        <div className="space-y-4">
+          <FormField label={t('პოზიცია')} required>
+            <input value={jobForm.title} onChange={e => setJobForm({ ...jobForm, title: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          <FormField label={t('დეპარტამენტი')}>
+            <input value={jobForm.department} onChange={e => setJobForm({ ...jobForm, department: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          <FormField label={t('ბოლო ვადა')}>
+            <input type="date" value={jobForm.deadline} onChange={e => setJobForm({ ...jobForm, deadline: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => createJob.mutate()} disabled={createJob.isPending || !jobForm.title}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+
+      {/* ── Review Modal ─────────────────────────────────────────────── */}
+      <Modal open={reviewModal} onClose={() => setReviewModal(false)} title={t('ახალი შეფასება')}>
+        <div className="space-y-4">
+          <FormField label={t('თანამშრომელი')} required>
+            <select value={reviewForm.employee_id} onChange={e => setReviewForm({ ...reviewForm, employee_id: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+              <option value="">{t('აირჩიეთ')}</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}
+            </select>
+          </FormField>
+          <FormField label={t('პერიოდი')} required>
+            <input value={reviewForm.review_period} onChange={e => setReviewForm({ ...reviewForm, review_period: e.target.value })}
+              placeholder="2026-Q3" className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          <FormField label={t('რეიტინგი')}>
+            <select value={reviewForm.overall_rating} onChange={e => setReviewForm({ ...reviewForm, overall_rating: Number(e.target.value) })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+              {[1, 2, 3, 4, 5].map(r => <option key={r} value={r}>{r} / 5</option>)}
+            </select>
+          </FormField>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => createReview.mutate()} disabled={createReview.isPending || !reviewForm.employee_id || !reviewForm.review_period}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
       </Modal>
     </div>
   )

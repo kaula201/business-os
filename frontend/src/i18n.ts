@@ -1420,6 +1420,10 @@ const en: Record<string, string> = {
   'რეკრუტირება': 'Recruitment',
   'ვაკანსიები არ არის': 'No job postings',
   'ბოლო ვადა': 'Deadline',
+  'დასწრების დაფიქსირება': 'Record attendance',
+  'შვებულების მოთხოვნა': 'Request leave',
+  'ახალი ვაკანსია': 'New job posting',
+  'ახალი შეფასება': 'New review',
 }
 
 i18n.use(initReactI18next).init({
