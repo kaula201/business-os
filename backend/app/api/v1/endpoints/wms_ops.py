@@ -550,3 +550,55 @@ async def serial_trace(
         ).order_by(BatchTraceEvent.created_at.asc())
     )).scalars().all()
     return ResponseBase(data=events)
+
+
+# ── FIFO / FEFO ───────────────────────────────────────────────────────────────
+
+@router.get("/allocation/{product_id}", response_model=ResponseBase[list[dict]])
+async def allocation_suggestion(
+    product_id: UUID,
+    strategy: str = Query("fefo", pattern="^(fifo|fefo)$"),
+    quantity: Decimal = Query(..., gt=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("wms", "can_access")),
+):
+    """Suggest which batches to consume first for a product.
+
+    FIFO — oldest production date first (first in, first out).
+    FEFO — earliest expiry date first (first expiry, first out).
+    """
+    company_id = current_user.company_id
+    await _require_product(db, company_id, product_id)
+    query = select(ProductBatch).where(
+        ProductBatch.company_id == company_id,
+        ProductBatch.product_id == product_id,
+        ProductBatch.quantity > 0,
+    )
+    if strategy == "fefo":
+        query = query.order_by(ProductBatch.expiry_date.asc().nulls_last(), ProductBatch.created_at.asc())
+    else:
+        query = query.order_by(ProductBatch.production_date.asc().nulls_last(), ProductBatch.created_at.asc())
+    batches = (await db.execute(query)).scalars().all()
+
+    remaining = Decimal(quantity)
+    allocation = []
+    for b in batches:
+        if remaining <= 0:
+            break
+        take = min(Decimal(b.quantity), remaining)
+        allocation.append({
+            "batch_id": str(b.id),
+            "batch_number": b.batch_number,
+            "quantity": float(take),
+            "expiry_date": b.expiry_date.isoformat() if b.expiry_date else None,
+            "production_date": b.production_date.isoformat() if b.production_date else None,
+            "unit_cost": float(b.unit_cost) if b.unit_cost else None,
+        })
+        remaining -= take
+
+    if remaining > 0:
+        return ResponseBase(
+            data=allocation,
+            message=f"საკმარისი მარაგი არ არის — დეფიციტი: {float(remaining)}",
+        )
+    return ResponseBase(data=allocation, message=f"{strategy.upper()} განაწილება")

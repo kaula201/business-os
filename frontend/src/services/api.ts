@@ -495,4 +495,6 @@ export const wmsOpsApi = {
     api.post(`/wms-ops/landed-costs/${id}/allocate`, data),
   batchTrace: (batchId: string) => api.get(`/wms-ops/trace/${batchId}`),
   serialTrace: (serialId: string) => api.get(`/wms-ops/trace/serial/${serialId}`),
+  allocationSuggestion: (productId: string, strategy: 'fifo' | 'fefo', quantity: number) =>
+    api.get(`/wms-ops/allocation/${productId}`, { params: { strategy, quantity } }),
 }

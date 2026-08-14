@@ -1326,6 +1326,13 @@ const en: Record<string, string> = {
   'შევსების წესები არ არის': 'No replenishment rules',
   'შეფუთვა': 'Pack',
   'ტრანსპორტირება, საბაჟო, დაზღვევა': 'Freight, customs, insurance',
+  'FIFO/FEFO': 'FIFO/FEFO',
+  'FIFO/FEFO განაწილება': 'FIFO/FEFO allocation',
+  'გამოთვლა': 'Calculate',
+  'მიღების მიხედვით': 'By receipt',
+  'საკმარისი მარაგი არ არის': 'Insufficient stock',
+  'სტრატეგია': 'Strategy',
+  'ვადის მიხედვით': 'By expiry',
 }
 
 i18n.use(initReactI18next).init({

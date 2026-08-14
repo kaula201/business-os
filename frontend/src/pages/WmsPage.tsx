@@ -45,6 +45,9 @@ export default function WmsPage() {
   const [landedOpen, setLandedOpen] = useState(false)
   const [traceFor, setTraceFor] = useState<Batch | null>(null)
   const [transferFor, setTransferFor] = useState<Batch | null>(null)
+  const [allocOpen, setAllocOpen] = useState(false)
+  const [allocForm, setAllocForm] = useState({ product_id: '', strategy: 'fefo', quantity: '' })
+  const [allocResult, setAllocResult] = useState<any[] | null>(null)
   const [form, setForm] = useState({
     warehouse_id: '', product_id: '', batch_number: '', production_date: '',
     expiry_date: '', quantity: '', unit_cost: '', notes: '',
@@ -214,6 +217,11 @@ export default function WmsPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['wms-landed'] }); qc.invalidateQueries({ queryKey: ['wms-batches'] }) },
   })
 
+  const runAllocation = useMutation({
+    mutationFn: () => wmsOpsApi.allocationSuggestion(allocForm.product_id, allocForm.strategy as 'fifo' | 'fefo', Number(allocForm.quantity)).then(r => r.data.data),
+    onSuccess: (d) => setAllocResult(d),
+  })
+
   const statusBadge = (status: string) => {
     const map: Record<string, string> = {
       in_stock: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
@@ -321,6 +329,10 @@ export default function WmsPage() {
           }}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700">
             <Plus size={15} /> {tab === 'batches' ? t('ახალი პარტია') : tab === 'serials' ? t('ახალი სერიული ნომერი') : tab === 'picking' ? t('ახალი პიკინგი') : tab === 'replenishment' ? t('ახალი წესი') : t('ახალი ლენდედ ქოსთი')}
+          </button>
+          <button onClick={() => { setAllocResult(null); setAllocOpen(true) }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-brandgray-100 text-brandgray-700 hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-300">
+            <ScanBarcode size={15} /> {t('FIFO/FEFO')}
           </button>
         </div>
       </div>
@@ -648,6 +660,50 @@ export default function WmsPage() {
             )}
           </div>
         )}
+      </Modal>
+
+      <Modal open={allocOpen} onClose={() => setAllocOpen(false)} title={t('FIFO/FEFO განაწილება')}>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('პროდუქტი')}</label>
+            <select className={inputCls} value={allocForm.product_id} onChange={e => setForm2(allocForm, e, setAllocForm, 'product_id')}>
+              <option value="">—</option>
+              {(products || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('სტრატეგია')}</label>
+              <select className={inputCls} value={allocForm.strategy} onChange={e => setForm2(allocForm, e, setAllocForm, 'strategy')}>
+                <option value="fefo">FEFO ({t('ვადის მიხედვით')})</option>
+                <option value="fifo">FIFO ({t('მიღების მიხედვით')})</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('რაოდენობა')}</label>
+              <input type="number" step="0.001" className={inputCls} value={allocForm.quantity} onChange={e => setForm2(allocForm, e, setAllocForm, 'quantity')} />
+            </div>
+          </div>
+          <button onClick={() => runAllocation.mutate()} disabled={runAllocation.isPending || !allocForm.product_id || !allocForm.quantity}
+            className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+            {t('გამოთვლა')}
+          </button>
+          {allocResult && (
+            <div className="space-y-2">
+              {allocResult.length === 0 ? (
+                <p className="text-sm text-amber-600 dark:text-amber-400">{t('საკმარისი მარაგი არ არის')}</p>
+              ) : (
+                allocResult.map((a: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between rounded-lg border border-brandgray-100 dark:border-dark-50 px-3 py-2 text-sm">
+                    <span className="font-medium">{a.batch_number}</span>
+                    <span className="font-mono font-semibold">{a.quantity}</span>
+                    {a.expiry_date && <span className="text-xs text-brandgray-400 dark:text-gray-500">{new Date(a.expiry_date).toLocaleDateString('ka-GE')}</span>}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   )
