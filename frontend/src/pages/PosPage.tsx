@@ -30,6 +30,9 @@ export default function PosPage() {
   const [deviceForm, setDeviceForm] = useState({ name: '', device_type: 'fiscal_printer', serial_number: '' })
   const [offlineMode, setOfflineMode] = useState(false)
   const [offlineQueue, setOfflineQueue] = useState<any[]>([])
+  const [loyaltyBalance, setLoyaltyBalance] = useState<number | null>(null)
+  const [redeemPoints, setRedeemPoints] = useState('')
+  const [lastReceipt, setLastReceipt] = useState<any | null>(null)
 
   const { data: sessionsData } = useQuery({
     queryKey: ['pos-sessions'],
@@ -55,6 +58,12 @@ export default function PosPage() {
     queryFn: () => posApi.listFiscalDevices().then(r => r.data.data),
   })
   const devices: any[] = devicesData || []
+
+  const { data: offlineData } = useQuery({
+    queryKey: ['pos-offline'],
+    queryFn: () => posApi.listOfflineQueue().then(r => r.data.data),
+  })
+  const offlineItems: any[] = offlineData || []
 
   const { data: products } = useQuery({
     queryKey: ['products-all-pos'],
@@ -85,14 +94,62 @@ export default function PosPage() {
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ['pos-orders'] })
       qc.invalidateQueries({ queryKey: ['pos-sessions'] })
-      if (clientId && loyaltyPoints > 0) {
-        posApi.earnLoyalty(clientId, d.data.data.id, loyaltyPoints)
+      const order = d.data.data
+      if (clientId) {
+        if (loyaltyPoints > 0) {
+          posApi.earnLoyalty(clientId, order.id, loyaltyPoints)
+        }
+        if (redeemPoints && Number(redeemPoints) > 0) {
+          posApi.redeemLoyalty(clientId, Number(redeemPoints))
+        }
+        posApi.loyaltyBalance(clientId).then(r => setLoyaltyBalance(r.data.data.points))
       }
+      if (offlineMode) {
+        posApi.queueOfflineOrder('local-device', { order_id: order.id, order_number: order.order_number, total: order.total })
+          .then(() => qc.invalidateQueries({ queryKey: ['pos-offline'] }))
+      }
+      setLastReceipt(order)
       setCart([])
       setClientId('')
       setLoyaltyPoints(0)
+      setRedeemPoints('')
     },
   })
+
+  const redeemMut = useMutation({
+    mutationFn: (points: number) => posApi.redeemLoyalty(clientId, points),
+    onSuccess: (d) => { setLoyaltyBalance(d.data.data.points); setRedeemPoints('') },
+  })
+
+  const checkLoyalty = (cid: string) => {
+    setClientId(cid)
+    if (cid) {
+      posApi.loyaltyBalance(cid).then(r => setLoyaltyBalance(r.data.data.points))
+    } else {
+      setLoyaltyBalance(null)
+    }
+  }
+
+  const printReceipt = () => {
+    if (!lastReceipt) return
+    const w = window.open('', '_blank', 'width=300,height=500')
+    if (!w) return
+    w.document.write(`<html><head><title>${lastReceipt.order_number}</title><style>body{font-family:monospace;font-size:12px;padding:16px}hr{border:none;border-top:1px dashed #000}</style></head><body>
+      <h3 style="text-align:center">Business OS</h3>
+      <p style="text-align:center">${new Date().toLocaleString('ka-GE')}</p>
+      <hr/>
+      <p><b>${lastReceipt.order_number}</b></p>
+      ${(lastReceipt.items || []).map((i: any) => `<p>${i.product_name} × ${i.quantity}<br/>${Number(i.line_total).toFixed(2)} ₾</p>`).join('')}
+      <hr/>
+      <p>${t('ქვეჯამი')}: ${Number(lastReceipt.subtotal || 0).toFixed(2)} ₾</p>
+      <p>VAT 18%: ${Number(lastReceipt.vat_amount || 0).toFixed(2)} ₾</p>
+      <p style="font-size:16px"><b>${t('სულ')}: ${Number(lastReceipt.total).toFixed(2)} ₾</b></p>
+      <hr/>
+      <p style="text-align:center">${t('გმადლობთ!')}</p>
+      <script>window.print()</script>
+    </body></html>`)
+    w.document.close()
+  }
 
   const refundMut = useMutation({
     mutationFn: ({ id, amount }: { id: string; amount: number }) => posApi.refundOrder(id, amount),
@@ -227,21 +284,41 @@ export default function PosPage() {
           </div>
 
           <div className="mt-3 space-y-2">
-            <select className={inputCls} value={clientId} onChange={e => setClientId(e.target.value)}>
+            <select className={inputCls} value={clientId} onChange={e => checkLoyalty(e.target.value)}>
               <option value="">{t('კლიენტი (არასავალდებულო)')}</option>
               {(clients || []).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             {clientId && (
-              <div className="flex gap-2 items-center">
-                <Gift size={15} className="text-amber-500" />
-                <input type="number" className={inputCls} placeholder={t('Loyalty ქულები')}
-                  value={loyaltyPoints || ''} onChange={e => setLoyaltyPoints(Number(e.target.value))} />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Gift size={15} className="text-amber-500" />
+                  <span className="text-brandgray-600 dark:text-gray-300">{t('ბალანსი')}:</span>
+                  <span className="font-mono font-semibold text-amber-600 dark:text-amber-400">{loyaltyBalance ?? 0}</span>
+                </div>
+                <div className="flex gap-2 items-center">
+                  <input type="number" className={inputCls} placeholder={t('ქულების დარიცხვა')}
+                    value={loyaltyPoints || ''} onChange={e => setLoyaltyPoints(Number(e.target.value))} />
+                  <input type="number" className={inputCls} placeholder={t('ჩამოჭრა')}
+                    value={redeemPoints} onChange={e => setRedeemPoints(e.target.value)} />
+                  {redeemPoints && Number(redeemPoints) > 0 && (
+                    <button onClick={() => redeemMut.mutate(Number(redeemPoints))}
+                      className="px-2.5 py-2 rounded-lg text-xs font-medium bg-amber-600 text-white hover:bg-amber-700">
+                      {t('ჩამოჭრა')}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
             <button onClick={() => createOrder.mutate()} disabled={createOrder.isPending || cart.length === 0 || !openSession}
               className="w-full px-4 py-3 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 disabled:opacity-50">
               {t('გადახდა და ჩეკი')} — {money(total)}
             </button>
+            {lastReceipt && (
+              <button onClick={printReceipt}
+                className="w-full px-4 py-2 rounded-lg bg-brandgray-100 text-brandgray-700 text-sm font-medium hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-300">
+                <Printer size={14} className="inline mr-1" /> {t('ბოლო ჩეკის ბეჭდვა')} — {lastReceipt.order_number}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -300,12 +377,12 @@ export default function PosPage() {
           <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">{t('Offline რიგი')}</h3>
           <p className="text-xs text-amber-700 dark:text-amber-400 mb-2">{t('კავშირის აღდგენის შემდეგ შეკვეთები ავტომატურად სინქრონიზდება')}</p>
           <div className="space-y-1.5">
-            {offlineQueue.length === 0 ? (
+            {offlineItems.length === 0 ? (
               <p className="text-sm text-amber-700 dark:text-amber-400">{t('რიგი ცარიელია')}</p>
             ) : (
-              offlineQueue.map((q: any) => (
+              offlineItems.map((q: any) => (
                 <div key={q.id} className="flex items-center justify-between text-sm">
-                  <span className="font-mono">{q.device_id}</span>
+                  <span className="font-mono">{q.payload?.order_number || q.device_id}</span>
                   <span className="text-amber-700 dark:text-amber-300">{q.status}</span>
                   {q.status === 'pending' && (
                     <button onClick={() => syncOffline.mutate(q.id)} className="px-2 py-1 rounded-md text-xs bg-amber-600 text-white">{t('სინქრონიზაცია')}</button>

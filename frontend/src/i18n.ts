@@ -1400,6 +1400,9 @@ const en: Record<string, string> = {
   'ცვლის გახსნა': 'Open shift',
   'ცვლის სახელი': 'Shift name',
   'ღია ცვლა': 'Open shift',
+  'ბოლო ჩეკის ბეჭდვა': 'Print last receipt',
+  'გმადლობთ!': 'Thank you!',
+  'ქულების დარიცხვა': 'Earn points',
 }
 
 i18n.use(initReactI18next).init({
