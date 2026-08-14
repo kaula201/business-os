@@ -179,6 +179,28 @@ export const tasksApi = {
   calendar: (params?: any) => api.get('/tasks/calendar', { params }),
 }
 
+// Helpdesk API
+export const helpdeskApi = {
+  listTickets: (params?: Record<string, unknown>) => api.get('/helpdesk/', { params }),
+  createTicket: (data: Record<string, unknown>) => api.post('/helpdesk/', data),
+  updateTicket: (id: string, data: Record<string, unknown>) => api.patch(`/helpdesk/${id}`, data),
+  removeTicket: (id: string) => api.delete(`/helpdesk/${id}`),
+  queues: () => api.get('/helpdesk/queues'),
+  createQueue: (data: Record<string, unknown>) => api.post('/helpdesk/queues', data),
+  slas: () => api.get('/helpdesk/slas'),
+  createSla: (data: Record<string, unknown>) => api.post('/helpdesk/slas', data),
+  escalations: () => api.get('/helpdesk/escalations'),
+  createEscalation: (data: Record<string, unknown>) => api.post('/helpdesk/escalations', data),
+  cannedReplies: () => api.get('/helpdesk/canned-replies'),
+  createCannedReply: (data: Record<string, unknown>) => api.post('/helpdesk/canned-replies', data),
+  knowledge: () => api.get('/helpdesk/knowledge'),
+  createKnowledge: (data: Record<string, unknown>) => api.post('/helpdesk/knowledge', data),
+  fieldService: () => api.get('/helpdesk/field-service'),
+  createFieldService: (data: Record<string, unknown>) => api.post('/helpdesk/field-service', data),
+  emailIntake: () => api.get('/helpdesk/email-intake'),
+  createEmailIntake: (data: Record<string, unknown>) => api.post('/helpdesk/email-intake', data),
+}
+
 // Dashboard API
 export const dashboardApi = {
   getSummary: (period: string = '30d', ownerId?: string) => api.get('/dashboard/summary', { params: { period, ...(ownerId ? { owner_id: ownerId } : {}) } }),
