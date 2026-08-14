@@ -5,23 +5,28 @@ import { Plus, Scale, Award, Zap, FileText } from 'lucide-react'
 
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
-import { productsApi, procurementApi, suppliersApi } from '../services/api'
+import { productsApi, procurementApi, suppliersApi, contractsApi } from '../services/api'
 
 const inputCls = 'w-full rounded-lg border border-brandgray-200 bg-white px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200'
 
 export default function ProcurementPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'rfq' | 'compare' | 'pricelist' | 'blanket' | 'scorecard'>('rfq')
+  const [tab, setTab] = useState<'rfq' | 'compare' | 'pricelist' | 'blanket' | 'scorecard' | 'contracts'>('rfq')
   const [rfqOpen, setRfqOpen] = useState(false)
   const [priceOpen, setPriceOpen] = useState(false)
   const [blanketOpen, setBlanketOpen] = useState(false)
   const [scoreOpen, setScoreOpen] = useState(false)
+  const [contractOpen, setContractOpen] = useState(false)
+  const [responseFor, setResponseFor] = useState<any | null>(null)
   const [compareFor, setCompareFor] = useState<string | null>(null)
+  const [replenishResult, setReplenishResult] = useState<any | null>(null)
   const [rfqForm, setRfqForm] = useState({ title: '', product_id: '', quantity: '', required_date: '' })
   const [priceForm, setPriceForm] = useState({ supplier_id: '', product_id: '', price: '', currency: 'GEL' })
   const [blanketForm, setBlanketForm] = useState({ supplier_id: '', title: '', product_id: '', quantity: '', unit_price: '' })
   const [scoreForm, setScoreForm] = useState({ supplier_id: '', period: '', on_time: '', quality: '', price_index: '' })
+  const [responseForm, setResponseForm] = useState({ supplier_id: '', unit_price: '', delivery_days: '' })
+  const [contractForm, setContractForm] = useState({ title: '', counterparty: '', start_date: '', end_date: '', value: '' })
 
   const { data: rfqsData, isLoading: rfqsLoading } = useQuery({
     queryKey: ['proc-rfqs'],
@@ -46,6 +51,12 @@ export default function ProcurementPage() {
     queryFn: () => procurementApi.listScorecards().then(r => r.data.data),
   })
   const scores: any[] = scoresData || []
+
+  const { data: contractsData, isLoading: contractsLoading } = useQuery({
+    queryKey: ['proc-contracts'],
+    queryFn: () => contractsApi.list({ page_size: 100 }).then(r => r.data.data.items),
+  })
+  const contracts: any[] = contractsData || []
 
   const { data: compareData, isLoading: compareLoading } = useQuery({
     queryKey: ['proc-compare', compareFor],
@@ -113,7 +124,28 @@ export default function ProcurementPage() {
 
   const autoReplenish = useMutation({
     mutationFn: () => procurementApi.autoReplenish(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['proc-rfqs'] }),
+    onSuccess: (d) => { setReplenishResult(d.data.data); qc.invalidateQueries({ queryKey: ['proc-rfqs'] }) },
+  })
+
+  const submitResponse = useMutation({
+    mutationFn: () => {
+      const rfqLineId = responseFor?.lines?.[0]?.id
+      return procurementApi.submitRfqResponse(responseFor.id, {
+        supplier_id: responseForm.supplier_id,
+        delivery_days: responseForm.delivery_days ? Number(responseForm.delivery_days) : null,
+        lines: [{ rfq_line_id: rfqLineId, unit_price: Number(responseForm.unit_price), currency: 'GEL' }],
+      })
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['proc-rfqs'] }); setResponseFor(null); setResponseForm({ supplier_id: '', unit_price: '', delivery_days: '' }) },
+  })
+
+  const createContract = useMutation({
+    mutationFn: () => contractsApi.create({
+      title: contractForm.title, counterparty: contractForm.counterparty,
+      start_date: contractForm.start_date || null, end_date: contractForm.end_date || null,
+      value: contractForm.value ? Number(contractForm.value) : null,
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['proc-contracts'] }); setContractOpen(false); setContractForm({ title: '', counterparty: '', start_date: '', end_date: '', value: '' }) },
   })
 
   const statusBadge = (status: string) => {
@@ -139,6 +171,12 @@ export default function ProcurementPage() {
         <button onClick={() => setCompareFor(r.id)} className="p-1.5 rounded-md text-gray-400 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-900/30" title={t('შედარება')}>
           <Scale size={15} />
         </button>
+        {r.status !== 'awarded' && r.status !== 'cancelled' && (
+          <button onClick={() => { setResponseFor(r); setResponseForm({ supplier_id: '', unit_price: '', delivery_days: '' }) }}
+            className="p-1.5 rounded-md text-gray-400 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30" title={t('შეთავაზების შეტანა')}>
+            <FileText size={15} />
+          </button>
+        )}
         {r.status === 'receiving' && (
           <button onClick={() => { const s = prompt(t('მომწოდებლის ID')); if (s) awardRfq.mutate({ rfqId: r.id, supplierId: s }) }}
             className="p-1.5 rounded-md text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" title={t('გადაცემა')}>
@@ -168,6 +206,9 @@ export default function ProcurementPage() {
           <button onClick={() => setTab('scorecard')} className={`px-3 py-2 rounded-lg text-sm font-medium ${tab === 'scorecard' ? 'bg-brandgray-800 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400'}`}>
             {t('სკორკარდები')}
           </button>
+          <button onClick={() => setTab('contracts')} className={`px-3 py-2 rounded-lg text-sm font-medium ${tab === 'contracts' ? 'bg-brandgray-800 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400'}`}>
+            {t('ხელშეკრულებები')}
+          </button>
           <button onClick={() => autoReplenish.mutate()} disabled={autoReplenish.isPending}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50">
             <Zap size={15} /> {t('ავტო-შევსება')}
@@ -176,13 +217,32 @@ export default function ProcurementPage() {
             if (tab === 'rfq') setRfqOpen(true)
             else if (tab === 'pricelist') setPriceOpen(true)
             else if (tab === 'blanket') setBlanketOpen(true)
-            else setScoreOpen(true)
+            else if (tab === 'scorecard') setScoreOpen(true)
+            else setContractOpen(true)
           }}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700">
-            <Plus size={15} /> {tab === 'rfq' ? t('ახალი RFQ') : tab === 'pricelist' ? t('ახალი ფასი') : tab === 'blanket' ? t('ახალი ჩარჩო შეთანხმება') : t('ახალი სკორკარდი')}
+            <Plus size={15} /> {tab === 'rfq' ? t('ახალი RFQ') : tab === 'pricelist' ? t('ახალი ფასი') : tab === 'blanket' ? t('ახალი ჩარჩო შეთანხმება') : tab === 'scorecard' ? t('ახალი სკორკარდი') : t('ახალი ხელშეკრულება')}
           </button>
         </div>
       </div>
+
+      {replenishResult && (
+        <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/10 p-4">
+          <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 mb-2">
+            {replenishResult.created ? `${t('შექმნილია')}: ${replenishResult.order_number} (${replenishResult.items?.length || 0} ${t('ხაზი')})` : t('შევსება არ არის საჭირო')}
+          </h3>
+          {replenishResult.items?.length > 0 && (
+            <div className="space-y-1">
+              {replenishResult.items.map((it: any, i: number) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{productName(it.product_id)}</span>
+                  <span className="font-mono">{it.quantity}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {tab === 'rfq' && (
         <DataTable columns={rfqColumns} data={rfqs} isLoading={rfqsLoading} emptyMessage={t('RFQ არ არის')} />
@@ -228,6 +288,19 @@ export default function ProcurementPage() {
               ? <span className={`font-mono font-semibold ${s.overall_score >= 80 ? 'text-emerald-600 dark:text-emerald-400' : s.overall_score >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>{s.overall_score}</span> : '—' },
           ]}
           data={scores} isLoading={scoresLoading} emptyMessage={t('სკორკარდები არ არის')} />
+      )}
+
+      {tab === 'contracts' && (
+        <DataTable
+          columns={[
+            { key: 'title', label: t('სათაური'), priority: true, render: (c: any) => <span className="font-semibold text-gray-900 dark:text-gray-100">{c.title}</span> },
+            { key: 'counterparty', label: t('კონტრაგენტი'), render: (c: any) => <span className="text-sm">{c.counterparty}</span> },
+            { key: 'start_date', label: t('დაწყება'), render: (c: any) => c.start_date ? <span className="font-mono text-sm">{new Date(c.start_date).toLocaleDateString('ka-GE')}</span> : '—' },
+            { key: 'end_date', label: t('დასრულება'), render: (c: any) => c.end_date ? <span className="font-mono text-sm">{new Date(c.end_date).toLocaleDateString('ka-GE')}</span> : '—' },
+            { key: 'value', label: t('თანხა'), render: (c: any) => c.value ? <span className="font-mono font-semibold">{c.value} ₾</span> : '—' },
+            { key: 'status', label: t('სტატუსი'), render: (c: any) => statusBadge(c.status) },
+          ]}
+          data={contracts} isLoading={contractsLoading} emptyMessage={t('ხელშეკრულებები არ არის')} />
       )}
 
       <Modal open={compareFor !== null} onClose={() => setCompareFor(null)} title={t('შეთავაზებების შედარება')}>
@@ -395,6 +468,65 @@ export default function ProcurementPage() {
             </div>
           </div>
           <button onClick={() => upsertScore.mutate()} disabled={upsertScore.isPending || !scoreForm.supplier_id || !scoreForm.period}
+            className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={!!responseFor} onClose={() => setResponseFor(null)} title={`${t('შეთავაზების შეტანა')} — ${responseFor?.rfq_number || ''}`}>
+        {responseFor && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('მომწოდებელი')}</label>
+              <select className={inputCls} value={responseForm.supplier_id} onChange={e => setResponseForm({ ...responseForm, supplier_id: e.target.value })}>
+                <option value="">—</option>
+                {(suppliers || []).map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('ერთეულის ფასი')}</label>
+                <input type="number" step="0.0001" className={inputCls} value={responseForm.unit_price} onChange={e => setResponseForm({ ...responseForm, unit_price: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('მიწოდების დღეები')}</label>
+                <input type="number" className={inputCls} value={responseForm.delivery_days} onChange={e => setResponseForm({ ...responseForm, delivery_days: e.target.value })} />
+              </div>
+            </div>
+            <button onClick={() => submitResponse.mutate()} disabled={submitResponse.isPending || !responseForm.supplier_id || !responseForm.unit_price}
+              className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+              {t('შენახვა')}
+            </button>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={contractOpen} onClose={() => setContractOpen(false)} title={t('ახალი ხელშეკრულება')}>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('სათაური')}</label>
+            <input className={inputCls} value={contractForm.title} onChange={e => setContractForm({ ...contractForm, title: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('კონტრაგენტი')}</label>
+            <input className={inputCls} value={contractForm.counterparty} onChange={e => setContractForm({ ...contractForm, counterparty: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('დაწყება')}</label>
+              <input type="date" className={inputCls} value={contractForm.start_date} onChange={e => setContractForm({ ...contractForm, start_date: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('დასრულება')}</label>
+              <input type="date" className={inputCls} value={contractForm.end_date} onChange={e => setContractForm({ ...contractForm, end_date: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('თანხა')}</label>
+            <input type="number" step="0.01" className={inputCls} value={contractForm.value} onChange={e => setContractForm({ ...contractForm, value: e.target.value })} />
+          </div>
+          <button onClick={() => createContract.mutate()} disabled={createContract.isPending || !contractForm.title || !contractForm.counterparty}
             className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
             {t('შენახვა')}
           </button>

@@ -519,3 +519,13 @@ export const procurementApi = {
   autoReplenish: (warehouseId?: string) =>
     api.post('/procurement/auto-replenish', null, { params: warehouseId ? { warehouse_id: warehouseId } : {} }),
 }
+
+// Contracts API
+export const contractsApi = {
+  list: (params?: { page?: number; page_size?: number; status?: string; search?: string }) =>
+    api.get('/contracts/', { params }),
+  get: (id: string) => api.get(`/contracts/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/contracts/', data),
+  update: (id: string, data: Record<string, unknown>) => api.patch(`/contracts/${id}`, data),
+  remove: (id: string) => api.delete(`/contracts/${id}`),
+}

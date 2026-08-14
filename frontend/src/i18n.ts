@@ -1370,6 +1370,14 @@ const en: Record<string, string> = {
   'შეთავაზებების შედარება': 'Offer comparison',
   'შესყიდვები — Procurement': 'Purchasing — Procurement',
   'RFQ, შედარება, vendor ფასები, ჩარჩო შეთანხმებები, სკორკარდები': 'RFQ, comparison, vendor prices, blanket orders, scorecards',
+  'ახალი ხელშეკრულება': 'New contract',
+  'მიწოდების დღეები': 'Delivery days',
+  'შეთავაზების შეტანა': 'Submit offer',
+  'შექმნილია': 'Created',
+  'შევსება არ არის საჭირო': 'No replenishment needed',
+  'ხაზი': 'line',
+  'ხელშეკრულებები': 'Contracts',
+  'ხელშეკრულებები არ არის': 'No contracts',
 }
 
 i18n.use(initReactI18next).init({
