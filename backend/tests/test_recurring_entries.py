@@ -10,8 +10,6 @@ from app.services.gl_posting import seed_default_accounts
 from app.services.recurring_entries import compute_next_run, post_due_entries
 from tests.conftest import TestSessionLocal
 
-pytestmark = pytest.mark.asyncio
-
 
 async def _seed(client: AsyncClient, auth_headers, test_company) -> dict[str, str]:
     async with TestSessionLocal() as session:
@@ -71,6 +69,7 @@ def test_next_run_monthly_month_end_clamp():
 # ── CRUD via API ─────────────────────────────────────────────────────────────
 
 
+@pytest.mark.asyncio
 async def test_create_recurring(client: AsyncClient, auth_headers, test_company):
     acc = await _seed(client, auth_headers, test_company)
     resp = await client.post("/api/v1/gl/recurring/", json={
@@ -88,6 +87,7 @@ async def test_create_recurring(client: AsyncClient, auth_headers, test_company)
     assert data["total_posted"] == 0
 
 
+@pytest.mark.asyncio
 async def test_create_recurring_unbalanced_rejected(client: AsyncClient, auth_headers, test_company):
     acc = await _seed(client, auth_headers, test_company)
     resp = await client.post("/api/v1/gl/recurring/", json={
@@ -102,6 +102,7 @@ async def test_create_recurring_unbalanced_rejected(client: AsyncClient, auth_he
     assert "ბალანსი" in resp.json()["detail"]
 
 
+@pytest.mark.asyncio
 async def test_list_and_delete_recurring(client: AsyncClient, auth_headers, test_company):
     acc = await _seed(client, auth_headers, test_company)
     created = await client.post("/api/v1/gl/recurring/", json={
@@ -126,6 +127,7 @@ async def test_list_and_delete_recurring(client: AsyncClient, auth_headers, test
 # ── Posting due entries ──────────────────────────────────────────────────────
 
 
+@pytest.mark.asyncio
 async def test_post_due_entries_creates_journal_entries(client: AsyncClient, auth_headers, test_company):
     acc = await _seed(client, auth_headers, test_company)
     created = await client.post("/api/v1/gl/recurring/", json={
