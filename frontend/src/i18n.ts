@@ -1401,6 +1401,8 @@ const en: Record<string, string> = {
   'განზომილებები არ არის': 'No dimensions',
   'ჯგუფი': 'Group',
   'მნიშვნელობა': 'Value',
+  'მორგება': 'Customize',
+  'KPI ბარათების მორგება': 'Customize KPI cards',
   'ინვენტარიზაციები არ არის': 'No inventory counts',
   'ლოკაციები': 'Locations',
   'ლოკაციები არ არის': 'No locations',

@@ -17,6 +17,18 @@ export default function DashboardPage() {
   const { t } = useTranslation()
   const [period, setPeriod] = useState('30d')
   const [ownerId, setOwnerId] = useState('')
+  const [showCustomize, setShowCustomize] = useState(false)
+  const [hiddenKpis, setHiddenKpis] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('bos_hidden_kpis') || '[]') } catch { return [] }
+  })
+
+  const toggleKpi = (key: string) => {
+    setHiddenKpis(prev => {
+      const next = prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+      localStorage.setItem('bos_hidden_kpis', JSON.stringify(next))
+      return next
+    })
+  }
 
   const { data: users } = useQuery({
     queryKey: ['dashboard-users'],
@@ -74,11 +86,41 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
+          <button
+            onClick={() => setShowCustomize(!showCustomize)}
+            className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${showCustomize ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-dark-200 border-gray-200 dark:border-dark-50 text-gray-600 dark:text-gray-400'}`}
+          >
+            {t('მორგება')}
+          </button>
         </div>
       </div>
 
+      {/* Customize panel */}
+      {showCustomize && (
+        <div className="card p-4">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('KPI ბარათების მორგება')}</h3>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: 'revenue', label: t('შემოსავალი') },
+              { key: 'clients', label: t('აქტიური კლიენტები') },
+              { key: 'orders', label: t('მიმდინარე შეკვეთები') },
+              { key: 'tasks', label: t('დაგვიანებული დავალებები') },
+            ].map(k => (
+              <button
+                key={k.key}
+                onClick={() => toggleKpi(k.key)}
+                className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${hiddenKpis.includes(k.key) ? 'bg-gray-100 dark:bg-dark-100 text-gray-400 line-through' : 'bg-primary-50 text-primary-700 border-primary-200'}`}
+              >
+                {k.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {!hiddenKpis.includes('revenue') && (
         <KPICard
           icon={TrendingUp}
           label={t('შემოსავალი')}
@@ -88,9 +130,10 @@ export default function DashboardPage() {
           hint={`${t('ინვოისირებული შეკვეთები')}: ${data?.invoiced_orders_count ?? 0} / ${data?.total_orders_count ?? 0}`}
           to="/invoices"
         />
-        <KPICard icon={Users} label={t('აქტიური კლიენტები')} value={String(kpi?.active_clients || 0)} color="green" to="/clients" />
-        <KPICard icon={ShoppingCart} label={t('მიმდინარე შეკვეთები')} value={String(kpi?.active_orders || 0)} color="gray" to="/orders" />
-        <KPICard icon={AlertTriangle} label={t('დაგვიანებული დავალებები')} value={String(kpi?.overdue_tasks || 0)} color="red" to="/tasks" />
+        )}
+        {!hiddenKpis.includes('clients') && <KPICard icon={Users} label={t('აქტიური კლიენტები')} value={String(kpi?.active_clients || 0)} color="green" to="/clients" />}
+        {!hiddenKpis.includes('orders') && <KPICard icon={ShoppingCart} label={t('მიმდინარე შეკვეთები')} value={String(kpi?.active_orders || 0)} color="gray" to="/orders" />}
+        {!hiddenKpis.includes('tasks') && <KPICard icon={AlertTriangle} label={t('დაგვიანებული დავალებები')} value={String(kpi?.overdue_tasks || 0)} color="red" to="/tasks" />}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
