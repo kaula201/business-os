@@ -7,6 +7,7 @@ single source of truth used by Dashboard, AI, GL and customer finance.
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
@@ -18,6 +19,7 @@ from app.core.time import utc_now
 from app.models.client import Client
 from app.models.invoice import Invoice, InvoiceItem
 from app.models.module import AppModule
+from app.models.reporting import SavedReport, ReportSchedule, ReportDimension
 from app.models.product import Product
 from app.models.report import ReportPreference
 from app.models.receivable import CustomerReceivable
@@ -395,3 +397,153 @@ async def update_export_scope(
         default_export_scope=pref.default_export_scope,
         group_by_month=pref.group_by_month,
     ))
+
+
+# ── Saved reports ─────────────────────────────────────────────────────────────
+
+@router.get("/saved", response_model=ResponseBase[list[dict]])
+async def list_saved_reports(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("reports", "can_access")),
+):
+    result = await db.execute(
+        select(SavedReport).where(SavedReport.company_id == current_user.company_id).order_by(SavedReport.name)
+    )
+    return ResponseBase(data=[{"id": str(r.id), "name": r.name, "report_type": r.report_type, "config": r.config, "created_at": r.created_at.isoformat()} for r in result.scalars().all()])
+
+
+@router.post("/saved", response_model=ResponseBase[dict], status_code=201)
+async def create_saved_report(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("reports", "can_create")),
+):
+    r = SavedReport(
+        company_id=current_user.company_id,
+        name=data.get("name", ""),
+        report_type=data.get("report_type", "custom"),
+        config=data.get("config", "{}"),
+        created_by=current_user.id,
+    )
+    db.add(r)
+    await db.commit()
+    await db.refresh(r)
+    return ResponseBase(data={"id": str(r.id), "name": r.name}, message="რეპორტი შეინახა")
+
+
+@router.delete("/saved/{report_id}", response_model=ResponseBase[dict])
+async def delete_saved_report(
+    report_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("reports", "can_delete")),
+):
+    result = await db.execute(
+        select(SavedReport).where(SavedReport.id == report_id, SavedReport.company_id == current_user.company_id)
+    )
+    r = result.scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="რეპორტი არ მოიძებნა")
+    await db.delete(r)
+    await db.commit()
+    return ResponseBase(data={"id": str(report_id)}, message="რეპორტი წაიშალა")
+
+
+# ── Schedules ──────────────────────────────────────────────────────────────────
+
+@router.get("/schedules", response_model=ResponseBase[list[dict]])
+async def list_schedules(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("reports", "can_access")),
+):
+    result = await db.execute(
+        select(ReportSchedule).where(ReportSchedule.company_id == current_user.company_id).order_by(ReportSchedule.created_at.desc())
+    )
+    return ResponseBase(data=[{"id": str(s.id), "report_id": str(s.report_id), "frequency": s.frequency, "recipients": s.recipients, "is_active": s.is_active} for s in result.scalars().all()])
+
+
+@router.post("/schedules", response_model=ResponseBase[dict], status_code=201)
+async def create_schedule(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("reports", "can_create")),
+):
+    s = ReportSchedule(
+        company_id=current_user.company_id,
+        report_id=data.get("report_id"),
+        frequency=data.get("frequency", "weekly"),
+        recipients=data.get("recipients", ""),
+    )
+    db.add(s)
+    await db.commit()
+    await db.refresh(s)
+    return ResponseBase(data={"id": str(s.id), "frequency": s.frequency}, message="განრიგი შეიქმნა")
+
+
+# ── Dimensions ─────────────────────────────────────────────────────────────────
+
+@router.get("/dimensions", response_model=ResponseBase[list[dict]])
+async def list_dimensions(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("reports", "can_access")),
+):
+    result = await db.execute(
+        select(ReportDimension).where(ReportDimension.company_id == current_user.company_id).order_by(ReportDimension.name)
+    )
+    return ResponseBase(data=[{"id": str(d.id), "name": d.name, "label": d.label, "is_active": d.is_active} for d in result.scalars().all()])
+
+
+@router.post("/dimensions", response_model=ResponseBase[dict], status_code=201)
+async def create_dimension(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("reports", "can_create")),
+):
+    d = ReportDimension(company_id=current_user.company_id, name=data.get("name", ""), label=data.get("label", ""))
+    db.add(d)
+    await db.commit()
+    await db.refresh(d)
+    return ResponseBase(data={"id": str(d.id), "name": d.name}, message="განზომილება შეიქმნა")
+
+
+# ── Pivot ──────────────────────────────────────────────────────────────────────
+
+@router.get("/pivot", response_model=ResponseBase[dict])
+async def pivot_report(
+    metric: str = "revenue",
+    group_by: str = "month",
+    dimension: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("reports", "can_access")),
+):
+    """Pivot-style aggregation: revenue/expenses grouped by month, branch, product or manager."""
+    from sqlalchemy import text
+
+    if metric not in ("revenue", "expenses"):
+        raise HTTPException(status_code=400, detail="მეტრიკა უნდა იყოს revenue ან expenses")
+
+    group_col = {
+        "month": "to_char(i.invoice_date, 'YYYY-MM')",
+        "branch": "i.branch_id::text",
+        "product": "ii.product_id::text",
+        "manager": "i.manager_id::text",
+    }.get(group_by, "to_char(i.invoice_date, 'YYYY-MM')")
+
+    where = "i.company_id = :cid AND i.status = 'issued'"
+    params: dict = {"cid": current_user.company_id}
+    if date_from:
+        where += " AND i.invoice_date >= :df"
+        params["df"] = date_from
+    if date_to:
+        where += " AND i.invoice_date <= :dt"
+        params["dt"] = date_to
+
+    if metric == "revenue":
+        sql = f"SELECT {group_col} AS grp, SUM(ii.line_total) AS value FROM invoice_items ii JOIN invoices i ON i.id = ii.invoice_id WHERE {where} GROUP BY grp ORDER BY grp"
+    else:
+        sql = f"SELECT {group_col} AS grp, SUM(e.amount) AS value FROM expenses e WHERE {where.replace('i.', 'e.')} GROUP BY grp ORDER BY grp"
+
+    result = await db.execute(text(sql), params)
+    rows = [{"group": str(r[0]), "value": float(r[1] or 0)} for r in result.fetchall()]
+    return ResponseBase(data={"metric": metric, "group_by": group_by, "rows": rows})

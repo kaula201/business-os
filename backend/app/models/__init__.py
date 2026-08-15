@@ -32,6 +32,7 @@ from app.models.wms_ops import (
 from app.models.helpdesk_ext import (
     HelpdeskQueue, HelpdeskSla, HelpdeskEscalation, CannedReply, KnowledgeArticle, FieldServiceJob, EmailIntakeRule,
 )
+from app.models.reporting import SavedReport, ReportSchedule, ReportDimension
 from app.models.procurement import (
     RFQ, RFQLine, RFQResponse, RFQResponseLine,
     SupplierPriceList, BlanketOrder, BlanketOrderLine, SupplierScorecard,
@@ -108,6 +109,7 @@ __all__ = [
     "Warehouse", "InventoryBalance", "InventoryMovement", "WarehouseZone", "ZoneBalance", "InventoryCount", "InventoryCountLine", "AuditLog",
     "PickList", "PickListItem", "PackingSlip", "ReplenishmentRule", "LandedCost", "LandedCostAllocation", "BatchTraceEvent",
     "HelpdeskQueue", "HelpdeskSla", "HelpdeskEscalation", "CannedReply", "KnowledgeArticle", "FieldServiceJob", "EmailIntakeRule",
+    "SavedReport", "ReportSchedule", "ReportDimension",
     "RFQ", "RFQLine", "RFQResponse", "RFQResponseLine", "SupplierPriceList", "BlanketOrder", "BlanketOrderLine", "SupplierScorecard",
     "Supplier", "SupplierBankDetail", "SupplierRatingHistory", "PurchaseOrder", "PurchaseOrderItem", "PurchaseOrderStatusHistory",
     "GoodsReceipt", "GoodsReceiptItem",

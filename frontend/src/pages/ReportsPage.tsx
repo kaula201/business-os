@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { ordersApi, productsApi, dashboardApi, clientsApi, tasksApi, exportsApi } from '../services/api'
-import { BarChart2, Download, FileText, Users, ShoppingCart, Package, Bot } from 'lucide-react'
+import { ordersApi, productsApi, dashboardApi, clientsApi, tasksApi, exportsApi, reportsApi } from '../services/api'
+import { BarChart2, Download, FileText, Users, ShoppingCart, Package, Bot, Bookmark, Clock, Layers } from 'lucide-react'
 import { downloadBlob } from '../services/download'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 // Unified currency format: "590 ₾"
@@ -40,6 +40,16 @@ export default function ReportsPage() {
     queryFn: () => tasksApi.list({ page_size: 100 }).then(r => r.data.data),
   })
 
+  const { data: savedReports } = useQuery({ queryKey: ['reports-saved'], queryFn: () => reportsApi.saved().then(r => r.data.data) })
+  const { data: schedules } = useQuery({ queryKey: ['reports-schedules'], queryFn: () => reportsApi.schedules().then(r => r.data.data) })
+  const { data: dimensions } = useQuery({ queryKey: ['reports-dimensions'], queryFn: () => reportsApi.dimensions().then(r => r.data.data) })
+  const [pivotMetric, setPivotMetric] = useState('revenue')
+  const [pivotGroup, setPivotGroup] = useState('month')
+  const { data: pivotData } = useQuery({
+    queryKey: ['reports-pivot', pivotMetric, pivotGroup],
+    queryFn: () => reportsApi.pivot({ metric: pivotMetric, group_by: pivotGroup }).then(r => r.data.data),
+  })
+
   const revenueData = dashboardData?.revenue_chart?.data || []
   const orders = ordersData?.items || []
   const products = productsData?.items || []
@@ -52,6 +62,10 @@ export default function ReportsPage() {
     { id: 'inventory', label: t('საწყობი'), icon: Package, exportFn: () => downloadBlob(exportsApi.products(), 'products.xlsx') },
     { id: 'clients', label: t('კლიენტები'), icon: Users, exportFn: () => downloadBlob(exportsApi.clients(), 'clients.xlsx') },
     { id: 'tasks', label: t('დავალებები'), icon: Bot, exportFn: () => downloadBlob(exportsApi.tasks(), 'tasks.xlsx') },
+    { id: 'pivot', label: t('Pivot'), icon: BarChart2 },
+    { id: 'saved', label: t('შენახული რეპორტები'), icon: Bookmark },
+    { id: 'schedules', label: t('განრიგი'), icon: Clock },
+    { id: 'dimensions', label: t('განზომილებები'), icon: Layers },
   ]
 
   const currentTab = tabs.find(t => t.id === activeTab)
@@ -262,6 +276,110 @@ export default function ReportsPage() {
             })}
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">სულ დავალებები: {tasks.length}</p>
+        </div>
+      )}
+
+      {/* Pivot Report */}
+      {activeTab === 'pivot' && (
+        <div className="card">
+          <div className="flex items-center gap-3 mb-4 flex-wrap">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('Pivot ანალიზი')}</h3>
+            <select value={pivotMetric} onChange={e => setPivotMetric(e.target.value)} className="input w-36 text-sm">
+              <option value="revenue">{t('შემოსავალი')}</option>
+              <option value="expenses">{t('ხარჯები')}</option>
+            </select>
+            <select value={pivotGroup} onChange={e => setPivotGroup(e.target.value)} className="input w-40 text-sm">
+              <option value="month">{t('თვე')}</option>
+              <option value="branch">{t('ფილიალი')}</option>
+              <option value="product">{t('პროდუქტი')}</option>
+              <option value="manager">{t('მენეჯერი')}</option>
+            </select>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('ჯგუფი')}</th>
+                  <th className="px-4 py-3 text-right">{t('მნიშვნელობა')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {!pivotData || pivotData.rows.length === 0 ? (
+                  <tr><td colSpan={2} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('მონაცემები არ არის')}</td></tr>
+                ) : pivotData.rows.map((r: any) => (
+                  <tr key={r.group} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{r.group}</td>
+                    <td className="px-4 py-3 text-right font-mono">{money(r.value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Saved Reports */}
+      {activeTab === 'saved' && (
+        <div className="card">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('შენახული რეპორტები')}</h3>
+          {(savedReports || []).length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('შენახული რეპორტები არ არის')}</p>
+          ) : (
+            <div className="space-y-2">
+              {(savedReports || []).map((r: any) => (
+                <div key={r.id} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-dark-50 px-4 py-3">
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-gray-100">{r.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{r.report_type}</div>
+                  </div>
+                  <span className="text-xs text-gray-400">{new Date(r.created_at).toLocaleDateString('ka-GE')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Schedules */}
+      {activeTab === 'schedules' && (
+        <div className="card">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('განრიგი')}</h3>
+          {(schedules || []).length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('განრიგები არ არის')}</p>
+          ) : (
+            <div className="space-y-2">
+              {(schedules || []).map((s: any) => (
+                <div key={s.id} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-dark-50 px-4 py-3">
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-gray-100">{s.frequency}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{s.recipients || '—'}</div>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${s.is_active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {s.is_active ? t('აქტიური') : t('არააქტიური')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Dimensions */}
+      {activeTab === 'dimensions' && (
+        <div className="card">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('განზომილებები')}</h3>
+          {(dimensions || []).length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('განზომილებები არ არის')}</p>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-3">
+              {(dimensions || []).map((d: any) => (
+                <div key={d.id} className="rounded-lg border border-gray-200 dark:border-dark-50 p-4">
+                  <div className="font-medium text-gray-900 dark:text-gray-100">{d.label}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{d.name}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

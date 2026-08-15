@@ -201,6 +201,21 @@ export const helpdeskApi = {
   createEmailIntake: (data: Record<string, unknown>) => api.post('/helpdesk/email-intake', data),
 }
 
+// Reports API
+export const reportsApi = {
+  summary: (params?: Record<string, unknown>) => api.get('/reports/summary', { params }),
+  revenue: (params?: Record<string, unknown>) => api.get('/reports/revenue', { params }),
+  definitions: () => api.get('/reports/definitions'),
+  saved: () => api.get('/reports/saved'),
+  createSaved: (data: Record<string, unknown>) => api.post('/reports/saved', data),
+  removeSaved: (id: string) => api.delete(`/reports/saved/${id}`),
+  schedules: () => api.get('/reports/schedules'),
+  createSchedule: (data: Record<string, unknown>) => api.post('/reports/schedules', data),
+  dimensions: () => api.get('/reports/dimensions'),
+  createDimension: (data: Record<string, unknown>) => api.post('/reports/dimensions', data),
+  pivot: (params?: Record<string, unknown>) => api.get('/reports/pivot', { params }),
+}
+
 // Dashboard API
 export const dashboardApi = {
   getSummary: (period: string = '30d', ownerId?: string) => api.get('/dashboard/summary', { params: { period, ...(ownerId ? { owner_id: ownerId } : {}) } }),
