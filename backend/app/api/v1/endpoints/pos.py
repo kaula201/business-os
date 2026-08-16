@@ -373,7 +373,7 @@ async def list_fiscal_devices(
 @router.post("/fiscal-devices", response_model=ResponseBase[dict], status_code=201)
 async def register_fiscal_device(
     name: str = Query(..., min_length=1),
-    device_type: str = Query("fiscal_printer", pattern="^(fiscal_printer|terminal)$"),
+    device_type: str = Query("fiscal_printer", pattern="^(fiscal_printer|terminal|barcode_scanner|cash_drawer|receipt_printer)$"),
     serial_number: str = Query(..., min_length=1),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("pos", "can_create")),
@@ -385,3 +385,26 @@ async def register_fiscal_device(
     db.add(device)
     await db.flush()
     return ResponseBase(data={"id": str(device.id)}, message="მოწყობილობა დარეგისტრირდა")
+
+
+@router.get("/hardware/status", response_model=ResponseBase[dict])
+async def hardware_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_access")),
+):
+    """POS hardware overview: registered devices by type + online/offline state."""
+    rows = (await db.execute(
+        select(POSFiscalDevice).where(POSFiscalDevice.company_id == current_user.company_id)
+    )).scalars().all()
+    by_type: dict[str, int] = {}
+    for d in rows:
+        by_type[d.device_type] = by_type.get(d.device_type, 0) + 1
+    return ResponseBase(data={
+        "total_devices": len(rows),
+        "active_devices": sum(1 for d in rows if d.is_active),
+        "by_type": by_type,
+        "devices": [{
+            "id": str(d.id), "name": d.name, "device_type": d.device_type,
+            "serial_number": d.serial_number, "is_active": d.is_active,
+        } for d in rows],
+    })
