@@ -9,6 +9,7 @@ from app.core.time import utc_now
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from app.models.user import User
 from app.models.company import Company
+from app.models.security import LoginHistory, User2FA
 from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse, UserUpdate, UserInvite
 from app.schemas.common import ResponseBase, MessageResponse
 from app.core.config import settings
@@ -104,6 +105,15 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
     # ბოლო შესვლის განახლება
     from datetime import datetime
     user.last_login = utc_now()
+
+    # Login history ჩაწერა
+    db.add(LoginHistory(
+        user_id=user.id,
+        company_id=user.company_id,
+        ip_address=None,
+        user_agent=None,
+        success=True,
+    ))
 
     token_data = {"sub": str(user.id), "company_id": str(user.company_id), "role": user.role}
     access_token = create_access_token(token_data)
@@ -240,3 +250,63 @@ async def resend_verification(
     await db.flush()
 
     return ResponseBase(data=MessageResponse(message="თუ ელფოსტა რეგისტრირებულია, verification ბმული გამოგეგზავნებათ"))
+
+
+# ── 2FA ────────────────────────────────────────────────────────────────────────
+
+@router.get("/2fa/status", response_model=ResponseBase[dict])
+async def two_fa_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(User2FA).where(User2FA.user_id == current_user.id))
+    record = result.scalar_one_or_none()
+    return ResponseBase(data={"enabled": bool(record and record.is_enabled)})
+
+
+@router.post("/2fa/setup", response_model=ResponseBase[dict])
+async def two_fa_setup(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate a TOTP secret for the user (sandbox: returns the secret to display)."""
+    import secrets as _secrets
+    secret = _secrets.token_hex(20)
+    result = await db.execute(select(User2FA).where(User2FA.user_id == current_user.id))
+    record = result.scalar_one_or_none()
+    if record:
+        record.secret = secret
+        record.is_enabled = True
+    else:
+        db.add(User2FA(user_id=current_user.id, secret=secret, is_enabled=True))
+    await db.commit()
+    return ResponseBase(data={"secret": secret, "enabled": True}, message="2FA ჩართულია")
+
+
+@router.post("/2fa/disable", response_model=ResponseBase[dict])
+async def two_fa_disable(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(User2FA).where(User2FA.user_id == current_user.id))
+    record = result.scalar_one_or_none()
+    if record:
+        record.is_enabled = False
+        await db.commit()
+    return ResponseBase(data={"enabled": False}, message="2FA გამორთულია")
+
+
+# ── Login history ──────────────────────────────────────────────────────────────
+
+@router.get("/login-history", response_model=ResponseBase[list[dict]])
+async def login_history(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(LoginHistory).where(LoginHistory.user_id == current_user.id).order_by(LoginHistory.created_at.desc()).limit(50)
+    )
+    return ResponseBase(data=[{
+        "id": str(h.id), "ip_address": h.ip_address, "user_agent": h.user_agent,
+        "success": h.success, "created_at": h.created_at.isoformat(),
+    } for h in result.scalars().all()])

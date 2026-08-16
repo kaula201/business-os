@@ -7,7 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import require_module
+from app.core.time import utc_now
 from app.models.approval import ApprovalRequest
+from app.models.security import ApprovalStep
 from app.models.user import User
 from app.schemas.approval import (
     ApprovalApprove,
@@ -168,3 +170,85 @@ async def approve_approval(
         data=_to_response(req),
         message="Approval request approved" if payload.action == "approve" else "Approval request rejected",
     )
+
+
+# ── Multi-level approval steps ────────────────────────────────────────────────
+
+@router.get("/{request_id}/steps", response_model=ResponseBase[list[dict]])
+async def list_approval_steps(
+    request_id: UUID,
+    current_user: User = Depends(require_module("approvals", "can_access")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_request(db, request_id, current_user.company_id)
+    rows = (await db.execute(
+        select(ApprovalStep).where(ApprovalStep.approval_id == request_id).order_by(ApprovalStep.step_order)
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(s.id), "step_order": s.step_order, "approver_id": str(s.approver_id) if s.approver_id else None,
+        "role_required": s.role_required, "status": s.status, "comment": s.comment,
+        "decided_at": s.decided_at.isoformat() if s.decided_at else None,
+    } for s in rows])
+
+
+@router.post("/{request_id}/steps", response_model=ResponseBase[dict], status_code=201)
+async def add_approval_step(
+    request_id: UUID,
+    payload: dict,
+    current_user: User = Depends(require_module("approvals", "can_create")),
+    db: AsyncSession = Depends(get_db),
+):
+    req = await _get_owned_request(db, request_id, current_user.company_id)
+    if req.status != ApprovalRequest.Status.PENDING:
+        raise HTTPException(status_code=400, detail="Only pending requests can have steps added")
+
+    step = ApprovalStep(
+        company_id=current_user.company_id,
+        approval_id=request_id,
+        step_order=int(payload.get("step_order", 1)),
+        approver_id=payload.get("approver_id"),
+        role_required=payload.get("role_required"),
+    )
+    db.add(step)
+    await db.commit()
+    await db.refresh(step)
+    return ResponseBase(data={"id": str(step.id), "step_order": step.step_order}, message="Approval step added")
+
+
+@router.patch("/steps/{step_id}/decide", response_model=ResponseBase[dict])
+async def decide_approval_step(
+    step_id: UUID,
+    payload: dict,
+    current_user: User = Depends(require_module("approvals", "can_access")),
+    db: AsyncSession = Depends(get_db),
+):
+    step = await db.scalar(
+        select(ApprovalStep).where(
+            ApprovalStep.id == step_id,
+            ApprovalStep.company_id == current_user.company_id,
+        )
+    )
+    if not step:
+        raise HTTPException(status_code=404, detail="Approval step not found")
+    if step.status != "pending":
+        raise HTTPException(status_code=400, detail="Step already decided")
+
+    action = payload.get("action", "approve")
+    step.status = "approved" if action == "approve" else "rejected"
+    step.comment = payload.get("comment")
+    step.decided_at = utc_now()
+    await db.commit()
+
+    # If all steps approved → approve the request; any rejection → reject
+    req = await _get_owned_request(db, step.approval_id, current_user.company_id)
+    steps = (await db.execute(
+        select(ApprovalStep).where(ApprovalStep.approval_id == step.approval_id)
+    )).scalars().all()
+    if any(s.status == "rejected" for s in steps):
+        req.status = ApprovalRequest.Status.REJECTED
+    elif all(s.status == "approved" for s in steps):
+        req.status = ApprovalRequest.Status.APPROVED
+        req.approved_by = current_user.id
+    await db.commit()
+
+    return ResponseBase(data={"id": str(step.id), "status": step.status}, message="Step decided")
