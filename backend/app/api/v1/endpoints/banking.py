@@ -623,6 +623,7 @@ async def reverse_bank_reconciliation(
         reversal_date=date.today(),
         amount=reconciliation.amount,
     )
+    return ResponseBase(data=await result_response(db, transaction, payable, reconciliation))
 
 
 # ── Bank connections (TBC/BOG sync) ───────────────────────────────────────────
