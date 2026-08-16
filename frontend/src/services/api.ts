@@ -245,6 +245,17 @@ export const emailCalendarApi = {
   removeEvent: (id: string) => api.delete(`/email-calendar/events/${id}`),
 }
 
+// Security API (2FA, login history, approval steps)
+export const securityApi = {
+  twoFaStatus: () => api.get('/auth/2fa/status'),
+  twoFaSetup: () => api.post('/auth/2fa/setup'),
+  twoFaDisable: () => api.post('/auth/2fa/disable'),
+  loginHistory: () => api.get('/auth/login-history'),
+  approvalSteps: (id: string) => api.get(`/approvals/${id}/steps`),
+  addApprovalStep: (id: string, data: Record<string, unknown>) => api.post(`/approvals/${id}/steps`, data),
+  decideApprovalStep: (stepId: string, data: Record<string, unknown>) => api.patch(`/approvals/steps/${stepId}/decide`, data),
+}
+
 // Dashboard API
 export const dashboardApi = {
   getSummary: (period: string = '30d', ownerId?: string) => api.get('/dashboard/summary', { params: { period, ...(ownerId ? { owner_id: ownerId } : {}) } }),

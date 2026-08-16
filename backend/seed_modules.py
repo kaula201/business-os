@@ -53,6 +53,7 @@ MODULES = [
     ("integrations",  "ინტეგრაციები",               "API keys, webhooks, RS.ge",   "Plug",            "/integrations", "operations", 58,  "settings"),
     ("payments",      "გადახდები",                   "Payment gateway",             "CreditCard",      "/payments",     "operations", 59,  "invoices"),
     ("email-calendar","ელ.ფოსტა და კალენდარი",       "Email send, calendar events",  "Mail",            "/email-calendar","operations", 60,  "tasks"),
+    ("security",      "უსაფრთხოება",                 "2FA, login history, RBAC",    "Shield",          "/security",     "operations", 61,  "settings"),
     ("procurement",   "შესყიდვები — Procurement", "RFQ, pricelists, blanket",   "ShoppingCart",    "/procurement",  "purchases", 60,  "suppliers"),
     ("pos",           "სალარო (POS)",              "Cashier, shifts, checks",   "ShoppingCart",    "/pos",          "sales",     51,  "inventory"),
     ("hr",            "HR / ადამიანური რესურსები",   "Employees, payroll, leave", "Users",           "/hr",           "other",     250,  None),
@@ -74,7 +75,7 @@ DEFAULT_PERMISSIONS = {
 FINANCIAL_MODULES = {"cash", "banking", "currency", "gl", "journal-entries", "trial-balance", "profit-loss", "balance-sheet", "expenses", "assets", "customer-finance", "supplier-finance", "srs", "budgeting", "analytic", "deferred", "accounting-periods", "gl-recurring", "exchange-differences", "consolidated", "banking-rules"}
 
 # Operational modules where manager gets create/edit
-OPERATIONAL_MODULES = {"clients", "orders", "invoices", "inventory", "tasks", "purchases", "suppliers", "fleet", "crm", "quotations", "price-lists", "sales-teams", "email-tracking", "subscriptions", "customer-portal", "wms", "helpdesk", "integrations", "payments", "email-calendar", "procurement", "pos", "hr"}
+OPERATIONAL_MODULES = {"clients", "orders", "invoices", "inventory", "tasks", "purchases", "suppliers", "fleet", "crm", "quotations", "price-lists", "sales-teams", "email-tracking", "subscriptions", "customer-portal", "wms", "helpdesk", "integrations", "payments", "email-calendar", "security", "procurement", "pos", "hr"}
 
 
 async def seed_modules():
