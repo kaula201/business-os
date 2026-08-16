@@ -49,6 +49,8 @@ const PortalPage = lazy(() => import('./pages/PortalPage'))
 const WmsPage = lazy(() => import('./pages/WmsPage'))
 const HelpdeskPage = lazy(() => import('./pages/HelpdeskPage'))
 const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'))
+const PaymentsPage = lazy(() => import('./pages/PaymentsPage'))
+const EmailCalendarPage = lazy(() => import('./pages/EmailCalendarPage'))
 const ProcurementPage = lazy(() => import('./pages/ProcurementPage'))
 const PosPage = lazy(() => import('./pages/PosPage'))
 const CRMPage = lazy(() => import('./pages/CRMPage'))
@@ -127,6 +129,8 @@ function App() {
                   <Route path="/wms" element={<WmsPage />} />
                   <Route path="/helpdesk" element={<HelpdeskPage />} />
                   <Route path="/integrations" element={<IntegrationsPage />} />
+                  <Route path="/payments" element={<PaymentsPage />} />
+                  <Route path="/email-calendar" element={<EmailCalendarPage />} />
                   <Route path="/procurement" element={<ProcurementPage />} />
                   <Route path="/pos" element={<PosPage />} />
                   <Route path="/settings" element={<SettingsPage />} />

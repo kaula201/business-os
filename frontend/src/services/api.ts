@@ -228,6 +228,23 @@ export const integrationsApi = {
   rsStatus: () => api.get('/integrations/rs/status'),
 }
 
+// Payments API
+export const paymentsApi = {
+  list: () => api.get('/payments/'),
+  create: (data: Record<string, unknown>) => api.post('/payments/', data),
+  confirm: (id: string) => api.post(`/payments/${id}/confirm`),
+  refund: (id: string) => api.post(`/payments/${id}/refund`),
+}
+
+// Email + Calendar API
+export const emailCalendarApi = {
+  emails: () => api.get('/email-calendar/emails'),
+  sendEmail: (data: Record<string, unknown>) => api.post('/email-calendar/emails', data),
+  events: () => api.get('/email-calendar/events'),
+  createEvent: (data: Record<string, unknown>) => api.post('/email-calendar/events', data),
+  removeEvent: (id: string) => api.delete(`/email-calendar/events/${id}`),
+}
+
 // Dashboard API
 export const dashboardApi = {
   getSummary: (period: string = '30d', ownerId?: string) => api.get('/dashboard/summary', { params: { period, ...(ownerId ? { owner_id: ownerId } : {}) } }),
