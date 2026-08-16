@@ -216,6 +216,18 @@ export const reportsApi = {
   pivot: (params?: Record<string, unknown>) => api.get('/reports/pivot', { params }),
 }
 
+// Integrations API
+export const integrationsApi = {
+  apiKeys: () => api.get('/integrations/api-keys'),
+  createApiKey: (data: Record<string, unknown>) => api.post('/integrations/api-keys', data),
+  removeApiKey: (id: string) => api.delete(`/integrations/api-keys/${id}`),
+  webhooks: () => api.get('/integrations/webhooks'),
+  createWebhook: (data: Record<string, unknown>) => api.post('/integrations/webhooks', data),
+  removeWebhook: (id: string) => api.delete(`/integrations/webhooks/${id}`),
+  webhookEvents: () => api.get('/integrations/webhook-events'),
+  rsStatus: () => api.get('/integrations/rs/status'),
+}
+
 // Dashboard API
 export const dashboardApi = {
   getSummary: (period: string = '30d', ownerId?: string) => api.get('/dashboard/summary', { params: { period, ...(ownerId ? { owner_id: ownerId } : {}) } }),

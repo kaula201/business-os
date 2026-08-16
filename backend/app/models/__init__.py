@@ -33,6 +33,7 @@ from app.models.helpdesk_ext import (
     HelpdeskQueue, HelpdeskSla, HelpdeskEscalation, CannedReply, KnowledgeArticle, FieldServiceJob, EmailIntakeRule,
 )
 from app.models.reporting import SavedReport, ReportSchedule, ReportDimension
+from app.models.integration import ApiKey, Webhook, WebhookEvent
 from app.models.procurement import (
     RFQ, RFQLine, RFQResponse, RFQResponseLine,
     SupplierPriceList, BlanketOrder, BlanketOrderLine, SupplierScorecard,
@@ -110,6 +111,7 @@ __all__ = [
     "PickList", "PickListItem", "PackingSlip", "ReplenishmentRule", "LandedCost", "LandedCostAllocation", "BatchTraceEvent",
     "HelpdeskQueue", "HelpdeskSla", "HelpdeskEscalation", "CannedReply", "KnowledgeArticle", "FieldServiceJob", "EmailIntakeRule",
     "SavedReport", "ReportSchedule", "ReportDimension",
+    "ApiKey", "Webhook", "WebhookEvent",
     "RFQ", "RFQLine", "RFQResponse", "RFQResponseLine", "SupplierPriceList", "BlanketOrder", "BlanketOrderLine", "SupplierScorecard",
     "Supplier", "SupplierBankDetail", "SupplierRatingHistory", "PurchaseOrder", "PurchaseOrderItem", "PurchaseOrderStatusHistory",
     "GoodsReceipt", "GoodsReceiptItem",
