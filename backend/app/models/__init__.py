@@ -36,6 +36,7 @@ from app.models.reporting import SavedReport, ReportSchedule, ReportDimension
 from app.models.integration import ApiKey, Webhook, WebhookEvent
 from app.models.bank_connection import BankConnection
 from app.models.payment import PaymentTransaction
+from app.models.email_calendar import EmailMessage, CalendarEvent
 from app.models.procurement import (
     RFQ, RFQLine, RFQResponse, RFQResponseLine,
     SupplierPriceList, BlanketOrder, BlanketOrderLine, SupplierScorecard,
@@ -116,6 +117,7 @@ __all__ = [
     "ApiKey", "Webhook", "WebhookEvent",
     "BankConnection",
     "PaymentTransaction",
+    "EmailMessage", "CalendarEvent",
     "RFQ", "RFQLine", "RFQResponse", "RFQResponseLine", "SupplierPriceList", "BlanketOrder", "BlanketOrderLine", "SupplierScorecard",
     "Supplier", "SupplierBankDetail", "SupplierRatingHistory", "PurchaseOrder", "PurchaseOrderItem", "PurchaseOrderStatusHistory",
     "GoodsReceipt", "GoodsReceiptItem",
