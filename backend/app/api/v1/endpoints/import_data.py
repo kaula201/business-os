@@ -27,8 +27,16 @@ async def import_clients(
 
     content = await file.read()
     expected = ["name", "identification_code", "phone", "email", "address", "notes"]
+    aliases = {
+        "name": ["სახელი", "დასახელება", "კომპანია"],
+        "identification_code": ["საიდენტიფიკაციო კოდი", "საგადასახადო კოდი", "კოდი"],
+        "phone": ["ტელეფონი", "მობილური"],
+        "email": ["ელ.ფოსტა", "იმეილი"],
+        "address": ["მისამართი"],
+        "notes": ["შენიშვნა", "კომენტარი"],
+    }
     try:
-        rows = parse_excel_upload(content, expected)
+        rows = parse_excel_upload(content, expected, aliases)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -79,8 +87,18 @@ async def import_products(
 
     content = await file.read()
     expected = ["sku", "name", "category", "unit", "sale_price", "purchase_price", "min_stock", "current_stock"]
+    aliases = {
+        "sku": ["არტიკული", "კოდი"],
+        "name": ["სახელი", "დასახელება"],
+        "category": ["კატეგორია"],
+        "unit": ["ერთეული"],
+        "sale_price": ["გასაყიდი ფასი", "ფასი"],
+        "purchase_price": ["შესყიდვის ფასი", "თვითღირებულება"],
+        "min_stock": ["მინიმალური მარაგი"],
+        "current_stock": ["მიმდინარე მარაგი", "რაოდენობა"],
+    }
     try:
-        rows = parse_excel_upload(content, expected)
+        rows = parse_excel_upload(content, expected, aliases)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

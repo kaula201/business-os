@@ -7,12 +7,14 @@ from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 
 
-def parse_excel_upload(content: bytes, expected_columns: list[str]) -> list[dict]:
+def parse_excel_upload(content: bytes, expected_columns: list[str], aliases: dict[str, list[str]] | None = None) -> list[dict]:
     """Parse an uploaded Excel file and return rows as dicts.
 
     Args:
         content: Raw bytes of the .xlsx file.
         expected_columns: Column names expected in the header row.
+        aliases: Optional mapping of canonical column -> list of accepted header aliases
+            (e.g. {"name": ["სახელი", "დასახელება"], "phone": ["ტელეფონი"]}).
 
     Returns:
         List of dicts, one per data row (skipping the header).
@@ -20,6 +22,7 @@ def parse_excel_upload(content: bytes, expected_columns: list[str]) -> list[dict
     Raises:
         ValueError: If the file is empty, has no header, or required columns are missing.
     """
+    aliases = aliases or {}
     try:
         wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
     except (BadZipFile, InvalidFileException, OSError) as exc:
@@ -31,11 +34,15 @@ def parse_excel_upload(content: bytes, expected_columns: list[str]) -> list[dict
     rows = list(ws.iter_rows(values_only=True))
     header = [str(c).strip().lower() if c else "" for c in rows[0]]
 
-    # Build column index map
+    # Build column index map (canonical + aliases)
     col_map = {}
     for i, h in enumerate(header):
-        if h:
-            col_map[h] = i
+        if not h:
+            continue
+        col_map[h] = i
+        for canonical, alias_list in aliases.items():
+            if h in [a.lower() for a in alias_list]:
+                col_map.setdefault(canonical.lower(), i)
 
     # Validate required columns
     missing = [col for col in expected_columns if col.lower() not in col_map]
