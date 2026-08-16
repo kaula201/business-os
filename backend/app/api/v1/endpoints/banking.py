@@ -26,6 +26,7 @@ from app.models.banking import (
     BankStatementImport,
     BankTransaction,
 )
+from app.models.bank_connection import BankConnection
 from app.models.purchase import SupplierPayable, SupplierPayment, SupplierPaymentReversal
 from app.models.user import User
 from app.schemas.banking import (
@@ -622,4 +623,152 @@ async def reverse_bank_reconciliation(
         reversal_date=date.today(),
         amount=reconciliation.amount,
     )
-    return ResponseBase(data=await result_response(db, transaction, payable, reconciliation))
+
+
+# ── Bank connections (TBC/BOG sync) ───────────────────────────────────────────
+
+@router.get("/connections", response_model=ResponseBase[list[dict]])
+async def list_connections(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(BankConnection).where(BankConnection.company_id == current_user.company_id).order_by(BankConnection.bank)
+    )
+    return ResponseBase(data=[{
+        "id": str(c.id), "bank": c.bank, "name": c.name, "account_number": c.account_number,
+        "is_active": c.is_active, "last_sync_at": c.last_sync_at.isoformat() if c.last_sync_at else None,
+    } for c in result.scalars().all()])
+
+
+@router.post("/connections", response_model=ResponseBase[dict], status_code=201)
+async def create_connection(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = BankConnection(
+        company_id=current_user.company_id,
+        bank=data.get("bank", "tbc"),
+        name=data.get("name", ""),
+        account_number=data.get("account_number", ""),
+        client_id=data.get("client_id"),
+        client_secret=data.get("client_secret"),
+    )
+    db.add(c)
+    await db.commit()
+    await db.refresh(c)
+    return ResponseBase(data={"id": str(c.id), "bank": c.bank, "name": c.name}, message="ბანკის კავშირი შეიქმნა")
+
+
+@router.delete("/connections/{connection_id}", response_model=ResponseBase[dict])
+async def delete_connection(
+    connection_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(BankConnection).where(BankConnection.id == connection_id, BankConnection.company_id == current_user.company_id)
+    )
+    c = result.scalar_one_or_none()
+    if not c:
+        raise HTTPException(status_code=404, detail="კავშირი არ მოიძებნა")
+    await db.delete(c)
+    await db.commit()
+    return ResponseBase(data={"id": str(connection_id)}, message="კავშირი წაიშალა")
+
+
+@router.post("/connections/{connection_id}/sync", response_model=ResponseBase[dict])
+async def sync_connection(
+    connection_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Sync bank transactions from TBC/BOG. Accepts a list of transactions
+    (date, reference, description, counterparty, amount, direction, currency)
+    and imports them with fingerprint deduplication."""
+    result = await db.execute(
+        select(BankConnection).where(BankConnection.id == connection_id, BankConnection.company_id == current_user.company_id)
+    )
+    conn = result.scalar_one_or_none()
+    if not conn:
+        raise HTTPException(status_code=404, detail="კავშირი არ მოიძებნა")
+
+    account_result = await db.execute(
+        select(BankAccount).where(
+            BankAccount.company_id == current_user.company_id,
+            BankAccount.iban == conn.account_number,
+        )
+    )
+    account = account_result.scalar_one_or_none()
+    if not account:
+        raise HTTPException(status_code=400, detail="ანგარიში ვერ მოიძებნა — ჯერ შექმენით Bank Account")
+
+    transactions = data.get("transactions", [])
+    if not transactions:
+        raise HTTPException(status_code=422, detail="transactions სია ცარიელია")
+
+    statement = BankStatementImport(
+        company_id=current_user.company_id,
+        bank_account_id=account.id,
+        idempotency_key=f"sync-{conn.id}-{utc_now().isoformat()}",
+        filename=f"{conn.bank}-sync",
+        content_hash=hashlib.sha256(str(transactions).encode()).hexdigest(),
+        transaction_count=len(transactions),
+        debit_total=Decimal("0"),
+        credit_total=Decimal("0"),
+        imported_by=current_user.id,
+    )
+    db.add(statement)
+    await db.flush()
+
+    created = 0
+    skipped = 0
+    for t in transactions:
+        try:
+            txn_date = date.fromisoformat((t.get("date") or "").strip()[:10])
+            amount = Decimal(str(t.get("amount", "0")))
+        except (ValueError, InvalidOperation):
+            continue
+        direction = (t.get("direction") or "credit").lower()
+        currency = (t.get("currency") or account.currency).upper()
+        reference = (t.get("reference") or "").strip() or f"SYNC-{created + 1}"
+        description = (t.get("description") or "").strip()
+        counterparty = (t.get("counterparty") or "").strip()
+        fingerprint_source = "|".join([
+            str(account.id), txn_date.isoformat(), reference, description,
+            counterparty, str(amount), direction, currency,
+        ])
+        fingerprint = hashlib.sha256(fingerprint_source.encode()).hexdigest()
+
+        existing = (await db.execute(
+            select(BankTransaction.id).where(
+                BankTransaction.company_id == current_user.company_id,
+                BankTransaction.fingerprint == fingerprint,
+            )
+        )).scalar_one_or_none()
+        if existing:
+            skipped += 1
+            continue
+
+        db.add(BankTransaction(
+            company_id=current_user.company_id,
+            bank_account_id=account.id,
+            statement_import_id=statement.id,
+            transaction_date=txn_date,
+            reference=reference,
+            description=description,
+            counterparty=counterparty,
+            amount=amount,
+            matched_amount=Decimal("0"),
+            direction=direction,
+            currency=currency,
+            fingerprint=fingerprint,
+            status="unmatched",
+        ))
+        created += 1
+
+    conn.last_sync_at = utc_now()
+    await db.commit()
+    return ResponseBase(data={"created": created, "skipped": skipped}, message="სინქრონიზაცია დასრულდა")
