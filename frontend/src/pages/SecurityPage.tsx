@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ShieldCheck, History, GitBranch, KeyRound, Copy } from 'lucide-react'
+import { ShieldCheck, History, GitBranch, KeyRound, Copy, Eye, Plus, Trash2 } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
-import { securityApi } from '../services/api'
+import FormField from '../components/ui/FormField'
+import { securityApi, fieldAccessApi } from '../services/api'
 
 const tabs = [
   { id: '2fa', label: '2FA', icon: ShieldCheck },
   { id: 'history', label: 'შესვლის ისტორია', icon: History },
   { id: 'steps', label: 'Approval Steps', icon: GitBranch },
+  { id: 'fields', label: 'Field Access', icon: Eye },
 ]
 
 export default function SecurityPage() {
@@ -21,6 +23,20 @@ export default function SecurityPage() {
 
   const { data: twoFa } = useQuery({ queryKey: ['sec-2fa'], queryFn: () => securityApi.twoFaStatus().then(r => r.data.data) })
   const { data: history } = useQuery({ queryKey: ['sec-history'], queryFn: () => securityApi.loginHistory().then(r => r.data.data) })
+  const { data: fieldRules } = useQuery({ queryKey: ['sec-fields'], queryFn: () => fieldAccessApi.list().then(r => r.data.data) })
+
+  const [fieldForm, setFieldForm] = useState({ module: 'clients', role: 'employee', field: '', can_view: true, can_edit: false })
+  const [fieldOpen, setFieldOpen] = useState(false)
+
+  const createFieldRule = useMutation({
+    mutationFn: () => fieldAccessApi.create(fieldForm),
+    onSuccess: () => { setFieldOpen(false); setFieldForm({ module: 'clients', role: 'employee', field: '', can_view: true, can_edit: false }); qc.invalidateQueries({ queryKey: ['sec-fields'] }) },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+  const removeFieldRule = useMutation({
+    mutationFn: (id: string) => fieldAccessApi.remove(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sec-fields'] }),
+  })
 
   const setup2fa = useMutation({
     mutationFn: () => securityApi.twoFaSetup(),
@@ -118,6 +134,91 @@ export default function SecurityPage() {
           </div>
         </div>
       )}
+
+      {tab === 'fields' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('ველების დონის წვდომა — რომელ როლს რომელი ველი უჩანს')}</p>
+            <button onClick={() => setFieldOpen(true)} className="btn btn-primary flex items-center gap-2 text-sm">
+              <Plus size={16} /> {t('ახალი წესი')}
+            </button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                  <tr>
+                    <th className="px-4 py-3">{t('მოდული')}</th>
+                    <th className="px-4 py-3">{t('როლი')}</th>
+                    <th className="px-4 py-3">{t('ველი')}</th>
+                    <th className="px-4 py-3">{t('ნახვა')}</th>
+                    <th className="px-4 py-3">{t('რედაქტირება')}</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y dark:divide-dark-50">
+                  {(fieldRules || []).length === 0 ? (
+                    <tr><td colSpan={6} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('წესები არ არის')}</td></tr>
+                  ) : (fieldRules || []).map((r: any) => (
+                    <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                      <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{r.module}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.role}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-gray-700 dark:text-gray-300">{r.field}</td>
+                      <td className="px-4 py-3">{r.can_view ? '✓' : '—'}</td>
+                      <td className="px-4 py-3">{r.can_edit ? '✓' : '—'}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button onClick={() => removeFieldRule.mutate(r.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Field access create modal */}
+      <Modal open={fieldOpen} onClose={() => setFieldOpen(false)} title={t('ახალი წესი')}>
+        <div className="space-y-4">
+          <FormField label={t('მოდული')}>
+            <select value={fieldForm.module} onChange={e => setFieldForm({ ...fieldForm, module: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+              <option value="clients">clients</option>
+              <option value="orders">orders</option>
+              <option value="invoices">invoices</option>
+              <option value="inventory">inventory</option>
+              <option value="hr">hr</option>
+            </select>
+          </FormField>
+          <FormField label={t('როლი')}>
+            <select value={fieldForm.role} onChange={e => setFieldForm({ ...fieldForm, role: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+              <option value="admin">admin</option>
+              <option value="manager">manager</option>
+              <option value="employee">employee</option>
+              <option value="accountant">accountant</option>
+            </select>
+          </FormField>
+          <FormField label={t('ველი')} required>
+            <input value={fieldForm.field} onChange={e => setFieldForm({ ...fieldForm, field: e.target.value })}
+              placeholder="credit_limit" className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <input type="checkbox" checked={fieldForm.can_view} onChange={e => setFieldForm({ ...fieldForm, can_view: e.target.checked })} /> {t('ნახვა')}
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <input type="checkbox" checked={fieldForm.can_edit} onChange={e => setFieldForm({ ...fieldForm, can_edit: e.target.checked })} /> {t('რედაქტირება')}
+            </label>
+          </div>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => createFieldRule.mutate()} disabled={!fieldForm.field || createFieldRule.isPending}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {t('შექმნა')}
+          </button>
+        </div>
+      </Modal>
 
       {/* 2FA secret modal */}
       <Modal open={!!secret} onClose={() => setSecret('')} title={t('2FA ჩართულია')}>

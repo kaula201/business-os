@@ -256,6 +256,13 @@ export const securityApi = {
   decideApprovalStep: (stepId: string, data: Record<string, unknown>) => api.patch(`/approvals/steps/${stepId}/decide`, data),
 }
 
+// Field-level access API
+export const fieldAccessApi = {
+  list: (module?: string) => api.get('/field-access/', { params: module ? { module } : {} }),
+  create: (data: Record<string, unknown>) => api.post('/field-access/', data),
+  remove: (id: string) => api.delete(`/field-access/${id}`),
+}
+
 // Dashboard API
 export const dashboardApi = {
   getSummary: (period: string = '30d', ownerId?: string) => api.get('/dashboard/summary', { params: { period, ...(ownerId ? { owner_id: ownerId } : {}) } }),
