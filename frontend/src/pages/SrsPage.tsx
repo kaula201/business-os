@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  FileText, Calculator, Scale, Download, Calendar, Building2, TrendingUp, TrendingDown, DollarSign, Send, FileUp
+  FileText, Calculator, Scale, Download, Calendar, Building2, TrendingUp, TrendingDown, DollarSign, Send, FileUp, AlertTriangle
 } from 'lucide-react'
 
 import { api } from '../services/api'
@@ -75,6 +75,14 @@ export default function SrsPage() {
           <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('SRS ანგარიშგება')}</h1>
           <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('საგადასახადო ანგარიშები — დღგ, საშემოსავლო, ბალანსი')}</p>
         </div>
+      </div>
+
+      {/* Financial disclaimer */}
+      <div className="flex items-start gap-3 rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/70 dark:bg-amber-900/10 p-4">
+        <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+        <p className="text-sm text-amber-800 dark:text-amber-300">
+          {t('ეს მონაცემები საინფორმაციოა და ავტომატურად არის გამოთვლილი. საბოლოო საგადასახადო ანგარიშგების წარდგენამდე გთხოვთ შეამოწმოთ ბუღალტერთან ან საგადასახადო კონსულტანტთან.')}
+        </p>
       </div>
 
       {/* Tabs */}

@@ -1475,6 +1475,7 @@ const en: Record<string, string> = {
   'დაამატეთ გუნდის წევრები და მიანიჭეთ როლები — admin, manager, employee, accountant.': 'Add team members and assign roles — admin, manager, employee, accountant.',
   'შეიყვანეთ პროდუქტები და საწყისი მარაგები — SKU, ფასები, კატეგორიები.': 'Enter products and initial stock — SKU, prices, categories.',
   'დააკავშირეთ საბანკო ანგარიშები (TBC/BOG) და გადახდის მეთოდები.': 'Connect bank accounts (TBC/BOG) and payment methods.',
+  'ეს მონაცემები საინფორმაციოა და ავტომატურად არის გამოთვლილი. საბოლოო საგადასახადო ანგარიშგების წარდგენამდე გთხოვთ შეამოწმოთ ბუღალტერთან ან საგადასახადო კონსულტანტთან.': 'These figures are informational and auto-computed. Please verify with an accountant or tax advisor before filing your final tax return.',
   'ინვენტარიზაციები არ არის': 'No inventory counts',
   'ლოკაციები': 'Locations',
   'ლოკაციები არ არის': 'No locations',
