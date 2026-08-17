@@ -1464,6 +1464,8 @@ const en: Record<string, string> = {
   'მიმღები ID': 'Receiver ID',
   'კამერით სკანირება': 'Camera scan',
   'მიიტანეთ შტრიხკოდი კამერასთან — ავტომატურად დაფიქსირდება': 'Hold the barcode to the camera — it will be detected automatically',
+  'შეტყობინებები არ არის': 'No notifications',
+  'ყველას წაკითხვა': 'Mark all read',
   'ინვენტარიზაციები არ არის': 'No inventory counts',
   'ლოკაციები': 'Locations',
   'ლოკაციები არ არის': 'No locations',

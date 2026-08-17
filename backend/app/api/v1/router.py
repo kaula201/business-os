@@ -26,6 +26,7 @@ from app.api.v1.endpoints import (
     payments,
     email_calendar,
     field_access,
+    notifications,
     clients,
     contracts,
     subscriptions,
@@ -115,6 +116,7 @@ api_router.include_router(ecommerce.router)
 api_router.include_router(payments.router)
 api_router.include_router(email_calendar.router)
 api_router.include_router(field_access.router)
+api_router.include_router(notifications.router)
 api_router.include_router(export.router)
 api_router.include_router(invoices.router)
 api_router.include_router(invoices_enhanced.router)

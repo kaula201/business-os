@@ -266,6 +266,14 @@ export const fieldAccessApi = {
   remove: (id: string) => api.delete(`/field-access/${id}`),
 }
 
+// Notifications API
+export const notificationsApi = {
+  list: (limit = 20) => api.get('/notifications/', { params: { limit } }),
+  unreadCount: () => api.get('/notifications/unread-count'),
+  markRead: (id: string) => api.post(`/notifications/${id}/read`),
+  markAllRead: () => api.post('/notifications/read-all'),
+}
+
 // Dashboard API
 export const dashboardApi = {
   getSummary: (period: string = '30d', ownerId?: string) => api.get('/dashboard/summary', { params: { period, ...(ownerId ? { owner_id: ownerId } : {}) } }),

@@ -470,6 +470,24 @@ async def issue_invoice(
     if not invoice:
         raise HTTPException(status_code=404, detail="ინვოისი არ მოიძებნა")
     issued = await issue_invoice_snapshot(db, current_user, invoice)
+    # Notify the company owner/admin about the issued invoice
+    try:
+        from app.models.notification import Notification
+        owner_result = await db.execute(
+            select(User).where(User.company_id == current_user.company_id, User.role.in_(["admin", "owner"]))
+        )
+        for u in owner_result.scalars().all():
+            db.add(Notification(
+                company_id=current_user.company_id,
+                user_id=u.id,
+                type="invoice",
+                title=f"ინვოისი {invoice.invoice_number} დადასტურდა",
+                message=f"თანხა: {invoice.total} {invoice.currency}",
+                link=f"/invoices/{invoice.id}",
+            ))
+        await db.flush()
+    except Exception:
+        pass  # non-blocking
     # Refresh materialized views in a SEPARATE transaction so a failure
     # (e.g. views missing in test DB) never aborts the invoice transaction.
     try:
