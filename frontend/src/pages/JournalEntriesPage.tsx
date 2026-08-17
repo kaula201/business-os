@@ -190,7 +190,7 @@ export default function JournalEntriesPage() {
       {/* Create manual entry modal */}
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title={t('ახალი ხელით ჩანაწერი')}>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('თარიღი')}</label>
               <input type="date" className={inputCls} value={form.entry_date} onChange={e => setForm({ ...form, entry_date: e.target.value })} />

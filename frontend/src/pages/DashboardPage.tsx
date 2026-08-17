@@ -140,10 +140,10 @@ export default function DashboardPage() {
         {/* Revenue Chart */}
         <div className="lg:col-span-2 card">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200 mb-4">{t('შემოსავლების დინამიკა')}</h3>
-          <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={220}>
             <LineChart data={revenueData.filter((d: any) => d.amount > 0)}>
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
-              <YAxis tick={{ fontSize: 11 }} stroke="#9CA3AF" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#9CA3AF" />
+              <YAxis tick={{ fontSize: 10 }} stroke="#9CA3AF" width={45} />
               <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }} />
               <Line type="monotone" dataKey="amount" stroke="#16A6D4" strokeWidth={3} dot={{ fill: '#16A6D4', r: 3 }} activeDot={{ fill: '#4CAF32', r: 5 }} />
             </LineChart>
