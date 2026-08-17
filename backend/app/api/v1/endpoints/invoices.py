@@ -470,13 +470,18 @@ async def issue_invoice(
     if not invoice:
         raise HTTPException(status_code=404, detail="ინვოისი არ მოიძებნა")
     issued = await issue_invoice_snapshot(db, current_user, invoice)
-    # Refresh materialized views so dashboard KPIs are immediately up to date
+    # Refresh materialized views in a SEPARATE transaction so a failure
+    # (e.g. views missing in test DB) never aborts the invoice transaction.
     try:
-        await db.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_sales_daily"))
-        await db.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_receivables_aging"))
-        await db.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_stock_balances"))
+        await db.commit()
+        for view in ("mv_sales_daily", "mv_receivables_aging", "mv_stock_balances"):
+            try:
+                await db.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view}"))
+            except Exception:
+                pass
+        await db.commit()
     except Exception:
-        pass  # non-blocking: views refresh on next scheduled run
+        await db.rollback()
     return ResponseBase(data=invoice_response(issued), message="Invoice დადასტურებულია")
 
 
