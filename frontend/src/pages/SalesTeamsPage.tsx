@@ -128,7 +128,7 @@ export default function SalesTeamsPage() {
       <span className="inline-flex items-center gap-1"><Users size={14} className="text-gray-400" />{tm.member_count}</span>) },
     { key: 'description', label: 'აღწერა', render: (tm: Team) => tm.description || '—' },
     { key: 'actions', label: '', render: (tm: Team) => (
-      <button onClick={() => removeTeam.mutate(tm.id)} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 size={15} /></button>) },
+      <button onClick={() => removeTeam.mutate(tm.id)} className="p-2 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 size={15} /></button>) },
   ]
 
   const targetColumns = [
@@ -144,7 +144,7 @@ export default function SalesTeamsPage() {
         <span className="text-xs font-medium">{tg.progress_percent.toFixed(1)}%</span>
       </div>) },
     { key: 'actions', label: '', render: (tg: Target) => (
-      <button onClick={() => removeTarget.mutate(tg.id)} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 size={15} /></button>) },
+      <button onClick={() => removeTarget.mutate(tg.id)} className="p-2 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 size={15} /></button>) },
   ]
 
   const ruleColumns = [
@@ -153,7 +153,7 @@ export default function SalesTeamsPage() {
     { key: 'rate_percent', label: 'პროცენტი', render: (r: Rule) => r.rate_percent > 0 ? `${r.rate_percent}%` : '—' },
     { key: 'fixed_amount', label: 'ფიქსირებული', render: (r: Rule) => r.fixed_amount > 0 ? money(r.fixed_amount) : '—' },
     { key: 'actions', label: '', render: (r: Rule) => (
-      <button onClick={() => removeRule.mutate(r.id)} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 size={15} /></button>) },
+      <button onClick={() => removeRule.mutate(r.id)} className="p-2 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 size={15} /></button>) },
   ]
 
   const accrualColumns = [

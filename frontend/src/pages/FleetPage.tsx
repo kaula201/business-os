@@ -424,13 +424,13 @@ export default function FleetPage() {
                       onClick={(e) => { e.stopPropagation(); openVehicleEditor(v) }}
                       className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded-lg transition-colors"
                     >
-                      <Pencil size={16} className="text-gray-400 dark:text-gray-500" />
+                      <Pencil size={18} className="text-gray-400 dark:text-gray-500" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); if (confirm(t('დარწმუნებული ხართ, რომ გსურთ ავტომობილის წაშლა?'))) deleteVehicle.mutate(v.id) }}
                       className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                     >
-                      <Trash2 size={16} className="text-red-400" />
+                      <Trash2 size={18} className="text-red-400" />
                     </button>
                   </div>
                 ),
@@ -480,7 +480,7 @@ export default function FleetPage() {
                       onClick={(e) => { e.stopPropagation(); if (confirm(t('წავშალოთ საწვავის ჩანაწერი?'))) deleteFuel.mutate(f.id) }}
                       className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                     >
-                      <Trash2 size={16} className="text-red-400" />
+                      <Trash2 size={18} className="text-red-400" />
                     </button>
                   ),
                 },
@@ -527,7 +527,7 @@ export default function FleetPage() {
                       onClick={(e) => { e.stopPropagation(); if (confirm(t('წავშალოთ მომსახურების ჩანაწერი?'))) deleteService.mutate(s.id) }}
                       className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                     >
-                      <Trash2 size={16} className="text-red-400" />
+                      <Trash2 size={18} className="text-red-400" />
                     </button>
                   ),
                 },
@@ -587,13 +587,13 @@ export default function FleetPage() {
                         }); setError(''); setDriverModal('edit') }}
                         className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded-lg transition-colors"
                       >
-                        <Pencil size={16} className="text-gray-400 dark:text-gray-500" />
+                        <Pencil size={18} className="text-gray-400 dark:text-gray-500" />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); if (confirm(t('წავშალოთ მძღოლის მინიჭება?'))) deleteDriver.mutate(d.id) }}
                         className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                       >
-                        <Trash2 size={16} className="text-red-400" />
+                        <Trash2 size={18} className="text-red-400" />
                       </button>
                     </div>
                   ),

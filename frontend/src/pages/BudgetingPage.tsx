@@ -141,7 +141,7 @@ export default function BudgetingPage() {
                   <Target size={16} className="text-primary-500" />
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); if (confirm(t('წავშალოთ ბიუჯეტი?'))) deletePlan.mutate(p.id) }} className="p-1.5 hover:bg-red-50 rounded-lg">
-                  <Trash2 size={16} className="text-red-400" />
+                  <Trash2 size={18} className="text-red-400" />
                 </button>
               </div>
             ),

@@ -167,7 +167,7 @@ export default function SecurityPage() {
                       <td className="px-4 py-3">{r.can_view ? '✓' : '—'}</td>
                       <td className="px-4 py-3">{r.can_edit ? '✓' : '—'}</td>
                       <td className="px-4 py-3 text-right">
-                        <button onClick={() => removeFieldRule.mutate(r.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                        <button onClick={() => removeFieldRule.mutate(r.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
                       </td>
                     </tr>
                   ))}

@@ -289,7 +289,7 @@ export default function CurrencyPage() {
           { key: 'rate_date', label: 'თარიღი' },
           { key: 'rate', label: 'კურსი', render: (rate: CurrencyRate) => Number(rate.rate).toFixed(6) },
           { key: 'source', label: 'წყარო', render: (rate: CurrencyRate) => rate.source === 'manual' ? 'ხელით' : rate.source.toUpperCase() },
-          { key: 'actions', label: '', render: (rate: CurrencyRate) => <button title={t('წაშლა')} className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => { if (confirm(t('წავშალოთ კურსი?'))) deleteRate.mutate(rate.id) }}><Trash2 size={16} className="text-red-500" /></button> },
+          { key: 'actions', label: '', render: (rate: CurrencyRate) => <button title={t('წაშლა')} className="rounded-lg p-2 hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => { if (confirm(t('წავშალოთ კურსი?'))) deleteRate.mutate(rate.id) }}><Trash2 size={18} className="text-red-500" /></button> },
         ]}
         data={visible}
         clientPageSize={20}

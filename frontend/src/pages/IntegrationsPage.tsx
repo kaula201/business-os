@@ -95,7 +95,7 @@ export default function IntegrationsPage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{k.scopes}</td>
                     <td className="px-4 py-3">{k.is_active ? '✓' : '—'}</td>
                     <td className="px-4 py-3 text-right">
-                      <button onClick={() => removeKey.mutate(k.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                      <button onClick={() => removeKey.mutate(k.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
                     </td>
                   </tr>
                 ))}
@@ -126,7 +126,7 @@ export default function IntegrationsPage() {
                     <td className="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">{w.url}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{w.events}</td>
                     <td className="px-4 py-3 text-right">
-                      <button onClick={() => removeHook.mutate(w.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                      <button onClick={() => removeHook.mutate(w.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
                     </td>
                   </tr>
                 ))}

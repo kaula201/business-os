@@ -139,7 +139,7 @@ export default function SuppliersPage() {
     { key: 'actions', label: '', render: (supplier: Supplier) => (
       <div className="flex justify-end gap-1">
         <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 text-gray-500 dark:text-gray-400" title={t('რედაქტირება')} onClick={(e) => { e.stopPropagation(); openEdit(supplier) }}>
-          <Pencil size={16} />
+          <Pencil size={18} />
         </button>
         {supplier.is_active && (
           <button className="p-2 rounded-lg hover:bg-red-50 text-red-500" title={t('დეაქტივაცია')} onClick={(e) => { e.stopPropagation(); setArchiveTarget(supplier) }}>

@@ -200,7 +200,7 @@ export default function OrdersPage() {
       key: 'actions', label: '',
       render: (o: OrderSummary) => (
         <button onClick={(e) => { e.stopPropagation(); setViewOrderId(o.id) }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded">
-          <Eye size={16} className="text-gray-500 dark:text-gray-400 dark:text-gray-500" />
+          <Eye size={18} className="text-gray-500 dark:text-gray-400 dark:text-gray-500" />
         </button>
       ),
     },

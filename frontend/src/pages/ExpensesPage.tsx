@@ -205,7 +205,7 @@ export default function ExpensesPage() {
                   </>
                 )}
                 <button onClick={(e2) => { e2.stopPropagation(); setSelected(e); setEditForm({ description: e.description, amount: e.amount, notes: e.notes || '' }); setError(''); setModal('edit') }} className="p-1.5 hover:bg-gray-100 rounded-lg dark:hover:bg-dark-100">
-                  <Pencil size={16} className="text-gray-400 dark:text-gray-500" />
+                  <Pencil size={18} className="text-gray-400 dark:text-gray-500" />
                 </button>
               </div>
             ),

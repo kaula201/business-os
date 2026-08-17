@@ -220,13 +220,13 @@ export default function CashPage() {
                   onClick={(e) => { e.stopPropagation(); setSelectedAccount(a); setAccountEditForm({ name: a.name, is_active: a.is_active, notes: a.notes || '' }); setError(''); setAccountModal('edit') }}
                   className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors dark:hover:bg-dark-100"
                 >
-                  <Pencil size={16} className="text-gray-400 dark:text-gray-500" />
+                  <Pencil size={18} className="text-gray-400 dark:text-gray-500" />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); if (confirm(t('წავშალოთ სალარო?'))) deleteAccount.mutate(a.id) }}
                   className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                 >
-                  <Trash2 size={16} className="text-red-400" />
+                  <Trash2 size={18} className="text-red-400" />
                 </button>
               </div>
             ),

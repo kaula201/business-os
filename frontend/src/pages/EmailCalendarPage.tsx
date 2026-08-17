@@ -113,7 +113,7 @@ export default function EmailCalendarPage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{e.event_type}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(e.event_date).toLocaleDateString('ka-GE')}</td>
                     <td className="px-4 py-3 text-right">
-                      <button onClick={() => removeEvent.mutate(e.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                      <button onClick={() => removeEvent.mutate(e.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
                     </td>
                   </tr>
                 ))}

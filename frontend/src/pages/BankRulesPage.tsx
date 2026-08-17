@@ -89,7 +89,7 @@ export default function BankRulesPage() {
       : <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-dark-100 dark:text-gray-400">{t('გაჩერებული')}</span> },
     { key: 'actions', label: '', render: (r: Rule) => (
       <button onClick={() => remove.mutate(r.id)} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30" title={t('წაშლა')}>
-        <Trash2 size={16} />
+        <Trash2 size={18} />
       </button>) },
   ]
 

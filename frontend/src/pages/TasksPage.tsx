@@ -167,7 +167,7 @@ export default function TasksPage() {
           >
             {t.status === 'todo' ? <Play size={16} /> : t.status === 'in_progress' ? <CheckCircle2 size={16} /> : <RotateCcw size={16} />}
           </button>
-          <button onClick={() => setViewTask(t)} title={i18n.t('ნახვა')} aria-label={i18n.t('ნახვა')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400"><Eye size={16} /></button>
+          <button onClick={() => setViewTask(t)} title={i18n.t('ნახვა')} aria-label={i18n.t('ნახვა')} className="p-2 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded-lg text-gray-500 dark:text-gray-400"><Eye size={18} /></button>
         </div>
       ),
     },

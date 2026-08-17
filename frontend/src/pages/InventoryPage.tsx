@@ -445,8 +445,8 @@ export default function InventoryPage() {
           >
             {product.current_stock === 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
           </button>
-          <button onClick={() => openProductEdit(product)} title={t('რედაქტირება')} aria-label={t('რედაქტირება')} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 hover:text-primary-600"><Pencil size={16} /></button>
-          <button onClick={() => setDeleteTarget(product)} title={t('წაშლა')} aria-label={t('წაშლა')} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 hover:text-red-600"><Trash2 size={16} /></button>
+          <button onClick={() => openProductEdit(product)} title={t('რედაქტირება')} aria-label={t('რედაქტირება')} className="rounded-lg p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 hover:text-primary-600"><Pencil size={18} /></button>
+          <button onClick={() => setDeleteTarget(product)} title={t('წაშლა')} aria-label={t('წაშლა')} className="rounded-lg p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 hover:text-red-600"><Trash2 size={18} /></button>
         </div>
       ),
     },
@@ -534,11 +534,11 @@ export default function InventoryPage() {
                       title={t('მთავარ საწყობად მონიშვნა')}
                     ><Star size={16} /></button>
                   )}
-                  <button onClick={() => openWarehouseEdit(warehouse)} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-blue-50 hover:text-blue-600" title={t('რედაქტირება')}><Pencil size={16} /></button>
+                  <button onClick={() => openWarehouseEdit(warehouse)} className="rounded-lg p-2 text-gray-500 dark:text-gray-400 hover:bg-blue-50 hover:text-blue-600" title={t('რედაქტირება')}><Pencil size={18} /></button>
                   {!warehouse.is_default && (
                     <>
                       <button onClick={() => setWarehouseAction({ warehouse, action: 'archive' })} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-amber-50 hover:text-amber-600" title={t('დეაქტივაცია')}><Archive size={16} /></button>
-                      <button onClick={() => setWarehouseAction({ warehouse, action: 'delete' })} className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600" title={t('წაშლა')}><Trash2 size={16} /></button>
+                      <button onClick={() => setWarehouseAction({ warehouse, action: 'delete' })} className="rounded-lg p-2 text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600" title={t('წაშლა')}><Trash2 size={18} /></button>
                     </>
                   )}
                 </div>
