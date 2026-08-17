@@ -1484,6 +1484,7 @@ const en: Record<string, string> = {
   'მარაგი დაბალია': 'Stock low',
   'დავალება დაგვიანდა': 'Task overdue',
   'შეტყობინება': 'Notification',
+  'წყაროები': 'Sources',
   'ინვენტარიზაციები არ არის': 'No inventory counts',
   'ლოკაციები': 'Locations',
   'ლოკაციები არ არის': 'No locations',

@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { aiApi } from '../../services/api'
-import { Bot, X, Send, Sparkles, MessageSquare, Minimize2 } from 'lucide-react'
+import { Bot, X, Send, Sparkles, MessageSquare, Minimize2, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import i18n from '../../i18n'
 
 interface ChatMsg {
   role: 'user' | 'assistant'
   content: string
+  sources?: { label: string; link: string }[]
 }
 
 interface Props {
@@ -38,7 +39,8 @@ export default function ChatBotWidget({ open, onToggle }: Props) {
     mutationFn: (msg: string) => aiApi.chat(msg),
     onSuccess: (res) => {
       const answer = res.data.data?.message || t(i18n.t('პასუხი ვერ მოიძებნა'))
-      setMessages(prev => [...prev, { role: 'assistant', content: answer }])
+      const sources = (res.data.data?.source_links || []).map((s: any) => ({ label: s.label || s.link, link: s.link }))
+      setMessages(prev => [...prev, { role: 'assistant', content: answer, sources: sources.length ? sources : undefined }])
     },
     onError: () => {
       setMessages(prev => [...prev, { role: 'assistant', content: '❌ შეცდომა AI-სთან დაკავშირებისას' }])
@@ -88,6 +90,23 @@ export default function ChatBotWidget({ open, onToggle }: Props) {
                     : 'bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100 dark:bg-dark-200 dark:text-gray-200 dark:border-dark-50'
                 }`}>
                   {msg.content}
+                  {msg.sources && msg.sources.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-100 dark:border-dark-50 space-y-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                        {t('წყაროები')}
+                      </p>
+                      {msg.sources.map((s, si) => (
+                        <a
+                          key={si}
+                          href={s.link}
+                          onClick={(e) => { e.preventDefault(); window.location.href = s.link }}
+                          className="flex items-center gap-1.5 text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 hover:underline"
+                        >
+                          <ExternalLink size={12} /> {s.label}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
