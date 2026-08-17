@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -470,6 +470,13 @@ async def issue_invoice(
     if not invoice:
         raise HTTPException(status_code=404, detail="ინვოისი არ მოიძებნა")
     issued = await issue_invoice_snapshot(db, current_user, invoice)
+    # Refresh materialized views so dashboard KPIs are immediately up to date
+    try:
+        await db.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_sales_daily"))
+        await db.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_receivables_aging"))
+        await db.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_stock_balances"))
+    except Exception:
+        pass  # non-blocking: views refresh on next scheduled run
     return ResponseBase(data=invoice_response(issued), message="Invoice დადასტურებულია")
 
 

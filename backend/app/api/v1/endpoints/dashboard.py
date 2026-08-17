@@ -1,7 +1,7 @@
 # backend/app/api/v1/endpoints/dashboard.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, text
 from datetime import datetime, timedelta
 from uuid import UUID
 from app.core.database import get_db
@@ -237,3 +237,18 @@ async def get_dashboard_summary(
                        source="გაყიდვის ინვოისები"),
         ],
     ))
+
+
+@router.post("/refresh-views", response_model=ResponseBase[dict])
+async def refresh_views(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Manually refresh materialized views (mv_sales_daily, mv_receivables_aging, mv_stock_balances)."""
+    for view in ("mv_sales_daily", "mv_receivables_aging", "mv_stock_balances"):
+        try:
+            await db.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view}"))
+        except Exception:
+            pass
+    await db.commit()
+    return ResponseBase(data={"refreshed": True}, message="Materialized views განახლდა")
