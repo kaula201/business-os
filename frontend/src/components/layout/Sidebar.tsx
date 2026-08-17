@@ -332,10 +332,11 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
               {/* Recent */}
               {recentItems.length > 0 && (
                 <div className="pt-2">
+                  <div className="mx-3 mb-2 border-t border-brandgray-100 dark:border-dark-50" />
                   <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-brandgray-400 dark:text-gray-500">
                     {t('ბოლო ნანახი')}
                   </p>
-                  <div className="space-y-0.5">
+                  <div className="mx-2 rounded-lg bg-brandgray-50/70 dark:bg-dark-100/60 p-1.5 space-y-0.5">
                     {recentItems.map((item) => (
                       <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
                     ))}
