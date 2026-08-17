@@ -1,6 +1,7 @@
 // frontend/src/App.tsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, ReactNode } from 'react'
+import OnboardingWizard from './components/OnboardingWizard'
 import { useAuthStore } from './store/authStore'
 import Layout from './components/layout/Layout'
 const LoginPage = lazy(() => import('./pages/LoginPage'))
@@ -78,6 +79,7 @@ function App() {
           element={
             <ProtectedRoute>
               <Layout>
+                <OnboardingWizard />
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
