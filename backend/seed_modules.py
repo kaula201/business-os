@@ -49,7 +49,7 @@ MODULES = [
     ("subscriptions",  "გამოწერები",               "Recurring subscriptions",     "RefreshCw",       "/subscriptions", "sales",     49,  "invoices"),
     ("customer-portal","კლიენტის პორტალი",          "Customer portal users",       "Globe",           "/customer-portal","sales",    50,  "clients"),
     ("wms",           "საწყობის მართვა (WMS)",    "Warehouse management (WMS)",  "Boxes",           "/wms",          "operations", 56,  "inventory"),
-    ("helpdesk",      "Helpdesk",                   "Tickets, SLA, knowledge base","LifeBuoy",        "/helpdesk",     "operations", 57,  "tasks"),
+    ("helpdesk",      "Helpdesk / მხარდაჭერა",       "Tickets, SLA, knowledge base","LifeBuoy",        "/helpdesk",     "operations", 57,  "tasks"),
     ("integrations",  "ინტეგრაციები",               "API keys, webhooks, RS.ge",   "Plug",            "/integrations", "operations", 58,  "settings"),
     ("payments",      "გადახდები",                   "Payment gateway",             "CreditCard",      "/payments",     "operations", 59,  "invoices"),
     ("email-calendar","ელ.ფოსტა და კალენდარი",       "Email send, calendar events",  "Mail",            "/email-calendar","operations", 60,  "tasks"),

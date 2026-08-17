@@ -1365,7 +1365,7 @@ const en: Record<string, string> = {
   'მშობელი დავალება (ქვე-დავალება)': 'Parent task (subtask)',
   'ქვე-დავალებები': 'Subtasks',
   'ქვე-დავალებები არ არის': 'No subtasks',
-  'Helpdesk': 'Helpdesk',
+  'Helpdesk / მხარდაჭერა': 'Helpdesk / Support',
   'ტიკეტები': 'Tickets',
   'ტიკეტები არ არის': 'No tickets',
   'ახალი ტიკეტი': 'New ticket',

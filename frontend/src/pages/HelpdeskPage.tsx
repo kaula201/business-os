@@ -126,7 +126,7 @@ export default function HelpdeskPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('Helpdesk')}</h1>
+          <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('Helpdesk / მხარდაჭერა')}</h1>
           <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('ტიკეტები, SLA, ცოდნის ბაზა, საველე სამუშაო')}</p>
         </div>
         <button onClick={openBtn} className="btn btn-primary flex items-center gap-2">
