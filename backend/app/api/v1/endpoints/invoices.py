@@ -470,7 +470,14 @@ async def issue_invoice(
     if not invoice:
         raise HTTPException(status_code=404, detail="ინვოისი არ მოიძებნა")
     issued = await issue_invoice_snapshot(db, current_user, invoice)
-    # Notify the company owner/admin about the issued invoice
+    # Commit the invoice first, then run side effects (notifications, matviews)
+    # in SEPARATE transactions so a failure never aborts the invoice.
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+    # Notify the company owner/admin about the issued invoice (non-blocking)
     try:
         from app.models.notification import Notification
         owner_result = await db.execute(
@@ -485,13 +492,12 @@ async def issue_invoice(
                 message=f"თანხა: {invoice.total} {invoice.currency}",
                 link=f"/invoices/{invoice.id}",
             ))
-        await db.flush()
+        await db.commit()
     except Exception:
-        pass  # non-blocking
+        await db.rollback()
     # Refresh materialized views in a SEPARATE transaction so a failure
     # (e.g. views missing in test DB) never aborts the invoice transaction.
     try:
-        await db.commit()
         for view in ("mv_sales_daily", "mv_receivables_aging", "mv_stock_balances"):
             try:
                 await db.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view}"))
