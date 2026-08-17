@@ -40,6 +40,7 @@ from app.models.email_calendar import EmailMessage, CalendarEvent
 from app.models.security import LoginHistory, User2FA, ApprovalStep
 from app.models.field_access import FieldAccessRule
 from app.models.notification import Notification
+from app.models.automation import AutomationRule
 from app.models.procurement import (
     RFQ, RFQLine, RFQResponse, RFQResponseLine,
     SupplierPriceList, BlanketOrder, BlanketOrderLine, SupplierScorecard,
@@ -124,6 +125,7 @@ __all__ = [
     "LoginHistory", "User2FA", "ApprovalStep",
     "FieldAccessRule",
     "Notification",
+    "AutomationRule",
     "RFQ", "RFQLine", "RFQResponse", "RFQResponseLine", "SupplierPriceList", "BlanketOrder", "BlanketOrderLine", "SupplierScorecard",
     "Supplier", "SupplierBankDetail", "SupplierRatingHistory", "PurchaseOrder", "PurchaseOrderItem", "PurchaseOrderStatusHistory",
     "GoodsReceipt", "GoodsReceiptItem",

@@ -274,6 +274,14 @@ export const notificationsApi = {
   markAllRead: () => api.post('/notifications/read-all'),
 }
 
+// Automations API
+export const automationsApi = {
+  list: () => api.get('/automations/'),
+  create: (data: Record<string, unknown>) => api.post('/automations/', data),
+  update: (id: string, data: Record<string, unknown>) => api.patch(`/automations/${id}`, data),
+  remove: (id: string) => api.delete(`/automations/${id}`),
+}
+
 // Dashboard API
 export const dashboardApi = {
   getSummary: (period: string = '30d', ownerId?: string) => api.get('/dashboard/summary', { params: { period, ...(ownerId ? { owner_id: ownerId } : {}) } }),
