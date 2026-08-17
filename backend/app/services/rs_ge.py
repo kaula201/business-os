@@ -86,3 +86,32 @@ class RSGeClient:
         result = await self._post("get_waybill_by_number", {"su": self.service_user, "sp": self.service_password, "waybill_number": waybill_number})
         data = _xml_to_data(result)
         return data if isinstance(data, dict) else {"value": data}
+
+    async def submit_invoice(self, invoice_number: str, buyer_id: str, issue_date: str, total: str, vat: str) -> dict[str, Any]:
+        """Submit an invoice (ანგარიშ-ფაქტურა) to RS.ge."""
+        result = await self._post("submit_invoice", {
+            "su": self.service_user, "sp": self.service_password,
+            "invoice_number": invoice_number, "buyer_id": buyer_id,
+            "issue_date": issue_date, "total": total, "vat": vat,
+        })
+        data = _xml_to_data(result)
+        return data if isinstance(data, dict) else {"value": data}
+
+    async def submit_waybill(self, waybill_number: str, sender_id: str, receiver_id: str, issue_date: str, total: str) -> dict[str, Any]:
+        """Submit a waybill (ზედნადები) to RS.ge."""
+        result = await self._post("submit_waybill", {
+            "su": self.service_user, "sp": self.service_password,
+            "waybill_number": waybill_number, "sender_id": sender_id,
+            "receiver_id": receiver_id, "issue_date": issue_date, "total": total,
+        })
+        data = _xml_to_data(result)
+        return data if isinstance(data, dict) else {"value": data}
+
+    async def export_declaration(self, period: str, declaration_type: str) -> dict[str, Any]:
+        """Export a tax declaration (VAT / income tax) for a period."""
+        result = await self._post("export_declaration", {
+            "su": self.service_user, "sp": self.service_password,
+            "period": period, "declaration_type": declaration_type,
+        })
+        data = _xml_to_data(result)
+        return data if isinstance(data, dict) else {"value": data}

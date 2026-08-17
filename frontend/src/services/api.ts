@@ -226,6 +226,9 @@ export const integrationsApi = {
   removeWebhook: (id: string) => api.delete(`/integrations/webhooks/${id}`),
   webhookEvents: () => api.get('/integrations/webhook-events'),
   rsStatus: () => api.get('/integrations/rs/status'),
+  submitInvoice: (data: Record<string, unknown>) => api.post('/integrations/rs/invoices/submit', data),
+  submitWaybill: (data: Record<string, unknown>) => api.post('/integrations/rs/waybills/submit', data),
+  exportDeclaration: (data: Record<string, unknown>) => api.post('/integrations/rs/declarations/export', data),
 }
 
 // Payments API

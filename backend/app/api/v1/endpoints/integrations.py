@@ -58,6 +58,69 @@ async def get_rs_waybill(waybill_number: str, current_user: User = Depends(get_c
     return ResponseBase(data=RSWaybillResponse(waybill_number=waybill_number, data=data))
 
 
+@router.post("/rs/invoices/submit", response_model=ResponseBase[dict])
+async def submit_invoice(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+):
+    """Submit an invoice (ანგარიშ-ფაქტურა) to RS.ge."""
+    require_finance_role(current_user)
+    if not settings.RS_SERVICE_USER or not settings.RS_SERVICE_PASSWORD:
+        raise HTTPException(status_code=503, detail="RS.ge service user credentials არ არის დაყენებული")
+    try:
+        result = await rs_client().submit_invoice(
+            invoice_number=data.get("invoice_number", ""),
+            buyer_id=data.get("buyer_id", ""),
+            issue_date=data.get("issue_date", ""),
+            total=str(data.get("total", "0")),
+            vat=str(data.get("vat", "0")),
+        )
+    except RSGeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return ResponseBase(data=result, message="ინვოისი RS.ge-ზე გაიგზავნა")
+
+
+@router.post("/rs/waybills/submit", response_model=ResponseBase[dict])
+async def submit_waybill(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+):
+    """Submit a waybill (ზედნადები) to RS.ge."""
+    require_finance_role(current_user)
+    if not settings.RS_SERVICE_USER or not settings.RS_SERVICE_PASSWORD:
+        raise HTTPException(status_code=503, detail="RS.ge service user credentials არ არის დაყენებული")
+    try:
+        result = await rs_client().submit_waybill(
+            waybill_number=data.get("waybill_number", ""),
+            sender_id=data.get("sender_id", ""),
+            receiver_id=data.get("receiver_id", ""),
+            issue_date=data.get("issue_date", ""),
+            total=str(data.get("total", "0")),
+        )
+    except RSGeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return ResponseBase(data=result, message="ზედნადები RS.ge-ზე გაიგზავნა")
+
+
+@router.post("/rs/declarations/export", response_model=ResponseBase[dict])
+async def export_declaration(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+):
+    """Export a tax declaration (VAT / income tax) for a period."""
+    require_finance_role(current_user)
+    if not settings.RS_SERVICE_USER or not settings.RS_SERVICE_PASSWORD:
+        raise HTTPException(status_code=503, detail="RS.ge service user credentials არ არის დაყენებული")
+    try:
+        result = await rs_client().export_declaration(
+            period=data.get("period", ""),
+            declaration_type=data.get("declaration_type", "vat"),
+        )
+    except RSGeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return ResponseBase(data=result, message="დეკლარაცია ექსპორტირებულია")
+
+
 # ── API keys ───────────────────────────────────────────────────────────────────
 
 @router.get("/api-keys", response_model=ResponseBase[list[dict]])

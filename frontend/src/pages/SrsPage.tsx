@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  FileText, Calculator, Scale, Download, Calendar, Building2, TrendingUp, TrendingDown, DollarSign
+  FileText, Calculator, Scale, Download, Calendar, Building2, TrendingUp, TrendingDown, DollarSign, Send, FileUp
 } from 'lucide-react'
 
 import { api } from '../services/api'
+import { integrationsApi } from '../services/api'
 import type { VatDeclaration, IncomeTaxReport, BalanceForm } from '../types'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -21,13 +22,29 @@ const tabs = [
   { id: 'vat', label: i18n.t('დღგ-ის დეკლარაცია'), icon: Calculator },
   { id: 'income', label: i18n.t('საშემოსავლო გადასახადი'), icon: TrendingUp },
   { id: 'balance', label: i18n.t('ბალანსის ფორმა'), icon: Scale },
+  { id: 'rs', label: i18n.t('RS.ge გაგზავნა'), icon: Send },
 ]
 
 export default function SrsPage() {
   const { t } = useTranslation()
+  const qc = useQueryClient()
   const [tab, setTab] = useState('vat')
   const [year, setYear] = useState(currentYear)
   const [month, setMonth] = useState(currentMonth)
+  const [declPeriod, setDeclPeriod] = useState(`${currentYear}-${String(currentMonth).padStart(2, '0')}`)
+  const [declType, setDeclType] = useState('vat')
+  const [invForm, setInvForm] = useState({ invoice_number: '', buyer_id: '', total: '' })
+  const [wbForm, setWbForm] = useState({ waybill_number: '', receiver_id: '', total: '' })
+
+  const exportDecl = useMutation({
+    mutationFn: () => integrationsApi.exportDeclaration({ period: declPeriod, declaration_type: declType }),
+  })
+  const submitInv = useMutation({
+    mutationFn: () => integrationsApi.submitInvoice({ ...invForm, issue_date: today(), vat: '18' }),
+  })
+  const submitWb = useMutation({
+    mutationFn: () => integrationsApi.submitWaybill({ ...wbForm, sender_id: '', issue_date: today() }),
+  })
   const [asOfDate, setAsOfDate] = useState(today())
 
   // ── Queries ──────────────────────────────────────────────────────
@@ -378,6 +395,91 @@ export default function SrsPage() {
             <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">{t('მონაცემები არ მოიძებნა')}</div>
           )}
         </>
+      )}
+
+      {tab === 'rs' && (
+        <div className="space-y-6">
+          <div className="rounded-xl border bg-white p-5 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+              <FileUp size={18} /> {t('დეკლარაციის ექსპორტი')}
+            </h3>
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('პერიოდი')}</label>
+                <input type="month" value={declPeriod} onChange={e => setDeclPeriod(e.target.value)}
+                  className="rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ტიპი')}</label>
+                <select value={declType} onChange={e => setDeclType(e.target.value)}
+                  className="rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+                  <option value="vat">VAT</option>
+                  <option value="income">Income tax</option>
+                </select>
+              </div>
+              <button onClick={() => exportDecl.mutate()} disabled={!declPeriod || exportDecl.isPending}
+                className="btn btn-primary text-sm flex items-center gap-2">
+                <Download size={16} /> {t('ექსპორტი')}
+              </button>
+            </div>
+            {exportDecl.isSuccess && (
+              <div className="mt-3 rounded-lg bg-green-50 dark:bg-green-900/30 p-3 text-sm text-green-700 dark:text-green-400">
+                {t('დეკლარაცია ექსპორტირებულია')}: {JSON.stringify(exportDecl.data?.data?.data || exportDecl.data?.data)}
+              </div>
+            )}
+            {exportDecl.isError && (
+              <div className="mt-3 rounded-lg bg-red-50 dark:bg-red-900/30 p-3 text-sm text-red-700 dark:text-red-400">
+                {(exportDecl.error as any)?.response?.data?.detail || t('შეცდომა')}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border bg-white p-5 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+              <Send size={18} /> {t('ინვოისის გაგზავნა (ანგარიშ-ფაქტურა)')}
+            </h3>
+            <div className="grid gap-3 md:grid-cols-3">
+              <input value={invForm.invoice_number} onChange={e => setInvForm({ ...invForm, invoice_number: e.target.value })}
+                placeholder={t('ინვოისის ნომერი')} className="rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+              <input value={invForm.buyer_id} onChange={e => setInvForm({ ...invForm, buyer_id: e.target.value })}
+                placeholder={t('მყიდველი ID')} className="rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+              <input value={invForm.total} onChange={e => setInvForm({ ...invForm, total: e.target.value })}
+                placeholder={t('თანხა (GEL)')} type="number" className="rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </div>
+            <button onClick={() => submitInv.mutate()} disabled={!invForm.invoice_number || submitInv.isPending}
+              className="mt-3 btn btn-primary text-sm flex items-center gap-2">
+              <Send size={16} /> {t('გაგზავნა')}
+            </button>
+            {submitInv.isError && (
+              <div className="mt-3 rounded-lg bg-red-50 dark:bg-red-900/30 p-3 text-sm text-red-700 dark:text-red-400">
+                {(submitInv.error as any)?.response?.data?.detail || t('შეცდომა')}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border bg-white p-5 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+              <Send size={18} /> {t('ზედნადების გაგზავნა')}
+            </h3>
+            <div className="grid gap-3 md:grid-cols-3">
+              <input value={wbForm.waybill_number} onChange={e => setWbForm({ ...wbForm, waybill_number: e.target.value })}
+                placeholder={t('ზედნადების ნომერი')} className="rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+              <input value={wbForm.receiver_id} onChange={e => setWbForm({ ...wbForm, receiver_id: e.target.value })}
+                placeholder={t('მიმღები ID')} className="rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+              <input value={wbForm.total} onChange={e => setWbForm({ ...wbForm, total: e.target.value })}
+                placeholder={t('თანხა (GEL)')} type="number" className="rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </div>
+            <button onClick={() => submitWb.mutate()} disabled={!wbForm.waybill_number || submitWb.isPending}
+              className="mt-3 btn btn-primary text-sm flex items-center gap-2">
+              <Send size={16} /> {t('გაგზავნა')}
+            </button>
+            {submitWb.isError && (
+              <div className="mt-3 rounded-lg bg-red-50 dark:bg-red-900/30 p-3 text-sm text-red-700 dark:text-red-400">
+                {(submitWb.error as any)?.response?.data?.detail || t('შეცდომა')}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )
