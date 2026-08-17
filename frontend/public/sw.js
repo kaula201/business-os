@@ -1,5 +1,5 @@
 /* Business OS service worker — offline cache */
-const CACHE = 'bos-v1';
+const CACHE = 'bos-v2';
 const CORE = ['/', '/index.html', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
