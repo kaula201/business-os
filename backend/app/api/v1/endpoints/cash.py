@@ -2,14 +2,15 @@
 import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func as sa_func
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.models.audit import AuditLog
 from app.models.cash import CashAccount, CashTransaction
+from app.schemas.common import PaginatedResponse
 from app.models.user import User
 from app.schemas.cash import (
     CashAccountCreate,
@@ -149,23 +150,28 @@ async def delete_cash_account(
 
 # ── Cash Transactions ───────────────────────────────────────────────
 
-@router.get("/accounts/{account_id}/transactions", response_model=ResponseBase[list[CashTransactionResponse]])
+@router.get("/accounts/{account_id}/transactions", response_model=ResponseBase[PaginatedResponse[CashTransactionResponse]])
 async def list_cash_transactions(
     account_id: UUID,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     await get_company_cash_account(db, account_id, current_user.company_id)
+    base = select(CashTransaction).where(
+        CashTransaction.cash_account_id == account_id,
+        CashTransaction.company_id == current_user.company_id,
+    )
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
     result = await db.execute(
-        select(CashTransaction)
-        .where(
-            CashTransaction.cash_account_id == account_id,
-            CashTransaction.company_id == current_user.company_id,
-        )
-        .order_by(CashTransaction.transaction_date.desc(), CashTransaction.created_at.desc())
+        base.order_by(CashTransaction.transaction_date.desc(), CashTransaction.created_at.desc())
+        .offset((page - 1) * page_size).limit(page_size)
     )
     transactions = result.scalars().all()
-    return ResponseBase(data=transactions)
+    return ResponseBase(data=PaginatedResponse(
+        items=list(transactions), total=total, page=page, page_size=page_size,
+    ))
 
 
 @router.post("/accounts/{account_id}/transactions", response_model=ResponseBase[CashTransactionResponse], status_code=201)
@@ -218,7 +224,7 @@ async def cash_daily_report(
 
     # Get all transactions before today to calculate opening balance
     prior_result = await db.execute(
-        select(sa_func.coalesce(sa_func.sum(CashTransaction.amount), 0))
+        select(func.coalesce(func.sum(CashTransaction.amount), 0))
         .where(
             CashTransaction.cash_account_id == account_id,
             CashTransaction.company_id == current_user.company_id,
@@ -229,7 +235,7 @@ async def cash_daily_report(
     prior_inflow = prior_result.scalar()
 
     prior_out_result = await db.execute(
-        select(sa_func.coalesce(sa_func.sum(CashTransaction.amount), 0))
+        select(func.coalesce(func.sum(CashTransaction.amount), 0))
         .where(
             CashTransaction.cash_account_id == account_id,
             CashTransaction.company_id == current_user.company_id,
@@ -242,7 +248,7 @@ async def cash_daily_report(
 
     # Today's transactions
     today_in_result = await db.execute(
-        select(sa_func.coalesce(sa_func.sum(CashTransaction.amount), 0))
+        select(func.coalesce(func.sum(CashTransaction.amount), 0))
         .where(
             CashTransaction.cash_account_id == account_id,
             CashTransaction.company_id == current_user.company_id,
@@ -253,7 +259,7 @@ async def cash_daily_report(
     today_inflow = float(today_in_result.scalar())
 
     today_out_result = await db.execute(
-        select(sa_func.coalesce(sa_func.sum(CashTransaction.amount), 0))
+        select(func.coalesce(func.sum(CashTransaction.amount), 0))
         .where(
             CashTransaction.cash_account_id == account_id,
             CashTransaction.company_id == current_user.company_id,
@@ -264,7 +270,7 @@ async def cash_daily_report(
     today_outflow = float(today_out_result.scalar())
 
     count_result = await db.execute(
-        select(sa_func.count())
+        select(func.count())
         .select_from(CashTransaction)
         .where(
             CashTransaction.cash_account_id == account_id,

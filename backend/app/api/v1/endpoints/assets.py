@@ -4,8 +4,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func as sa_func
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -13,6 +13,7 @@ from app.core.dependencies import get_current_user, require_module
 from app.core.time import utc_now
 from app.models.assets import AssetDepreciation, FixedAsset
 from app.models.audit import AuditLog
+from app.schemas.common import PaginatedResponse
 from app.models.user import User
 from app.schemas.assets import (
     AssetDepreciationResponse,
@@ -81,18 +82,22 @@ def calculate_depreciation(asset: FixedAsset) -> Decimal:
 
 # ── CRUD ────────────────────────────────────────────────────────────
 
-@router.get("/", response_model=ResponseBase[list[FixedAssetResponse]])
+@router.get("/", response_model=ResponseBase[PaginatedResponse[FixedAssetResponse]])
 async def list_assets(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    base = select(FixedAsset).where(FixedAsset.company_id == current_user.company_id)
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
     result = await db.execute(
-        select(FixedAsset)
-        .where(FixedAsset.company_id == current_user.company_id)
-        .order_by(FixedAsset.name)
+        base.order_by(FixedAsset.name).offset((page - 1) * page_size).limit(page_size)
     )
     assets = result.scalars().all()
-    return ResponseBase(data=assets)
+    return ResponseBase(data=PaginatedResponse(
+        items=list(assets), total=total, page=page, page_size=page_size,
+    ))
 
 
 @router.get("/{asset_id}", response_model=ResponseBase[FixedAssetResponse])
