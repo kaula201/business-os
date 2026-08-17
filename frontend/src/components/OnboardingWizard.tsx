@@ -22,8 +22,8 @@ export default function OnboardingWizard() {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-dark-200 shadow-2xl overflow-hidden">
+    <div className="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+      <div className="pointer-events-auto w-full max-w-lg rounded-2xl bg-white dark:bg-dark-200 shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-dark-50">
           <h2 className="text-lg font-bold text-brandgray-900 dark:text-gray-100">{t('კეთილი იყოს თქვენი მობრძანება!')}</h2>

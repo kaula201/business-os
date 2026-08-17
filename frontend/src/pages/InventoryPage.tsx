@@ -134,6 +134,7 @@ export default function InventoryPage() {
   const warehouses: Warehouse[] = warehousesData || []
   const activeWarehouses = warehouses.filter((warehouse) => warehouse.is_active)
   const balances: InventoryBalance[] = balancesData || []
+  const totalInventoryStock = balances.reduce((sum, balance) => sum + Number(balance.quantity || 0), 0)
   const costHistory: PurchaseCostHistory[] = costHistoryData?.items || []
 
   const warehouseTotals = useMemo(() => {
@@ -509,7 +510,11 @@ export default function InventoryPage() {
         </button>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {warehouses.map((warehouse) => (
+        <div className="card p-4 border-primary-100 dark:border-primary-900/40 bg-primary-50/40 dark:bg-primary-900/10">
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('საწყობის ჯამური ნაშთი')}</p>
+          <p className="mt-1 text-2xl font-bold text-primary-700 dark:text-primary-300">{totalInventoryStock.toLocaleString('ka-GE')}</p>
+        </div>
+        {warehouses.map((warehouse) => (
             <div key={warehouse.id} className={`card p-4 ${!warehouse.is_active ? 'border-dashed bg-gray-50 dark:bg-dark-100 opacity-75' : ''}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className={`rounded-lg p-2 ${warehouse.is_active ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 dark:bg-dark-100 text-gray-500 dark:text-gray-400'}`}><WarehouseIcon size={20} /></div>

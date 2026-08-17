@@ -636,7 +636,9 @@ async def balance_sheet(
     for code, name, acct_type, debit, credit in pl_rows:
         debit = float(debit)
         credit = float(credit)
-        balance = credit - debit  # income = credit side, expense = debit side
+        # Income accounts are credit-positive; expense accounts are debit-positive.
+        # This must mirror the Profit & Loss calculation: net income = income - expenses.
+        balance = credit - debit if acct_type == "income" else debit - credit
         if acct_type == "income":
             total_income += balance
         else:

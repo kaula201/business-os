@@ -120,7 +120,7 @@ export default function ReportsPage() {
           <div className="mt-4 grid grid-cols-3 gap-4">
             <div className="p-3 bg-blue-50 rounded-lg text-center">
               <p className="text-xs text-gray-500 dark:text-gray-400">{t('ჯამური შემოსავალი')}</p>
-              <p className="text-xl font-bold text-blue-700">{revenueData.reduce((s: number, d: any) => s + (d.amount || 0), 0).toLocaleString('ka-GE')} ₾</p>
+              <p className="text-xl font-bold text-blue-700">{money(dashboardData?.kpi?.total_revenue)}</p>
             </div>
             <div className="p-3 bg-green-50 rounded-lg text-center">
               <p className="text-xs text-gray-500 dark:text-gray-400">{t('საშუალო დღიური')}</p>

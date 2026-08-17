@@ -95,7 +95,7 @@ export default function WmsPage() {
 
   const { data: products } = useQuery({
     queryKey: ['products-all-wms'],
-    queryFn: () => productsApi.list({ page_size: 200 }).then(r => r.data.data.items),
+    queryFn: () => productsApi.list({ page_size: 100 }).then(r => r.data.data.items),
   })
 
   const { data: warehouses } = useQuery({

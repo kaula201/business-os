@@ -532,6 +532,7 @@ class PayrollEntryBase(BaseModel):
     gross_pay: Decimal = Field(default=Decimal("0"), max_digits=14, decimal_places=2)
     additions: Decimal = Field(default=Decimal("0"), max_digits=14, decimal_places=2)
     deductions: Decimal = Field(default=Decimal("0"), max_digits=14, decimal_places=2)
+    pension_contribution: Decimal = Field(default=Decimal("0"), max_digits=14, decimal_places=2)
     income_tax: Decimal = Field(default=Decimal("0"), max_digits=14, decimal_places=2)
     net_pay: Decimal = Field(default=Decimal("0"), max_digits=14, decimal_places=2)
     status: str = "draft"
