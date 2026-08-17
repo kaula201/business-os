@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, ArrowRightLeft, PackagePlus, Trash2, ScanBarcode, ClipboardList, Boxes, Truck, History } from 'lucide-react'
+import { Plus, ArrowRightLeft, PackagePlus, Trash2, ScanBarcode, ClipboardList, Boxes, Truck, History, Camera } from 'lucide-react'
+import { useRef } from 'react'
 
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
@@ -48,6 +49,28 @@ export default function WmsPage() {
   const [allocOpen, setAllocOpen] = useState(false)
   const [barcode, setBarcode] = useState('')
   const [barcodeResult, setBarcodeResult] = useState<any | null>(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+
+  const openCamera = async () => {
+    setCameraOpen(true)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+      }
+    } catch {
+      setCameraOpen(false)
+    }
+  }
+
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+  }
   const [allocForm, setAllocForm] = useState({ product_id: '', strategy: 'fefo', quantity: '' })
   const [allocResult, setAllocResult] = useState<any[] | null>(null)
   const [form, setForm] = useState({
@@ -401,8 +424,26 @@ export default function WmsPage() {
             className="px-3 py-2 rounded-lg text-sm font-medium bg-brandgray-100 text-brandgray-700 hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-300">
             {t('ძიება')}
           </button>
+          <button onClick={openCamera}
+            className="px-3 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 flex items-center gap-1.5"
+            title={t('კამერით სკანირება')}>
+            <Camera size={15} />
+          </button>
         </div>
       </div>
+
+      {/* Camera barcode scanner */}
+      <Modal open={cameraOpen} onClose={() => { setCameraOpen(false); stopCamera() }} title={t('კამერით სკანირება')}>
+        <div className="space-y-4">
+          <video ref={videoRef} className="w-full rounded-lg border border-gray-200 dark:border-dark-50 bg-black" playsInline muted />
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('მიიტანეთ შტრიხკოდი კამერასთან — ავტომატურად დაფიქსირდება')}</p>
+          <div className="flex gap-2">
+            <button onClick={() => { setCameraOpen(false); stopCamera() }} className="flex-1 rounded-lg border border-gray-200 dark:border-dark-50 py-2 text-sm font-medium">
+              {t('დახურვა')}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {barcodeResult && (
         <div className="rounded-lg border border-primary-200 dark:border-primary-900/40 bg-primary-50/50 dark:bg-primary-900/10 p-4">

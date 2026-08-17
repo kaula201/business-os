@@ -374,6 +374,7 @@ export default function InventoryPage() {
     {
       key: 'name',
       label: 'დასახელება',
+      priority: true,
       render: (product: Product) => <span className="font-medium text-gray-900 dark:text-gray-100">{product.name}</span>,
     },
     {

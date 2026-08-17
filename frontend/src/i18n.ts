@@ -1462,6 +1462,8 @@ const en: Record<string, string> = {
   'თანხა (GEL)': 'Amount (GEL)',
   'ზედნადების გაგზავნა': 'Submit waybill',
   'მიმღები ID': 'Receiver ID',
+  'კამერით სკანირება': 'Camera scan',
+  'მიიტანეთ შტრიხკოდი კამერასთან — ავტომატურად დაფიქსირდება': 'Hold the barcode to the camera — it will be detected automatically',
   'ინვენტარიზაციები არ არის': 'No inventory counts',
   'ლოკაციები': 'Locations',
   'ლოკაციები არ არის': 'No locations',
