@@ -129,11 +129,11 @@ export default function ClientsPage() {
       key: 'actions', label: '',
       render: (c: Client) => (
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => openEdit(c)} title={t('რედაქტირება')} aria-label={t('რედაქტირება')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400 hover:text-primary-600">
-            <Pencil size={16} />
+          <button onClick={() => openEdit(c)} title={t('რედაქტირება')} aria-label={t('რედაქტირება')} className="p-2 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded-lg text-gray-500 dark:text-gray-400 hover:text-primary-600 min-w-[36px] min-h-[36px] flex items-center justify-center">
+            <Pencil size={18} />
           </button>
-          <button onClick={() => setDeleteTarget(c)} title={t('წაშლა')} aria-label={t('წაშლა')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded text-gray-500 dark:text-gray-400 hover:text-red-600">
-            <Trash2 size={16} />
+          <button onClick={() => setDeleteTarget(c)} title={t('წაშლა')} aria-label={t('წაშლა')} className="p-2 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center">
+            <Trash2 size={18} />
           </button>
         </div>
       ),
