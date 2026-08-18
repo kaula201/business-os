@@ -282,6 +282,16 @@ export const automationsApi = {
   remove: (id: string) => api.delete(`/automations/${id}`),
 }
 
+// Accounting controls API
+export const accountingControlsApi = {
+  fiscalPositions: () => api.get('/accounting-controls/fiscal-positions'),
+  createFiscalPosition: (data: Record<string, unknown>) => api.post('/accounting-controls/fiscal-positions', data),
+  mappings: () => api.get('/accounting-controls/consolidation-mappings'),
+  createMapping: (data: Record<string, unknown>) => api.post('/accounting-controls/consolidation-mappings', data),
+  fxRates: (target_currency?: string) => api.get('/accounting-controls/fx-rates', { params: target_currency ? { target_currency } : {} }),
+  createFxRate: (data: Record<string, unknown>) => api.post('/accounting-controls/fx-rates', data),
+}
+
 // Dashboard API
 export const dashboardApi = {
   getSummary: (period: string = '30d', ownerId?: string) => api.get('/dashboard/summary', { params: { period, ...(ownerId ? { owner_id: ownerId } : {}) } }),

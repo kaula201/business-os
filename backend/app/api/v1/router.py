@@ -28,6 +28,7 @@ from app.api.v1.endpoints import (
     field_access,
     notifications,
     automations,
+    accounting_controls,
     clients,
     contracts,
     subscriptions,
@@ -119,6 +120,7 @@ api_router.include_router(email_calendar.router)
 api_router.include_router(field_access.router)
 api_router.include_router(notifications.router)
 api_router.include_router(automations.router)
+api_router.include_router(accounting_controls.router)
 api_router.include_router(export.router)
 api_router.include_router(invoices.router)
 api_router.include_router(invoices_enhanced.router)

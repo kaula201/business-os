@@ -42,6 +42,8 @@ async def consolidated_companies(
 async def consolidated_pl(
     date_from: date | None = None,
     date_to: date | None = None,
+    presentation_currency: str | None = Query(None, min_length=3, max_length=3),
+    fx_method: str = Query("average", pattern="^(average|closing|historical)$"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -50,7 +52,10 @@ async def consolidated_pl(
     today = date.today()
     from_date = date_from or date(today.year, today.month, 1)
     to_date = date_to or today
-    data = await consolidated_profit_loss(db, company_ids, from_date, to_date)
+    try:
+        data = await consolidated_profit_loss(db, company_ids, from_date, to_date, presentation_currency, fx_method)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     data["companies"] = [{"id": str(c.id), "name": c.name} for c in companies]
     add_audit(db, current_user, "consolidated.pl_viewed", "gl", company_ids[0], {
         "company_ids": [str(c) for c in company_ids],
@@ -63,13 +68,18 @@ async def consolidated_pl(
 @router.get("/balance-sheet")
 async def consolidated_bs(
     as_of_date: date | None = None,
+    presentation_currency: str | None = Query(None, min_length=3, max_length=3),
+    fx_method: str = Query("closing", pattern="^(average|closing|historical)$"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     require_gl_role(current_user)
     company_ids, companies = await _group_ids(db, current_user)
     target_date = as_of_date or date.today()
-    data = await consolidated_balance_sheet(db, company_ids, target_date)
+    try:
+        data = await consolidated_balance_sheet(db, company_ids, target_date, presentation_currency, fx_method)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     data["companies"] = [{"id": str(c.id), "name": c.name} for c in companies]
     add_audit(db, current_user, "consolidated.bs_viewed", "gl", company_ids[0], {
         "company_ids": [str(c) for c in company_ids],

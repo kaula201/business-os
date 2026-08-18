@@ -55,6 +55,7 @@ MODULES = [
     ("email-calendar","ელ.ფოსტა და კალენდარი",       "Email send, calendar events",  "Mail",            "/email-calendar","operations", 60,  "tasks"),
     ("security",      "უსაფრთხოება",                 "2FA, login history, RBAC",    "Shield",          "/security",     "operations", 61,  "settings"),
     ("automations",   "ავტომატიზაცია",               "Trigger → action rules",      "Zap",             "/automations",  "operations", 62,  "settings"),
+    ("accounting-controls", "ბუღალტრული კონტროლები",  "Fiscal, mapping, FX",         "BookOpenCheck",   "/accounting-controls", "accounting", 120, "consolidated"),
     ("procurement",   "შესყიდვები — Procurement", "RFQ, pricelists, blanket",   "ShoppingCart",    "/procurement",  "purchases", 60,  "suppliers"),
     ("pos",           "სალარო (POS)",              "Cashier, shifts, checks",   "ShoppingCart",    "/pos",          "sales",     51,  "inventory"),
     ("hr",            "HR / ადამიანური რესურსები",   "Employees, payroll, leave", "Users",           "/hr",           "other",     250,  None),
@@ -73,7 +74,7 @@ DEFAULT_PERMISSIONS = {
 }
 
 # Financial modules where accountant gets create/edit
-FINANCIAL_MODULES = {"cash", "banking", "currency", "gl", "journal-entries", "trial-balance", "profit-loss", "balance-sheet", "expenses", "assets", "customer-finance", "supplier-finance", "srs", "budgeting", "analytic", "deferred", "accounting-periods", "gl-recurring", "exchange-differences", "consolidated", "banking-rules"}
+FINANCIAL_MODULES = {"cash", "banking", "currency", "gl", "journal-entries", "trial-balance", "profit-loss", "balance-sheet", "expenses", "assets", "customer-finance", "supplier-finance", "srs", "budgeting", "analytic", "deferred", "accounting-periods", "gl-recurring", "exchange-differences", "consolidated", "banking-rules", "accounting-controls"}
 
 # Operational modules where manager gets create/edit
 OPERATIONAL_MODULES = {"clients", "orders", "invoices", "inventory", "tasks", "purchases", "suppliers", "fleet", "crm", "quotations", "price-lists", "sales-teams", "email-tracking", "subscriptions", "customer-portal", "wms", "helpdesk", "integrations", "payments", "email-calendar", "security", "automations", "procurement", "pos", "hr"}

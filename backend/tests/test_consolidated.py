@@ -7,6 +7,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
+from app.models.accounting_controls import ConsolidationAccountMapping, FxTranslationRate
 from app.models.company import Company
 from app.models.gl import GLAccount, JournalEntry, JournalEntryLine
 from app.models.user import User
@@ -139,3 +140,55 @@ async def test_consolidated_scope_is_group_only(client, auth_headers, test_compa
     assert data["total_income"] == 1000.0  # Zeta (99999) excluded
     names = [c["name"] for c in data["companies"]]
     assert "Zeta" not in names
+
+
+async def test_consolidation_uses_account_mapping(client, auth_headers, test_company):
+    group = uuid.uuid4()
+    async with TestSessionLocal() as session:
+        co_a = await _setup_grouped_company(session, "Mapped Co", "CONS-MAP", group)
+        tc = (await session.execute(select(Company).where(Company.id == test_company.id))).scalar_one()
+        tc.company_group_id = group
+        session.add(ConsolidationAccountMapping(
+            company_id=co_a.id, source_account_code="4100", target_account_code="4199",
+            target_name="Mapped group revenue", target_account_type="income",
+        ))
+        await session.commit()
+        await _post_pl_entry(session, co_a, Decimal("100"), Decimal("0"), date(2026, 8, 5))
+
+    resp = await client.get("/api/v1/gl/consolidated/profit-loss", params={
+        "date_from": "2026-08-01", "date_to": "2026-08-31",
+    }, headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    income = resp.json()["data"]["income_accounts"]
+    assert any(row["code"] == "4199" and row["balance"] == 100.0 for row in income)
+
+
+async def test_consolidation_translates_foreign_currency_with_persisted_rate(client, auth_headers, test_company):
+    group = uuid.uuid4()
+    async with TestSessionLocal() as session:
+        co_a = await _setup_grouped_company(session, "USD Co", "CONS-FX", group)
+        co_a.currency = "USD"
+        tc = (await session.execute(select(Company).where(Company.id == test_company.id))).scalar_one()
+        tc.company_group_id = group
+        session.add(FxTranslationRate(
+            company_id=co_a.id, target_currency="GEL", rate_date=date(2026, 8, 31),
+            rate=Decimal("2.000000"), method="average", source="nbg", is_locked=True,
+        ))
+        await session.commit()
+        await _post_pl_entry(session, co_a, Decimal("500"), Decimal("100"), date(2026, 8, 5))
+
+    missing_currency = await client.get("/api/v1/gl/consolidated/profit-loss", params={
+        "date_from": "2026-08-01", "date_to": "2026-08-31",
+    }, headers=auth_headers)
+    assert missing_currency.status_code == 422
+
+    resp = await client.get("/api/v1/gl/consolidated/profit-loss", params={
+        "date_from": "2026-08-01", "date_to": "2026-08-31",
+        "presentation_currency": "GEL", "fx_method": "average",
+    }, headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert data["presentation_currency"] == "GEL"
+    assert data["total_income"] == 1000.0
+    assert data["total_expenses"] == 200.0
+    assert data["net_income"] == 800.0
