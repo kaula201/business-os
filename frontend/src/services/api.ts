@@ -392,6 +392,9 @@ export const bankingApi = {
   updateRule: (id: string, data: Record<string, unknown>) => api.patch(`/banking/reconciliation-rules/${id}`, data),
   deleteRule: (id: string) => api.delete(`/banking/reconciliation-rules/${id}`),
   applyRules: (on_date?: string) => api.post('/banking/reconciliation-rules/apply', null, { params: on_date ? { on_date } : {} }),
+  // Reconciliation suggestions (Odoo-style matching with confidence)
+  suggestions: (params?: { bank_account_id?: string; limit?: number }) =>
+    api.get('/reconciliation-suggestions', { params }),
 }
 
 // Inventory valuation API

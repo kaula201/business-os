@@ -28,6 +28,7 @@ from app.models.banking import (
 )
 from app.models.bank_connection import BankConnection
 from app.models.purchase import SupplierPayable, SupplierPayment, SupplierPaymentReversal
+from app.models.receivable import CustomerReceivable
 from app.models.user import User
 from app.schemas.banking import (
     BankAccountCreate,
@@ -402,6 +403,68 @@ async def list_bank_transactions(
         page_size=page_size,
         items=[transaction_response(row) for row in transactions],
     ))
+
+
+@router.get("/reconciliation-suggestions", response_model=ResponseBase[list[dict]])
+async def reconciliation_suggestions(
+    bank_account_id: UUID | None = None,
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return unmatched bank transactions with candidate payable/receivable matches
+    and a confidence score (0-100) so the user can review and approve in batch."""
+    require_finance_role(current_user)
+    filters = [BankTransaction.company_id == current_user.company_id, BankTransaction.status == "unmatched"]
+    if bank_account_id:
+        filters.append(BankTransaction.bank_account_id == bank_account_id)
+    txns = (await db.execute(
+        select(BankTransaction).where(*filters)
+        .order_by(BankTransaction.transaction_date.desc())
+        .limit(limit)
+    )).scalars().all()
+
+    payables = (await db.execute(select(SupplierPayable).where(
+        SupplierPayable.company_id == current_user.company_id,
+        SupplierPayable.status == "unpaid",
+        SupplierPayable.outstanding_amount > 0,
+    ).options(selectinload(SupplierPayable.supplier), selectinload(SupplierPayable.supplier_invoice)))).scalars().all()
+    receivables = (await db.execute(select(CustomerReceivable).where(
+        CustomerReceivable.company_id == current_user.company_id,
+        CustomerReceivable.status == "unpaid",
+        CustomerReceivable.outstanding_amount > 0,
+    ))).scalars().all()
+
+    suggestions = []
+    for txn in txns:
+        candidates = []
+        if txn.direction == "debit":
+            for p in payables:
+                if p.currency_code != txn.currency:
+                    continue
+                diff = abs(float(p.outstanding_amount) - float(txn.amount))
+                score = 100 if diff == 0 else max(0, 100 - int(diff / max(float(txn.amount), 1) * 100))
+                if score >= 60:
+                    candidates.append({"kind": "payable", "id": str(p.id), "label": f"{p.supplier_invoice.internal_invoice_number} — {p.supplier.name}",
+                                       "amount": float(p.outstanding_amount), "confidence": score,
+                                       "reason": "თანხა ემთხვევა" if score == 100 else "თანხა ახლოსაა"})
+        else:
+            for r in receivables:
+                if r.currency != txn.currency:
+                    continue
+                diff = abs(float(r.outstanding_amount) - float(txn.amount))
+                score = 100 if diff == 0 else max(0, 100 - int(diff / max(float(txn.amount), 1) * 100))
+                if score >= 60:
+                    candidates.append({"kind": "receivable", "id": str(r.id), "label": f"{r.invoice_number} — {r.client_name}",
+                                       "amount": float(r.outstanding_amount), "confidence": score,
+                                       "reason": "თანხა ემთხვევა" if score == 100 else "თანხა ახლოსაა"})
+        candidates.sort(key=lambda c: c["confidence"], reverse=True)
+        suggestions.append({
+            "transaction_id": str(txn.id), "reference": txn.reference, "description": txn.description,
+            "counterparty": txn.counterparty, "amount": float(txn.amount), "direction": txn.direction,
+            "transaction_date": str(txn.transaction_date), "candidates": candidates[:3],
+        })
+    return ResponseBase(data=suggestions)
 
 
 @router.post(

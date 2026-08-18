@@ -82,6 +82,10 @@ export default function BankingPage() {
     queryKey: ['bank-reconciliations'],
     queryFn: () => bankingApi.listReconciliations({ page_size: 100 }).then((response) => response.data.data),
   })
+  const { data: suggestions = [] } = useQuery({
+    queryKey: ['bank-reconciliation-suggestions', accountFilter],
+    queryFn: () => bankingApi.suggestions({ bank_account_id: accountFilter || undefined, limit: 50 }).then((response) => response.data.data),
+  })
 
   const transactions: BankTransaction[] = transactionsData?.items || []
   const payables: SupplierPayable[] = useMemo(
@@ -197,6 +201,45 @@ export default function BankingPage() {
         <div className="card p-5"><div className="flex items-center gap-3"><Link2 className="text-accent-600" /><div><div className="text-sm text-brandgray-500 dark:text-gray-400">{t('შეჯერებები')}</div><div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{reconciliations.filter((row) => row.status === 'active').length}</div></div></div></div>
         <div className="card p-5"><div className="flex items-center gap-3"><ArrowUpRight className="text-amber-600" /><div><div className="text-sm text-brandgray-500 dark:text-gray-400">{t('დარჩენილი თანხა')}</div><div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(totalUnmatched)}</div></div></div></div>
       </div>
+
+      <section className="card overflow-hidden">
+        <div className="border-b border-brandgray-100 dark:border-dark-50 p-4">
+          <h2 className="font-semibold text-brandgray-800 dark:text-gray-100">{t('შეჯერების შემოთავაზებები')}</h2>
+          <p className="text-xs text-brandgray-500 dark:text-gray-400">{t('ავტომატური matching — თანხისა და კონტრაგენტის მიხედვით')}</p>
+        </div>
+        <div className="divide-y divide-brandgray-100 dark:divide-dark-50">
+          {suggestions.length === 0 ? <p className="p-5 text-sm text-brandgray-400">{t('შეჯერების შემოთავაზებები არ არის')}</p> : suggestions.map((s: any) => (
+            <div key={s.transaction_id} className="p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="font-medium text-brandgray-900 dark:text-gray-100">{s.counterparty || s.reference}</div>
+                  <div className="text-xs text-brandgray-500 dark:text-gray-400">{s.transaction_date} · {s.description}</div>
+                </div>
+                <div className="text-right">
+                  <div className={`font-semibold ${s.direction === 'debit' ? 'text-red-600' : 'text-accent-700'}`}>{money(s.amount)}</div>
+                  <div className="text-xs text-brandgray-400">{s.direction === 'debit' ? t('გასავალი') : t('შემოსავალი')}</div>
+                </div>
+              </div>
+              {s.candidates.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {s.candidates.map((c: any) => (
+                    <div key={c.id} className="flex items-center justify-between rounded-lg bg-brandgray-50 dark:bg-dark-100 px-3 py-2 text-sm">
+                      <div>
+                        <span className="font-medium text-brandgray-800 dark:text-gray-200">{c.label}</span>
+                        <span className="ml-2 text-xs text-brandgray-500 dark:text-gray-400">{c.reason}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-brandgray-500 dark:text-gray-400">{money(c.amount)}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${c.confidence >= 90 ? 'bg-green-100 text-green-700' : c.confidence >= 70 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{c.confidence}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="card overflow-hidden">
         <div className="border-b border-brandgray-100 dark:border-dark-50 p-4">
