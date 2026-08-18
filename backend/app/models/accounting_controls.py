@@ -21,6 +21,8 @@ class FiscalPosition(Base):
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     tax_type: Mapped[str] = mapped_column(String(30), default="vat_standard", nullable=False)
     vat_rate: Mapped[Decimal] = mapped_column(Numeric(7, 4), default=Decimal("18.0000"), nullable=False)
+    sales_tax_account_code: Mapped[str] = mapped_column(String(20), default="2200", nullable=False)
+    purchase_tax_account_code: Mapped[str] = mapped_column(String(20), default="5300", nullable=False)
     applies_to: Mapped[str] = mapped_column(String(20), default="both", nullable=False)  # sale|purchase|both
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

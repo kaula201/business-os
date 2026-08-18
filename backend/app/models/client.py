@@ -27,6 +27,7 @@ class Client(Base):
     client_type: Mapped[str] = mapped_column(String(20), nullable=False)
     identification_code: Mapped[str] = mapped_column(String(50), nullable=False)
     vat_status: Mapped[bool] = mapped_column(Boolean, default=True)
+    fiscal_position_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("fiscal_positions.id"), nullable=True, index=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="potential")
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)

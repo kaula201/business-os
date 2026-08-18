@@ -20,8 +20,9 @@ async def post_invoice_gl(
     total: Decimal,
     vat_amount: Decimal,
     subtotal: Decimal,
+    tax_account_code: str = "2200",
 ) -> None:
-    """Invoice issued: Dr AR (1310) / Cr Revenue (4100) + Cr VAT (2200)."""
+    """Invoice issued with document-snapshotted VAT liability account."""
     await post_journal_entry(
         db, company_id, current_user,
         entry_date=invoice_date,
@@ -31,7 +32,7 @@ async def post_invoice_gl(
         lines=[
             ("1310", total, Decimal("0")),           # Dr მოთხოვნები — ინვოისები
             ("4100", Decimal("0"), subtotal),         # Cr შემოსავალი გაყიდვებიდან
-            ("2200", Decimal("0"), vat_amount),       # Cr დღგ ვალდებულება
+            (tax_account_code, Decimal("0"), vat_amount),  # Cr Fiscal-position VAT liability
         ],
     )
 
@@ -176,8 +177,9 @@ async def post_supplier_invoice_gl(
     total: Decimal,
     vat_amount: Decimal,
     subtotal: Decimal,
+    tax_account_code: str = "5300",
 ) -> None:
-    """Supplier invoice: Dr Expense (5100) + Dr VAT (5300) / Cr AP (2110)."""
+    """Supplier invoice with document-snapshotted VAT input account."""
     await post_journal_entry(
         db, company_id, current_user,
         entry_date=invoice_date,
@@ -186,7 +188,7 @@ async def post_supplier_invoice_gl(
         reference_id=invoice_id,
         lines=[
             ("5100", subtotal, Decimal("0")),          # Dr გაყიდული საქონლის ღირებულება
-            ("5300", vat_amount, Decimal("0")),         # Dr დღგ ხარჯი
+            (tax_account_code, vat_amount, Decimal("0")), # Dr Fiscal-position VAT input
             ("2110", Decimal("0"), total),              # Cr ვალდებულებები — ინვოისები
         ],
     )

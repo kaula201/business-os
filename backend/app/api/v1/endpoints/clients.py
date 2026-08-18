@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.core.time import utc_now
 from app.models.client import Client, ClientStatus, Contact, Interaction
+from app.models.accounting_controls import FiscalPosition
 from app.models.user import User
 from app.schemas.client import (
     ClientCreate,
@@ -33,6 +34,19 @@ def primary_contact(client: Client) -> Contact | None:
     )
 
 
+async def validate_fiscal_position(db: AsyncSession, fiscal_position_id: UUID | None, company_id: UUID) -> None:
+    if fiscal_position_id is None:
+        return
+    found = (await db.execute(select(FiscalPosition.id).where(
+        FiscalPosition.id == fiscal_position_id,
+        FiscalPosition.company_id == company_id,
+        FiscalPosition.is_active.is_(True),
+        FiscalPosition.applies_to.in_(["sale", "both"]),
+    ))).scalar_one_or_none()
+    if found is None:
+        raise HTTPException(status_code=422, detail="Fiscal Position არ მოიძებნა ან ამ კომპანიის არაა")
+
+
 def build_client_response(client: Client) -> ClientResponse:
     primary = primary_contact(client)
     return ClientResponse(
@@ -42,6 +56,7 @@ def build_client_response(client: Client) -> ClientResponse:
         name=client.name,
         identification_code=client.identification_code,
         is_vat_payer=client.vat_status,
+        fiscal_position_id=client.fiscal_position_id,
         address=client.address,
         phone=primary.phone if primary else None,
         email=primary.email if primary else None,
@@ -166,6 +181,7 @@ async def create_client(
         raise HTTPException(
             status_code=400, detail="საიდენტიფიკაციო კოდი უკვე არსებობს"
         )
+    await validate_fiscal_position(db, data.fiscal_position_id, current_user.company_id)
 
     client = Client(
         company_id=current_user.company_id,
@@ -173,6 +189,7 @@ async def create_client(
         name=data.name,
         identification_code=data.identification_code,
         vat_status=data.is_vat_payer,
+        fiscal_position_id=data.fiscal_position_id,
         address=data.address,
         status=ClientStatus.POTENTIAL,
         notes=data.notes,
@@ -242,6 +259,8 @@ async def update_client(
     phone = update_data.pop("phone", None)
     email = update_data.pop("email", None)
     vat_status = update_data.pop("is_vat_payer", None)
+    if "fiscal_position_id" in update_data:
+        await validate_fiscal_position(db, update_data["fiscal_position_id"], current_user.company_id)
 
     if vat_status is not None:
         client.vat_status = vat_status

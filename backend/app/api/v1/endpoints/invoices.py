@@ -27,6 +27,7 @@ from app.schemas.invoice import (
     InvoiceResponse,
 )
 from app.services.gl_hooks import post_invoice_gl
+from app.services.fiscal import resolve_fiscal_position
 from app.utils.invoice_exports import generate_invoice_docx, generate_invoice_xlsx
 from app.utils.pdf import generate_invoice_pdf
 
@@ -212,7 +213,16 @@ async def create_invoice_snapshot(
     line_snapshots: list[dict] = []
     subtotal = Decimal("0")
     vat_amount = Decimal("0")
-    vat_rate = Decimal("18.0000") if money(order.vat_amount) > 0 else Decimal("0.0000")
+    fiscal = await resolve_fiscal_position(
+        db, current_user.company_id,
+        partner_fiscal_position_id=getattr(order.client, "fiscal_position_id", None),
+        applies_to="sale",
+    )
+    # No Fiscal Position: preserve the persisted legacy order rate. Legacy
+    # orders store rates fractionally (0.18); invoice lines store percentages.
+    stored_order_rate = Decimal(str(order.vat_rate or 0))
+    legacy_vat_rate = stored_order_rate * Decimal("100") if stored_order_rate <= Decimal("1") else stored_order_rate
+    vat_rate = fiscal.vat_rate if fiscal.id else legacy_vat_rate
     for line_number, order_item in enumerate(order.items, start=1):
         line_quantity = quantity(order_item.quantity)
         unit_price = money(order_item.unit_price)
@@ -243,6 +253,8 @@ async def create_invoice_snapshot(
         company_id=current_user.company_id,
         client_id=order.client_id,
         order_id=order.id,
+        fiscal_position_id=fiscal.id,
+        tax_account_code=fiscal.tax_account_code if vat_rate > 0 else None,
         invoice_number=await allocate_document_number(
             db, current_user.company_id, "customer_invoice", "INV"
         ),
@@ -328,6 +340,7 @@ async def issue_invoice_snapshot(
         total=invoice.total,
         vat_amount=invoice.vat_amount,
         subtotal=invoice.subtotal,
+        tax_account_code=invoice.tax_account_code or "2200",
     )
     add_audit(db, current_user, "customer_receivable.created", "customer_receivable", receivable.id, {
         "invoice_id": invoice.id,

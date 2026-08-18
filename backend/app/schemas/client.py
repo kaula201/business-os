@@ -30,6 +30,7 @@ class ClientCreate(BaseModel):
     name: str = Field(..., min_length=2)
     identification_code: str
     is_vat_payer: bool = True
+    fiscal_position_id: UUID | None = None
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -42,6 +43,7 @@ class ClientUpdate(BaseModel):
     client_type: Optional[ClientType] = None
     identification_code: Optional[str] = None
     is_vat_payer: Optional[bool] = None
+    fiscal_position_id: UUID | None = None
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -56,6 +58,7 @@ class ClientResponse(BaseModel):
     name: str
     identification_code: str
     is_vat_payer: bool
+    fiscal_position_id: UUID | None = None
     address: Optional[str]
     phone: Optional[str] = None
     email: Optional[str] = None
@@ -75,6 +78,7 @@ class ClientListResponse(BaseModel):
     client_type: str
     identification_code: str
     is_vat_payer: bool
+    fiscal_position_id: UUID | None = None
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None

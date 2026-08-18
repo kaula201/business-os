@@ -27,6 +27,7 @@ from app.models.purchase import (
 from app.models.user import User
 from app.models.warehouse import InventoryBalance, InventoryMovement, Warehouse
 from app.schemas.common import PaginatedResponse, ResponseBase
+from app.services.fiscal import resolve_fiscal_position
 from app.schemas.purchase import (
     ApprovalLimitInfo,
     GoodsReceiptCreate,
@@ -340,9 +341,17 @@ async def create_purchase_order(
     number = await allocate_document_number(
         db, current_user.company_id, "purchase_order", "PO"
     )
+    fiscal = await resolve_fiscal_position(
+        db, current_user.company_id,
+        partner_fiscal_position_id=supplier.fiscal_position_id,
+        applies_to="purchase",
+    )
+    # Preserve legacy non-VAT suppliers unless an explicit fiscal position says otherwise.
+    po_vat_rate = fiscal.vat_rate if (supplier.fiscal_position_id or supplier.is_vat_payer) else Decimal("0.0000")
     order = PurchaseOrder(
         company_id=current_user.company_id,
         supplier_id=supplier.id,
+        fiscal_position_id=fiscal.id,
         warehouse_id=warehouse.id,
         purchase_order_number=number,
         status="draft",
@@ -360,7 +369,7 @@ async def create_purchase_order(
         gross = item_data.quantity * item_data.unit_price
         discount = gross * item_data.discount_percent / Decimal("100")
         line_subtotal = money(gross - discount)
-        line_vat = money(line_subtotal * item_data.vat_rate / Decimal("100"))
+        line_vat = money(line_subtotal * po_vat_rate / Decimal("100"))
         line_total = money(line_subtotal + line_vat)
         item = PurchaseOrderItem(
             purchase_order_id=order.id,
@@ -370,7 +379,7 @@ async def create_purchase_order(
             received_quantity=Decimal("0"),
             unit_price=item_data.unit_price,
             discount_percent=item_data.discount_percent,
-            vat_rate=item_data.vat_rate,
+            vat_rate=po_vat_rate,
             line_subtotal=line_subtotal,
             vat_amount=line_vat,
             line_total=line_total,

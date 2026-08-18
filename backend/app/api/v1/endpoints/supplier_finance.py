@@ -55,6 +55,7 @@ from app.services.gl_hooks import (
     post_supplier_payment_gl,
     post_supplier_payment_reversal_gl,
 )
+from app.services.fiscal import resolve_fiscal_position
 
 router = APIRouter(tags=["მომწოდებლის ფინანსები"])
 
@@ -556,10 +557,17 @@ async def create_supplier_invoice(
     internal_number = await allocate_document_number(
         db, current_user.company_id, "supplier_invoice", "SIN"
     )
+    fiscal = await resolve_fiscal_position(
+        db, current_user.company_id,
+        partner_fiscal_position_id=purchase_order.fiscal_position_id or supplier.fiscal_position_id,
+        applies_to="purchase",
+    )
     invoice = SupplierInvoice(
         company_id=current_user.company_id,
         supplier_id=supplier.id,
         purchase_order_id=purchase_order.id,
+        fiscal_position_id=fiscal.id,
+        tax_account_code=fiscal.tax_account_code,
         internal_invoice_number=internal_number,
         supplier_invoice_number=data.supplier_invoice_number.strip(),
         invoice_date=data.invoice_date,
@@ -715,6 +723,7 @@ async def change_supplier_invoice_status(
             total=invoice.total,
             vat_amount=invoice.vat_amount,
             subtotal=invoice.subtotal,
+            tax_account_code=invoice.tax_account_code or "5300",
         )
     invoice = await refresh_invoice_graph(db, invoice)
     return ResponseBase(data=build_invoice_response(invoice))

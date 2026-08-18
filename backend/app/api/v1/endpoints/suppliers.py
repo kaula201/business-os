@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.models.audit import AuditLog
+from app.models.accounting_controls import FiscalPosition
 from app.models.purchase import (
     Supplier,
     SupplierBankDetail,
@@ -47,6 +48,19 @@ async def get_company_supplier(
     if not supplier:
         raise HTTPException(status_code=404, detail="მომწოდებელი არ მოიძებნა")
     return supplier
+
+
+async def validate_supplier_fiscal_position(db: AsyncSession, fiscal_position_id: UUID | None, company_id: UUID) -> None:
+    if fiscal_position_id is None:
+        return
+    valid = (await db.execute(select(FiscalPosition.id).where(
+        FiscalPosition.id == fiscal_position_id,
+        FiscalPosition.company_id == company_id,
+        FiscalPosition.is_active.is_(True),
+        FiscalPosition.applies_to.in_(["purchase", "both"]),
+    ))).scalar_one_or_none()
+    if valid is None:
+        raise HTTPException(status_code=422, detail="Fiscal Position არ მოიძებნა ან ამ კომპანიის არაა")
 
 
 async def ensure_unique_supplier_fields(
@@ -199,12 +213,14 @@ async def create_supplier(
     await ensure_unique_supplier_fields(
         db, current_user.company_id, code, identification_code
     )
+    await validate_supplier_fiscal_position(db, data.fiscal_position_id, current_user.company_id)
     supplier = Supplier(
         company_id=current_user.company_id,
         code=code,
         name=data.name.strip(),
         identification_code=identification_code,
         is_vat_payer=data.is_vat_payer,
+        fiscal_position_id=data.fiscal_position_id,
         contact_name=data.contact_name,
         phone=data.phone,
         email=str(data.email) if data.email else None,
@@ -306,6 +322,8 @@ async def update_supplier(
         exclude_id=supplier.id,
     )
     changes["code"] = code
+    if "fiscal_position_id" in changes:
+        await validate_supplier_fiscal_position(db, changes["fiscal_position_id"], current_user.company_id)
     if "name" in changes:
         changes["name"] = changes["name"].strip()
     if "identification_code" in changes:

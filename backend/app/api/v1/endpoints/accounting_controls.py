@@ -24,7 +24,9 @@ def require_accounting_admin(user: User) -> None:
 
 def _fiscal(row: FiscalPosition) -> dict:
     return {"id": str(row.id), "code": row.code, "name": row.name, "tax_type": row.tax_type,
-            "vat_rate": float(row.vat_rate), "applies_to": row.applies_to, "is_default": row.is_default,
+            "vat_rate": float(row.vat_rate), "sales_tax_account_code": row.sales_tax_account_code,
+            "purchase_tax_account_code": row.purchase_tax_account_code,
+            "applies_to": row.applies_to, "is_default": row.is_default,
             "is_active": row.is_active}
 
 
@@ -53,14 +55,30 @@ async def create_fiscal_position(data: dict, db: AsyncSession = Depends(get_db),
         raise HTTPException(status_code=422, detail="applies_to უნდა იყოს sale, purchase ან both")
     if Decimal(str(data.get("vat_rate", 18))) < 0:
         raise HTTPException(status_code=422, detail="დღგ-ის განაკვეთი უარყოფითი ვერ იქნება")
+    sales_tax_account_code = data.get("sales_tax_account_code", "2200")
+    purchase_tax_account_code = data.get("purchase_tax_account_code", "5300")
+    accounts = (await db.execute(select(GLAccount).where(
+        GLAccount.company_id == current_user.company_id,
+        GLAccount.is_active.is_(True),
+        GLAccount.code.in_([sales_tax_account_code, purchase_tax_account_code]),
+    ))).scalars().all()
+    account_map = {row.code: row for row in accounts}
+    if sales_tax_account_code not in account_map or account_map[sales_tax_account_code].account_type != "liability":
+        raise HTTPException(status_code=422, detail="sales tax account უნდა იყოს ამ კომპანიის liability GL account")
+    if purchase_tax_account_code not in account_map or account_map[purchase_tax_account_code].account_type not in {"asset", "expense"}:
+        raise HTTPException(status_code=422, detail="purchase tax account უნდა იყოს ამ კომპანიის asset/expense GL account")
     if data.get("is_default"):
         rows = (await db.execute(select(FiscalPosition).where(FiscalPosition.company_id == current_user.company_id))).scalars().all()
         for row in rows: row.is_default = False
     row = FiscalPosition(company_id=current_user.company_id, code=data.get("code", ""), name=data.get("name", ""),
                          tax_type=data.get("tax_type", "vat_standard"), vat_rate=Decimal(str(data.get("vat_rate", 18))),
+                         sales_tax_account_code=sales_tax_account_code, purchase_tax_account_code=purchase_tax_account_code,
                          applies_to=data.get("applies_to", "both"), is_default=bool(data.get("is_default", False)))
-    db.add(row); await db.commit(); await db.refresh(row)
-    return ResponseBase(data=_fiscal(row), message="ფისკალური პოზიცია შეიქმნა")
+    db.add(row)
+    await db.flush()
+    result = _fiscal(row)
+    await db.commit()
+    return ResponseBase(data=result, message="ფისკალური პოზიცია შეიქმნა")
 
 
 @router.get("/consolidation-mappings", response_model=ResponseBase[list[dict]])
@@ -88,8 +106,11 @@ async def create_mapping(data: dict, db: AsyncSession = Depends(get_db), current
     if source.account_type != data["target_account_type"]:
         raise HTTPException(status_code=422, detail="target account type source GL account-ს უნდა ემთხვეოდეს")
     row = ConsolidationAccountMapping(company_id=current_user.company_id, **{k: data[k] for k in required})
-    db.add(row); await db.commit(); await db.refresh(row)
-    return ResponseBase(data=_mapping(row), message="კონსოლიდაციის mapping შეიქმნა")
+    db.add(row)
+    await db.flush()
+    result = _mapping(row)
+    await db.commit()
+    return ResponseBase(data=result, message="კონსოლიდაციის mapping შეიქმნა")
 
 
 @router.get("/fx-rates", response_model=ResponseBase[list[dict]])
@@ -111,5 +132,8 @@ async def create_fx_rate(data: dict, db: AsyncSession = Depends(get_db), current
     row = FxTranslationRate(company_id=current_user.company_id, target_currency=data.get("target_currency", "GEL").upper(),
                             rate_date=date.fromisoformat(data.get("rate_date", str(date.today()))), rate=rate,
                             method=method, source=data.get("source", "manual"), is_locked=bool(data.get("is_locked", False)))
-    db.add(row); await db.commit(); await db.refresh(row)
-    return ResponseBase(data=_fx(row), message="FX translation კურსი შეიქმნა")
+    db.add(row)
+    await db.flush()
+    result = _fx(row)
+    await db.commit()
+    return ResponseBase(data=result, message="FX translation კურსი შეიქმნა")

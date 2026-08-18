@@ -13,6 +13,7 @@ class SupplierCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     identification_code: str | None = Field(default=None, max_length=50)
     is_vat_payer: bool = False
+    fiscal_position_id: UUID | None = None
     contact_name: str | None = Field(default=None, max_length=255)
     phone: str | None = Field(default=None, max_length=50)
     email: EmailStr | None = None
@@ -27,6 +28,7 @@ class SupplierUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     identification_code: str | None = Field(default=None, max_length=50)
     is_vat_payer: bool | None = None
+    fiscal_position_id: UUID | None = None
     contact_name: str | None = Field(default=None, max_length=255)
     phone: str | None = Field(default=None, max_length=50)
     email: EmailStr | None = None
@@ -105,6 +107,7 @@ class SupplierResponse(BaseModel):
     name: str
     identification_code: str | None
     is_vat_payer: bool
+    fiscal_position_id: UUID | None = None
     contact_name: str | None
     phone: str | None
     email: str | None
