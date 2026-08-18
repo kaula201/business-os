@@ -16,8 +16,40 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        window.addEventListener('load', async () => {
+          const isViteDev = Boolean(document.querySelector('script[type="module"][src^="/src/"]'));
+          if (isViteDev) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
+            if ('caches' in window) {
+              const keys = await caches.keys();
+              await Promise.all(keys.filter((key) => key.startsWith('bos-')).map((key) => caches.delete(key)));
+            }
+            // A service worker keeps controlling the current page until reload.
+            if (navigator.serviceWorker.controller && sessionStorage.getItem('bos_sw_reset') !== 'done') {
+              sessionStorage.setItem('bos_sw_reset', 'done');
+              window.location.reload();
+            } else {
+              sessionStorage.removeItem('bos_sw_reset');
+            }
+            return;
+          }
+          let workerReloading = false;
+          const reloadForWorker = () => {
+            if (workerReloading || sessionStorage.getItem('bos_sw_prod_reset') === 'done') return;
+            workerReloading = true;
+            sessionStorage.setItem('bos_sw_prod_reset', 'done');
+            window.location.reload();
+          };
+          navigator.serviceWorker.addEventListener('controllerchange', reloadForWorker);
+          navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+            .then(async (registration) => {
+              await registration.update();
+              await navigator.serviceWorker.ready;
+              if (!navigator.serviceWorker.controller) reloadForWorker();
+              else sessionStorage.removeItem('bos_sw_prod_reset');
+            })
+            .catch(() => {});
         });
       }
     </script>
