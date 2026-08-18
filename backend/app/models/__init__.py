@@ -42,6 +42,7 @@ from app.models.field_access import FieldAccessRule
 from app.models.notification import Notification
 from app.models.automation import AutomationRule
 from app.models.accounting_controls import FiscalPosition, ConsolidationAccountMapping, FxTranslationRate
+from app.models.consolidation_elimination import ConsolidationElimination
 from app.models.procurement import (
     RFQ, RFQLine, RFQResponse, RFQResponseLine,
     SupplierPriceList, BlanketOrder, BlanketOrderLine, SupplierScorecard,
@@ -128,6 +129,7 @@ __all__ = [
     "Notification",
     "AutomationRule",
     "FiscalPosition", "ConsolidationAccountMapping", "FxTranslationRate",
+    "ConsolidationElimination",
     "RFQ", "RFQLine", "RFQResponse", "RFQResponseLine", "SupplierPriceList", "BlanketOrder", "BlanketOrderLine", "SupplierScorecard",
     "Supplier", "SupplierBankDetail", "SupplierRatingHistory", "PurchaseOrder", "PurchaseOrderItem", "PurchaseOrderStatusHistory",
     "GoodsReceipt", "GoodsReceiptItem",

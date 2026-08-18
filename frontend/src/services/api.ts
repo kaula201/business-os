@@ -459,6 +459,10 @@ export const glApi = {
     api.get('/gl/consolidated/profit-loss', { params }),
   consolidatedBalanceSheet: (params?: { as_of_date?: string }) =>
     api.get('/gl/consolidated/balance-sheet', { params }),
+  consolidationEliminations: () => api.get('/gl/consolidation-eliminations/'),
+  createConsolidationElimination: (data: Record<string, unknown>) => api.post('/gl/consolidation-eliminations/', data),
+  approveConsolidationElimination: (id: string) => api.post(`/gl/consolidation-eliminations/${id}/approve`),
+  reverseConsolidationElimination: (id: string) => api.post(`/gl/consolidation-eliminations/${id}/reverse`),
 }
 
 // Company API

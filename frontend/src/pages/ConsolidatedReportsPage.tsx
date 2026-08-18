@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
-import { Building2, Scale } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Building2, Scale, CheckCircle2, RotateCcw } from 'lucide-react'
 
 import { glApi } from '../services/api'
 
@@ -30,6 +30,7 @@ function AccountRows({ rows }: { rows: PlRow[] | BsRow[] }) {
 
 export default function ConsolidatedReportsPage() {
   const { t } = useTranslation()
+  const qc = useQueryClient()
   const today = new Date().toISOString().slice(0, 10)
   const [monthStart] = useState(() => {
     const d = new Date()
@@ -50,6 +51,12 @@ export default function ConsolidatedReportsPage() {
     queryKey: ['gl-consolidated-bs', today],
     queryFn: () => glApi.consolidatedBalanceSheet({ as_of_date: today }).then(r => r.data.data),
   })
+  const { data: eliminations = [] } = useQuery({
+    queryKey: ['consolidation-eliminations'],
+    queryFn: () => glApi.consolidationEliminations().then(r => r.data.data),
+  })
+  const approve = useMutation({ mutationFn: (id: string) => glApi.approveConsolidationElimination(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['consolidation-eliminations'] }) })
+  const reverse = useMutation({ mutationFn: (id: string) => glApi.reverseConsolidationElimination(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['consolidation-eliminations'] }) })
 
   return (
     <div className="space-y-5">
@@ -130,6 +137,11 @@ export default function ConsolidatedReportsPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="rounded-xl bg-white border border-brandgray-100 shadow-sm dark:bg-dark-200 dark:border-dark-50">
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-brandgray-100 dark:border-dark-50"><Building2 size={16} className="text-primary-600" /><h2 className="font-semibold text-brandgray-800 dark:text-gray-100">{t('კონსოლიდაციის გამორიცხვები')}</h2></div>
+        <div className="divide-y divide-brandgray-100 dark:divide-dark-50">{eliminations.length === 0 ? <p className="p-5 text-sm text-brandgray-400">{t('მონაცემები არ არის')}</p> : eliminations.map((e: any) => <div key={e.id} className="flex items-center justify-between gap-3 p-4 text-sm"><div><span className="font-mono text-xs mr-2">{e.revenue_account} → {e.expense_account}</span><span>{money(e.amount)}</span><span className="ml-2 text-brandgray-400">{e.status}</span></div><div className="flex gap-2">{e.status === 'draft' && <button onClick={() => approve.mutate(e.id)} className="btn-secondary text-xs flex items-center gap-1"><CheckCircle2 size={14}/>{t('დადასტურება')}</button>}{e.status === 'approved' && <button onClick={() => reverse.mutate(e.id)} className="btn-secondary text-xs text-red-600 flex items-center gap-1"><RotateCcw size={14}/>{t('გაუქმება')}</button>}</div></div>)}</div>
       </div>
     </div>
   )

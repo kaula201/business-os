@@ -29,6 +29,7 @@ from app.api.v1.endpoints import (
     notifications,
     automations,
     accounting_controls,
+    consolidation_eliminations,
     clients,
     contracts,
     subscriptions,
@@ -121,6 +122,7 @@ api_router.include_router(field_access.router)
 api_router.include_router(notifications.router)
 api_router.include_router(automations.router)
 api_router.include_router(accounting_controls.router)
+api_router.include_router(consolidation_eliminations.router)
 api_router.include_router(export.router)
 api_router.include_router(invoices.router)
 api_router.include_router(invoices_enhanced.router)
