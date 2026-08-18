@@ -1549,6 +1549,7 @@ const en: Record<string, string> = {
   'ტენდერის შეთავაზებების შედარება': 'Tender bid comparison',
   'ჯამური ხარჯი': 'Total spend',
   'ფასის ისტორია': 'Price history',
+  'ავტომატური გამოთვლა': 'Auto-calculate',
   'შესყიდვები — Procurement': 'Purchasing — Procurement',
   'RFQ, შედარება, vendor ფასები, ჩარჩო შეთანხმებები, სკორკარდები': 'RFQ, comparison, vendor prices, blanket orders, scorecards',
   'ახალი ხელშეკრულება': 'New contract',

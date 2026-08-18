@@ -22,7 +22,7 @@ from app.models.procurement import (
     SupplierPriceHistory,
     SupplierScorecard,
 )
-from app.models.purchase import PurchaseOrder, PurchaseOrderItem, Supplier
+from app.models.purchase import GoodsReceipt, PurchaseOrder, PurchaseOrderItem, Supplier
 from app.models.warehouse import InventoryBalance
 from app.models.wms_ops import ReplenishmentRule
 from app.models.user import User
@@ -490,13 +490,67 @@ async def list_scorecards(
             "id": str(s.id), "supplier_id": str(s.supplier_id),
             "supplier_name": supplier.name if supplier else "—",
             "period": s.period,
-            "on_time_delivery_rate": float(s.on_time_delivery_rate) if s.on_time_delivery_rate else None,
-            "quality_rate": float(s.quality_rate) if s.quality_rate else None,
-            "price_index": float(s.price_index) if s.price_index else None,
-            "overall_score": float(s.overall_score) if s.overall_score else None,
+            "on_time_delivery_rate": float(s.on_time_delivery_rate) if s.on_time_delivery_rate is not None else None,
+            "quality_rate": float(s.quality_rate) if s.quality_rate is not None else None,
+            "price_index": float(s.price_index) if s.price_index is not None else None,
+            "overall_score": float(s.overall_score) if s.overall_score is not None else None,
             "orders_count": s.orders_count, "on_time_orders": s.on_time_orders,
         })
     return ResponseBase(data=result)
+
+
+@router.post("/scorecards/auto-calculate", response_model=ResponseBase[dict])
+async def auto_calculate_scorecards(
+    period: str = Query(..., pattern=r"^\d{4}-\d{2}$"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("purchases", "can_create")),
+):
+    """Auto-compute on-time delivery rate per supplier from goods receipts for a period."""
+    company_id = current_user.company_id
+    receipts = (await db.execute(
+        select(GoodsReceipt).where(GoodsReceipt.company_id == company_id)
+    )).scalars().all()
+    orders = (await db.execute(
+        select(PurchaseOrder).where(PurchaseOrder.company_id == company_id)
+    )).scalars().all()
+    order_map = {o.id: o for o in orders}
+
+    stats: dict[UUID, dict] = {}
+    for gr in receipts:
+        order = order_map.get(gr.purchase_order_id)
+        if not order or not order.expected_delivery_date:
+            continue
+        received = gr.received_at.date() if gr.received_at else None
+        if not received:
+            continue
+        s = stats.setdefault(order.supplier_id, {"total": 0, "on_time": 0})
+        s["total"] += 1
+        if received <= order.expected_delivery_date:
+            s["on_time"] += 1
+
+    updated = 0
+    for supplier_id, s in stats.items():
+        rate = (s["on_time"] / s["total"] * 100) if s["total"] else None
+        existing = (await db.execute(select(SupplierScorecard).where(
+            SupplierScorecard.company_id == company_id,
+            SupplierScorecard.supplier_id == supplier_id,
+            SupplierScorecard.period == period,
+        ))).scalar_one_or_none()
+        if existing:
+            existing.on_time_delivery_rate = Decimal(str(round(rate, 2))) if rate is not None else None
+            existing.orders_count = s["total"]
+            existing.on_time_orders = s["on_time"]
+            existing.overall_score = existing.overall_score or (Decimal(str(round(rate, 2))) if rate is not None else None)
+        else:
+            db.add(SupplierScorecard(
+                company_id=company_id, supplier_id=supplier_id, period=period,
+                on_time_delivery_rate=Decimal(str(round(rate, 2))) if rate is not None else None,
+                orders_count=s["total"], on_time_orders=s["on_time"],
+                overall_score=Decimal(str(round(rate, 2))) if rate is not None else None,
+            ))
+        updated += 1
+    await db.flush()
+    return ResponseBase(data={"period": period, "suppliers_updated": updated}, message="სკორკარდები ავტომატურად გამოითვალა")
 
 
 # ── Auto-replenishment → purchase order ───────────────────────────────────────

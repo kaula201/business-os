@@ -647,6 +647,8 @@ export const procurementApi = {
   upsertScorecard: (data: Record<string, unknown>) => api.post('/procurement/scorecards', data),
   autoReplenish: (warehouseId?: string) =>
     api.post('/procurement/auto-replenish', null, { params: warehouseId ? { warehouse_id: warehouseId } : {} }),
+  autoCalculateScorecards: (period: string) =>
+    api.post('/procurement/scorecards/auto-calculate', null, { params: { period } }),
   // Tenders
   listTenders: (params?: { status?: string; limit?: number }) => api.get('/procurement/tenders', { params }),
   createTender: (data: Record<string, unknown>) => api.post('/procurement/tenders', data),

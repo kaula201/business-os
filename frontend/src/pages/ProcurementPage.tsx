@@ -156,7 +156,12 @@ export default function ProcurementPage() {
 
   const autoReplenish = useMutation({
     mutationFn: () => procurementApi.autoReplenish(),
-    onSuccess: (d) => { setReplenishResult(d.data.data); qc.invalidateQueries({ queryKey: ['proc-rfqs'] }) },
+    onSuccess: (data) => { setReplenishResult(data.data.data); qc.invalidateQueries({ queryKey: ['proc-rfqs'] }) },
+  })
+
+  const autoCalcScore = useMutation({
+    mutationFn: () => procurementApi.autoCalculateScorecards(new Date().toISOString().slice(0, 7)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['proc-scores'] }),
   })
 
   const submitResponse = useMutation({
@@ -354,16 +359,24 @@ export default function ProcurementPage() {
       )}
 
       {tab === 'scorecard' && (
-        <DataTable
-          columns={[
-            { key: 'supplier_name', label: t('მომწოდებელი'), priority: true, render: (s: any) => <span className="font-semibold text-gray-900 dark:text-gray-100">{s.supplier_name}</span> },
-            { key: 'period', label: t('პერიოდი'), render: (s: any) => <span className="font-mono text-sm">{s.period}</span> },
-            { key: 'on_time_delivery_rate', label: t('დროულად %'), render: (s: any) => <span className="font-mono">{s.on_time_delivery_rate ?? '—'}</span> },
-            { key: 'quality_rate', label: t('ხარისხი %'), render: (s: any) => <span className="font-mono">{s.quality_rate ?? '—'}</span> },
-            { key: 'overall_score', label: t('საერთო'), render: (s: any) => s.overall_score
-              ? <span className={`font-mono font-semibold ${s.overall_score >= 80 ? 'text-emerald-600 dark:text-emerald-400' : s.overall_score >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>{s.overall_score}</span> : '—' },
-          ]}
-          data={scores} isLoading={scoresLoading} emptyMessage={t('სკორკარდები არ არის')} />
+        <>
+          <DataTable
+            columns={[
+              { key: 'supplier_name', label: t('მომწოდებელი'), priority: true, render: (s: any) => <span className="font-semibold text-gray-900 dark:text-gray-100">{s.supplier_name}</span> },
+              { key: 'period', label: t('პერიოდი'), render: (s: any) => <span className="font-mono text-sm">{s.period}</span> },
+              { key: 'on_time_delivery_rate', label: t('დროულად %'), render: (s: any) => <span className="font-mono">{s.on_time_delivery_rate ?? '—'}</span> },
+              { key: 'quality_rate', label: t('ხარისხი %'), render: (s: any) => <span className="font-mono">{s.quality_rate ?? '—'}</span> },
+              { key: 'overall_score', label: t('საერთო'), render: (s: any) => s.overall_score
+                ? <span className={`font-mono font-semibold ${s.overall_score >= 80 ? 'text-emerald-600 dark:text-emerald-400' : s.overall_score >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>{s.overall_score}</span> : '—' },
+            ]}
+            data={scores} isLoading={scoresLoading} emptyMessage={t('სკორკარდები არ არის')} />
+          <div className="mt-3">
+            <button onClick={() => autoCalcScore.mutate()} disabled={autoCalcScore.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
+              <Zap size={15} /> {t('ავტომატური გამოთვლა')}
+            </button>
+          </div>
+        </>
       )}
 
       {tab === 'contracts' && (
