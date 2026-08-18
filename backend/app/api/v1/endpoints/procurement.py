@@ -1,5 +1,5 @@
 """Procurement: RFQ, comparison, vendor pricelists, blanket orders, scorecards, auto-replenishment."""
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -582,30 +582,58 @@ async def auto_replenish(
             )
         )).scalar_one_or_none()
         on_hand = Decimal(balance.quantity) if balance else Decimal("0")
-        if on_hand < rule.min_quantity:
+        # Trigger when stock falls below the safety-stock floor (min_quantity is the reorder point).
+        threshold = rule.safety_stock if rule.safety_stock and rule.safety_stock > 0 else rule.min_quantity
+        if on_hand < threshold:
             reorder = rule.reorder_quantity or (rule.max_quantity - on_hand)
             if reorder > 0:
                 suggestions.append({
                     "product_id": str(rule.product_id),
                     "warehouse_id": str(rule.warehouse_id),
                     "quantity": float(max(reorder, Decimal("0"))),
+                    "lead_time_days": rule.lead_time_days,
                 })
     if not suggestions:
         return ResponseBase(data={"created": False, "message": "შევსება არ არის საჭირო"})
 
+    # Resolve a supplier: prefer the first rule's supplier, else the company's first active supplier.
+    supplier_id = next((r.supplier_id for r in rules if r.supplier_id), None)
+    if not supplier_id:
+        first_supplier = (await db.execute(
+            select(Supplier).where(Supplier.company_id == company_id, Supplier.is_active.is_(True))
+            .order_by(Supplier.created_at).limit(1)
+        )).scalar_one_or_none()
+        if not first_supplier:
+            raise HTTPException(status_code=422, detail="PO-ს შესაქმნელად მომწოდებელი არ მოიძებნა")
+        supplier_id = first_supplier.id
+
     count = await db.scalar(select(func.count(PurchaseOrder.id)).where(PurchaseOrder.company_id == company_id))
     po = PurchaseOrder(
         company_id=company_id,
+        supplier_id=supplier_id,
+        warehouse_id=suggestions[0]["warehouse_id"],
         purchase_order_number=f"PO-{datetime.now():%Y%m%d}-{int(count or 0) + 1:04d}",
         status="draft",
         notes="ავტომატური replenishment-ით გენერირებული",
+        expected_delivery_date=date.today() + timedelta(days=max(s["lead_time_days"] for s in suggestions)),
     )
     db.add(po)
     await db.flush()
+    products = (await db.execute(
+        select(Product).where(Product.company_id == company_id)
+    )).scalars().all()
+    product_map = {p.id: p for p in products}
     for s in suggestions:
+        product = product_map.get(UUID(s["product_id"]))
+        qty = Decimal(str(s["quantity"]))
+        unit_price = Decimal(str(product.purchase_price)) if product and product.purchase_price else Decimal("0")
+        line_subtotal = unit_price * qty
+        vat = line_subtotal * Decimal("0.18")
         db.add(PurchaseOrderItem(
             purchase_order_id=po.id, product_id=UUID(s["product_id"]),
-            quantity=Decimal(str(s["quantity"])),
+            product_name=product.name if product else "",
+            quantity=qty, unit_price=unit_price, vat_rate=Decimal("18"),
+            line_subtotal=line_subtotal, vat_amount=vat, line_total=line_subtotal + vat,
         ))
     await db.flush()
     return ResponseBase(

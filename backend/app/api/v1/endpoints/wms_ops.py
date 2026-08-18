@@ -68,9 +68,12 @@ class PackingSlipCreate(BaseModel):
 class ReplenishmentRuleCreate(BaseModel):
     warehouse_id: UUID
     product_id: UUID
+    supplier_id: UUID | None = None
     min_quantity: Decimal = Field(default=Decimal("0"), ge=0)
     max_quantity: Decimal = Field(default=Decimal("0"), ge=0)
     reorder_quantity: Decimal | None = None
+    safety_stock: Decimal = Field(default=Decimal("0"), ge=0)
+    lead_time_days: int = Field(default=0, ge=0)
 
 
 class LandedCostCreate(BaseModel):
@@ -377,12 +380,17 @@ async def create_replenishment_rule(
         existing.min_quantity = payload.min_quantity
         existing.max_quantity = payload.max_quantity
         existing.reorder_quantity = payload.reorder_quantity
+        existing.safety_stock = payload.safety_stock
+        existing.lead_time_days = payload.lead_time_days
+        existing.supplier_id = payload.supplier_id
         await db.flush()
         return ResponseBase(data={"id": str(existing.id)}, message="წესი განახლებულია")
     rule = ReplenishmentRule(
         company_id=company_id, warehouse_id=payload.warehouse_id, product_id=payload.product_id,
+        supplier_id=payload.supplier_id,
         min_quantity=payload.min_quantity, max_quantity=payload.max_quantity,
         reorder_quantity=payload.reorder_quantity,
+        safety_stock=payload.safety_stock, lead_time_days=payload.lead_time_days,
     )
     db.add(rule)
     await db.flush()
@@ -401,6 +409,8 @@ async def list_replenishment_rules(
         "id": str(r.id), "warehouse_id": str(r.warehouse_id), "product_id": str(r.product_id),
         "min_quantity": float(r.min_quantity), "max_quantity": float(r.max_quantity),
         "reorder_quantity": float(r.reorder_quantity) if r.reorder_quantity else None,
+        "safety_stock": float(r.safety_stock), "lead_time_days": r.lead_time_days,
+        "supplier_id": str(r.supplier_id) if r.supplier_id else None,
         "is_active": r.is_active,
     } for r in rows])
 
@@ -428,7 +438,8 @@ async def replenishment_suggestions(
             )
         )).scalar_one_or_none()
         on_hand = Decimal(balance.quantity) if balance else Decimal("0")
-        if on_hand < rule.min_quantity:
+        threshold = rule.safety_stock if rule.safety_stock and rule.safety_stock > 0 else rule.min_quantity
+        if on_hand < threshold:
             reorder = rule.reorder_quantity or (rule.max_quantity - on_hand)
             suggestions.append({
                 "warehouse_id": str(rule.warehouse_id), "product_id": str(rule.product_id),
