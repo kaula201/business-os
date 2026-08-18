@@ -645,6 +645,17 @@ export const procurementApi = {
   upsertScorecard: (data: Record<string, unknown>) => api.post('/procurement/scorecards', data),
   autoReplenish: (warehouseId?: string) =>
     api.post('/procurement/auto-replenish', null, { params: warehouseId ? { warehouse_id: warehouseId } : {} }),
+  // Tenders
+  listTenders: (params?: { status?: string; limit?: number }) => api.get('/procurement/tenders', { params }),
+  createTender: (data: Record<string, unknown>) => api.post('/procurement/tenders', data),
+  publishTender: (id: string) => api.post(`/procurement/tenders/${id}/publish`),
+  submitTenderBid: (id: string, data: Record<string, unknown>) => api.post(`/procurement/tenders/${id}/bids`, data),
+  tenderComparison: (id: string) => api.get(`/procurement/tenders/${id}/comparison`),
+  awardTender: (id: string, supplierId: string) =>
+    api.post(`/procurement/tenders/${id}/award`, null, { params: { supplier_id: supplierId } }),
+  // Vendor analytics
+  vendorAnalytics: (params?: { date_from?: string; date_to?: string }) =>
+    api.get('/procurement/vendor-analytics', { params }),
 }
 
 // Contracts API

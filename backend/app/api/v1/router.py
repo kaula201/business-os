@@ -85,6 +85,8 @@ from app.api.v1.endpoints import (
     wms,
     wms_ops,
     procurement,
+    tenders,
+    vendor_analytics,
 )
 
 api_router = APIRouter(prefix="/api/v1")
@@ -135,6 +137,8 @@ api_router.include_router(warehouses_enhanced.router)
 api_router.include_router(wms.router)
 api_router.include_router(wms_ops.router)
 api_router.include_router(procurement.router)
+api_router.include_router(tenders.router)
+api_router.include_router(vendor_analytics.router)
 api_router.include_router(suppliers.router)
 api_router.include_router(purchase_orders.router)
 api_router.include_router(purchase_costs.router)

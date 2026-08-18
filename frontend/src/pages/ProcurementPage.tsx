@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Scale, Award, Zap, FileText } from 'lucide-react'
+import { Plus, Scale, Award, Zap, FileText, Gavel, BarChart3 } from 'lucide-react'
 
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
@@ -12,14 +12,17 @@ const inputCls = 'w-full rounded-lg border border-brandgray-200 bg-white px-3 py
 export default function ProcurementPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'rfq' | 'compare' | 'pricelist' | 'blanket' | 'scorecard' | 'contracts'>('rfq')
+  const [tab, setTab] = useState<'rfq' | 'compare' | 'pricelist' | 'blanket' | 'scorecard' | 'contracts' | 'tender' | 'analytics'>('rfq')
   const [rfqOpen, setRfqOpen] = useState(false)
   const [priceOpen, setPriceOpen] = useState(false)
   const [blanketOpen, setBlanketOpen] = useState(false)
   const [scoreOpen, setScoreOpen] = useState(false)
   const [contractOpen, setContractOpen] = useState(false)
+  const [tenderOpen, setTenderOpen] = useState(false)
   const [responseFor, setResponseFor] = useState<any | null>(null)
   const [compareFor, setCompareFor] = useState<string | null>(null)
+  const [tenderCompareFor, setTenderCompareFor] = useState<string | null>(null)
+  const [bidFor, setBidFor] = useState<any | null>(null)
   const [replenishResult, setReplenishResult] = useState<any | null>(null)
   const [rfqForm, setRfqForm] = useState({ title: '', product_id: '', quantity: '', required_date: '' })
   const [priceForm, setPriceForm] = useState({ supplier_id: '', product_id: '', price: '', currency: 'GEL' })
@@ -27,6 +30,8 @@ export default function ProcurementPage() {
   const [scoreForm, setScoreForm] = useState({ supplier_id: '', period: '', on_time: '', quality: '', price_index: '' })
   const [responseForm, setResponseForm] = useState({ supplier_id: '', unit_price: '', delivery_days: '' })
   const [contractForm, setContractForm] = useState({ title: '', counterparty: '', start_date: '', end_date: '', value: '' })
+  const [tenderForm, setTenderForm] = useState({ title: '', product_id: '', quantity: '', budget: '', required_date: '' })
+  const [bidForm, setBidForm] = useState({ supplier_id: '', unit_price: '', delivery_days: '' })
 
   const { data: rfqsData, isLoading: rfqsLoading } = useQuery({
     queryKey: ['proc-rfqs'],
@@ -64,6 +69,25 @@ export default function ProcurementPage() {
     enabled: !!compareFor,
   })
   const compareRows: any[] = compareData || []
+
+  const { data: tendersData, isLoading: tendersLoading } = useQuery({
+    queryKey: ['proc-tenders'],
+    queryFn: () => procurementApi.listTenders({ limit: 200 }).then(r => r.data.data),
+  })
+  const tenders: any[] = tendersData || []
+
+  const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
+    queryKey: ['proc-analytics'],
+    queryFn: () => procurementApi.vendorAnalytics().then(r => r.data.data),
+  })
+  const analytics: any[] = analyticsData || []
+
+  const { data: tenderCompareData, isLoading: tenderCompareLoading } = useQuery({
+    queryKey: ['proc-tender-compare', tenderCompareFor],
+    queryFn: () => tenderCompareFor ? procurementApi.tenderComparison(tenderCompareFor).then(r => r.data.data) : Promise.resolve([]),
+    enabled: !!tenderCompareFor,
+  })
+  const tenderCompareRows: any[] = tenderCompareData || []
 
   const { data: products } = useQuery({
     queryKey: ['products-all-proc'],
@@ -148,6 +172,38 @@ export default function ProcurementPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['proc-contracts'] }); setContractOpen(false); setContractForm({ title: '', counterparty: '', start_date: '', end_date: '', value: '' }) },
   })
 
+  const createTender = useMutation({
+    mutationFn: () => procurementApi.createTender({
+      title: tenderForm.title,
+      required_date: tenderForm.required_date || null,
+      budget_amount: tenderForm.budget ? Number(tenderForm.budget) : null,
+      lines: [{ product_id: tenderForm.product_id, quantity: Number(tenderForm.quantity) }],
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['proc-tenders'] }); setTenderOpen(false); setTenderForm({ title: '', product_id: '', quantity: '', budget: '', required_date: '' }) },
+  })
+
+  const publishTender = useMutation({
+    mutationFn: (id: string) => procurementApi.publishTender(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['proc-tenders'] }),
+  })
+
+  const submitTenderBid = useMutation({
+    mutationFn: () => {
+      const tenderLineId = bidFor?.lines?.[0]?.id
+      return procurementApi.submitTenderBid(bidFor.id, {
+        supplier_id: bidForm.supplier_id,
+        delivery_days: bidForm.delivery_days ? Number(bidForm.delivery_days) : null,
+        lines: [{ tender_line_id: tenderLineId, product_id: bidFor?.lines?.[0]?.product_id, unit_price: Number(bidForm.unit_price), currency: 'GEL' }],
+      })
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['proc-tenders'] }); setBidFor(null); setBidForm({ supplier_id: '', unit_price: '', delivery_days: '' }) },
+  })
+
+  const awardTender = useMutation({
+    mutationFn: ({ tenderId, supplierId }: { tenderId: string; supplierId: string }) => procurementApi.awardTender(tenderId, supplierId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['proc-tenders'] }),
+  })
+
   const statusBadge = (status: string) => {
     const map: Record<string, string> = {
       draft: 'bg-gray-100 text-gray-600 dark:bg-dark-100 dark:text-gray-400',
@@ -209,6 +265,12 @@ export default function ProcurementPage() {
           <button onClick={() => setTab('contracts')} className={`px-3 py-2 rounded-lg text-sm font-medium ${tab === 'contracts' ? 'bg-brandgray-800 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400'}`}>
             {t('ხელშეკრულებები')}
           </button>
+          <button onClick={() => setTab('tender')} className={`px-3 py-2 rounded-lg text-sm font-medium ${tab === 'tender' ? 'bg-brandgray-800 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400'}`}>
+            <Gavel size={14} className="inline mr-1" /> {t('ტენდერები')}
+          </button>
+          <button onClick={() => setTab('analytics')} className={`px-3 py-2 rounded-lg text-sm font-medium ${tab === 'analytics' ? 'bg-brandgray-800 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400'}`}>
+            <BarChart3 size={14} className="inline mr-1" /> {t('Vendor ანალიტიკა')}
+          </button>
           <button onClick={() => autoReplenish.mutate()} disabled={autoReplenish.isPending}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50">
             <Zap size={15} /> {t('ავტო-შევსება')}
@@ -218,10 +280,11 @@ export default function ProcurementPage() {
             else if (tab === 'pricelist') setPriceOpen(true)
             else if (tab === 'blanket') setBlanketOpen(true)
             else if (tab === 'scorecard') setScoreOpen(true)
+            else if (tab === 'tender') setTenderOpen(true)
             else setContractOpen(true)
           }}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700">
-            <Plus size={15} /> {tab === 'rfq' ? t('ახალი RFQ') : tab === 'pricelist' ? t('ახალი ფასი') : tab === 'blanket' ? t('ახალი ჩარჩო შეთანხმება') : tab === 'scorecard' ? t('ახალი სკორკარდი') : t('ახალი ხელშეკრულება')}
+            <Plus size={15} /> {tab === 'rfq' ? t('ახალი RFQ') : tab === 'pricelist' ? t('ახალი ფასი') : tab === 'blanket' ? t('ახალი ჩარჩო შეთანხმება') : tab === 'scorecard' ? t('ახალი სკორკარდი') : tab === 'tender' ? t('ახალი ტენდერი') : t('ახალი ხელშეკრულება')}
           </button>
         </div>
       </div>
@@ -301,6 +364,51 @@ export default function ProcurementPage() {
             { key: 'status', label: t('სტატუსი'), render: (c: any) => statusBadge(c.status) },
           ]}
           data={contracts} isLoading={contractsLoading} emptyMessage={t('ხელშეკრულებები არ არის')} />
+      )}
+
+      {tab === 'tender' && (
+        <DataTable
+          columns={[
+            { key: 'tender_number', label: t('ნომერი'), priority: true, render: (r: any) => <span className="font-semibold text-gray-900 dark:text-gray-100 font-mono">{r.tender_number}</span> },
+            { key: 'title', label: t('სათაური'), render: (r: any) => <span className="text-sm">{r.title}</span> },
+            { key: 'status', label: t('სტატუსი'), render: (r: any) => statusBadge(r.status) },
+            { key: 'budget_amount', label: t('ბიუჯეტი'), render: (r: any) => r.budget_amount ? <span className="font-mono font-semibold">{r.budget_amount} {r.currency}</span> : '—' },
+            { key: 'bids_count', label: t('შეთავაზებები'), render: (r: any) => <span className="font-mono">{r.bids_count}</span> },
+            { key: 'actions', label: '', render: (r: any) => (
+              <div className="flex gap-1">
+                <button onClick={() => setTenderCompareFor(r.id)} className="p-1.5 rounded-md text-gray-400 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-900/30" title={t('შედარება')}>
+                  <Scale size={15} />
+                </button>
+                {r.status === 'draft' && (
+                  <button onClick={() => publishTender.mutate(r.id)} className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700">{t('გამოქვეყნება')}</button>
+                )}
+                {(r.status === 'bidding' || r.status === 'evaluating') && (
+                  <>
+                    <button onClick={() => { setBidFor(r); setBidForm({ supplier_id: '', unit_price: '', delivery_days: '' }) }} className="p-1.5 rounded-md text-gray-400 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30" title={t('შეთავაზების შეტანა')}>
+                      <FileText size={15} />
+                    </button>
+                    <button onClick={() => { const s = prompt(t('მომწოდებლის ID')); if (s) awardTender.mutate({ tenderId: r.id, supplierId: s }) }} className="p-1.5 rounded-md text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" title={t('გადაცემა')}>
+                      <Award size={15} />
+                    </button>
+                  </>
+                )}
+              </div>) },
+          ]}
+          data={tenders} isLoading={tendersLoading} emptyMessage={t('ტენდერები არ არის')} />
+      )}
+
+      {tab === 'analytics' && (
+        <DataTable
+          columns={[
+            { key: 'supplier_name', label: t('მომწოდებელი'), priority: true, render: (s: any) => <span className="font-semibold text-gray-900 dark:text-gray-100">{s.supplier_name}</span> },
+            { key: 'total_spend', label: t('ჯამური ხარჯი'), render: (s: any) => <span className="font-mono font-semibold">{s.total_spend.toLocaleString('ka-GE')} ₾</span> },
+            { key: 'invoice_count', label: t('ინვოისები'), render: (s: any) => <span className="font-mono">{s.invoice_count}</span> },
+            { key: 'on_time_delivery_rate', label: t('დროულად %'), render: (s: any) => s.on_time_delivery_rate != null ? <span className="font-mono">{s.on_time_delivery_rate}%</span> : '—' },
+            { key: 'quality_rate', label: t('ხარისხი %'), render: (s: any) => s.quality_rate != null ? <span className="font-mono">{s.quality_rate}%</span> : '—' },
+            { key: 'overall_score', label: t('საერთო'), render: (s: any) => s.overall_score
+              ? <span className={`font-mono font-semibold ${s.overall_score >= 80 ? 'text-emerald-600 dark:text-emerald-400' : s.overall_score >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>{s.overall_score}</span> : '—' },
+          ]}
+          data={analytics} isLoading={analyticsLoading} emptyMessage={t('Vendor ანალიტიკა არ არის')} />
       )}
 
       <Modal open={compareFor !== null} onClose={() => setCompareFor(null)} title={t('შეთავაზებების შედარება')}>
@@ -530,6 +638,91 @@ export default function ProcurementPage() {
             className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
             {t('შენახვა')}
           </button>
+        </div>
+      </Modal>
+
+      <Modal open={tenderOpen} onClose={() => setTenderOpen(false)} title={t('ახალი ტენდერი')}>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('სათაური')}</label>
+            <input className={inputCls} value={tenderForm.title} onChange={e => setTenderForm({ ...tenderForm, title: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('პროდუქტი')}</label>
+            <select className={inputCls} value={tenderForm.product_id} onChange={e => setTenderForm({ ...tenderForm, product_id: e.target.value })}>
+              <option value="">—</option>
+              {(products || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('რაოდენობა')}</label>
+              <input type="number" step="0.001" className={inputCls} value={tenderForm.quantity} onChange={e => setTenderForm({ ...tenderForm, quantity: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('ბიუჯეტი')}</label>
+              <input type="number" step="0.01" className={inputCls} value={tenderForm.budget} onChange={e => setTenderForm({ ...tenderForm, budget: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('საჭიროა')}</label>
+            <input type="date" className={inputCls} value={tenderForm.required_date} onChange={e => setTenderForm({ ...tenderForm, required_date: e.target.value })} />
+          </div>
+          <button onClick={() => createTender.mutate()} disabled={createTender.isPending || !tenderForm.title || !tenderForm.product_id || !tenderForm.quantity}
+            className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={!!bidFor} onClose={() => setBidFor(null)} title={`${t('შეთავაზების შეტანა')} — ${bidFor?.tender_number || ''}`}>
+        {bidFor && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('მომწოდებელი')}</label>
+              <select className={inputCls} value={bidForm.supplier_id} onChange={e => setBidForm({ ...bidForm, supplier_id: e.target.value })}>
+                <option value="">—</option>
+                {(suppliers || []).map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('ერთეულის ფასი')}</label>
+                <input type="number" step="0.0001" className={inputCls} value={bidForm.unit_price} onChange={e => setBidForm({ ...bidForm, unit_price: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('მიწოდების დღეები')}</label>
+                <input type="number" className={inputCls} value={bidForm.delivery_days} onChange={e => setBidForm({ ...bidForm, delivery_days: e.target.value })} />
+              </div>
+            </div>
+            <button onClick={() => submitTenderBid.mutate()} disabled={submitTenderBid.isPending || !bidForm.supplier_id || !bidForm.unit_price}
+              className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+              {t('შენახვა')}
+            </button>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={tenderCompareFor !== null} onClose={() => setTenderCompareFor(null)} title={t('ტენდერის შეთავაზებების შედარება')}>
+        <div className="space-y-3">
+          {tenderCompareLoading ? (
+            <p className="text-sm text-brandgray-500 dark:text-gray-400">{t('იტვირთება...')}</p>
+          ) : tenderCompareRows.length === 0 ? (
+            <p className="text-sm text-brandgray-500 dark:text-gray-400">{t('შეთავაზებები არ არის')}</p>
+          ) : (
+            tenderCompareRows.map((row: any, i: number) => (
+              <div key={i} className={`flex items-center justify-between rounded-lg px-4 py-3 text-sm ${i === 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-brandgray-50 dark:bg-dark-100'}`}>
+                <div>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{row.supplier_name}</span>
+                  {row.delivery_days && <span className="ml-2 text-xs text-brandgray-500">{row.delivery_days} {t('დღე')}</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-semibold">{row.total_amount} {row.currency}</span>
+                  {i === 0 && <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">✓ {t('საუკეთესო')}</span>}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </Modal>
     </div>

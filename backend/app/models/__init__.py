@@ -43,6 +43,7 @@ from app.models.notification import Notification
 from app.models.automation import AutomationRule
 from app.models.accounting_controls import FiscalPosition, ConsolidationAccountMapping, FxTranslationRate
 from app.models.consolidation_elimination import ConsolidationElimination
+from app.models.tender import Tender, TenderLine, TenderBid, TenderBidLine
 from app.models.procurement import (
     RFQ, RFQLine, RFQResponse, RFQResponseLine,
     SupplierPriceList, BlanketOrder, BlanketOrderLine, SupplierScorecard,
@@ -130,6 +131,7 @@ __all__ = [
     "AutomationRule",
     "FiscalPosition", "ConsolidationAccountMapping", "FxTranslationRate",
     "ConsolidationElimination",
+    "Tender", "TenderLine", "TenderBid", "TenderBidLine",
     "RFQ", "RFQLine", "RFQResponse", "RFQResponseLine", "SupplierPriceList", "BlanketOrder", "BlanketOrderLine", "SupplierScorecard",
     "Supplier", "SupplierBankDetail", "SupplierRatingHistory", "PurchaseOrder", "PurchaseOrderItem", "PurchaseOrderStatusHistory",
     "GoodsReceipt", "GoodsReceiptItem",
