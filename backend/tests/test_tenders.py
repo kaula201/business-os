@@ -29,12 +29,21 @@ async def _create_product(client, auth_headers, suffix: str):
     return resp.json()["data"]
 
 
+async def _create_warehouse(client, auth_headers, suffix: str):
+    resp = await client.post("/api/v1/warehouses/", json={
+        "code": f"WH-{suffix}", "name": f"Tender Warehouse {suffix}", "is_default": True,
+    }, headers=auth_headers)
+    assert resp.status_code in (200, 201), resp.text
+    return resp.json()["data"]
+
+
 async def test_tender_lifecycle_and_vendor_analytics(client, auth_headers, test_company, db_session):
     supplier = await _create_supplier(client, auth_headers, test_company, "A")
     product = await _create_product(client, auth_headers, "A")
+    warehouse = await _create_warehouse(client, auth_headers, "A")
 
     created = await client.post("/api/v1/procurement/tenders", json={
-        "title": "Tender Test", "budget_amount": 1000,
+        "title": "Tender Test", "budget_amount": 1000, "warehouse_id": warehouse["id"],
         "lines": [{"product_id": product["id"], "quantity": 10, "expected_price": 50}],
     }, headers=auth_headers)
     assert created.status_code == 201, created.text
@@ -64,6 +73,18 @@ async def test_tender_lifecycle_and_vendor_analytics(client, auth_headers, test_
     awarded = await client.post(f"/api/v1/procurement/tenders/{tender_id}/award", params={"supplier_id": supplier["id"]}, headers=auth_headers)
     assert awarded.status_code == 200, awarded.text
     assert awarded.json()["data"]["status"] == "awarded"
+    assert awarded.json()["data"]["purchase_order_id"], "expected auto-generated PO on award"
+    assert awarded.json()["data"]["purchase_order_number"].startswith("PO-")
+
+    # The auto-generated PO is a draft with the accepted bid's line.
+    po_id = awarded.json()["data"]["purchase_order_id"]
+    po = await client.get(f"/api/v1/purchase-orders/{po_id}", headers=auth_headers)
+    assert po.status_code == 200, po.text
+    po_data = po.json()["data"]
+    assert po_data["status"] == "draft"
+    assert po_data["supplier_id"] == supplier["id"]
+    assert len(po_data["items"]) == 1
+    assert float(po_data["items"][0]["unit_price"]) == 40.0
 
     analytics = await client.get("/api/v1/procurement/vendor-analytics", headers=auth_headers)
     assert analytics.status_code == 200, analytics.text

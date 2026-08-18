@@ -12,10 +12,12 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.dependencies import require_module
 from app.models.product import Product
-from app.models.purchase import Supplier
+from app.models.purchase import PurchaseOrder, PurchaseOrderItem, Supplier
 from app.models.tender import Tender, TenderBid, TenderBidLine, TenderLine
 from app.models.user import User
+from app.models.warehouse import Warehouse
 from app.schemas.common import ResponseBase
+from app.api.v1.endpoints.purchase_orders import allocate_document_number
 
 router = APIRouter(prefix="/procurement/tenders", tags=["Procurement — ტენდერები"])
 
@@ -32,6 +34,7 @@ class TenderCreate(BaseModel):
     required_date: date | None = None
     budget_amount: Decimal | None = None
     currency: str = "GEL"
+    warehouse_id: UUID | None = None
     lines: list[TenderLineIn] = Field(default_factory=list)
 
 
@@ -96,7 +99,7 @@ async def create_tender(
         tender_number=f"TND-{datetime.now():%Y%m%d}-{int(count or 0) + 1:04d}",
         title=payload.title, description=payload.description, status="draft",
         required_date=payload.required_date, budget_amount=payload.budget_amount,
-        currency=payload.currency, created_by=current_user.id,
+        currency=payload.currency, warehouse_id=payload.warehouse_id, created_by=current_user.id,
     )
     db.add(tender)
     await db.flush()
@@ -247,4 +250,69 @@ async def award_tender(
     tender.awarded_supplier_id = supplier_id
     bid.status = "accepted"
     await db.flush()
-    return ResponseBase(data=_tender_row(tender), message="ტენდერი გადაეცა მომწოდებელს")
+
+    # Auto-generate a draft purchase order from the accepted bid.
+    warehouse = None
+    if tender.warehouse_id:
+        warehouse = (await db.execute(select(Warehouse).where(
+            Warehouse.id == tender.warehouse_id, Warehouse.company_id == company_id
+        ))).scalar_one_or_none()
+    if not warehouse:
+        warehouse = (await db.execute(select(Warehouse).where(
+            Warehouse.company_id == company_id, Warehouse.is_active.is_(True)
+        ).order_by(Warehouse.created_at).limit(1))).scalar_one_or_none()
+    if not warehouse:
+        raise HTTPException(status_code=422, detail="PO-ს შესაქმნელად საწყობი არ მოიძებნა")
+
+    po_number = await allocate_document_number(db, company_id, "purchase_order", "PO")
+    po = PurchaseOrder(
+        company_id=company_id, supplier_id=supplier_id, warehouse_id=warehouse.id,
+        purchase_order_number=po_number, status="draft",
+        expected_delivery_date=tender.required_date,
+        notes=f"ტენდერი {tender.tender_number} — {tender.title}",
+        created_by=current_user.id,
+    )
+    db.add(po)
+    await db.flush()
+
+    bid_lines = (await db.execute(
+        select(TenderBidLine).where(TenderBidLine.bid_id == bid.id)
+    )).scalars().all()
+    tender_lines = (await db.execute(
+        select(TenderLine).where(TenderLine.tender_id == tender_id)
+    )).scalars().all()
+    tender_line_map = {tl.id: tl for tl in tender_lines}
+    products = (await db.execute(
+        select(Product).where(Product.company_id == company_id)
+    )).scalars().all()
+    product_map = {p.id: p for p in products}
+
+    subtotal = Decimal("0")
+    vat_amount = Decimal("0")
+    for bl in bid_lines:
+        tl = tender_line_map.get(bl.tender_line_id)
+        if not tl:
+            continue
+        product = product_map.get(bl.product_id)
+        unit_price = bl.unit_price
+        line_subtotal = unit_price * tl.quantity
+        vat = line_subtotal * Decimal("0.18")
+        line_total = line_subtotal + vat
+        subtotal += line_subtotal
+        vat_amount += vat
+        db.add(PurchaseOrderItem(
+            purchase_order_id=po.id, product_id=bl.product_id,
+            product_name=product.name if product else "",
+            quantity=tl.quantity, unit_price=unit_price, vat_rate=Decimal("18"),
+            line_subtotal=line_subtotal, vat_amount=vat, line_total=line_total,
+        ))
+    po.subtotal = subtotal
+    po.vat_amount = vat_amount
+    po.total = subtotal + vat_amount
+    tender.purchase_order_id = po.id
+    await db.flush()
+
+    return ResponseBase(data={
+        **_tender_row(tender),
+        "purchase_order_id": str(po.id), "purchase_order_number": po.purchase_order_number,
+    }, message="ტენდერი გადაეცა მომწოდებელს და PO შეიქმნა")
