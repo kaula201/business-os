@@ -79,8 +79,8 @@ async def nbg_sync_status(
                 IntegrationSyncLog.integration == "nbg",
             )
             .order_by(
-                IntegrationSyncLog.completed_at.desc().nullslast(),
                 IntegrationSyncLog.started_at.desc(),
+                IntegrationSyncLog.completed_at.desc().nullslast(),
             )
             .limit(1)
         )
