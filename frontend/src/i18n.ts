@@ -1487,6 +1487,7 @@ const en: Record<string, string> = {
   'შეჯერების შემოთავაზებები': 'Reconciliation suggestions',
   'ავტომატური matching — თანხისა და კონტრაგენტის მიხედვით': 'Automatic matching by amount and counterparty',
   'შეჯერების შემოთავაზებები არ არის': 'No reconciliation suggestions',
+  'ყველას დამტკიცება': 'Approve all',
   'წყაროები': 'Sources',
   'ინვენტარიზაციები არ არის': 'No inventory counts',
   'ლოკაციები': 'Locations',

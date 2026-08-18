@@ -395,6 +395,8 @@ export const bankingApi = {
   // Reconciliation suggestions (Odoo-style matching with confidence)
   suggestions: (params?: { bank_account_id?: string; limit?: number }) =>
     api.get('/reconciliation-suggestions', { params }),
+  batchApprove: (items: Array<{ transaction_id: string; kind: string; candidate_id: string; amount: number }>) =>
+    api.post('/bank-reconciliations/batch-approve', { items }),
 }
 
 // Inventory valuation API

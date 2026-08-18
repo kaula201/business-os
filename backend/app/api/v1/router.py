@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     assets,
     auth,
     banking,
+    bank_batch,
     budgeting,
     cash,
     company,
@@ -90,6 +91,7 @@ api_router = APIRouter(prefix="/api/v1")
 
 api_router.include_router(auth.router)
 api_router.include_router(banking.router)
+api_router.include_router(bank_batch.router)
 api_router.include_router(customer_finance.router)
 api_router.include_router(users.router)
 api_router.include_router(clients.router)

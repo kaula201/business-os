@@ -6,6 +6,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Building2,
+  CheckCheck,
   FileUp,
   Landmark,
   Link2,
@@ -86,6 +87,14 @@ export default function BankingPage() {
     queryKey: ['bank-reconciliation-suggestions', accountFilter],
     queryFn: () => bankingApi.suggestions({ bank_account_id: accountFilter || undefined, limit: 50 }).then((response) => response.data.data),
   })
+  const batchApprove = useMutation({
+    mutationFn: (items: Array<{ transaction_id: string; kind: string; candidate_id: string; amount: number }>) => bankingApi.batchApprove(items),
+    onSuccess: async () => {
+      setError('')
+      await refresh()
+    },
+    onError: (err) => setError(errorText(err)),
+  })
 
   const transactions: BankTransaction[] = transactionsData?.items || []
   const payables: SupplierPayable[] = useMemo(
@@ -101,6 +110,7 @@ export default function BankingPage() {
       queryClient.invalidateQueries({ queryKey: ['bank-transactions'] }),
       queryClient.invalidateQueries({ queryKey: ['bank-reconciliations'] }),
       queryClient.invalidateQueries({ queryKey: ['supplier-payables'] }),
+      queryClient.invalidateQueries({ queryKey: ['bank-reconciliation-suggestions'] }),
     ])
   }
 
@@ -203,9 +213,20 @@ export default function BankingPage() {
       </div>
 
       <section className="card overflow-hidden">
-        <div className="border-b border-brandgray-100 dark:border-dark-50 p-4">
-          <h2 className="font-semibold text-brandgray-800 dark:text-gray-100">{t('შეჯერების შემოთავაზებები')}</h2>
-          <p className="text-xs text-brandgray-500 dark:text-gray-400">{t('ავტომატური matching — თანხისა და კონტრაგენტის მიხედვით')}</p>
+        <div className="border-b border-brandgray-100 dark:border-dark-50 p-4 flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-brandgray-800 dark:text-gray-100">{t('შეჯერების შემოთავაზებები')}</h2>
+            <p className="text-xs text-brandgray-500 dark:text-gray-400">{t('ავტომატური matching — თანხისა და კონტრაგენტის მიხედვით')}</p>
+          </div>
+          {canManage && suggestions.length > 0 && (
+            <button
+              onClick={() => batchApprove.mutate(suggestions.filter((s: any) => s.candidates.length > 0).map((s: any) => ({ transaction_id: s.transaction_id, kind: s.direction === 'debit' ? 'payable' : 'receivable', candidate_id: s.candidates[0].id, amount: s.candidates[0].amount })))}
+              className="btn-primary text-sm flex items-center gap-1.5"
+              disabled={batchApprove.isPending}
+            >
+              <CheckCheck size={16} />{t('ყველას დამტკიცება')}
+            </button>
+          )}
         </div>
         <div className="divide-y divide-brandgray-100 dark:divide-dark-50">
           {suggestions.length === 0 ? <p className="p-5 text-sm text-brandgray-400">{t('შეჯერების შემოთავაზებები არ არის')}</p> : suggestions.map((s: any) => (
