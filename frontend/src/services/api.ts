@@ -638,6 +638,8 @@ export const procurementApi = {
   listPriceLists: (params?: { supplier_id?: string; product_id?: string }) =>
     api.get('/procurement/price-lists', { params }),
   upsertPriceList: (data: Record<string, unknown>) => api.post('/procurement/price-lists', data),
+  priceTrend: (params?: { supplier_id?: string; product_id?: string; limit?: number }) =>
+    api.get('/procurement/price-trend', { params }),
   listBlanketOrders: (params?: { status?: string }) => api.get('/procurement/blanket-orders', { params }),
   createBlanketOrder: (data: Record<string, unknown>) => api.post('/procurement/blanket-orders', data),
   activateBlanketOrder: (id: string) => api.post(`/procurement/blanket-orders/${id}/activate`),

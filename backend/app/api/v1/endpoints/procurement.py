@@ -19,6 +19,7 @@ from app.models.procurement import (
     RFQResponse,
     RFQResponseLine,
     SupplierPriceList,
+    SupplierPriceHistory,
     SupplierScorecard,
 )
 from app.models.purchase import PurchaseOrder, PurchaseOrderItem, Supplier
@@ -276,6 +277,12 @@ async def upsert_price_list(
         )
     )).scalar_one_or_none()
     if existing:
+        # Record a price-history snapshot whenever the price actually changes.
+        if existing.price != payload.price:
+            db.add(SupplierPriceHistory(
+                company_id=company_id, supplier_id=payload.supplier_id, product_id=payload.product_id,
+                price=existing.price, currency=existing.currency, changed_by=current_user.id,
+            ))
         existing.price = payload.price
         existing.currency = payload.currency
         existing.valid_from = payload.valid_from
@@ -318,6 +325,36 @@ async def list_price_lists(
             "valid_from": p.valid_from.isoformat() if p.valid_from else None,
             "valid_to": p.valid_to.isoformat() if p.valid_to else None,
             "is_active": p.is_active,
+        })
+    return ResponseBase(data=result)
+
+
+@router.get("/price-trend", response_model=ResponseBase[list[dict]])
+async def price_trend(
+    supplier_id: UUID | None = None,
+    product_id: UUID | None = None,
+    limit: int = Query(200, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("purchases", "can_access")),
+):
+    """Vendor price history — chronological snapshots for trend analysis."""
+    query = select(SupplierPriceHistory).where(SupplierPriceHistory.company_id == current_user.company_id)
+    if supplier_id:
+        query = query.where(SupplierPriceHistory.supplier_id == supplier_id)
+    if product_id:
+        query = query.where(SupplierPriceHistory.product_id == product_id)
+    query = query.order_by(SupplierPriceHistory.changed_at.desc()).limit(limit)
+    rows = (await db.execute(query)).scalars().all()
+    result = []
+    for h in rows:
+        supplier = (await db.execute(select(Supplier).where(Supplier.id == h.supplier_id))).scalar_one_or_none()
+        product = (await db.execute(select(Product).where(Product.id == h.product_id))).scalar_one_or_none()
+        result.append({
+            "id": str(h.id), "supplier_id": str(h.supplier_id),
+            "supplier_name": supplier.name if supplier else "—",
+            "product_id": str(h.product_id), "product_name": product.name if product else "—",
+            "price": float(h.price), "currency": h.currency,
+            "changed_at": h.changed_at.isoformat(),
         })
     return ResponseBase(data=result)
 

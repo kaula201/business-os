@@ -46,7 +46,7 @@ from app.models.consolidation_elimination import ConsolidationElimination
 from app.models.tender import Tender, TenderLine, TenderBid, TenderBidLine
 from app.models.procurement import (
     RFQ, RFQLine, RFQResponse, RFQResponseLine,
-    SupplierPriceList, BlanketOrder, BlanketOrderLine, SupplierScorecard,
+    SupplierPriceList, SupplierPriceHistory, BlanketOrder, BlanketOrderLine, SupplierScorecard,
 )
 from app.models.audit import AuditLog
 from app.models.gl import GLAccount, JournalEntry, JournalEntryLine
@@ -132,7 +132,7 @@ __all__ = [
     "FiscalPosition", "ConsolidationAccountMapping", "FxTranslationRate",
     "ConsolidationElimination",
     "Tender", "TenderLine", "TenderBid", "TenderBidLine",
-    "RFQ", "RFQLine", "RFQResponse", "RFQResponseLine", "SupplierPriceList", "BlanketOrder", "BlanketOrderLine", "SupplierScorecard",
+    "RFQ", "RFQLine", "RFQResponse", "RFQResponseLine", "SupplierPriceList", "SupplierPriceHistory", "BlanketOrder", "BlanketOrderLine", "SupplierScorecard",
     "Supplier", "SupplierBankDetail", "SupplierRatingHistory", "PurchaseOrder", "PurchaseOrderItem", "PurchaseOrderStatusHistory",
     "GoodsReceipt", "GoodsReceiptItem",
     "SupplierInvoice", "SupplierInvoiceItem", "SupplierPayable", "SupplierPayment",

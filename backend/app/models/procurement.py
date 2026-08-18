@@ -132,6 +132,29 @@ class SupplierPriceList(Base):
     product = relationship("Product")
 
 
+class SupplierPriceHistory(Base):
+    """Immutable snapshot of a supplier price change (for trend/history)."""
+    __tablename__ = "supplier_price_history"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True
+    )
+    supplier_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=False, index=True
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True
+    )
+    price: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    currency: Mapped[str] = mapped_column(String(10), default="GEL", nullable=False)
+    changed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False, index=True)
+    changed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    supplier = relationship("Supplier")
+    product = relationship("Product")
+
+
 class BlanketOrder(Base):
     """Blanket order — framework agreement with a supplier for repeated purchases."""
     __tablename__ = "blanket_orders"

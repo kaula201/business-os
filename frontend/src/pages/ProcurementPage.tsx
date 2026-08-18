@@ -23,6 +23,7 @@ export default function ProcurementPage() {
   const [compareFor, setCompareFor] = useState<string | null>(null)
   const [tenderCompareFor, setTenderCompareFor] = useState<string | null>(null)
   const [bidFor, setBidFor] = useState<any | null>(null)
+  const [trendFor, setTrendFor] = useState<any | null>(null)
   const [replenishResult, setReplenishResult] = useState<any | null>(null)
   const [rfqForm, setRfqForm] = useState({ title: '', product_id: '', quantity: '', required_date: '' })
   const [priceForm, setPriceForm] = useState({ supplier_id: '', product_id: '', price: '', currency: 'GEL' })
@@ -88,6 +89,13 @@ export default function ProcurementPage() {
     enabled: !!tenderCompareFor,
   })
   const tenderCompareRows: any[] = tenderCompareData || []
+
+  const { data: trendData, isLoading: trendLoading } = useQuery({
+    queryKey: ['proc-price-trend', trendFor?.supplier_id],
+    queryFn: () => trendFor ? procurementApi.priceTrend({ supplier_id: trendFor.supplier_id, limit: 200 }).then(r => r.data.data) : Promise.resolve([]),
+    enabled: !!trendFor,
+  })
+  const trendRows: any[] = trendData || []
 
   const { data: products } = useQuery({
     queryKey: ['products-all-proc'],
@@ -319,6 +327,11 @@ export default function ProcurementPage() {
             { key: 'price', label: t('ფასი'), render: (p: any) => <span className="font-mono font-semibold">{p.price} {p.currency}</span> },
             { key: 'valid_to', label: t('მოქმედებს'), render: (p: any) => p.valid_to ? <span className="font-mono text-sm">{new Date(p.valid_to).toLocaleDateString('ka-GE')}</span> : '—' },
             { key: 'is_active', label: t('სტატუსი'), render: (p: any) => p.is_active ? statusBadge('active') : statusBadge('cancelled') },
+            { key: 'actions', label: '', render: (p: any) => (
+              <button onClick={() => setTrendFor(p)} className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700">
+                {t('ისტორია')}
+              </button>
+            ) },
           ]}
           data={prices} isLoading={pricesLoading} emptyMessage={t('Vendor ფასები არ არის')} />
       )}
@@ -720,6 +733,26 @@ export default function ProcurementPage() {
                   <span className="font-mono font-semibold">{row.total_amount} {row.currency}</span>
                   {i === 0 && <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">✓ {t('საუკეთესო')}</span>}
                 </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Modal>
+
+      <Modal open={!!trendFor} onClose={() => setTrendFor(null)} title={`${t('ფასის ისტორია')} — ${trendFor?.supplier_name || ''}`}>
+        <div className="space-y-3">
+          {trendLoading ? (
+            <p className="text-sm text-brandgray-500 dark:text-gray-400">{t('იტვირთება...')}</p>
+          ) : trendRows.length === 0 ? (
+            <p className="text-sm text-brandgray-500 dark:text-gray-400">{t('ისტორია არ არის')}</p>
+          ) : (
+            trendRows.map((row: any, i: number) => (
+              <div key={i} className="flex items-center justify-between rounded-lg px-4 py-3 text-sm bg-brandgray-50 dark:bg-dark-100">
+                <div>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{row.product_name}</span>
+                  <span className="ml-2 text-xs text-brandgray-500">{new Date(row.changed_at).toLocaleDateString('ka-GE')}</span>
+                </div>
+                <span className="font-mono font-semibold">{row.price} {row.currency}</span>
               </div>
             ))
           )}
