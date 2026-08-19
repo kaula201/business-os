@@ -1,5 +1,5 @@
 """Point of Sale API: sessions, orders, payments."""
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
@@ -12,7 +12,7 @@ from app.core.dependencies import get_current_user, require_module
 from app.models.user import User
 from app.models.pos import POSSession, POSOrder, POSOrderItem
 from app.models.pos import POSRefund, POSLoyaltyAccount, POSLoyaltyTransaction, POSOfflineQueue, POSFiscalDevice
-from app.models.pos_extended import GiftCard, GiftCardTransaction, POSCashMovement, POSZReport
+from app.models.pos_extended import GiftCard, GiftCardTransaction, POSCashMovement, POSZReport, POSPayment
 from app.models.product import Product
 from app.models.warehouse import InventoryBalance, InventoryMovement, Warehouse
 from app.schemas.common import ResponseBase
@@ -123,6 +123,7 @@ async def create_pos_order(
     order_number = f"POS-{today.strftime('%y%m%d')}-{count + 1:04d}"
 
     subtotal = Decimal("0")
+    total_discount = Decimal("0")
     items = []
     for item_data in data.items:
         product = (await db.execute(
@@ -132,13 +133,23 @@ async def create_pos_order(
             raise HTTPException(status_code=404, detail=f"პროდუქტი {item_data.product_id} არ მოიძებნა")
         qty = Decimal(str(item_data.quantity))
         price = Decimal(str(item_data.unit_price))
-        line_total = (qty * price).quantize(Decimal("0.01"))
+        line_gross = (qty * price).quantize(Decimal("0.01"))
+        # line-level discount: percent or fixed
+        line_discount = Decimal("0")
+        if item_data.discount_percent:
+            line_discount = (line_gross * item_data.discount_percent / Decimal("100")).quantize(Decimal("0.01"))
+        if item_data.discount_amount:
+            line_discount = max(line_discount, item_data.discount_amount.quantize(Decimal("0.01")))
+        line_discount = min(line_discount, line_gross)
+        line_total = line_gross - line_discount
         subtotal += line_total
+        total_discount += line_discount
         items.append({
             "product_id": item_data.product_id,
             "product_name": product.name,
             "quantity": qty,
             "unit_price": price,
+            "discount_amount": line_discount,
             "line_total": line_total,
         })
 
@@ -183,8 +194,25 @@ async def create_pos_order(
             product.current_stock = float(max(Decimal(str(product.current_stock or 0)) - qty, Decimal("0")))
             await db.flush()
 
+    # order-level discount (percent or fixed) applied on top of line discounts
+    order_discount = Decimal("0")
+    if data.discount_percent:
+        order_discount = (subtotal * data.discount_percent / Decimal("100")).quantize(Decimal("0.01"))
+    if data.discount_amount:
+        order_discount = max(order_discount, data.discount_amount.quantize(Decimal("0.01")))
+    order_discount = min(order_discount, subtotal)
+    subtotal -= order_discount
+    total_discount += order_discount
+
     vat = (subtotal * Decimal("0.18")).quantize(Decimal("0.01"))
     total = subtotal + vat
+
+    # Cash rounding (1 tetri) — GE law: cash totals round to nearest 0.01
+    rounding = Decimal("0")
+    if data.payment_method == "cash":
+        rounded = total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        rounding = (rounded - total).quantize(Decimal("0.01"))
+        total = rounded
 
     order = POSOrder(
         company_id=current_user.company_id,
@@ -192,6 +220,8 @@ async def create_pos_order(
         client_id=data.client_id,
         order_number=order_number,
         subtotal=subtotal,
+        discount_amount=total_discount,
+        rounding_amount=rounding,
         vat_amount=vat,
         total=total,
         payment_method=data.payment_method,
@@ -217,6 +247,44 @@ async def create_pos_order(
         subtotal=subtotal, vat_amount=vat, total=total,
         payment_method=data.payment_method,
     )
+
+    # Split payments — record each method and redeem gift cards
+    if data.payments:
+        paid_total = Decimal("0")
+        for p in data.payments:
+            method = p.get("method", p.get("payment_method", "cash"))
+            amount = Decimal(str(p.get("amount", 0)))
+            if amount <= 0:
+                continue
+            paid_total += amount
+            gift_card_id = p.get("gift_card_id")
+            if method == "gift_card" and gift_card_id:
+                card = (await db.execute(
+                    select(GiftCard).where(
+                        GiftCard.id == gift_card_id,
+                        GiftCard.company_id == current_user.company_id,
+                    ).with_for_update()
+                )).scalar_one_or_none()
+                if not card or card.status != "active":
+                    raise HTTPException(status_code=409, detail="სასაჩუქრე ბარათი არაა აქტიური")
+                if amount > Decimal(card.balance):
+                    raise HTTPException(status_code=409, detail="ბარათზე საკმარისი თანხა არ არის")
+                card.balance -= amount
+                if card.balance <= 0:
+                    card.status = "redeemed"
+                db.add(GiftCardTransaction(
+                    company_id=current_user.company_id, card_id=card.id, order_id=order.id,
+                    amount=-amount, transaction_type="redeem", created_by=current_user.id,
+                ))
+            db.add(POSPayment(
+                company_id=current_user.company_id, order_id=order.id,
+                payment_method=method, amount=amount,
+                reference=p.get("reference"), gift_card_id=gift_card_id,
+                created_by=current_user.id,
+            ))
+        if paid_total != total:
+            raise HTTPException(status_code=409, detail=f"გადახდის ჯამი ({paid_total}) არ ემთხვევა შეკვეთის ჯამს ({total})")
+        await db.flush()
 
     # Loyalty automation: earn 1 point per 1 GEL when a client is attached
     if data.client_id:

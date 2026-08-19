@@ -39,6 +39,8 @@ class POSOrder(Base):
     order_number: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="completed")  # draft, completed, refunded
     subtotal: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"))
+    discount_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
+    rounding_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
     vat_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"))
     total: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"))
     payment_method: Mapped[str] = mapped_column(String(50), default="cash")  # cash, card, transfer
@@ -59,6 +61,7 @@ class POSOrderItem(Base):
     product_name: Mapped[str] = mapped_column(String(255), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(18, 3), nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    discount_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
     line_total: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
 
     order = relationship("POSOrder", back_populates="items")

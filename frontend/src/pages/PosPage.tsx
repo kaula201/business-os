@@ -13,6 +13,7 @@ interface CartItem {
   name: string
   quantity: number
   unit_price: number
+  discount_percent?: number
   line_total: number
 }
 
@@ -45,6 +46,11 @@ export default function PosPage() {
   const [tableOpen, setTableOpen] = useState(false)
   const [tableName, setTableName] = useState('')
   const [tableCapacity, setTableCapacity] = useState(2)
+  const [splitPayments, setSplitPayments] = useState<{ method: string; amount: number; gift_card_id?: string }[]>([])
+  const [splitMethod, setSplitMethod] = useState('cash')
+  const [splitAmount, setSplitAmount] = useState(0)
+  const [splitGiftCard, setSplitGiftCard] = useState('')
+  const [orderDiscount, setOrderDiscount] = useState(0)
 
   const { data: sessionsData } = useQuery({
     queryKey: ['pos-sessions'],
@@ -100,8 +106,15 @@ export default function PosPage() {
     mutationFn: () => posApi.createOrder({
       session_id: openSession.id,
       client_id: clientId || null,
-      items: cart.map(i => ({ product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price })),
+      items: cart.map(i => ({
+        product_id: i.product_id,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        ...(i.discount_percent ? { discount_percent: i.discount_percent } : {}),
+      })),
       payment_method: 'cash',
+      payments: splitPayments.length > 0 ? splitPayments : undefined,
+      ...(orderDiscount > 0 ? { discount_amount: orderDiscount } : {}),
     }),
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ['pos-orders'] })
@@ -344,6 +357,12 @@ export default function PosPage() {
                   <div className="flex-1">
                     <div className="font-medium text-gray-900 dark:text-gray-100">{i.name}</div>
                     <div className="text-xs text-brandgray-500">{i.quantity} × {money(i.unit_price)}</div>
+                    <input
+                      type="number" min={0} max={100} placeholder="%"
+                      className="mt-1 w-16 rounded border border-brandgray-200 px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary-300 dark:border-dark-50 dark:bg-dark-100"
+                      value={i.discount_percent ?? ''}
+                      onChange={e => setCart(prev => prev.map(x => x.product_id === i.product_id ? { ...x, discount_percent: Number(e.target.value) || undefined } : x))}
+                    />
                   </div>
                   <div className="font-mono font-semibold mr-2">{money(i.line_total)}</div>
                   <div className="flex gap-1">
@@ -363,6 +382,14 @@ export default function PosPage() {
             <div className="flex justify-between text-brandgray-500 dark:text-gray-400">
               <span>{t('ქვეჯამი')}</span><span className="font-mono">{money(subtotal)}</span>
             </div>
+            <div className="flex items-center justify-between text-brandgray-500 dark:text-gray-400">
+              <span>{t('შეკვეთის ფასდაკლება')}</span>
+              <input
+                type="number" min={0} placeholder="₾"
+                className="w-20 rounded border border-brandgray-200 px-1.5 py-0.5 text-xs text-right focus:outline-none focus:ring-1 focus:ring-primary-300 dark:border-dark-50 dark:bg-dark-100"
+                value={orderDiscount || ''} onChange={e => setOrderDiscount(Number(e.target.value) || 0)}
+              />
+            </div>
             <div className="flex justify-between text-brandgray-500 dark:text-gray-400">
               <span>VAT 18%</span><span className="font-mono">{money(vat)}</span>
             </div>
@@ -372,7 +399,58 @@ export default function PosPage() {
           </div>
 
           <div className="mt-3 space-y-2">
-            <select className={inputCls} value={clientId} onChange={e => checkLoyalty(e.target.value)}>
+            {/* Split payment */}
+            <div className="rounded-lg border border-brandgray-100 dark:border-dark-50 p-2.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-brandgray-600 dark:text-gray-300">{t('გაყოფილი გადახდა')}</span>
+                {splitPayments.length > 0 && (
+                  <button onClick={() => setSplitPayments([])} className="text-xs text-red-500 hover:text-red-600">{t('გასუფთავება')}</button>
+                )}
+              </div>
+              <div className="flex gap-1.5">
+                <select className={`${inputCls} flex-1`} value={splitMethod} onChange={e => setSplitMethod(e.target.value)}>
+                  <option value="cash">{t('ნაღდი')}</option>
+                  <option value="card">{t('ბარათი')}</option>
+                  <option value="gift_card">{t('სასაჩუქრე ბარათი')}</option>
+                </select>
+                <input type="number" min={0} className={`${inputCls} w-24`} placeholder={t('თანხა')}
+                  value={splitAmount || ''} onChange={e => setSplitAmount(Number(e.target.value))} />
+                {splitMethod === 'gift_card' && (
+                  <select className={`${inputCls} flex-1`} value={splitGiftCard} onChange={e => setSplitGiftCard(e.target.value)}>
+                    <option value="">{t('აირჩიე ბარათი')}</option>
+                    {(giftCards || []).filter((g: any) => g.status === 'active').map((g: any) => (
+                      <option key={g.id} value={g.id}>{g.card_number} ({g.balance})</option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  onClick={() => {
+                    if (splitAmount <= 0) return
+                    setSplitPayments(prev => [...prev, { method: splitMethod, amount: splitAmount, ...(splitMethod === 'gift_card' && splitGiftCard ? { gift_card_id: splitGiftCard } : {}) }])
+                    setSplitAmount(0)
+                  }}
+                  className="px-2.5 py-2 rounded-lg text-xs font-medium bg-primary-600 text-white hover:bg-primary-700"
+                >
+                  {t('დამატება')}
+                </button>
+              </div>
+              {splitPayments.length > 0 && (
+                <div className="space-y-1">
+                  {splitPayments.map((p, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs">
+                      <span className="text-brandgray-600 dark:text-gray-300">{p.method === 'gift_card' ? t('სასაჩუქრე ბარათი') : p.method === 'card' ? t('ბარათი') : t('ნაღდი')}</span>
+                      <span className="font-mono font-semibold">{money(p.amount)}</span>
+                      <button onClick={() => setSplitPayments(prev => prev.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600"><X size={13} /></button>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-xs font-semibold border-t border-brandgray-100 dark:border-dark-50 pt-1">
+                    <span>{t('სულ გადახდილი')}</span>
+                    <span className="font-mono">{money(splitPayments.reduce((s, p) => s + p.amount, 0))}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          <select className={inputCls} value={clientId} onChange={e => checkLoyalty(e.target.value)}>
               <option value="">{t('კლიენტი (არასავალდებულო)')}</option>
               {(clients || []).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>

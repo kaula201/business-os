@@ -83,3 +83,21 @@ class POSZReport(Base):
     difference: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class POSPayment(Base):
+    """Split payment — one order paid with multiple methods (cash + card + gift card)."""
+
+    __tablename__ = "pos_payments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    order_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("pos_orders.id"), nullable=False, index=True)
+    payment_method: Mapped[str] = mapped_column(String(30), nullable=False)  # cash, card, gift_card, transfer
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    reference: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    gift_card_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("gift_cards.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    order = relationship("POSOrder")

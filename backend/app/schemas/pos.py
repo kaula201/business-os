@@ -30,6 +30,8 @@ class POSOrderItemCreate(BaseModel):
     product_id: UUID
     quantity: Decimal = Field(..., gt=0)
     unit_price: Decimal = Field(..., ge=0)
+    discount_percent: Optional[Decimal] = Field(None, ge=0, le=100)
+    discount_amount: Optional[Decimal] = Field(None, ge=0)
 
 
 class POSOrderCreate(BaseModel):
@@ -38,6 +40,13 @@ class POSOrderCreate(BaseModel):
     payment_method: str = "cash"
     payment_reference: Optional[str] = None
     items: list[POSOrderItemCreate]
+    # Split payment: list of {method, amount, reference?, gift_card_id?}
+    payments: Optional[list[dict]] = None
+    # Order-level discount (percent or fixed amount)
+    discount_percent: Optional[Decimal] = Field(None, ge=0, le=100)
+    discount_amount: Optional[Decimal] = Field(None, ge=0)
+    # Cash rounding (1 tetri) — GE law: cash totals round to 0.01
+    rounding_amount: Optional[Decimal] = Field(None)
 
 
 class POSOrderItemResponse(BaseModel):
@@ -46,6 +55,7 @@ class POSOrderItemResponse(BaseModel):
     product_name: str
     quantity: float
     unit_price: float
+    discount_amount: float = 0
     line_total: float
 
     model_config = {"from_attributes": True}
@@ -59,6 +69,8 @@ class POSOrderResponse(BaseModel):
     order_number: str
     status: str
     subtotal: float
+    discount_amount: float = 0
+    rounding_amount: float = 0
     vat_amount: float
     total: float
     payment_method: str
