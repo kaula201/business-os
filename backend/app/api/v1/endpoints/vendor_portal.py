@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import require_module
+from app.core.security import hash_password
 from app.models.procurement import RFQ, RFQLine, SupplierPriceList
 from app.models.purchase import PurchaseOrder, Supplier, SupplierInvoice
 from app.models.user import User
@@ -94,6 +95,7 @@ async def create_vendor_portal_user(
         email=data.email,
         display_name=data.display_name,
         status=data.status,
+        hashed_password=hash_password(data.password) if data.password else None,
     )
     db.add(row)
     await db.flush()
@@ -120,6 +122,8 @@ async def update_vendor_portal_user(
     update_data = data.model_dump(exclude_unset=True)
     if "supplier_id" in update_data and update_data["supplier_id"]:
         await _require_supplier(db, current_user.company_id, update_data["supplier_id"])
+    if "password" in update_data and update_data["password"]:
+        update_data["hashed_password"] = hash_password(update_data.pop("password"))
     for field, value in update_data.items():
         setattr(row, field, value)
 

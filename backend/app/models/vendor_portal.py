@@ -28,6 +28,7 @@ class VendorPortalUser(Base):
         UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=False, index=True
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False, index=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

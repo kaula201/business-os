@@ -596,6 +596,13 @@ export const vendorPortalApi = {
   supplierSummary: (supplierId: string) => api.get(`/vendor-portal/suppliers/${supplierId}/summary`),
 }
 
+// Vendor Auth API — supplier self-service login + dashboard
+export const vendorAuthApi = {
+  login: (data: { email: string; password: string }) => api.post('/vendor-auth/login', data),
+  me: (token: string) => api.get('/vendor-auth/me', { params: { token } }),
+  dashboard: (token: string) => api.get('/vendor-auth/dashboard', { params: { token } }),
+}
+
 // WMS API — batches (lots) and serial numbers
 export const wmsApi = {
   listBatches: (params?: { product_id?: string; expiring_soon?: boolean; limit?: number }) =>

@@ -11,6 +11,7 @@ class VendorPortalUserCreate(BaseModel):
     email: EmailStr
     display_name: str = Field(min_length=1, max_length=255)
     status: str = Field(default="active", max_length=20)
+    password: str | None = Field(default=None, min_length=6, max_length=128)
 
     @field_validator("status")
     @classmethod
@@ -28,6 +29,7 @@ class VendorPortalUserUpdate(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=255)
     status: str | None = Field(default=None, max_length=20)
     last_login_at: datetime | None = None
+    password: str | None = Field(default=None, min_length=6, max_length=128)
 
     @field_validator("status")
     @classmethod

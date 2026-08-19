@@ -48,6 +48,8 @@ const EmailTrackingPage = lazy(() => import('./pages/EmailTrackingPage'))
 const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage'))
 const PortalPage = lazy(() => import('./pages/PortalPage'))
 const VendorPortalPage = lazy(() => import('./pages/VendorPortalPage'))
+const VendorLoginPage = lazy(() => import('./pages/VendorLoginPage'))
+const VendorDashboardPage = lazy(() => import('./pages/VendorDashboardPage'))
 const WmsPage = lazy(() => import('./pages/WmsPage'))
 const HelpdeskPage = lazy(() => import('./pages/HelpdeskPage'))
 const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'))
@@ -75,6 +77,8 @@ function App() {
       <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50 text-sm text-gray-500 dark:bg-dark-300 dark:text-gray-400">იტვირთება...</div>}>
         <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/vendor/login" element={<VendorLoginPage />} />
+        <Route path="/vendor/dashboard" element={<VendorDashboardPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route
