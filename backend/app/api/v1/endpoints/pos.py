@@ -14,6 +14,7 @@ from app.models.pos import POSSession, POSOrder, POSOrderItem
 from app.models.pos import POSRefund, POSLoyaltyAccount, POSLoyaltyTransaction, POSOfflineQueue, POSFiscalDevice
 from app.models.pos_extended import GiftCard, GiftCardTransaction, POSCashMovement, POSZReport
 from app.models.product import Product
+from app.models.warehouse import InventoryBalance, InventoryMovement, Warehouse
 from app.schemas.common import ResponseBase
 from app.core.time import utc_now
 from app.schemas.pos import (
@@ -140,6 +141,47 @@ async def create_pos_order(
             "unit_price": price,
             "line_total": line_total,
         })
+
+        # Stock deduction — every POS sale reduces inventory (Odoo-style)
+        balance = (await db.execute(
+            select(InventoryBalance).where(
+                InventoryBalance.company_id == current_user.company_id,
+                InventoryBalance.product_id == item_data.product_id,
+            ).with_for_update()
+        )).scalars().first()
+        if balance is None:
+            # fall back to the default warehouse balance
+            wh = (await db.execute(
+                select(Warehouse).where(Warehouse.company_id == current_user.company_id, Warehouse.is_default.is_(True))
+            )).scalars().first()
+            if wh:
+                balance = (await db.execute(
+                    select(InventoryBalance).where(
+                        InventoryBalance.company_id == current_user.company_id,
+                        InventoryBalance.warehouse_id == wh.id,
+                        InventoryBalance.product_id == item_data.product_id,
+                    ).with_for_update()
+                )).scalars().first()
+        if balance is not None:
+            if Decimal(balance.quantity) < qty:
+                raise HTTPException(status_code=409, detail=f"არასაკმარისი მარაგი: {product.name}")
+            old_qty = Decimal(balance.quantity)
+            balance.quantity = old_qty - qty
+            db.add(InventoryMovement(
+                company_id=current_user.company_id,
+                warehouse_id=balance.warehouse_id,
+                product_id=item_data.product_id,
+                movement_type="out",
+                quantity=qty,
+                balance_before=old_qty,
+                balance_after=balance.quantity,
+                reason="POS გაყიდვა",
+                reason_category="sale",
+                reference_type="pos_order",
+                created_by=current_user.id,
+            ))
+            product.current_stock = float(max(Decimal(str(product.current_stock or 0)) - qty, Decimal("0")))
+            await db.flush()
 
     vat = (subtotal * Decimal("0.18")).quantize(Decimal("0.01"))
     total = subtotal + vat

@@ -85,3 +85,56 @@ async def test_pos_refund_posts_gl(client, auth_headers, test_company, db_sessio
         assert codes["4100"] == (100.0, 0.0)
         assert codes["2200"] == (18.0, 0.0)
         assert codes["1410"] == (0.0, 118.0)
+
+
+async def test_pos_sale_deducts_stock(client, auth_headers, test_company, db_session):
+    """POS sale reduces inventory balance and records a movement."""
+    from app.models.warehouse import InventoryBalance, InventoryMovement, Warehouse
+
+    # ensure a default warehouse exists (product creation requires it)
+    async with TestSessionLocal() as s:
+        wh = (await s.execute(select(Warehouse).where(Warehouse.company_id == test_company.id, Warehouse.is_default.is_(True)))).scalars().first()
+        if not wh:
+            wh = Warehouse(company_id=test_company.id, code="MAIN", name="მთავარი საწყობი", is_default=True, is_active=True)
+            s.add(wh)
+            await s.commit()
+
+    # product with stock (products.py auto-creates the balance row)
+    resp = await client.post("/api/v1/products/", json={
+        "name": "Stock Product", "sku": "STK-1", "sale_price": 50, "current_stock": 10,
+    }, headers=auth_headers)
+    assert resp.status_code in (200, 201), resp.text
+    product_id = resp.json()["data"]["id"]
+
+    resp = await client.post("/api/v1/pos/sessions", json={"name": "Stock Shift"}, headers=auth_headers)
+    session_id = resp.json()["data"]["id"]
+
+    resp = await client.post("/api/v1/pos/orders", json={
+        "session_id": session_id,
+        "items": [{"product_id": product_id, "quantity": 3, "unit_price": 50}],
+        "payment_method": "cash",
+    }, headers=auth_headers)
+    assert resp.status_code == 201, resp.text
+
+    # balance reduced 10 → 7, movement recorded
+    async with TestSessionLocal() as s:
+        bal = (await s.execute(select(InventoryBalance).where(
+            InventoryBalance.product_id == product_id, InventoryBalance.company_id == test_company.id,
+        ))).scalars().first()
+        assert bal is not None
+        assert bal.quantity == 7
+        mv = (await s.execute(select(InventoryMovement).where(
+            InventoryMovement.product_id == product_id, InventoryMovement.reason_category == "sale",
+        ))).scalars().first()
+        assert mv is not None
+        assert mv.quantity == 3
+        assert mv.balance_before == 10
+        assert mv.balance_after == 7
+
+    # insufficient stock → 409
+    resp = await client.post("/api/v1/pos/orders", json={
+        "session_id": session_id,
+        "items": [{"product_id": product_id, "quantity": 100, "unit_price": 50}],
+        "payment_method": "cash",
+    }, headers=auth_headers)
+    assert resp.status_code == 409, resp.text
