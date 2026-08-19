@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Scale, Award, Zap, FileText, Gavel, BarChart3 } from 'lucide-react'
+import { Plus, Scale, Award, Zap, FileText, Gavel, BarChart3, Send } from 'lucide-react'
 
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
@@ -154,6 +154,11 @@ export default function ProcurementPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['proc-rfqs'] }),
   })
 
+  const sendRfqEmail = useMutation({
+    mutationFn: (rfqId: string) => procurementApi.sendRfqEmail(rfqId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['proc-rfqs'] }),
+  })
+
   const autoReplenish = useMutation({
     mutationFn: () => procurementApi.autoReplenish(),
     onSuccess: (data) => { setReplenishResult(data.data.data); qc.invalidateQueries({ queryKey: ['proc-rfqs'] }) },
@@ -244,6 +249,12 @@ export default function ProcurementPage() {
           <button onClick={() => { setResponseFor(r); setResponseForm({ supplier_id: '', unit_price: '', delivery_days: '' }) }}
             className="p-1.5 rounded-md text-gray-400 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30" title={t('შეთავაზების შეტანა')}>
             <FileText size={15} />
+          </button>
+        )}
+        {r.status === 'draft' && (
+          <button onClick={() => sendRfqEmail.mutate(r.id)} disabled={sendRfqEmail.isPending}
+            className="p-1.5 rounded-md text-gray-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 disabled:opacity-50" title={t('გაგზავნა ელ.ფოსტით')}>
+            <Send size={15} />
           </button>
         )}
         {r.status === 'receiving' && (

@@ -18,6 +18,9 @@ class RFQ(Base):
     company_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True
     )
+    supplier_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=True, index=True
+    )
     rfq_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(

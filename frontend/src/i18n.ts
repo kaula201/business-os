@@ -348,6 +348,7 @@ const en: Record<string, string> = {
   'ბოლო ჩანაწერები': 'Recent records',
   'ბრენდი': 'Brand',
   'გაგზავნა': 'Send',
+  'გაგზავნა ელ.ფოსტით': 'Send by email',
   'გაგზავნა...': 'Sending...',
   'გადაამოწმეთ დოკუმენტი დადასტურებამდე.': 'Verify the document before confirming.',
   'გადავადებული ოპერაციები': 'Deferred operations',

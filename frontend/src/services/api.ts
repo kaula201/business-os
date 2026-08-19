@@ -633,6 +633,7 @@ export const procurementApi = {
   submitRfqResponse: (rfqId: string, data: Record<string, unknown>) =>
     api.post(`/procurement/rfqs/${rfqId}/responses`, data),
   rfqComparison: (rfqId: string) => api.get(`/procurement/rfqs/${rfqId}/comparison`),
+  sendRfqEmail: (rfqId: string) => api.post(`/procurement/rfqs/${rfqId}/send-email`),
   awardRfq: (rfqId: string, supplierId: string) =>
     api.post(`/procurement/rfqs/${rfqId}/award`, null, { params: { supplier_id: supplierId } }),
   listPriceLists: (params?: { supplier_id?: string; product_id?: string }) =>

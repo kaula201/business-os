@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import require_module
+from app.models.email_calendar import EmailMessage
 from app.models.product import Product
 from app.models.procurement import (
     BlanketOrder,
@@ -41,6 +42,7 @@ class RFQLineIn(BaseModel):
 
 class RFQCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
+    supplier_id: UUID | None = None
     required_date: date | None = None
     notes: str | None = None
     lines: list[RFQLineIn] = Field(default_factory=list)
@@ -109,12 +111,15 @@ async def create_rfq(
     company_id = current_user.company_id
     if not payload.lines:
         raise HTTPException(status_code=422, detail="RFQ ცარიელია")
+    if payload.supplier_id:
+        await _require_supplier(db, company_id, payload.supplier_id)
     count = await db.scalar(select(func.count(RFQ.id)).where(RFQ.company_id == company_id))
     rfq = RFQ(
         company_id=company_id,
         rfq_number=f"RFQ-{datetime.now():%Y%m%d}-{int(count or 0) + 1:04d}",
         title=payload.title,
         status="draft",
+        supplier_id=payload.supplier_id,
         required_date=payload.required_date,
         notes=payload.notes,
         created_by=current_user.id,
@@ -191,6 +196,60 @@ async def submit_rfq_response(
     rfq.status = "receiving"
     await db.flush()
     return ResponseBase(data={"id": str(response.id)}, message="შეთავაზება მიღებულია")
+
+
+@router.post("/rfqs/{rfq_id}/send-email", response_model=ResponseBase[dict])
+async def send_rfq_email(
+    rfq_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("purchases", "can_create")),
+):
+    """Send the RFQ to its supplier by email (sandbox: stored in email_messages)."""
+    company_id = current_user.company_id
+    rfq = (await db.execute(select(RFQ).where(RFQ.id == rfq_id, RFQ.company_id == company_id))).scalar_one_or_none()
+    if not rfq:
+        raise HTTPException(status_code=404, detail="RFQ არ მოიძებნა")
+    if not rfq.supplier_id:
+        raise HTTPException(status_code=422, detail="RFQ-ს მომწოდებელი არ აქვს მინიჭებული")
+    supplier = (await db.execute(select(Supplier).where(Supplier.id == rfq.supplier_id))).scalar_one_or_none()
+    if not supplier or not supplier.email:
+        raise HTTPException(status_code=422, detail="მომწოდებელს ელ.ფოსტა არ აქვს მითითებული")
+
+    lines = (await db.execute(select(RFQLine).where(RFQLine.rfq_id == rfq.id))).scalars().all()
+    products = {
+        p.id: p
+        for p in (await db.execute(select(Product).where(Product.company_id == company_id))).scalars().all()
+    }
+    body_lines = []
+    for i, line in enumerate(lines, start=1):
+        product = products.get(line.product_id)
+        name = product.name if product else str(line.product_id)
+        price = f"{line.expected_price:,.2f}" if line.expected_price else "—"
+        body_lines.append(f"{i}. {name} — რაოდენობა: {line.quantity:g}, მოსალოდნელი ფასი: {price}")
+    body = (
+        f"ძვირფასო {supplier.name},\n\n"
+        f"გთხოვთ წარმოგვიდგინოთ შეთავაზება შემდეგი პოზიციებისთვის:\n\n"
+        + "\n".join(body_lines)
+        + f"\n\nRFQ ნომერი: {rfq.rfq_number}\n"
+        + (f"საჭირო თარიღი: {rfq.required_date.isoformat()}\n" if rfq.required_date else "")
+        + (f"შენიშვნა: {rfq.notes}\n" if rfq.notes else "")
+        + "\nპასუხის ვადა: 5 სამუშაო დღე.\n\nმადლობა თანამშრომლობისთვის."
+    )
+
+    m = EmailMessage(
+        company_id=company_id,
+        to_email=supplier.email,
+        subject=f"შეთავაზების მოთხოვნა — {rfq.rfq_number}: {rfq.title}",
+        body=body,
+        status="sent",
+    )
+    db.add(m)
+    rfq.status = "sent"
+    await db.flush()
+    return ResponseBase(
+        data={"id": str(m.id), "to_email": m.to_email, "subject": m.subject, "status": m.status},
+        message="RFQ გაეგზავნა მომწოდებელს",
+    )
 
 
 @router.get("/rfqs/{rfq_id}/comparison", response_model=ResponseBase[list[dict]])
