@@ -275,6 +275,48 @@ async def post_supplier_invoice(
     )
 
 
+async def post_pos_sale(
+    db: AsyncSession, company_id: UUID, user: User, *,
+    entry_date: date, reference_id: UUID,
+    subtotal: Decimal, vat_amount: Decimal, total: Decimal,
+    payment_method: str = "cash",
+) -> JournalEntry:
+    """POS sale: Dr Cash/Bank (1410), Cr Revenue (4100), Cr VAT payable (2200).
+
+    Mirrors Odoo's POS journal entry — every completed POS order posts to GL.
+    """
+    return await post_journal_entry(
+        db, company_id, user,
+        entry_date=entry_date,
+        description="POS გაყიდვა",
+        reference_type="pos_sale", reference_id=reference_id,
+        lines=[
+            ("1410", total, Decimal("0")),
+            ("4100", Decimal("0"), subtotal),
+            ("2200", Decimal("0"), vat_amount),
+        ],
+    )
+
+
+async def post_pos_refund(
+    db: AsyncSession, company_id: UUID, user: User, *,
+    entry_date: date, reference_id: UUID,
+    subtotal: Decimal, vat_amount: Decimal, total: Decimal,
+) -> JournalEntry:
+    """POS refund: reverse of the sale — Dr Revenue (4100), Dr VAT (2200), Cr Cash (1410)."""
+    return await post_journal_entry(
+        db, company_id, user,
+        entry_date=entry_date,
+        description="POS დაბრუნება",
+        reference_type="pos_refund", reference_id=reference_id,
+        lines=[
+            ("4100", subtotal, Decimal("0")),
+            ("2200", vat_amount, Decimal("0")),
+            ("1410", Decimal("0"), total),
+        ],
+    )
+
+
 async def post_supplier_payment(
     db: AsyncSession, company_id: UUID, user: User, *,
     entry_date: date, reference_id: UUID,

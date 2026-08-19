@@ -20,6 +20,7 @@ from app.schemas.pos import (
     POSSessionCreate, POSSessionResponse,
     POSOrderCreate, POSOrderResponse, POSOrderItemResponse,
 )
+from app.services.gl_posting import post_pos_sale, post_pos_refund
 from datetime import date, datetime
 
 router = APIRouter(prefix="/pos", tags=["POS — სალარო"])
@@ -167,6 +168,14 @@ async def create_pos_order(
     session.total_sales += total
     await db.flush()
 
+    # GL posting — every POS sale posts to the ledger (Odoo-style)
+    await post_pos_sale(
+        db, current_user.company_id, current_user,
+        entry_date=utc_now().date(), reference_id=order.id,
+        subtotal=subtotal, vat_amount=vat, total=total,
+        payment_method=data.payment_method,
+    )
+
     # Loyalty automation: earn 1 point per 1 GEL when a client is attached
     if data.client_id:
         account = (await db.execute(
@@ -226,6 +235,17 @@ async def refund_pos_order(
     )
     db.add(refund)
     order.status = "refunded" if amount >= Decimal(order.total) else "completed"
+    await db.flush()
+
+    # GL posting — refund reverses the sale (Odoo-style)
+    refund_ratio = amount / Decimal(order.total) if order.total else Decimal("0")
+    await post_pos_refund(
+        db, current_user.company_id, current_user,
+        entry_date=utc_now().date(), reference_id=refund.id,
+        subtotal=(Decimal(order.subtotal) * refund_ratio).quantize(Decimal("0.01")),
+        vat_amount=(Decimal(order.vat_amount) * refund_ratio).quantize(Decimal("0.01")),
+        total=amount,
+    )
     await db.flush()
     return ResponseBase(data={"id": str(refund.id), "refund_number": refund.refund_number}, message="დაბრუნება შესრულდა")
 
