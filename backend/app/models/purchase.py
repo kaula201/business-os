@@ -125,6 +125,7 @@ class PurchaseOrder(Base):
         String(50), unique=True, nullable=False, index=True
     )
     status: Mapped[str] = mapped_column(String(30), default="draft", nullable=False, index=True)
+    version: Mapped[int] = mapped_column(default=1, nullable=False)
     expected_delivery_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     subtotal: Mapped[Decimal] = mapped_column(
         Numeric(18, 2), default=Decimal("0"), nullable=False

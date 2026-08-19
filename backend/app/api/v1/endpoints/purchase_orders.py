@@ -155,6 +155,7 @@ def build_purchase_order_response(order: PurchaseOrder, manager_limit: Decimal) 
         warehouse_name=order.warehouse.name,
         purchase_order_number=order.purchase_order_number,
         status=order.status,
+        version=order.version,
         expected_delivery_date=order.expected_delivery_date,
         subtotal=float(order.subtotal),
         vat_amount=float(order.vat_amount),
@@ -500,6 +501,7 @@ async def change_purchase_order_status(
 
     previous = order.status
     order.status = target
+    order.version += 1
     if target == "approved":
         order.approved_by = current_user.id
         order.approved_at = utc_now()

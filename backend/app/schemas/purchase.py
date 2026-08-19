@@ -188,6 +188,7 @@ class PurchaseOrderResponse(BaseModel):
     warehouse_name: str
     purchase_order_number: str
     status: str
+    version: int
     expected_delivery_date: date | None
     subtotal: float
     vat_amount: float
