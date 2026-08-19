@@ -22,6 +22,7 @@ def money(value) -> Decimal:
 DEFAULT_ACCOUNTS = [
     # Assets (1xxx)
     ("1100", "ძირითადი საშუალებები", "asset"),
+    ("1101", "დაგროვილი ამორტიზაცია", "asset"),
     ("1200", "მარაგები", "asset"),
     ("1300", "მოთხოვნები მყიდველებისგან", "asset"),
     ("1310", "მოთხოვნები — ინვოისები", "asset"),
@@ -42,6 +43,7 @@ DEFAULT_ACCOUNTS = [
     # Expenses (5xxx)
     ("5100", "გაყიდული საქონლის ღირებულება", "expense"),
     ("5200", "საოპერაციო ხარჯები", "expense"),
+    ("5500", "ამორტიზაციის ხარჯი", "expense"),
     ("5300", "დღგ ხარჯი", "expense"),
 ]
 
@@ -357,5 +359,23 @@ async def post_supplier_bank_reconciliation_reversal(
         lines=[
             ("1410", amount, Decimal("0")),
             ("2100", Decimal("0"), amount),
+        ],
+    )
+
+
+async def post_asset_depreciation(
+    db: AsyncSession, company_id: UUID, user: User, *,
+    entry_date: date, reference_id: UUID,
+    amount: Decimal,
+) -> JournalEntry:
+    """Asset depreciation: Dr Depreciation expense (5500), Cr Accumulated depreciation (1101)."""
+    return await post_journal_entry(
+        db, company_id, user,
+        entry_date=entry_date,
+        description="ძირითადი საშუალების ამორტიზაცია",
+        reference_type="asset_depreciation", reference_id=reference_id,
+        lines=[
+            ("5500", amount, Decimal("0")),
+            ("1101", Decimal("0"), amount),
         ],
     )

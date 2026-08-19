@@ -13,6 +13,7 @@ from app.core.dependencies import get_current_user, require_module
 from app.core.time import utc_now
 from app.models.assets import AssetDepreciation, FixedAsset
 from app.models.audit import AuditLog
+from app.services.gl_posting import post_asset_depreciation
 from app.schemas.common import PaginatedResponse
 from app.models.user import User
 from app.schemas.assets import (
@@ -218,6 +219,13 @@ async def run_depreciation(
         period_label=period_label,
     )
     db.add(dep)
+    await db.flush()
+
+    # GL posting — Dr 5500 (ამორტიზაციის ხარჯი), Cr 1101 (დაგროვილი ამორტიზაცია)
+    await post_asset_depreciation(
+        db, current_user.company_id, current_user,
+        entry_date=now.date(), reference_id=dep.id, amount=amount,
+    )
 
     # Update asset
     asset.accumulated_depreciation += amount
@@ -262,3 +270,120 @@ async def depreciation_history(
     )
     entries = result.scalars().all()
     return ResponseBase(data=entries)
+
+
+# ── Depreciation schedule & bulk run ─────────────────────────────────────────
+
+@router.get("/{asset_id}/schedule", response_model=ResponseBase[list[dict]])
+async def depreciation_schedule(
+    asset_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Projected depreciation schedule — every future period until fully depreciated."""
+    asset = await get_company_asset(db, asset_id, current_user.company_id)
+
+    amount = calculate_depreciation(asset)
+    if amount <= 0:
+        return ResponseBase(data=[])
+
+    start = asset.last_depreciation_date or asset.purchase_date
+    # First unrecorded period is the month after the last one (or purchase month).
+    base_year = start.year
+    base_month = start.month
+    if asset.last_depreciation_date:
+        base_month += 1
+        if base_month > 12:
+            base_month = 1
+            base_year += 1
+
+    remaining = asset.purchase_cost - asset.accumulated_depreciation - asset.salvage_value
+    rows = []
+    month_idx = 0
+    acc_after = asset.accumulated_depreciation
+    while remaining > Decimal("0.01") and month_idx < 600:  # 50 years cap
+        y = base_year
+        m = base_month + month_idx
+        while m > 12:
+            m -= 12
+            y += 1
+        period_amount = min(amount, remaining)
+        acc_after += period_amount
+        rows.append({
+            "period": f"{y}-{m:02d}",
+            "amount": float(period_amount),
+            "accumulated_after": float(acc_after),
+        })
+        remaining -= period_amount
+        month_idx += 1
+    return ResponseBase(data=rows)
+
+
+@router.post("/run-all-depreciation", response_model=ResponseBase[dict])
+async def run_all_depreciation(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Run one depreciation period for every active asset — each with its own GL entry."""
+    if current_user.role not in {User.Role.ADMIN, User.Role.ACCOUNTANT}:
+        raise HTTPException(status_code=403, detail="ამორტიზაციის დარიცხვის უფლება არ გაქვთ")
+
+    assets = (
+        await db.execute(
+            select(FixedAsset).where(
+                FixedAsset.company_id == current_user.company_id,
+                FixedAsset.status == "active",
+            )
+        )
+    ).scalars().all()
+
+    now = utc_now()
+    await ensure_period_open(db, current_user.company_id, now.date())
+    period_label = f"{now.year}-{now.month:02d}"
+
+    # Idempotency: skip assets already run this period
+    existing = (
+        await db.execute(
+            select(AssetDepreciation.asset_id).where(
+                AssetDepreciation.company_id == current_user.company_id,
+                AssetDepreciation.period_label == period_label,
+            )
+        )
+    ).scalars().all()
+    already_run = set(existing)
+
+    results = []
+    for asset in assets:
+        if asset.id in already_run:
+            results.append({"asset_id": str(asset.id), "asset_name": asset.name, "amount": 0, "skipped": True})
+            continue
+        amount = calculate_depreciation(asset)
+        if amount <= 0:
+            continue
+        dep = AssetDepreciation(
+            company_id=current_user.company_id,
+            asset_id=asset.id,
+            depreciation_date=now.date(),
+            amount=amount,
+            period_label=period_label,
+        )
+        db.add(dep)
+        await db.flush()
+        await post_asset_depreciation(
+            db, current_user.company_id, current_user,
+            entry_date=now.date(), reference_id=dep.id, amount=amount,
+        )
+        asset.accumulated_depreciation += amount
+        asset.book_value = asset.purchase_cost - asset.accumulated_depreciation
+        asset.last_depreciation_date = now.date()
+        if asset.book_value <= 0:
+            asset.book_value = Decimal("0")
+            asset.status = "fully_depreciated"
+        results.append({"asset_id": str(asset.id), "asset_name": asset.name, "amount": float(amount), "skipped": False})
+
+    await db.flush()
+    return ResponseBase(data={
+        "period": period_label,
+        "processed": len(results),
+        "items": results,
+    }, message=f"ამორტიზაცია დარიცხულია: {period_label}")

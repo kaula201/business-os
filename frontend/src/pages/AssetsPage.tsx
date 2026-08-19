@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Plus, Pencil, Trash2, Search, Building2, Calendar, TrendingDown, Calculator, FileText, Wrench
+  Plus, Pencil, Trash2, Search, Building2, Calendar, CalendarDays, TrendingDown, Calculator, FileText, Wrench
 } from 'lucide-react'
 
 import DataTable from '../components/ui/DataTable'
@@ -63,6 +63,11 @@ export default function AssetsPage() {
   const [depResult, setDepResult] = useState<DepreciationRunResult | null>(null)
   const [depHistory, setDepHistory] = useState<AssetDepreciationEntry[]>([])
 
+  // Schedule + bulk run
+  const [scheduleFor, setScheduleFor] = useState<string | null>(null)
+  const [scheduleRows, setScheduleRows] = useState<{ period: string; amount: number; accumulated_after: number }[]>([])
+  const [runAllResult, setRunAllResult] = useState<{ period: string; processed: number; items: { asset_name: string; amount: number; skipped: boolean }[] } | null>(null)
+
   // ── Queries ──────────────────────────────────────────────────────
 
   const { data: assetsData, isLoading } = useQuery({
@@ -113,6 +118,18 @@ export default function AssetsPage() {
     onError: (e) => setError(errorText(e)),
   })
 
+  const loadSchedule = useMutation({
+    mutationFn: (id: string) => api.get(`/assets/${id}/schedule`).then((r) => r.data.data),
+    onSuccess: (data) => setScheduleRows(data),
+    onError: (e) => setError(errorText(e)),
+  })
+
+  const runAllDep = useMutation({
+    mutationFn: () => api.post('/assets/run-all-depreciation').then((r) => r.data.data),
+    onSuccess: (data) => { setRunAllResult(data); setError(''); refresh() },
+    onError: (e) => setError(errorText(e)),
+  })
+
   // ── Summary ──────────────────────────────────────────────────────
 
   const totalCost = assets.reduce((s, a) => s + a.purchase_cost, 0)
@@ -141,6 +158,13 @@ export default function AssetsPage() {
           }}
         >
           <Plus size={18} /> {t('აქტივის დამატება')}
+        </button>
+        <button
+          onClick={() => { if (confirm(t('ყველა აქტივის ამორტიზაცია დავარიცხოთ მიმდინარე პერიოდისთვის?'))) runAllDep.mutate() }}
+          disabled={runAllDep.isPending}
+          className="btn-secondary flex items-center gap-2"
+        >
+          <Calculator size={16} /> {runAllDep.isPending ? t('ირიცხება...') : t('ყველას დარიცხვა')}
         </button>
       </div>
 
@@ -233,6 +257,13 @@ export default function AssetsPage() {
                   <TrendingDown size={16} className="text-primary-500" />
                 </button>
                 <button
+                  onClick={(e) => { e.stopPropagation(); setScheduleFor(a.id); loadSchedule.mutate(a.id) }}
+                  className="p-1.5 hover:bg-amber-50 rounded-lg transition-colors"
+                  title={t('ამორტიზაციის გრაფიკი')}
+                >
+                  <CalendarDays size={16} className="text-amber-500" />
+                </button>
+                <button
                   onClick={(e) => { e.stopPropagation(); setSelectedAsset(a); setAssetEditForm({ name: a.name, status: a.status, location: a.location, notes: a.notes, serial_number: a.serial_number }); setError(''); setAssetModal('edit') }}
                   className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors dark:hover:bg-dark-100"
                 >
@@ -270,6 +301,29 @@ export default function AssetsPage() {
         </div>
       )}
 
+      {/* Run-all Depreciation Result */}
+      {runAllResult && (
+        <div className="card border-emerald-200 bg-emerald-50/50 dark:bg-emerald-900/20 dark:border-emerald-800/30">
+          <div className="flex items-center gap-3">
+            <Calculator size={24} className="text-emerald-600" />
+            <div className="flex-1">
+              <p className="font-medium text-emerald-800 dark:text-emerald-200">
+                {t('ამორტიზაცია დარიცხულია')}: {runAllResult.period} — {runAllResult.processed} {t('აქტივი')}
+              </p>
+              <div className="mt-1 space-y-0.5 text-sm text-emerald-700 dark:text-emerald-300">
+                {runAllResult.items.map((it, i) => (
+                  <div key={i} className="flex justify-between">
+                    <span>{it.asset_name}</span>
+                    <span className="font-mono">{it.skipped ? '✓ ' + t('უკვე დარიცხული') : `${money(it.amount)} ₾`}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button onClick={() => setRunAllResult(null)} className="btn-secondary text-sm">{t('დახურვა')}</button>
+          </div>
+        </div>
+      )}
+
       {/* Depreciation History Modal */}
       <Modal open={!!depAssetId} onClose={() => { setDepAssetId(null); setDepHistory([]) }} title={t('ამორტიზაციის ისტორია')} size="md">
         {depHistory.length === 0 ? (
@@ -283,6 +337,23 @@ export default function AssetsPage() {
                   <span className="text-xs text-brandgray-500 dark:text-gray-400 ml-3">{d.depreciation_date}</span>
                 </div>
                 <span className="font-semibold text-accent-700 dark:text-accent-300">{money(d.amount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+
+      {/* Depreciation Schedule Modal */}
+      <Modal open={!!scheduleFor} onClose={() => { setScheduleFor(null); setScheduleRows([]) }} title={t('ამორტიზაციის გრაფიკი')} size="md">
+        {scheduleRows.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">{t('გრაფიკი ცარიელია')}</p>
+        ) : (
+          <div className="max-h-96 overflow-y-auto space-y-1.5">
+            {scheduleRows.map((r) => (
+              <div key={r.period} className="flex items-center justify-between p-2.5 rounded-lg bg-brandgray-50 dark:bg-dark-100">
+                <span className="text-sm font-medium text-brandgray-900 dark:text-gray-100 font-mono">{r.period}</span>
+                <span className="text-sm font-semibold text-accent-700 dark:text-accent-300">{money(r.amount)}</span>
+                <span className="text-xs text-brandgray-500 dark:text-gray-400">{t('დაგროვებით')}: {money(r.accumulated_after)}</span>
               </div>
             ))}
           </div>
