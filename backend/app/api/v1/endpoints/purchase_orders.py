@@ -14,6 +14,7 @@ from app.core.time import utc_now
 from app.models.audit import AuditLog
 from app.models.order import DocumentSequence
 from app.models.product import Product
+from app.models.procurement import BlanketOrder, BlanketOrderLine
 from app.models.purchase import (
     GoodsReceipt,
     GoodsReceiptItem,
@@ -365,8 +366,22 @@ async def create_purchase_order(
     subtotal = Decimal("0")
     vat_amount = Decimal("0")
     total = Decimal("0")
+    # Active blanket orders for this supplier, to auto-apply agreed prices.
+    blanket_lines = (await db.execute(
+        select(BlanketOrderLine)
+        .join(BlanketOrder, BlanketOrder.id == BlanketOrderLine.blanket_order_id)
+        .where(
+            BlanketOrder.company_id == current_user.company_id,
+            BlanketOrder.supplier_id == supplier.id,
+            BlanketOrder.status == "active",
+            BlanketOrderLine.product_id.in_(product_ids),
+        )
+    )).scalars().all()
+    blanket_by_product = {bl.product_id: bl for bl in blanket_lines}
     for item_data in data.items:
-        gross = item_data.quantity * item_data.unit_price
+        blanket_line = blanket_by_product.get(item_data.product_id)
+        unit_price = blanket_line.unit_price if blanket_line else item_data.unit_price
+        gross = item_data.quantity * unit_price
         discount = gross * item_data.discount_percent / Decimal("100")
         line_subtotal = money(gross - discount)
         line_vat = money(line_subtotal * po_vat_rate / Decimal("100"))
@@ -377,7 +392,7 @@ async def create_purchase_order(
             product_name=product_map[item_data.product_id].name,
             quantity=item_data.quantity,
             received_quantity=Decimal("0"),
-            unit_price=item_data.unit_price,
+            unit_price=unit_price,
             discount_percent=item_data.discount_percent,
             vat_rate=po_vat_rate,
             line_subtotal=line_subtotal,
@@ -385,6 +400,9 @@ async def create_purchase_order(
             line_total=line_total,
         )
         db.add(item)
+        # Consume the blanket-order line quantity.
+        if blanket_line:
+            blanket_line.used_quantity += item_data.quantity
         subtotal += line_subtotal
         vat_amount += line_vat
         total += line_total
