@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Scale, CheckCircle2, RotateCcw, Sparkles } from 'lucide-react'
+import { Building2, Scale, CheckCircle2, RotateCcw, Sparkles, ShoppingCart } from 'lucide-react'
 
 import { glApi } from '../services/api'
 
@@ -59,6 +59,10 @@ export default function ConsolidatedReportsPage() {
   const reverse = useMutation({ mutationFn: (id: string) => glApi.reverseConsolidationElimination(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['consolidation-eliminations'] }) })
   const autoDetect = useMutation({
     mutationFn: () => glApi.autoDetectConsolidationEliminations().then(r => r.data.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['consolidation-eliminations'] }),
+  })
+  const autoDetectPurchases = useMutation({
+    mutationFn: () => glApi.autoDetectConsolidationPurchases().then(r => r.data.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['consolidation-eliminations'] }),
   })
 
@@ -147,7 +151,15 @@ export default function ConsolidatedReportsPage() {
         <div className="flex items-center gap-2 px-5 py-3.5 border-b border-brandgray-100 dark:border-dark-50">
           <Building2 size={16} className="text-primary-600" />
           <h2 className="font-semibold text-brandgray-800 dark:text-gray-100">{t('კონსოლიდაციის გამორიცხვები')}</h2>
-          <div className="ml-auto">
+          <div className="ml-auto flex gap-2">
+            <button
+              onClick={() => autoDetectPurchases.mutate()}
+              disabled={autoDetectPurchases.isPending}
+              className="btn-secondary text-xs flex items-center gap-1"
+            >
+              <ShoppingCart size={14} />
+              {autoDetectPurchases.isPending ? t('მუშავდება...') : t('შესყიდვების გამოვლენა')}
+            </button>
             <button
               onClick={() => autoDetect.mutate()}
               disabled={autoDetect.isPending}

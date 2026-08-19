@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarRange, ChevronLeft, ChevronRight, History, LockKeyhole, ShieldCheck, Unlock } from 'lucide-react'
+import { CalendarRange, ChevronLeft, ChevronRight, History, LockKeyhole, ShieldCheck, Unlock, Zap } from 'lucide-react'
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
 import { api } from '../services/api'
@@ -78,6 +78,16 @@ export default function AccountingPeriodsPage() {
     onError: (mutationError) => setError(errorText(mutationError)),
   })
 
+  const runAutomation = useMutation({
+    mutationFn: () => api.post('/gl/automation/run').then((r) => r.data.data),
+    onSuccess: (data) => {
+      setAutomationResult(data)
+      setError('')
+    },
+    onError: (mutationError) => setError(errorText(mutationError)),
+  })
+  const [automationResult, setAutomationResult] = useState<Record<string, unknown> | null>(null)
+
   const openAction = (type: 'close' | 'reopen', month: number) => {
     setAction({ type, month })
     setReason('')
@@ -100,12 +110,31 @@ export default function AccountingPeriodsPage() {
             {t('დახურეთ დასრულებული თვეები და დაიცავით ფინანსური მონაცემები შემდგომი ცვლილებებისგან')}
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-xl border border-brandgray-200 bg-white p-1 shadow-sm dark:border-dark-50 dark:bg-dark-200">
-          <button className="rounded-lg p-2 hover:bg-brandgray-50 dark:hover:bg-dark-100" onClick={() => setYear((value) => value - 1)} aria-label={t('წინა წელი')}><ChevronLeft size={18} /></button>
-          <span className="min-w-20 text-center text-lg font-semibold">{year}</span>
-          <button className="rounded-lg p-2 hover:bg-brandgray-50 dark:hover:bg-dark-100" onClick={() => setYear((value) => value + 1)} aria-label={t('შემდეგი წელი')}><ChevronRight size={18} /></button>
+        <div className="flex items-center gap-2">
+          <button
+            className="btn-secondary flex items-center gap-1.5"
+            onClick={() => { if (confirm(t('თვის დახურვის ავტომატური გაშვება (ამორტიზაცია, კურსი, დეფერირებული)?'))) runAutomation.mutate() }}
+            disabled={runAutomation.isPending}
+          >
+            <Zap size={15} />
+            {runAutomation.isPending ? t('მუშავდება...') : t('თვის ავტომატური დახურვა')}
+          </button>
+          <div className="flex items-center gap-2 rounded-xl border border-brandgray-200 bg-white p-1 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <button className="rounded-lg p-2 hover:bg-brandgray-50 dark:hover:bg-dark-100" onClick={() => setYear((value) => value - 1)} aria-label={t('წინა წელი')}><ChevronLeft size={18} /></button>
+            <span className="min-w-20 text-center text-lg font-semibold">{year}</span>
+            <button className="rounded-lg p-2 hover:bg-brandgray-50 dark:hover:bg-dark-100" onClick={() => setYear((value) => value + 1)} aria-label={t('შემდეგი წელი')}><ChevronRight size={18} /></button>
+          </div>
         </div>
       </header>
+
+      {automationResult && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/10 dark:text-emerald-300">
+          <p className="font-medium">{t('თვის დახურვა დასრულდა')}</p>
+          <p className="mt-1">
+            {t('ამორტიზაცია')}: {String(automationResult.depreciation_posted ?? 0)} · {t('ვალუტის სხვაობა')}: {String(automationResult.fx_revaluated ?? 0)} · {t('დეფერირებული')}: {String(automationResult.deferred_recognized ?? 0)}
+          </p>
+        </div>
+      )}
 
       <section className="grid gap-4 sm:grid-cols-3">
         <div className="card p-5 dark:bg-dark-200 dark:border-dark-50"><p className="text-sm text-brandgray-500 dark:text-gray-400">{t('წელი')}</p><p className="mt-1 text-2xl font-semibold">{year}</p></div>

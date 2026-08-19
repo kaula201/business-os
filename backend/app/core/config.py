@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     NBG_SYNC_HOUR: int = 18
     NBG_SYNC_MINUTE: int = 5
     NBG_SYNC_TIMEZONE: str = "Asia/Tbilisi"
+
+    # Monthly financial period-close automation (depreciation + FX + deferred)
+    FINANCIAL_AUTO_ENABLED: bool = True
     
     # CORS
     CORS_ORIGINS: str = "*"

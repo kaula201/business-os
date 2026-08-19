@@ -11,6 +11,7 @@ from slowapi.util import get_remote_address
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.services.nbg_rates import nbg_scheduler_loop
+from app.services.financial_automation import financial_scheduler_loop
 from app.services.accounting_periods import AccountingPeriodClosedError
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
@@ -18,16 +19,18 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    scheduler_task = None
+    scheduler_tasks = []
     if settings.NBG_AUTO_SYNC_ENABLED:
-        scheduler_task = asyncio.create_task(nbg_scheduler_loop(), name="nbg-daily-sync")
+        scheduler_tasks.append(asyncio.create_task(nbg_scheduler_loop(), name="nbg-daily-sync"))
+    if settings.FINANCIAL_AUTO_ENABLED:
+        scheduler_tasks.append(asyncio.create_task(financial_scheduler_loop(), name="financial-monthly-close"))
     try:
         yield
     finally:
-        if scheduler_task:
-            scheduler_task.cancel()
+        for task in scheduler_tasks:
+            task.cancel()
             with suppress(asyncio.CancelledError):
-                await scheduler_task
+                await task
 
 app = FastAPI(
     title=settings.APP_NAME,

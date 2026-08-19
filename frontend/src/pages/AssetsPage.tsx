@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Plus, Pencil, Trash2, Search, Building2, Calendar, CalendarDays, TrendingDown, Calculator, FileText, Wrench
+  Plus, Pencil, Trash2, Search, Building2, Calendar, CalendarDays, TrendingDown, Calculator, FileText, Wrench, PackageX
 } from 'lucide-react'
 
 import DataTable from '../components/ui/DataTable'
@@ -67,6 +67,10 @@ export default function AssetsPage() {
   const [scheduleFor, setScheduleFor] = useState<string | null>(null)
   const [scheduleRows, setScheduleRows] = useState<{ period: string; amount: number; accumulated_after: number }[]>([])
   const [runAllResult, setRunAllResult] = useState<{ period: string; processed: number; items: { asset_name: string; amount: number; skipped: boolean }[] } | null>(null)
+  const [disposeFor, setDisposeFor] = useState<{ id: string; name: string } | null>(null)
+  const [disposeResult, setDisposeResult] = useState<{ book_value: number; proceeds: number; gain_loss: number } | null>(null)
+  const [disposeDate, setDisposeDate] = useState(today())
+  const [disposeProceeds, setDisposeProceeds] = useState(0)
 
   // ── Queries ──────────────────────────────────────────────────────
 
@@ -127,6 +131,13 @@ export default function AssetsPage() {
   const runAllDep = useMutation({
     mutationFn: () => api.post('/assets/run-all-depreciation').then((r) => r.data.data),
     onSuccess: (data) => { setRunAllResult(data); setError(''); refresh() },
+    onError: (e) => setError(errorText(e)),
+  })
+
+  const disposeAsset = useMutation({
+    mutationFn: ({ id, disposal_date, proceeds }: { id: string; disposal_date: string; proceeds: number }) =>
+      api.post(`/assets/${id}/dispose`, { disposal_date, proceeds }).then((r) => r.data.data),
+    onSuccess: (data) => { setDisposeResult(data); setError(''); setDisposeFor(null); refresh() },
     onError: (e) => setError(errorText(e)),
   })
 
@@ -263,6 +274,15 @@ export default function AssetsPage() {
                 >
                   <CalendarDays size={16} className="text-amber-500" />
                 </button>
+                {a.status === 'active' && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDisposeFor({ id: a.id, name: a.name }); setDisposeResult(null); setError('') }}
+                    className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                    title={t('აქტივის ჩამოწერა')}
+                  >
+                    <PackageX size={16} className="text-red-500" />
+                  </button>
+                )}
                 <button
                   onClick={(e) => { e.stopPropagation(); setSelectedAsset(a); setAssetEditForm({ name: a.name, status: a.status, location: a.location, notes: a.notes, serial_number: a.serial_number }); setError(''); setAssetModal('edit') }}
                   className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors dark:hover:bg-dark-100"
@@ -356,6 +376,38 @@ export default function AssetsPage() {
                 <span className="text-xs text-brandgray-500 dark:text-gray-400">{t('დაგროვებით')}: {money(r.accumulated_after)}</span>
               </div>
             ))}
+          </div>
+        )}
+      </Modal>
+
+      {/* Disposal Modal */}
+      <Modal open={!!disposeFor} onClose={() => setDisposeFor(null)} title={t('აქტივის ჩამოწერა')} size="md">
+        {disposeFor && (
+          <div className="space-y-4">
+            <p className="text-sm text-brandgray-600 dark:text-gray-400">
+              {t('აქტივი')}: <span className="font-semibold text-brandgray-900 dark:text-gray-100">{disposeFor.name}</span>
+            </p>
+            <FormField label={t('ჩამოწერის თარიღი')} required>
+              <input type="date" defaultValue={today()} onChange={(e) => setDisposeDate(e.target.value)} className="input" />
+            </FormField>
+            <FormField label={t('შემოსავალი (გასხვისება)')}>
+              <input type="number" defaultValue={0} min={0} onChange={(e) => setDisposeProceeds(Number(e.target.value))} className="input" />
+            </FormField>
+            {disposeResult && (
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-3 text-sm text-emerald-800 dark:text-emerald-300">
+                {t('აქტივი ჩამოწერილია')} — {t('სააღრიცხვო ღირებულება')}: {money(disposeResult.book_value)}, {t('მოგება/ზარალი')}: {money(disposeResult.gain_loss)}
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <button className="btn-secondary" onClick={() => setDisposeFor(null)}>{t('დახურვა')}</button>
+              <button
+                className="btn-primary"
+                disabled={disposeAsset.isPending}
+                onClick={() => disposeAsset.mutate({ id: disposeFor.id, disposal_date: disposeDate, proceeds: disposeProceeds })}
+              >
+                {disposeAsset.isPending ? t('მუშავდება...') : t('ჩამოწერა')}
+              </button>
+            </div>
           </div>
         )}
       </Modal>

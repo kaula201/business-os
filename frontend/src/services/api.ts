@@ -470,6 +470,8 @@ export const glApi = {
   reverseConsolidationElimination: (id: string) => api.post(`/gl/consolidation-eliminations/${id}/reverse`),
   autoDetectConsolidationEliminations: (params?: { date_from?: string; date_to?: string }) =>
     api.post('/gl/consolidation-eliminations/auto-detect', null, { params }),
+  autoDetectConsolidationPurchases: (params?: { date_from?: string; date_to?: string }) =>
+    api.post('/gl/consolidation-eliminations/auto-detect-purchases', null, { params }),
 }
 
 // Company API

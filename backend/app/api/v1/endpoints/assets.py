@@ -5,6 +5,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +14,7 @@ from app.core.dependencies import get_current_user, require_module
 from app.core.time import utc_now
 from app.models.assets import AssetDepreciation, FixedAsset
 from app.models.audit import AuditLog
-from app.services.gl_posting import post_asset_depreciation
+from app.services.gl_posting import post_asset_depreciation, post_asset_disposal
 from app.schemas.common import PaginatedResponse
 from app.models.user import User
 from app.schemas.assets import (
@@ -387,3 +388,57 @@ async def run_all_depreciation(
         "processed": len(results),
         "items": results,
     }, message=f"ამორტიზაცია დარიცხულია: {period_label}")
+
+
+# ── Disposal (ჩამოწერა) ─────────────────────────────────────────────────────
+
+class DisposalIn(BaseModel):
+    disposal_date: date
+    proceeds: Decimal = Decimal("0")
+    notes: str | None = None
+
+
+@router.post("/{asset_id}/dispose", response_model=ResponseBase[dict])
+async def dispose_asset(
+    asset_id: UUID,
+    payload: DisposalIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Dispose an asset: write off cost + accumulated depreciation, post GL
+    gain/loss (proceeds vs book value) and mark the asset disposed."""
+    if current_user.role not in {User.Role.ADMIN, User.Role.ACCOUNTANT}:
+        raise HTTPException(status_code=403, detail="ჩამოწერის უფლება არ გაქვთ")
+
+    asset = await get_company_asset(db, asset_id, current_user.company_id)
+    if asset.status == "disposed":
+        raise HTTPException(status_code=400, detail="აქტივი უკვე ჩამოწერილია")
+
+    await ensure_period_open(db, current_user.company_id, payload.disposal_date)
+    book_value = asset.book_value
+    gain = payload.proceeds - book_value
+
+    await post_asset_disposal(
+        db, current_user.company_id, current_user,
+        entry_date=payload.disposal_date, reference_id=asset.id,
+        cost=asset.purchase_cost, accumulated=asset.accumulated_depreciation,
+        proceeds=payload.proceeds,
+    )
+    asset.status = "disposed"
+    asset.disposal_date = payload.disposal_date
+    asset.disposal_proceeds = payload.proceeds
+    if payload.notes:
+        asset.notes = payload.notes
+
+    await db.flush()
+    add_asset_audit(
+        db, current_user, "dispose", "fixed_asset", asset.id,
+        {"book_value": str(book_value), "proceeds": str(payload.proceeds), "gain_loss": str(gain)},
+    )
+    return ResponseBase(
+        data={
+            "asset_id": str(asset.id), "book_value": float(book_value),
+            "proceeds": float(payload.proceeds), "gain_loss": float(gain),
+        },
+        message="აქტივი ჩამოწერილია — GL ჩანაწერი შექმნილია",
+    )

@@ -1,10 +1,11 @@
 """Asset depreciation: GL posting integration, schedule, bulk run."""
 import uuid
+from datetime import date
 
 import pytest
 from sqlalchemy import select
 
-from app.models.assets import AssetDepreciation
+from app.models.assets import AssetDepreciation, FixedAsset
 from app.models.gl import JournalEntry, JournalEntryLine
 from app.models.gl import GLAccount
 from tests.conftest import TestSessionLocal
@@ -70,6 +71,70 @@ async def test_depreciation_schedule(client, auth_headers, test_company, db_sess
     rows2 = schedule2.json()["data"]
     assert len(rows2) == 59
     assert rows2[0]["period"] == "2026-09"
+
+
+async def test_asset_disposal_posts_gain_loss(client, auth_headers, test_company, db_session):
+    # cost 12000, life 5y → 200/month; run 1 depreciation → book 11800
+    asset = await _create_asset(client, auth_headers, "D", cost=12000, life=5)
+    run = await client.post(f"/api/v1/assets/{asset['id']}/run-depreciation", headers=auth_headers)
+    assert run.status_code == 200, run.text
+    assert run.json()["data"]["new_book_value"] == 11800.0
+
+    # dispose with proceeds 12000 → gain +200 (Dr 1101 200, Dr 1410 12000, Cr 1100 12000, Cr 4900 200)
+    dis = await client.post(f"/api/v1/assets/{asset['id']}/dispose", json={
+        "disposal_date": "2026-08-20", "proceeds": 12000,
+    }, headers=auth_headers)
+    assert dis.status_code == 200, dis.text
+    d = dis.json()["data"]
+    assert d["book_value"] == 11800.0
+    assert d["gain_loss"] == 200.0
+
+    # status disposed
+    async with TestSessionLocal() as s:
+        a = (await s.execute(select(FixedAsset).where(FixedAsset.id == uuid.UUID(asset["id"])))).scalar_one()
+        assert a.status == "disposed"
+        assert a.disposal_date == date(2026, 8, 20)
+        # GL entry lines
+        entry = (await s.execute(select(JournalEntry).where(
+            JournalEntry.reference_type == "asset_disposal", JournalEntry.reference_id == uuid.UUID(asset["id"]),
+        ))).scalar_one()
+        lines = (await s.execute(select(JournalEntryLine).where(JournalEntryLine.journal_entry_id == entry.id))).scalars().all()
+        codes = {}
+        for l in lines:
+            acct = (await s.execute(select(GLAccount).where(GLAccount.id == l.gl_account_id))).scalar_one()
+            codes[acct.code] = (float(l.debit_amount), float(l.credit_amount))
+        assert codes["1101"] == (200.0, 0.0)      # accumulated write-off
+        assert codes["1410"] == (12000.0, 0.0)    # proceeds in bank
+        assert codes["1100"] == (0.0, 12000.0)    # asset cost out
+        assert codes["4900"] == (0.0, 200.0)      # gain
+
+    # double dispose → 400
+    dis2 = await client.post(f"/api/v1/assets/{asset['id']}/dispose", json={"disposal_date": "2026-08-21", "proceeds": 0}, headers=auth_headers)
+    assert dis2.status_code == 400, dis2.text
+
+
+async def test_asset_disposal_loss(client, auth_headers, test_company, db_session):
+    asset = await _create_asset(client, auth_headers, "E", cost=12000, life=5)
+    run = await client.post(f"/api/v1/assets/{asset['id']}/run-depreciation", headers=auth_headers)
+    assert run.status_code == 200, run.text
+    # proceeds 5000 → loss -6800 (Dr 1101 200, Dr 1410 5000, Dr 5990 6800, Cr 1100 12000)
+    dis = await client.post(f"/api/v1/assets/{asset['id']}/dispose", json={
+        "disposal_date": "2026-08-20", "proceeds": 5000,
+    }, headers=auth_headers)
+    assert dis.status_code == 200, dis.text
+    assert dis.json()["data"]["gain_loss"] == -6800.0
+
+    async with TestSessionLocal() as s:
+        entry = (await s.execute(select(JournalEntry).where(
+            JournalEntry.reference_type == "asset_disposal", JournalEntry.reference_id == uuid.UUID(asset["id"]),
+        ))).scalar_one()
+        lines = (await s.execute(select(JournalEntryLine).where(JournalEntryLine.journal_entry_id == entry.id))).scalars().all()
+        codes = {}
+        for l in lines:
+            acct = (await s.execute(select(GLAccount).where(GLAccount.id == l.gl_account_id))).scalar_one()
+            codes[acct.code] = (float(l.debit_amount), float(l.credit_amount))
+        assert codes["5990"] == (6800.0, 0.0)     # loss
+        assert codes["1100"] == (0.0, 12000.0)
 
 
 async def test_run_all_depreciation_idempotent(client, auth_headers, test_company, db_session):

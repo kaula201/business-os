@@ -40,10 +40,12 @@ DEFAULT_ACCOUNTS = [
     # Income (4xxx)
     ("4100", "შემოსავალი გაყიდვებიდან", "income"),
     ("4200", "სხვა შემოსავალი", "income"),
+    ("4900", "ძირითადი საშუალების ჩამოწერის მოგება", "income"),
     # Expenses (5xxx)
     ("5100", "გაყიდული საქონლის ღირებულება", "expense"),
     ("5200", "საოპერაციო ხარჯები", "expense"),
     ("5500", "ამორტიზაციის ხარჯი", "expense"),
+    ("5990", "ძირითადი საშუალების ჩამოწერის ზარალი", "expense"),
     ("5300", "დღგ ხარჯი", "expense"),
 ]
 
@@ -378,4 +380,38 @@ async def post_asset_depreciation(
             ("5500", amount, Decimal("0")),
             ("1101", Decimal("0"), amount),
         ],
+    )
+
+
+async def post_asset_disposal(
+    db: AsyncSession, company_id, user: User, *,
+    entry_date: date, reference_id: UUID,
+    cost: Decimal, accumulated: Decimal, proceeds: Decimal,
+) -> JournalEntry:
+    """Asset disposal: write off asset + accumulated depreciation, recognize gain/loss.
+
+    Book value = cost - accumulated. Gain/Loss = proceeds - book value.
+    Lines (net zero):
+      Dr Accumulated depreciation (1101)  accumulated
+      Dr Bank/Cash (1410)                 proceeds
+      Cr Fixed asset (1100)               cost
+      Gain  → Cr 4900 (gain);  Loss → Dr 5990 (loss)
+    """
+    book_value = cost - accumulated
+    gain = proceeds - book_value
+    lines = [
+        ("1101", accumulated, Decimal("0")),
+        ("1410", proceeds, Decimal("0")),
+    ]
+    if gain > 0:
+        lines.append(("4900", Decimal("0"), gain))
+    elif gain < 0:
+        lines.append(("5990", abs(gain), Decimal("0")))
+    lines.append(("1100", Decimal("0"), cost))
+    return await post_journal_entry(
+        db, company_id, user,
+        entry_date=entry_date,
+        description="ძირითადი საშუალების ჩამოწერა",
+        reference_type="asset_disposal", reference_id=reference_id,
+        lines=lines,
     )
