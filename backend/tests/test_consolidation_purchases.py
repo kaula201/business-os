@@ -61,6 +61,19 @@ async def test_auto_detect_purchases(client, auth_headers, test_company, db_sess
         company_group_id=group_id, is_active=True, vat_status=True, currency="GEL",
     )
     db_session.add(other)
+    await db_session.flush()
+    # counterparty needs a user to act as GL actor for the mirror
+    from app.models.user import User
+    from app.core.security import hash_password
+    db_session.add(User(
+        company_id=other.id, email="ic-other@test.ge",
+        hashed_password=hash_password("admin123"), full_name="IC Other Admin",
+        role=User.Role.ADMIN, is_active=True,
+    ))
+    await db_session.commit()
+    # counterparty needs GL accounts for the mirror posting
+    from app.services.gl_posting import seed_default_accounts
+    await seed_default_accounts(db_session, other.id)
     await db_session.commit()
 
     inv_id = await _seed_purchase_invoice(db_session, test_company, other.id, "A", Decimal("800"), "2026-08-10")
@@ -70,6 +83,7 @@ async def test_auto_detect_purchases(client, auth_headers, test_company, db_sess
     assert resp.status_code == 200, resp.text
     data = resp.json()["data"]
     assert data["created"] == 1
+    assert data["mirrored"] == 1
     assert data["items"][0]["invoice_number"] == "SUP-IC-A"
 
     row = (await db_session.execute(select(ConsolidationElimination).where(
@@ -77,6 +91,21 @@ async def test_auto_detect_purchases(client, auth_headers, test_company, db_sess
     ))).scalar_one()
     assert row.amount == Decimal("800.00")
     assert row.counterparty_company_id == other.id
+
+    # mirror on the counterparty's books: supplier invoice + payable + GL entry
+    from app.models.purchase import SupplierInvoice as SI, SupplierPayable as SP
+    from app.models.gl import JournalEntry
+    async with TestSessionLocal() as s2:
+        mirror = (await s2.execute(select(SI).where(
+            SI.company_id == other.id, SI.internal_invoice_number.like("IC-MIRROR-%"),
+        ))).scalar_one()
+        assert mirror.total == Decimal("800.00")
+        payable = (await s2.execute(select(SP).where(SP.supplier_invoice_id == mirror.id))).scalar_one()
+        assert payable.outstanding_amount == Decimal("800.00")
+        gl = (await s2.execute(select(JournalEntry).where(
+            JournalEntry.reference_type == "supplier_invoice", JournalEntry.reference_id == mirror.id,
+        ))).scalar_one()
+        assert gl.company_id == other.id
 
     # idempotent
     resp2 = await client.post("/api/v1/gl/consolidation-eliminations/auto-detect-purchases", headers=auth_headers)
