@@ -11,13 +11,16 @@ from app.core.database import Base
 
 
 class ExchangeDifference(Base):
-    """One revaluation line: a receivable revalued at a new rate on a run date."""
+    """One revaluation line: a receivable/payable/cash/bank balance revalued at a new rate."""
 
     __tablename__ = "exchange_differences"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
-    receivable_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("customer_receivables.id"), nullable=False, index=True)
+    receivable_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("customer_receivables.id"), nullable=True, index=True)
+    payable_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("supplier_payables.id"), nullable=True, index=True)
+    cash_account_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("cash_accounts.id"), nullable=True, index=True)
+    bank_account_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("bank_accounts.id"), nullable=True, index=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     revaluation_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     outstanding_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)

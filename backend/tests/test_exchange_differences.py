@@ -180,3 +180,91 @@ async def test_revaluation_loss_uses_expense_account(client: AsyncClient, auth_h
     resp = await client.post("/api/v1/gl/exchange-differences/run", params={"on_date": "2026-08-02"}, headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["data"]["total_difference"] == -10.0
+
+
+# ── Extended balance scope: payables, cash, bank ────────────────────────────
+
+async def _create_usd_payable(test_company, amount=Decimal("200.00")) -> str:
+    from app.models.purchase import PurchaseOrder, SupplierPayable
+    from app.models.purchase import Supplier, SupplierInvoice
+    from app.models.warehouse import Warehouse
+    from app.models.product import Product
+    from datetime import timedelta
+
+    async with TestSessionLocal() as session:
+        supplier = Supplier(
+            company_id=test_company.id, code="FX-SUP", name="FX Supplier",
+            identification_code="FX-SUP-1", is_vat_payer=False,
+        )
+        session.add(supplier)
+        await session.flush()
+        warehouse = Warehouse(company_id=test_company.id, code="FX-WH", name="FX WH", is_default=True, is_active=True)
+        session.add(warehouse)
+        await session.flush()
+        product = Product(company_id=test_company.id, sku="FX-P", name="FX Product", sale_price=10, current_stock=0)
+        session.add(product)
+        await session.flush()
+        po = PurchaseOrder(
+            company_id=test_company.id, supplier_id=supplier.id, warehouse_id=warehouse.id,
+            purchase_order_number=f"PO-FX-{uuid.uuid4().hex[:8]}", status="approved",
+            subtotal=amount, vat_amount=Decimal("0"), total=amount,
+        )
+        session.add(po)
+        await session.flush()
+        inv = SupplierInvoice(
+            company_id=test_company.id, supplier_id=supplier.id, purchase_order_id=po.id,
+            internal_invoice_number=f"SI-FX-{uuid.uuid4().hex[:8]}", supplier_invoice_number="SUP-FX-001",
+            invoice_date=date(2026, 8, 1), due_date=date(2026, 9, 1),
+            status="approved", matching_status="matched",
+            subtotal=amount, vat_amount=Decimal("0"), total=amount,
+        )
+        session.add(inv)
+        await session.flush()
+        payable = SupplierPayable(
+            company_id=test_company.id, supplier_id=supplier.id, supplier_invoice_id=inv.id,
+            due_date=date(2026, 9, 1), original_amount=amount, paid_amount=Decimal("0"),
+            credited_amount=Decimal("0"), overpaid_amount=Decimal("0"),
+            outstanding_amount=amount, currency_code="USD", exchange_rate=Decimal("2.7"),
+            status="unpaid",
+        )
+        session.add(payable)
+        await session.commit()
+        return str(payable.id)
+
+
+async def _create_usd_cash(test_company, balance=Decimal("500.00")) -> str:
+    from app.models.cash import CashAccount
+    async with TestSessionLocal() as session:
+        acc = CashAccount(
+            company_id=test_company.id, name="FX Cash USD", currency="USD",
+            balance=balance, opening_balance=balance, is_active=True,
+        )
+        session.add(acc)
+        await session.commit()
+        return str(acc.id)
+
+
+async def test_revaluation_covers_payables_cash(client: AsyncClient, auth_headers, test_company):
+    await _seed_accounts(test_company)
+    await _create_usd_payable(test_company, Decimal("200.00"))
+    await _create_usd_cash(test_company, Decimal("500.00"))
+    await _add_rate(test_company, "USD", "2.70", date(2026, 8, 1))
+    await _add_rate(test_company, "USD", "2.80", date(2026, 8, 2))
+
+    resp = await client.post("/api/v1/gl/exchange-differences/run", params={"on_date": "2026-08-02"}, headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert data["revaluated"] == 2
+    assert data["posted_entries"] == 2
+
+    # Cash (asset, rate up) → gain +50 (500*0.10); payable (liability, rate up) → loss -20
+    assert data["total_difference"] == 50.0 - 20.0
+
+    # Both rows reference the right columns
+    async with TestSessionLocal() as session:
+        rows = (await session.execute(select(ExchangeDifference).where(
+            ExchangeDifference.revaluation_date == date(2026, 8, 2),
+        ))).scalars().all()
+        assert len(rows) == 2
+        assert any(r.cash_account_id is not None and r.difference == Decimal("50.00") for r in rows)
+        assert any(r.payable_id is not None and r.difference == Decimal("-20.00") for r in rows)

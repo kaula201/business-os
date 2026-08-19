@@ -8,6 +8,10 @@ import { glApi } from '../services/api'
 
 interface ExchangeDiff {
   id: string
+  receivable_id: string | null
+  payable_id: string | null
+  cash_account_id: string | null
+  bank_account_id: string | null
   currency: string
   revaluation_date: string
   outstanding_amount: number
@@ -17,6 +21,14 @@ interface ExchangeDiff {
   difference: number
   journal_entry_id: string | null
   created_at: string
+}
+
+function kindLabel(d: ExchangeDiff, t: (k: string) => string): string {
+  if (d.receivable_id) return t('დებიტორული')
+  if (d.payable_id) return t('ვალდებულება')
+  if (d.cash_account_id) return t('სალარო')
+  if (d.bank_account_id) return t('ბანკი')
+  return '—'
 }
 
 function money(v: number) {
@@ -40,7 +52,9 @@ export default function ExchangeDifferencesPage() {
   })
 
   const columns = [
-    { key: 'currency', label: 'ვალუტა', priority: true, render: (d: ExchangeDiff) => (
+    { key: 'kind', label: 'ტიპი', priority: true, render: (d: ExchangeDiff) => (
+      <span className="rounded-full bg-brandgray-100 dark:bg-dark-100 px-2 py-0.5 text-xs font-medium text-brandgray-600 dark:text-gray-400">{kindLabel(d, t)}</span>) },
+    { key: 'currency', label: 'ვალუტა', render: (d: ExchangeDiff) => (
       <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{d.currency}</span>) },
     { key: 'revaluation_date', label: 'თარიღი', render: (d: ExchangeDiff) => new Date(d.revaluation_date).toLocaleDateString('ka-GE') },
     { key: 'outstanding_amount', label: 'ნაშთი', render: (d: ExchangeDiff) => money(d.outstanding_amount) },

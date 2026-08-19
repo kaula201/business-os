@@ -116,6 +116,8 @@ const en: Record<string, string> = {
   'დარჩენილი დავალიანება': 'Remaining balance',
   'გადახდის გაუქმება': 'Cancel payment',
   'სალარო': 'Cash register',
+  'დებიტორული': 'Receivable',
+  'ვალდებულება': 'Payable',
   'გასავალი': 'Expense',
   'ოპერაცია': 'Operation',
   'მიმართულება': 'Direction',

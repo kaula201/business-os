@@ -29,6 +29,7 @@ def require_gl_role(user: User) -> None:
 def _to_response(d: ExchangeDifference) -> ExchangeDifferenceResponse:
     return ExchangeDifferenceResponse(
         id=d.id, company_id=d.company_id, receivable_id=d.receivable_id,
+        payable_id=d.payable_id, cash_account_id=d.cash_account_id, bank_account_id=d.bank_account_id,
         currency=d.currency, revaluation_date=d.revaluation_date,
         outstanding_amount=float(d.outstanding_amount), rate=float(d.rate),
         gel_equivalent=float(d.gel_equivalent),

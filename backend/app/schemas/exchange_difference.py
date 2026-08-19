@@ -9,7 +9,10 @@ from pydantic import BaseModel
 class ExchangeDifferenceResponse(BaseModel):
     id: UUID
     company_id: UUID
-    receivable_id: UUID
+    receivable_id: UUID | None
+    payable_id: UUID | None
+    cash_account_id: UUID | None
+    bank_account_id: UUID | None
     currency: str
     revaluation_date: date
     outstanding_amount: float
