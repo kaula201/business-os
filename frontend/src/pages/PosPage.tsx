@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Minus, Trash2, ScanBarcode, Undo2, Gift, WifiOff, Printer, X } from 'lucide-react'
+import { Plus, Minus, Trash2, ScanBarcode, Undo2, Gift, WifiOff, Printer, X, Banknote, UtensilsCrossed } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import { clientsApi, posApi, productsApi } from '../services/api'
@@ -33,6 +33,18 @@ export default function PosPage() {
   const [loyaltyBalance, setLoyaltyBalance] = useState<number | null>(null)
   const [redeemPoints, setRedeemPoints] = useState('')
   const [lastReceipt, setLastReceipt] = useState<any | null>(null)
+  const [giftOpen, setGiftOpen] = useState(false)
+  const [giftAmount, setGiftAmount] = useState(0)
+  const [giftCards, setGiftCards] = useState<any[]>([])
+  const [cashOpen, setCashOpen] = useState(false)
+  const [cashAmount, setCashAmount] = useState(0)
+  const [cashReason, setCashReason] = useState('')
+  const [xReportData, setXReportData] = useState<any | null>(null)
+  const [zReports, setZReports] = useState<any[]>([])
+  const [tables, setTables] = useState<any[]>([])
+  const [tableOpen, setTableOpen] = useState(false)
+  const [tableName, setTableName] = useState('')
+  const [tableCapacity, setTableCapacity] = useState(2)
 
   const { data: sessionsData } = useQuery({
     queryKey: ['pos-sessions'],
@@ -105,7 +117,12 @@ export default function PosPage() {
         posApi.loyaltyBalance(clientId).then(r => setLoyaltyBalance(r.data.data.points))
       }
       if (offlineMode) {
-        posApi.queueOfflineOrder('local-device', { order_id: order.id, order_number: order.order_number, total: order.total })
+        posApi.queueOfflineOrder('local-device', {
+          session_id: openSession.id,
+          client_id: clientId || null,
+          items: cart.map(i => ({ product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price })),
+          payment_method: 'cash',
+        })
           .then(() => qc.invalidateQueries({ queryKey: ['pos-offline'] }))
       }
       setLastReceipt(order)
@@ -161,9 +178,66 @@ export default function PosPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['pos-devices'] }); setDeviceOpen(false); setDeviceForm({ name: '', device_type: 'fiscal_printer', serial_number: '' }) },
   })
 
+  const toggleDevice = useMutation({
+    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) => posApi.updateFiscalDevice(id, is_active),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pos-devices'] }),
+  })
+
   const syncOffline = useMutation({
     mutationFn: (id: string) => posApi.syncOfflineOrder(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pos-offline'] }),
+  })
+
+  const issueGift = useMutation({
+    mutationFn: (amount: number) => posApi.issueGiftCard(amount),
+    onSuccess: (d) => {
+      setGiftCards(prev => [d.data.data, ...prev])
+      setGiftOpen(false)
+      setGiftAmount(0)
+    },
+  })
+
+  const cashInMut = useMutation({
+    mutationFn: ({ amount, reason }: { amount: number; reason: string }) => posApi.cashIn(openSession.id, amount, reason || undefined),
+    onSuccess: () => { setCashOpen(false); setCashAmount(0); setCashReason('') },
+  })
+
+  const cashOutMut = useMutation({
+    mutationFn: ({ amount, reason }: { amount: number; reason: string }) => posApi.cashOut(openSession.id, amount, reason || undefined),
+    onSuccess: () => { setCashOpen(false); setCashAmount(0); setCashReason('') },
+  })
+
+  const loadXReport = useMutation({
+    mutationFn: (sessionId: string) => posApi.xReport(sessionId).then(r => r.data.data),
+    onSuccess: (data) => setXReportData(data),
+  })
+
+  const closeWithZ = useMutation({
+    mutationFn: (declared: number) => posApi.zReport(openSession.id, declared),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pos-sessions'] })
+      setXReportData(null)
+    },
+  })
+
+  const createTableMut = useMutation({
+    mutationFn: () => posApi.createTable(tableName, tableCapacity),
+    onSuccess: (d) => {
+      setTables(prev => [...prev, d.data.data])
+      setTableOpen(false)
+      setTableName('')
+      setTableCapacity(2)
+    },
+  })
+
+  const occupyMut = useMutation({
+    mutationFn: (id: string) => posApi.occupyTable(id),
+    onSuccess: () => posApi.listTables().then(r => setTables(r.data.data)),
+  })
+
+  const freeMut = useMutation({
+    mutationFn: (id: string) => posApi.freeTable(id),
+    onSuccess: () => posApi.listTables().then(r => setTables(r.data.data)),
   })
 
   const addByBarcode = () => {
@@ -207,6 +281,20 @@ export default function PosPage() {
           <button onClick={() => setDeviceOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400">
             <Printer size={15} /> {t('ფისკალური მოწყობილობები')}
+          </button>
+          <button onClick={() => { setGiftOpen(true); posApi.listGiftCards().then(r => setGiftCards(r.data.data)) }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400">
+            <Gift size={15} /> {t('სასაჩუქრე ბარათები')}
+          </button>
+          {openSession && (
+            <button onClick={() => { setCashOpen(true); setCashAmount(0); setCashReason('') }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400">
+              <Banknote size={15} /> {t('სალარო')}
+            </button>
+          )}
+          <button onClick={() => { setTableOpen(true); posApi.listTables().then(r => setTables(r.data.data)) }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400">
+            <UtensilsCrossed size={15} /> {t('მაგიდები')}
           </button>
           {openSession ? (
             <button onClick={() => closeSessionMut.mutate(openSession.id)}
@@ -434,7 +522,15 @@ export default function PosPage() {
                     <div className="font-medium">{d.name}</div>
                     <div className="text-xs text-brandgray-500">{d.device_type} · {d.serial_number}</div>
                   </div>
-                  {d.is_active && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">{t('აქტიური')}</span>}
+                  <div className="flex items-center gap-2">
+                    {d.is_active && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">{t('აქტიური')}</span>}
+                    <button
+                      onClick={() => toggleDevice.mutate({ id: d.id, is_active: !d.is_active })}
+                      className={`px-2 py-1 rounded-md text-xs font-medium ${d.is_active ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
+                    >
+                      {d.is_active ? t('დეაქტივაცია') : t('აქტივაცია')}
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -460,6 +556,121 @@ export default function PosPage() {
             className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
             {t('რეგისტრაცია')}
           </button>
+        </div>
+      </Modal>
+
+      {/* Gift cards modal */}
+      <Modal open={giftOpen} onClose={() => setGiftOpen(false)} title={t('სასაჩუქრე ბარათები')} size="lg">
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <input type="number" min={1} className={inputCls} placeholder={t('თანხა')}
+              value={giftAmount || ''} onChange={e => setGiftAmount(Number(e.target.value))} />
+            <button onClick={() => issueGift.mutate(giftAmount)} disabled={issueGift.isPending || giftAmount <= 0}
+              className="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+              {t('ბარათის გაცემა')}
+            </button>
+          </div>
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            {giftCards.length === 0 ? (
+              <p className="text-sm text-brandgray-400 dark:text-gray-500 text-center py-6">{t('ბარათები არ არის')}</p>
+            ) : (
+              giftCards.map((g: any) => (
+                <div key={g.id} className="flex items-center justify-between rounded-lg border border-brandgray-100 dark:border-dark-50 px-3 py-2 text-sm">
+                  <div>
+                    <div className="font-medium font-mono">{g.card_number}</div>
+                    <div className="text-xs text-brandgray-500">PIN: {g.pin} · {g.status}</div>
+                  </div>
+                  <span className="font-mono font-semibold">{money(g.balance)}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Cash register modal */}
+      <Modal open={cashOpen} onClose={() => setCashOpen(false)} title={t('სალარო')} size="lg">
+        {openSession && (
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <input type="number" min={0} className={inputCls} placeholder={t('თანხა')}
+                value={cashAmount || ''} onChange={e => setCashAmount(Number(e.target.value))} />
+              <input className={inputCls} placeholder={t('მიზეზი')}
+                value={cashReason} onChange={e => setCashReason(e.target.value)} />
+              <button onClick={() => cashInMut.mutate({ amount: cashAmount, reason: cashReason })}
+                disabled={cashInMut.isPending || cashAmount <= 0}
+                className="px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50">
+                {t('შეტანა')}
+              </button>
+              <button onClick={() => cashOutMut.mutate({ amount: cashAmount, reason: cashReason })}
+                disabled={cashOutMut.isPending || cashAmount <= 0}
+                className="px-3 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-50">
+                {t('ამოღება')}
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => loadXReport.mutate(openSession.id)} disabled={loadXReport.isPending}
+                className="px-4 py-2 rounded-lg bg-brandgray-100 text-brandgray-700 text-sm font-medium hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-300">
+                {t('X-ანგარიში')}
+              </button>
+              <button onClick={() => closeWithZ.mutate(xReportData?.expected_cash ?? 0)} disabled={closeWithZ.isPending}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700">
+                {t('Z-ანგარიში და დახურვა')}
+              </button>
+            </div>
+            {xReportData && (
+              <div className="rounded-lg border border-brandgray-100 dark:border-dark-50 p-4 text-sm space-y-1.5">
+                <div className="flex justify-between"><span className="text-brandgray-500">{t('შეკვეთები')}</span><span className="font-semibold">{xReportData.total_orders}</span></div>
+                <div className="flex justify-between"><span className="text-brandgray-500">{t('ნაღდი გაყიდვები')}</span><span className="font-mono font-semibold">{money(xReportData.cash_sales)}</span></div>
+                <div className="flex justify-between"><span className="text-brandgray-500">{t('ბარათით')}</span><span className="font-mono font-semibold">{money(xReportData.card_sales)}</span></div>
+                <div className="flex justify-between"><span className="text-brandgray-500">{t('დაბრუნებები')}</span><span className="font-mono font-semibold text-red-600">-{money(xReportData.total_refunds)}</span></div>
+                <div className="flex justify-between"><span className="text-brandgray-500">{t('შეტანა/ამოღება')}</span><span className="font-mono">{money(xReportData.cash_in)} / {money(xReportData.cash_out)}</span></div>
+                <div className="flex justify-between border-t border-brandgray-100 dark:border-dark-50 pt-2 font-bold">
+                  <span>{t('მოსალოდნელი ნაღდი')}</span><span className="font-mono">{money(xReportData.expected_cash)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Tables modal */}
+      <Modal open={tableOpen} onClose={() => setTableOpen(false)} title={t('მაგიდები')} size="lg">
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <input className={inputCls} placeholder={t('მაგიდის სახელი')}
+              value={tableName} onChange={e => setTableName(e.target.value)} />
+            <input type="number" min={1} max={50} className={`${inputCls} w-24`} placeholder={t('ადგილები')}
+              value={tableCapacity} onChange={e => setTableCapacity(Number(e.target.value))} />
+            <button onClick={() => createTableMut.mutate()} disabled={createTableMut.isPending || !tableName}
+              className="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+              {t('დამატება')}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-72 overflow-y-auto">
+            {tables.length === 0 ? (
+              <p className="text-sm text-brandgray-400 dark:text-gray-500 col-span-full text-center py-6">{t('მაგიდები არ არის')}</p>
+            ) : (
+              tables.map((tb: any) => (
+                <div key={tb.id} className={`rounded-lg border p-3 text-sm ${tb.status === 'occupied' ? 'border-red-200 bg-red-50/60 dark:border-red-900/40 dark:bg-red-900/10' : 'border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-900/10'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">{tb.name}</span>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${tb.status === 'occupied' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
+                      {tb.status === 'occupied' ? t('დაკავებული') : t('თავისუფალი')}
+                    </span>
+                  </div>
+                  <div className="text-xs text-brandgray-500 mt-1">{tb.capacity} {t('ადგილი')} · {tb.qr_code}</div>
+                  <div className="mt-2">
+                    {tb.status === 'occupied' ? (
+                      <button onClick={() => freeMut.mutate(tb.id)} className="w-full px-2 py-1 rounded-md text-xs bg-amber-600 text-white hover:bg-amber-700">{t('გათავისუფლება')}</button>
+                    ) : (
+                      <button onClick={() => occupyMut.mutate(tb.id)} className="w-full px-2 py-1 rounded-md text-xs bg-primary-600 text-white hover:bg-primary-700">{t('დაკავება')}</button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </Modal>
     </div>

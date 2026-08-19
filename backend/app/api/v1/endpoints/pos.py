@@ -12,6 +12,7 @@ from app.core.dependencies import get_current_user, require_module
 from app.models.user import User
 from app.models.pos import POSSession, POSOrder, POSOrderItem
 from app.models.pos import POSRefund, POSLoyaltyAccount, POSLoyaltyTransaction, POSOfflineQueue, POSFiscalDevice
+from app.models.pos_extended import GiftCard, GiftCardTransaction, POSCashMovement, POSZReport
 from app.models.product import Product
 from app.schemas.common import ResponseBase
 from app.core.time import utc_now
@@ -19,7 +20,7 @@ from app.schemas.pos import (
     POSSessionCreate, POSSessionResponse,
     POSOrderCreate, POSOrderResponse, POSOrderItemResponse,
 )
-from datetime import datetime
+from datetime import date, datetime
 
 router = APIRouter(prefix="/pos", tags=["POS — სალარო"])
 
@@ -165,6 +166,27 @@ async def create_pos_order(
     session.total_orders += 1
     session.total_sales += total
     await db.flush()
+
+    # Loyalty automation: earn 1 point per 1 GEL when a client is attached
+    if data.client_id:
+        account = (await db.execute(
+            select(POSLoyaltyAccount).where(
+                POSLoyaltyAccount.company_id == current_user.company_id,
+                POSLoyaltyAccount.client_id == data.client_id,
+            ).with_for_update()
+        )).scalar_one_or_none()
+        if not account:
+            account = POSLoyaltyAccount(company_id=current_user.company_id, client_id=data.client_id)
+            db.add(account)
+            await db.flush()
+        points = total.quantize(Decimal("0.01"))
+        account.points += points
+        account.total_earned += points
+        db.add(POSLoyaltyTransaction(
+            company_id=current_user.company_id, account_id=account.id, order_id=order.id,
+            points=points, transaction_type="earn",
+        ))
+        await db.flush()
 
     # Reload with items
     result = (await db.execute(
@@ -340,18 +362,77 @@ async def sync_offline_order(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("pos", "can_create")),
 ):
+    """Sync a queued offline order — actually creates the POS order from the payload."""
     entry = (await db.execute(
         select(POSOfflineQueue).where(
             POSOfflineQueue.id == queue_id,
             POSOfflineQueue.company_id == current_user.company_id,
-        )
+        ).with_for_update()
     )).scalar_one_or_none()
     if not entry:
         raise HTTPException(status_code=404, detail="რიგის ჩანაწერი არ მოიძებნა")
+    if entry.status == "synced":
+        raise HTTPException(status_code=409, detail="უკვე სინქრონიზებულია")
+
+    payload = entry.payload or {}
+    session_id = payload.get("session_id")
+    session = (await db.execute(
+        select(POSSession).where(POSSession.id == session_id, POSSession.company_id == current_user.company_id)
+    )).scalar_one_or_none() if session_id else None
+    if not session:
+        session = (await db.execute(
+            select(POSSession).where(POSSession.company_id == current_user.company_id, POSSession.status == "open")
+        )).scalars().first()
+    if not session:
+        raise HTTPException(status_code=409, detail="ღია ცვლა არ არის — შეკვეთის სინქრონიზაცია შეუძლებელია")
+
+    # rebuild the order from the payload
+    subtotal = Decimal("0")
+    order_items = []
+    for item in payload.get("items", []):
+        product = (await db.execute(
+            select(Product).where(Product.id == item["product_id"], Product.company_id == current_user.company_id)
+        )).scalar_one_or_none()
+        if not product:
+            raise HTTPException(status_code=404, detail=f"პროდუქტი {item['product_id']} არ მოიძებნა")
+        qty = Decimal(str(item["quantity"]))
+        price = Decimal(str(item.get("unit_price", product.sale_price)))
+        line_total = (qty * price).quantize(Decimal("0.01"))
+        subtotal += line_total
+        order_items.append({
+            "product_id": product.id, "product_name": product.name,
+            "quantity": qty, "unit_price": price, "line_total": line_total,
+        })
+
+    vat = (subtotal * Decimal("0.18")).quantize(Decimal("0.01"))
+    total = subtotal + vat
+    count = (await db.execute(
+        select(func.count(POSOrder.id)).where(POSOrder.company_id == current_user.company_id)
+    )).scalar() or 0
+    order = POSOrder(
+        company_id=current_user.company_id, session_id=session.id,
+        client_id=payload.get("client_id"),
+        order_number=f"POS-{utc_now():%y%m%d}-{count + 1:04d}",
+        status="completed", subtotal=subtotal, vat_amount=vat, total=total,
+        payment_method=payload.get("payment_method", "cash"),
+        payment_reference=payload.get("payment_reference"),
+        created_by=current_user.id,
+    )
+    db.add(order)
+    await db.flush()
+    for item in order_items:
+        db.add(POSOrderItem(pos_order_id=order.id, **item))
+    await db.flush()
+
+    session.total_orders += 1
+    session.total_sales += total
     entry.status = "synced"
     entry.synced_at = utc_now()
     await db.flush()
-    return ResponseBase(data={"id": str(entry.id)}, message="სინქრონიზებულია")
+    return ResponseBase(data={
+        "id": str(entry.id), "order_id": str(order.id), "order_number": order.order_number,
+        "total": float(total),
+    }, message="შეკვეთა სინქრონიზებულია — POS შეკვეთა შეიქმნა")
 
 
 # ── Fiscal devices ────────────────────────────────────────────────────────────
@@ -387,6 +468,31 @@ async def register_fiscal_device(
     return ResponseBase(data={"id": str(device.id)}, message="მოწყობილობა დარეგისტრირდა")
 
 
+@router.patch("/fiscal-devices/{device_id}", response_model=ResponseBase[dict])
+async def update_fiscal_device(
+    device_id: UUID,
+    is_active: bool | None = None,
+    name: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_edit")),
+):
+    """Toggle a device active/inactive or rename it."""
+    device = (await db.execute(
+        select(POSFiscalDevice).where(POSFiscalDevice.id == device_id, POSFiscalDevice.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not device:
+        raise HTTPException(status_code=404, detail="მოწყობილობა არ მოიძებნა")
+    if is_active is not None:
+        device.is_active = is_active
+    if name:
+        device.name = name
+    await db.flush()
+    return ResponseBase(data={
+        "id": str(device.id), "name": device.name,
+        "device_type": device.device_type, "is_active": device.is_active,
+    }, message="მოწყობილობა განახლდა")
+
+
 @router.get("/hardware/status", response_model=ResponseBase[dict])
 async def hardware_status(
     db: AsyncSession = Depends(get_db),
@@ -408,3 +514,255 @@ async def hardware_status(
             "serial_number": d.serial_number, "is_active": d.is_active,
         } for d in rows],
     })
+
+
+# ── Gift cards ────────────────────────────────────────────────────────────────
+
+@router.get("/gift-cards", response_model=ResponseBase[list[dict]])
+async def list_gift_cards(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_access")),
+):
+    rows = (await db.execute(
+        select(GiftCard).where(GiftCard.company_id == current_user.company_id).order_by(GiftCard.created_at.desc())
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(g.id), "card_number": g.card_number, "pin": g.pin,
+        "initial_balance": float(g.initial_balance), "balance": float(g.balance),
+        "status": g.status, "expires_at": g.expires_at.isoformat() if g.expires_at else None,
+        "created_at": g.created_at.isoformat(),
+    } for g in rows])
+
+
+@router.post("/gift-cards", response_model=ResponseBase[dict], status_code=201)
+async def issue_gift_card(
+    amount: Decimal = Query(..., gt=0),
+    expires_at: date | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_create")),
+):
+    """Issue a gift card with a unique number and optional PIN."""
+    import random
+    card_number = f"GC-{utc_now():%y%m%d}-{random.randint(100000, 999999)}"
+    pin = f"{random.randint(1000, 9999)}"
+    card = GiftCard(
+        company_id=current_user.company_id, card_number=card_number, pin=pin,
+        initial_balance=amount, balance=amount, expires_at=expires_at,
+        issued_by=current_user.id,
+    )
+    db.add(card)
+    await db.flush()
+    db.add(GiftCardTransaction(
+        company_id=current_user.company_id, card_id=card.id,
+        amount=amount, transaction_type="issue", created_by=current_user.id,
+    ))
+    await db.flush()
+    return ResponseBase(data={
+        "id": str(card.id), "card_number": card.card_number, "pin": card.pin,
+        "balance": float(card.balance),
+    }, message="სასაჩუქრე ბარათი გაიცა")
+
+
+@router.post("/gift-cards/{card_id}/top-up", response_model=ResponseBase[dict])
+async def top_up_gift_card(
+    card_id: UUID,
+    amount: Decimal = Query(..., gt=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_create")),
+):
+    card = (await db.execute(
+        select(GiftCard).where(GiftCard.id == card_id, GiftCard.company_id == current_user.company_id).with_for_update()
+    )).scalar_one_or_none()
+    if not card:
+        raise HTTPException(status_code=404, detail="ბარათი არ მოიძებნა")
+    if card.status != "active":
+        raise HTTPException(status_code=409, detail="ბარათი არაა აქტიური")
+    card.balance += amount
+    db.add(GiftCardTransaction(
+        company_id=current_user.company_id, card_id=card.id,
+        amount=amount, transaction_type="top_up", created_by=current_user.id,
+    ))
+    await db.flush()
+    return ResponseBase(data={"balance": float(card.balance)}, message="ბარათი შეივსო")
+
+
+@router.post("/gift-cards/{card_id}/redeem", response_model=ResponseBase[dict])
+async def redeem_gift_card(
+    card_id: UUID,
+    amount: Decimal = Query(..., gt=0),
+    order_id: UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_create")),
+):
+    card = (await db.execute(
+        select(GiftCard).where(GiftCard.id == card_id, GiftCard.company_id == current_user.company_id).with_for_update()
+    )).scalar_one_or_none()
+    if not card:
+        raise HTTPException(status_code=404, detail="ბარათი არ მოიძებნა")
+    if card.status != "active":
+        raise HTTPException(status_code=409, detail="ბარათი არაა აქტიური")
+    if amount > Decimal(card.balance):
+        raise HTTPException(status_code=409, detail="ბარათზე საკმარისი თანხა არ არის")
+    card.balance -= amount
+    if card.balance <= 0:
+        card.status = "redeemed"
+    db.add(GiftCardTransaction(
+        company_id=current_user.company_id, card_id=card.id, order_id=order_id,
+        amount=-amount, transaction_type="redeem", created_by=current_user.id,
+    ))
+    await db.flush()
+    return ResponseBase(data={"balance": float(card.balance)}, message="ბარათით გადახდა შესრულდა")
+
+
+# ── Cash register (X/Z reports, cash in/out) ─────────────────────────────────
+
+@router.post("/sessions/{session_id}/cash-in", response_model=ResponseBase[dict])
+async def cash_in(
+    session_id: UUID,
+    amount: Decimal = Query(..., gt=0),
+    reason: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_create")),
+):
+    session = (await db.execute(
+        select(POSSession).where(POSSession.id == session_id, POSSession.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not session or session.status != "open":
+        raise HTTPException(status_code=409, detail="ღია სესია არ მოიძებნა")
+    db.add(POSCashMovement(
+        company_id=current_user.company_id, session_id=session.id,
+        movement_type="cash_in", amount=amount, reason=reason, created_by=current_user.id,
+    ))
+    await db.flush()
+    return ResponseBase(data={"amount": float(amount)}, message="ნაღდი ფული შეიტანეს სალაროში")
+
+
+@router.post("/sessions/{session_id}/cash-out", response_model=ResponseBase[dict])
+async def cash_out(
+    session_id: UUID,
+    amount: Decimal = Query(..., gt=0),
+    reason: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_create")),
+):
+    session = (await db.execute(
+        select(POSSession).where(POSSession.id == session_id, POSSession.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not session or session.status != "open":
+        raise HTTPException(status_code=409, detail="ღია სესია არ მოიძებნა")
+    db.add(POSCashMovement(
+        company_id=current_user.company_id, session_id=session.id,
+        movement_type="cash_out", amount=amount, reason=reason, created_by=current_user.id,
+    ))
+    await db.flush()
+    return ResponseBase(data={"amount": float(amount)}, message="ნაღდი ფული ამოიღეს სალაროდან")
+
+
+@router.get("/sessions/{session_id}/x-report", response_model=ResponseBase[dict])
+async def x_report(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_access")),
+):
+    """X-report — live session totals without closing."""
+    session = (await db.execute(
+        select(POSSession).where(POSSession.id == session_id, POSSession.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="სესია არ მოიძებნა")
+    orders = (await db.execute(
+        select(POSOrder).where(POSOrder.session_id == session.id)
+    )).scalars().all()
+    refunds = (await db.execute(
+        select(POSRefund).where(POSRefund.session_id == session.id)
+    )).scalars().all()
+    movements = (await db.execute(
+        select(POSCashMovement).where(POSCashMovement.session_id == session.id)
+    )).scalars().all()
+    cash_sales = sum((o.total for o in orders if o.payment_method == "cash"), Decimal("0"))
+    card_sales = sum((o.total for o in orders if o.payment_method != "cash"), Decimal("0"))
+    total_refunds = sum((r.amount for r in refunds), Decimal("0"))
+    cash_in = sum((m.amount for m in movements if m.movement_type == "cash_in"), Decimal("0"))
+    cash_out = sum((m.amount for m in movements if m.movement_type == "cash_out"), Decimal("0"))
+    expected_cash = cash_sales + cash_in - cash_out - total_refunds
+    return ResponseBase(data={
+        "session_id": str(session.id), "session_name": session.name,
+        "total_orders": len(orders), "total_sales": float(session.total_sales),
+        "cash_sales": float(cash_sales), "card_sales": float(card_sales),
+        "total_refunds": float(total_refunds),
+        "cash_in": float(cash_in), "cash_out": float(cash_out),
+        "expected_cash": float(expected_cash),
+    })
+
+
+@router.post("/sessions/{session_id}/z-report", response_model=ResponseBase[dict])
+async def z_report(
+    session_id: UUID,
+    declared_cash: Decimal | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_create")),
+):
+    """Z-report — close the session with a full cash register report."""
+    session = (await db.execute(
+        select(POSSession).where(POSSession.id == session_id, POSSession.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="სესია არ მოიძებნა")
+    if session.status != "open":
+        raise HTTPException(status_code=409, detail="სესია უკვე დახურულია")
+
+    orders = (await db.execute(
+        select(POSOrder).where(POSOrder.session_id == session.id)
+    )).scalars().all()
+    refunds = (await db.execute(
+        select(POSRefund).where(POSRefund.session_id == session.id)
+    )).scalars().all()
+    movements = (await db.execute(
+        select(POSCashMovement).where(POSCashMovement.session_id == session.id)
+    )).scalars().all()
+    cash_sales = sum((o.total for o in orders if o.payment_method == "cash"), Decimal("0"))
+    total_refunds = sum((r.amount for r in refunds), Decimal("0"))
+    cash_in = sum((m.amount for m in movements if m.movement_type == "cash_in"), Decimal("0"))
+    cash_out = sum((m.amount for m in movements if m.movement_type == "cash_out"), Decimal("0"))
+    expected_cash = cash_sales + cash_in - cash_out - total_refunds
+    difference = (declared_cash or expected_cash) - expected_cash
+
+    count = (await db.execute(
+        select(func.count(POSZReport.id)).where(POSZReport.company_id == current_user.company_id)
+    )).scalar() or 0
+    report = POSZReport(
+        company_id=current_user.company_id, session_id=session.id,
+        report_number=f"Z-{utc_now():%y%m%d}-{count + 1:04d}",
+        opened_at=session.opened_at, closed_at=utc_now(),
+        total_sales=session.total_sales, total_orders=session.total_orders,
+        total_refunds=total_refunds, cash_in=cash_in, cash_out=cash_out,
+        expected_cash=expected_cash, declared_cash=declared_cash, difference=difference,
+        created_by=current_user.id,
+    )
+    db.add(report)
+    session.status = "closed"
+    session.closed_at = utc_now()
+    await db.flush()
+    return ResponseBase(data={
+        "report_number": report.report_number, "total_sales": float(report.total_sales),
+        "total_orders": report.total_orders, "total_refunds": float(report.total_refunds),
+        "expected_cash": float(expected_cash), "declared_cash": float(declared_cash or 0),
+        "difference": float(difference),
+    }, message="Z-ანგარიში შექმნილია, სესია დახურულია")
+
+
+@router.get("/z-reports", response_model=ResponseBase[list[dict]])
+async def list_z_reports(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_access")),
+):
+    rows = (await db.execute(
+        select(POSZReport).where(POSZReport.company_id == current_user.company_id).order_by(POSZReport.created_at.desc())
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(r.id), "report_number": r.report_number, "session_id": str(r.session_id),
+        "total_sales": float(r.total_sales), "total_orders": r.total_orders,
+        "total_refunds": float(r.total_refunds), "expected_cash": float(r.expected_cash),
+        "declared_cash": float(r.declared_cash) if r.declared_cash else None,
+        "difference": float(r.difference), "closed_at": r.closed_at.isoformat(),
+    } for r in rows])

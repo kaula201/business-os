@@ -715,6 +715,38 @@ export const posApi = {
   listFiscalDevices: () => api.get('/pos/fiscal-devices'),
   registerFiscalDevice: (data: { name: string; device_type: string; serial_number: string }) =>
     api.post('/pos/fiscal-devices', null, { params: data }),
+  updateFiscalDevice: (id: string, is_active: boolean, name?: string) =>
+    api.patch(`/pos/fiscal-devices/${id}`, null, { params: { is_active, name } }),
+  // Gift cards
+  listGiftCards: () => api.get('/pos/gift-cards'),
+  issueGiftCard: (amount: number, expires_at?: string) =>
+    api.post('/pos/gift-cards', null, { params: { amount, expires_at } }),
+  topUpGiftCard: (id: string, amount: number) =>
+    api.post(`/pos/gift-cards/${id}/top-up`, null, { params: { amount } }),
+  redeemGiftCard: (id: string, amount: number, order_id?: string) =>
+    api.post(`/pos/gift-cards/${id}/redeem`, null, { params: { amount, order_id } }),
+  // Cash register
+  cashIn: (sessionId: string, amount: number, reason?: string) =>
+    api.post(`/pos/sessions/${sessionId}/cash-in`, null, { params: { amount, reason } }),
+  cashOut: (sessionId: string, amount: number, reason?: string) =>
+    api.post(`/pos/sessions/${sessionId}/cash-out`, null, { params: { amount, reason } }),
+  xReport: (sessionId: string) => api.get(`/pos/sessions/${sessionId}/x-report`),
+  zReport: (sessionId: string, declared_cash?: number) =>
+    api.post(`/pos/sessions/${sessionId}/z-report`, null, { params: { declared_cash } }),
+  listZReports: () => api.get('/pos/z-reports'),
+  // Restaurant
+  listTables: () => api.get('/pos/tables'),
+  createTable: (name: string, capacity: number) =>
+    api.post('/pos/tables', null, { params: { name, capacity } }),
+  occupyTable: (id: string) => api.post(`/pos/tables/${id}/occupy`),
+  freeTable: (id: string) => api.post(`/pos/tables/${id}/free`),
+  listOrderTypes: () => api.get('/pos/order-types'),
+  createOrderType: (code: string, name: string) =>
+    api.post('/pos/order-types', null, { params: { code, name } }),
+  startSelfOrder: (table_id?: string) =>
+    api.post('/pos/self-order/start', null, { params: { table_id } }),
+  submitSelfOrder: (token: string, items: Record<string, unknown>[]) =>
+    api.post(`/pos/self-order/${token}/submit`, { items }),
 }
 
 // HR API — payroll, payslips, leave, attendance, appraisal, recruitment

@@ -85,6 +85,8 @@ from app.models.report import ReportPreference
 from app.models.helpdesk import HelpdeskTicket
 from app.models.pos import POSSession, POSOrder, POSOrderItem
 from app.models.pos import POSRefund, POSLoyaltyAccount, POSLoyaltyTransaction, POSOfflineQueue, POSFiscalDevice
+from app.models.pos_extended import GiftCard, GiftCardTransaction, POSCashMovement, POSZReport
+from app.models.pos_restaurant import RestaurantTable, POSOrderType, SelfOrderSession
 from app.models.ecommerce import EcomCategory, EcomProduct
 from app.models.purchase import (
     GoodsReceipt,

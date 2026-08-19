@@ -33,6 +33,7 @@ from app.api.v1.endpoints import (
     tax_reports,
     financial_automation,
     consolidation_purchases,
+    pos_restaurant,
     automations,
     accounting_controls,
     consolidation_eliminations,
@@ -114,6 +115,7 @@ api_router.include_router(vendor_auth.router)
 api_router.include_router(tax_reports.router)
 api_router.include_router(financial_automation.router)
 api_router.include_router(consolidation_purchases.router)
+api_router.include_router(pos_restaurant.router)
 api_router.include_router(orders.router)
 api_router.include_router(orders_enhanced.router)
 api_router.include_router(pos.router)
