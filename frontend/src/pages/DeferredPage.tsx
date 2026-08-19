@@ -33,6 +33,7 @@ export default function DeferredPage() {
   const create = useMutation({ mutationFn:()=>api.post('/deferred/schedules',form), onSuccess:(r)=>{setModal(false);setSelectedId(r.data.data.id);setError('');refresh()}, onError:e=>setError(errorText(e)) })
   const recognize = useMutation({ mutationFn:(id:string)=>api.post(`/deferred/recognitions/${id}/recognize`), onSuccess:refresh, onError:e=>setError(errorText(e)) })
   const recognizeDue = useMutation({ mutationFn:()=>api.post('/deferred/recognize-due',{as_of_date:asOfDate}), onSuccess:()=>{setError('');refresh()}, onError:e=>setError(errorText(e)) })
+  const cancelSchedule = useMutation({ mutationFn:(id:string)=>api.post(`/deferred/schedules/${id}/cancel`), onSuccess:()=>{setError('');refresh()}, onError:e=>setError(errorText(e)) })
 
   const sourceAccounts = useMemo(()=>accounts.filter(a=>a.account_type===(form.deferral_type==='expense'?'asset':'liability')), [accounts,form.deferral_type])
   const targetAccounts = useMemo(()=>accounts.filter(a=>a.account_type===(form.deferral_type==='expense'?'expense':'income')), [accounts,form.deferral_type])
@@ -63,6 +64,7 @@ export default function DeferredPage() {
       {key:'recognized_amount',label:'აღიარებული',render:(s:DeferredSchedule)=>money(s.recognized_amount)},
       {key:'remaining_amount',label:'დარჩენილი',render:(s:DeferredSchedule)=>money(s.remaining_amount)},
       {key:'status',label:'სტატუსი',render:(s:DeferredSchedule)=><span className={`badge ${s.status==='completed'?'badge-green':'badge-yellow'}`}>{s.status==='completed'? t('დასრულებული') : t('აქტიური')}</span>},
+      {key:'actions',label:'',render:(s:DeferredSchedule)=>s.status==='active'?<button className="btn-secondary py-1 text-xs text-red-600" disabled={cancelSchedule.isPending} onClick={()=>{if(confirm(t('გრაფიკი გავაუქმოთ?')))cancelSchedule.mutate(s.id)}}>{t('გაუქმება')}</button>:null},
     ]} data={visible} clientPageSize={20} isLoading={schedulesQuery.isLoading} emptyMessage={t('გადავადებული გრაფიკები არ არის')}/>
 
     {selected&&<section className="card p-0 overflow-hidden dark:bg-dark-200 dark:border-dark-50">

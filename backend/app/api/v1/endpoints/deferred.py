@@ -186,3 +186,42 @@ async def reverse_recognition(
     await db.flush()
 
     return ResponseBase(message="აღიარება გაუქმებულია — შექმნილია reversing GL ჩანაწერი")
+
+
+# ── Cancel schedule ──────────────────────────────────────────────────────────
+
+@router.post("/schedules/{schedule_id}/cancel", response_model=ResponseBase[dict])
+async def cancel_schedule(
+    schedule_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cancel a deferred schedule — mark all pending periods cancelled. Recognized
+    periods stay untouched; the schedule status becomes 'cancelled'."""
+    require_role(current_user)
+    schedule = (await db.execute(
+        select(DeferredSchedule).where(
+            DeferredSchedule.id == schedule_id,
+            DeferredSchedule.company_id == current_user.company_id,
+        ).with_for_update()
+    )).scalar_one_or_none()
+    if not schedule:
+        raise HTTPException(404, "გადავადებული გრაფიკი არ მოიძებნა")
+    if schedule.status == "cancelled":
+        raise HTTPException(400, "გრაფიკი უკვე გაუქმებულია")
+
+    pending = (await db.execute(
+        select(DeferredRecognition).where(
+            DeferredRecognition.schedule_id == schedule.id,
+            DeferredRecognition.status == "pending",
+        )
+    )).scalars().all()
+    for p in pending:
+        p.status = "cancelled"
+
+    schedule.status = "cancelled"
+    await db.flush()
+    return ResponseBase(
+        data={"cancelled_periods": len(pending)},
+        message="გრაფიკი გაუქმდა",
+    )
