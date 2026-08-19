@@ -91,3 +91,72 @@ async def reverse_elimination(elimination_id: UUID, db: AsyncSession = Depends(g
     row.status = "reversed"; row.reversal_journal_entry_id = entry.id; row.reversed_at = utc_now()
     await db.flush(); result = _row(row); await db.commit()
     return ResponseBase(data=result, message="Elimination გაუქმდა")
+
+
+# ── Automatic intercompany detection ────────────────────────────────────────
+
+@router.post("/auto-detect", response_model=ResponseBase[dict])
+async def auto_detect_eliminations(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Detect invoices issued to companies in the same consolidation group and
+    create draft eliminations (revenue 4100 vs expense 5100)."""
+    _require_accountant(current_user)
+    from app.models.invoice import Invoice
+
+    own = (await db.execute(select(Company).where(Company.id == current_user.company_id))).scalar_one()
+    if not own.company_group_id:
+        raise HTTPException(status_code=422, detail="კომპანია არ არის კონსოლიდაციის ჯგუფში")
+
+    # All group companies (except us) keyed by identification code
+    group_companies = (await db.execute(
+        select(Company).where(Company.company_group_id == own.company_group_id)
+    )).scalars().all()
+    code_to_company = {c.identification_code: c for c in group_companies if c.id != own.id}
+    if not code_to_company:
+        return ResponseBase(data={"created": 0, "skipped": 0, "items": []}, message="ჯგუფში სხვა კომპანიები არ არის")
+
+    # Issued invoices to those group companies
+    query = select(Invoice).where(
+        Invoice.company_id == own.id,
+        Invoice.status == "issued",
+        Invoice.client_identification_code.in_(list(code_to_company.keys())),
+    )
+    if date_from:
+        query = query.where(Invoice.invoice_date >= date.fromisoformat(date_from))
+    if date_to:
+        query = query.where(Invoice.invoice_date <= date.fromisoformat(date_to))
+    invoices = (await db.execute(query.order_by(Invoice.invoice_date))).scalars().all()
+
+    created = 0
+    skipped = 0
+    items = []
+    for inv in invoices:
+        counterparty = code_to_company[inv.client_identification_code]
+        key = f"auto:{inv.id}"
+        existing = (await db.execute(select(ConsolidationElimination).where(
+            ConsolidationElimination.company_id == own.id,
+            ConsolidationElimination.idempotency_key == key,
+        ))).scalar_one_or_none()
+        if existing:
+            skipped += 1
+            items.append({"invoice_number": inv.invoice_number, "amount": float(inv.subtotal), "status": "already_exists"})
+            continue
+        row = ConsolidationElimination(
+            company_id=own.id, counterparty_company_id=counterparty.id,
+            elimination_date=inv.invoice_date,
+            source_revenue_account_code="4100", source_expense_account_code="5100",
+            amount=inv.subtotal, idempotency_key=key,
+            notes=f"ავტომატური: ინვოისი {inv.invoice_number} — {inv.client_name}",
+            created_by=current_user.id,
+        )
+        db.add(row)
+        await db.flush()
+        created += 1
+        items.append({"invoice_number": inv.invoice_number, "amount": float(inv.subtotal), "status": "created"})
+    await db.commit()
+    return ResponseBase(data={"created": created, "skipped": skipped, "items": items},
+                        message=f"ავტომატური გამოვლენა: {created} შექმნილი, {skipped} არსებული")

@@ -468,6 +468,8 @@ export const glApi = {
   createConsolidationElimination: (data: Record<string, unknown>) => api.post('/gl/consolidation-eliminations/', data),
   approveConsolidationElimination: (id: string) => api.post(`/gl/consolidation-eliminations/${id}/approve`),
   reverseConsolidationElimination: (id: string) => api.post(`/gl/consolidation-eliminations/${id}/reverse`),
+  autoDetectConsolidationEliminations: (params?: { date_from?: string; date_to?: string }) =>
+    api.post('/gl/consolidation-eliminations/auto-detect', null, { params }),
 }
 
 // Company API

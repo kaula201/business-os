@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Scale, CheckCircle2, RotateCcw } from 'lucide-react'
+import { Building2, Scale, CheckCircle2, RotateCcw, Sparkles } from 'lucide-react'
 
 import { glApi } from '../services/api'
 
@@ -57,6 +57,10 @@ export default function ConsolidatedReportsPage() {
   })
   const approve = useMutation({ mutationFn: (id: string) => glApi.approveConsolidationElimination(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['consolidation-eliminations'] }) })
   const reverse = useMutation({ mutationFn: (id: string) => glApi.reverseConsolidationElimination(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['consolidation-eliminations'] }) })
+  const autoDetect = useMutation({
+    mutationFn: () => glApi.autoDetectConsolidationEliminations().then(r => r.data.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['consolidation-eliminations'] }),
+  })
 
   return (
     <div className="space-y-5">
@@ -140,7 +144,25 @@ export default function ConsolidatedReportsPage() {
       </div>
 
       <div className="rounded-xl bg-white border border-brandgray-100 shadow-sm dark:bg-dark-200 dark:border-dark-50">
-        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-brandgray-100 dark:border-dark-50"><Building2 size={16} className="text-primary-600" /><h2 className="font-semibold text-brandgray-800 dark:text-gray-100">{t('კონსოლიდაციის გამორიცხვები')}</h2></div>
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-brandgray-100 dark:border-dark-50">
+          <Building2 size={16} className="text-primary-600" />
+          <h2 className="font-semibold text-brandgray-800 dark:text-gray-100">{t('კონსოლიდაციის გამორიცხვები')}</h2>
+          <div className="ml-auto">
+            <button
+              onClick={() => autoDetect.mutate()}
+              disabled={autoDetect.isPending}
+              className="btn-secondary text-xs flex items-center gap-1"
+            >
+              <Sparkles size={14} />
+              {autoDetect.isPending ? t('მუშავდება...') : t('ავტო-გამოვლენა')}
+            </button>
+          </div>
+        </div>
+        {autoDetect.data && (
+          <div className="px-5 py-2 text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border-b border-emerald-100 dark:border-emerald-900/30">
+            {t('ავტო-გამოვლენა დასრულდა')}: {autoDetect.data.created} {t('შექმნილი')}, {autoDetect.data.skipped} {t('არსებული')}
+          </div>
+        )}
         <div className="divide-y divide-brandgray-100 dark:divide-dark-50">{eliminations.length === 0 ? <p className="p-5 text-sm text-brandgray-400">{t('მონაცემები არ არის')}</p> : eliminations.map((e: any) => <div key={e.id} className="flex items-center justify-between gap-3 p-4 text-sm"><div><span className="font-mono text-xs mr-2">{e.revenue_account} → {e.expense_account}</span><span>{money(e.amount)}</span><span className="ml-2 text-brandgray-400">{e.status}</span></div><div className="flex gap-2">{e.status === 'draft' && <button onClick={() => approve.mutate(e.id)} className="btn-secondary text-xs flex items-center gap-1"><CheckCircle2 size={14}/>{t('დადასტურება')}</button>}{e.status === 'approved' && <button onClick={() => reverse.mutate(e.id)} className="btn-secondary text-xs text-red-600 flex items-center gap-1"><RotateCcw size={14}/>{t('გაუქმება')}</button>}</div></div>)}</div>
       </div>
     </div>
