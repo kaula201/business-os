@@ -587,6 +587,15 @@ export const commApi = {
   portalSummary: (clientId: string) => api.get(`/customer-portal/clients/${clientId}/summary`),
 }
 
+// Vendor Portal API — supplier self-service users + summary
+export const vendorPortalApi = {
+  list: (params?: Record<string, unknown>) => api.get('/vendor-portal/', { params }),
+  create: (data: Record<string, unknown>) => api.post('/vendor-portal/', data),
+  update: (id: string, data: Record<string, unknown>) => api.patch(`/vendor-portal/${id}`, data),
+  remove: (id: string) => api.delete(`/vendor-portal/${id}`),
+  supplierSummary: (supplierId: string) => api.get(`/vendor-portal/suppliers/${supplierId}/summary`),
+}
+
 // WMS API — batches (lots) and serial numbers
 export const wmsApi = {
   listBatches: (params?: { product_id?: string; expiring_soon?: boolean; limit?: number }) =>

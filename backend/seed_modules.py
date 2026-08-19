@@ -48,6 +48,7 @@ MODULES = [
     ("email-tracking", "ელ.ფოსტა და ხელმოწერები",  "Email tracking & e-signature","Mail",          "/email-tracking","sales",     48,  None),
     ("subscriptions",  "გამოწერები",               "Recurring subscriptions",     "RefreshCw",       "/subscriptions", "sales",     49,  "invoices"),
     ("customer-portal","კლიენტის პორტალი",          "Customer portal users",       "Globe",           "/customer-portal","sales",    50,  "clients"),
+    ("vendor-portal",  "მომწოდებლის პორტალი",        "Vendor portal users",         "Globe",           "/vendor-portal", "purchases", 51,  "suppliers"),
     ("wms",           "საწყობის მართვა (WMS)",    "Warehouse management (WMS)",  "Boxes",           "/wms",          "operations", 56,  "inventory"),
     ("helpdesk",      "Helpdesk / მხარდაჭერა",       "Tickets, SLA, knowledge base","LifeBuoy",        "/helpdesk",     "operations", 57,  "tasks"),
     ("integrations",  "ინტეგრაციები",               "API keys, webhooks, RS.ge",   "Plug",            "/integrations", "operations", 58,  "settings"),
@@ -77,7 +78,7 @@ DEFAULT_PERMISSIONS = {
 FINANCIAL_MODULES = {"cash", "banking", "currency", "gl", "journal-entries", "trial-balance", "profit-loss", "balance-sheet", "expenses", "assets", "customer-finance", "supplier-finance", "srs", "budgeting", "analytic", "deferred", "accounting-periods", "gl-recurring", "exchange-differences", "consolidated", "banking-rules", "accounting-controls"}
 
 # Operational modules where manager gets create/edit
-OPERATIONAL_MODULES = {"clients", "orders", "invoices", "inventory", "tasks", "purchases", "suppliers", "fleet", "crm", "quotations", "price-lists", "sales-teams", "email-tracking", "subscriptions", "customer-portal", "wms", "helpdesk", "integrations", "payments", "email-calendar", "security", "automations", "procurement", "pos", "hr"}
+OPERATIONAL_MODULES = {"clients", "orders", "invoices", "inventory", "tasks", "purchases", "suppliers", "fleet", "crm", "quotations", "price-lists", "sales-teams", "email-tracking", "subscriptions", "customer-portal", "vendor-portal", "wms", "helpdesk", "integrations", "payments", "email-calendar", "security", "automations", "procurement", "pos", "hr"}
 
 
 async def seed_modules():

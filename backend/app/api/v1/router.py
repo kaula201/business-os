@@ -28,6 +28,7 @@ from app.api.v1.endpoints import (
     email_calendar,
     field_access,
     notifications,
+    vendor_portal,
     automations,
     accounting_controls,
     consolidation_eliminations,
@@ -104,6 +105,7 @@ api_router.include_router(crm.router)
 api_router.include_router(crm_enhanced.router)
 api_router.include_router(crm_export.router)
 api_router.include_router(customer_portal.router)
+api_router.include_router(vendor_portal.router)
 api_router.include_router(orders.router)
 api_router.include_router(orders_enhanced.router)
 api_router.include_router(pos.router)

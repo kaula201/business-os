@@ -5,6 +5,7 @@ from app.models.contract import Contract
 from app.models.leave import Leave
 from app.models.subscription import Subscription
 from app.models.customer_portal import PortalUser
+from app.models.vendor_portal import VendorPortalUser
 from app.models.order import (
     DocumentSequence,
     InventoryReservation,
@@ -158,6 +159,7 @@ __all__ = [
     "JobPosting",
     "EmailCampaign",
     "PortalUser",
+    "VendorPortalUser",
     "QualityCheck",
     "ChatMessage", "Embedding",
 ]
