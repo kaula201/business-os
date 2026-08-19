@@ -20,6 +20,7 @@ function money(value: number) {
 
 const tabs = [
   { id: 'vat', label: i18n.t('დღგ-ის დეკლარაცია'), icon: Calculator },
+  { id: 'vat-exact', label: i18n.t('დღგ ანგარიში (ზუსტი)'), icon: FileText },
   { id: 'income', label: i18n.t('საშემოსავლო გადასახადი'), icon: TrendingUp },
   { id: 'balance', label: i18n.t('ბალანსის ფორმა'), icon: Scale },
   { id: 'rs', label: i18n.t('RS.ge გაგზავნა'), icon: Send },
@@ -53,6 +54,32 @@ export default function SrsPage() {
     queryKey: ['srs-vat', year, month],
     queryFn: () => api.get('/srs/vat-declaration', { params: { year, month } }).then((r) => r.data.data),
     enabled: tab === 'vat',
+  })
+
+  const { data: vatExactData, isLoading: vatExactLoading } = useQuery({
+    queryKey: ['tax-vat-exact', year, month],
+    queryFn: () => api.get('/tax-reports/vat', { params: { year, month } }).then((r) => r.data.data),
+    enabled: tab === 'vat-exact',
+  })
+
+  const { data: vatSalesReg, isLoading: vatSalesLoading } = useQuery({
+    queryKey: ['tax-vat-sales', year, month],
+    queryFn: () => {
+      const from = `${year}-${String(month).padStart(2, '0')}-01`
+      const to = month === 12 ? `${year + 1}-01-31` : `${year}-${String(month + 1).padStart(2, '0')}-31`
+      return api.get('/tax-reports/vat/register/sales', { params: { date_from: from, date_to: to } }).then((r) => r.data.data)
+    },
+    enabled: tab === 'vat-exact',
+  })
+
+  const { data: vatPurchReg, isLoading: vatPurchLoading } = useQuery({
+    queryKey: ['tax-vat-purchases', year, month],
+    queryFn: () => {
+      const start = `${year}-${String(month).padStart(2, '0')}-01`
+      const to = month === 12 ? `${year + 1}-01-31` : `${year}-${String(month + 1).padStart(2, '0')}-31`
+      return api.get('/tax-reports/vat/register/purchases', { params: { date_from: start, date_to: to } }).then((r) => r.data.data)
+    },
+    enabled: tab === 'vat-exact',
   })
 
   const { data: incomeData, isLoading: incomeLoading } = useQuery({
@@ -177,6 +204,135 @@ export default function SrsPage() {
                       <div className="text-xl font-semibold text-primary-700 dark:text-primary-300">{money(vatData.net_vat)}</div>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">{t('მონაცემები არ მოიძებნა ამ პერიოდისთვის')}</div>
+          )}
+        </>
+      )}
+
+      {/* ── Exact VAT Report (from invoices) ──────────────────────── */}
+      {tab === 'vat-exact' && (
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar size={18} className="text-gray-400 dark:text-gray-500" />
+              <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input w-28">
+                {Array.from({ length: 10 }, (_, i) => currentYear - 5 + i).map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+              <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="input w-32">
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                  <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {vatExactLoading ? (
+            <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">{t('იტვირთება...')}</div>
+          ) : vatExactData ? (
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="card p-5 dark:bg-dark-200 dark:border-dark-50">
+                  <div className="flex items-center gap-3">
+                    <TrendingUp className="text-green-600" />
+                    <div>
+                      <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('გასაყიდი დღგ')}</div>
+                      <div className="text-xl font-semibold text-brandgray-900 dark:text-gray-100">{money(vatExactData.sales.vat)}</div>
+                      <div className="text-xs text-brandgray-400">{vatExactData.sales.invoice_count} {t('ინვოისი')}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="card p-5 dark:bg-dark-200 dark:border-dark-50">
+                  <div className="flex items-center gap-3">
+                    <TrendingDown className="text-amber-600" />
+                    <div>
+                      <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('შესაძენი დღგ')}</div>
+                      <div className="text-xl font-semibold text-brandgray-900 dark:text-gray-100">{money(vatExactData.purchases.vat)}</div>
+                      <div className="text-xs text-brandgray-500">{vatExactData.purchases.invoice_count} {t('ინვოისი')}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="card p-5 border-2 border-primary-200 dark:border-primary-800 dark:bg-dark-200">
+                  <div className="flex items-center gap-3">
+                    <DollarSign className="text-primary-600" />
+                    <div>
+                      <div className="text-sm text-brandgray-500 dark:text-gray-400">{t('გადასახდელი დღგ')}</div>
+                      <div className="text-xl font-semibold text-primary-700 dark:text-primary-300">{money(vatExactData.net_vat_payable)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="card dark:bg-dark-200 dark:border-dark-50">
+                  <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-3">{t('გაყიდვების რეესტრი')}</h3>
+                  {vatSalesLoading ? (
+                    <p className="text-sm text-gray-500">{t('იტვირთება...')}</p>
+                  ) : !vatSalesReg || vatSalesReg.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('ინვოისები არ არის')}</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-brandgray-50 dark:bg-dark-100">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-brandgray-600 dark:text-gray-400">{t('ნომერი')}</th>
+                            <th className="px-3 py-2 text-left text-brandgray-600 dark:text-gray-400">{t('თარიღი')}</th>
+                            <th className="px-3 py-2 text-left text-brandgray-600 dark:text-gray-400">{t('კლიენტი')}</th>
+                            <th className="px-3 py-2 text-right text-brandgray-600 dark:text-gray-400">{t('დღგ')}</th>
+                            <th className="px-3 py-2 text-right text-brandgray-600 dark:text-gray-400">{t('სულ')}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
+                          {vatSalesReg.map((row: any) => (
+                            <tr key={row.id} className="hover:bg-brandgray-50/50 dark:hover:bg-dark-100">
+                              <td className="px-3 py-2 font-mono text-brandgray-600 dark:text-gray-400">{row.invoice_number}</td>
+                              <td className="px-3 py-2">{row.invoice_date}</td>
+                              <td className="px-3 py-2">{row.client_name}</td>
+                              <td className="px-3 py-2 text-right font-medium">{money(row.vat)}</td>
+                              <td className="px-3 py-2 text-right font-medium">{money(row.total)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="card dark:bg-dark-200 dark:border-dark-50">
+                  <h3 className="font-semibold text-brandgray-900 dark:text-gray-100 mb-4">{t('შესყიდვების რეესტრი')}</h3>
+                  {vatPurchLoading ? (
+                    <p className="text-sm text-gray-500">{t('იტვირთება...')}</p>
+                  ) : !vatPurchReg || vatPurchReg.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('ინვოისები არ არის')}</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-brandgray-50 dark:bg-dark-100">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-brandgray-600 dark:text-gray-400">{t('ნომერი')}</th>
+                            <th className="px-3 py-2 text-left text-brandgray-600 dark:text-gray-400">{t('თარიღი')}</th>
+                            <th className="px-3 py-2 text-right text-brandgray-600 dark:text-gray-400">{t('დღგ')}</th>
+                            <th className="px-3 py-2 text-right text-brandgray-600 dark:text-gray-400">{t('სულ')}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-brandgray-100 dark:divide-dark-50">
+                          {vatPurchReg.map((row: any) => (
+                            <tr key={row.id} className="hover:bg-brandgray-50/50 dark:hover:bg-dark-100">
+                              <td className="px-3 py-2 font-mono text-brandgray-600 dark:text-gray-400">{row.supplier_invoice_number}</td>
+                              <td className="px-3 py-2">{row.invoice_date}</td>
+                              <td className="px-3 py-2 text-right font-medium">{money(row.vat)}</td>
+                              <td className="px-3 py-2 text-right font-medium">{money(row.total)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
