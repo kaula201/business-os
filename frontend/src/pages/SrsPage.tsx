@@ -82,6 +82,12 @@ export default function SrsPage() {
     enabled: tab === 'vat-exact',
   })
 
+  const submitVat = useMutation({
+    mutationFn: () => api.post('/srs/vat-declaration/submit', { year, month }).then((r) => r.data.data),
+    onSuccess: (data) => setSubmitResult(data),
+  })
+  const [submitResult, setSubmitResult] = useState<{ mode: string; period: string; net_vat: number; detail: string } | null>(null)
+
   const { data: incomeData, isLoading: incomeLoading } = useQuery({
     queryKey: ['srs-income', year, month],
     queryFn: () => api.get('/srs/income-tax', { params: { year, month } }).then((r) => r.data.data),
@@ -230,7 +236,24 @@ export default function SrsPage() {
                 ))}
               </select>
             </div>
+            <button
+              className="btn-primary flex items-center gap-2"
+              onClick={() => submitVat.mutate()}
+              disabled={submitVat.isPending}
+            >
+              <Send size={16} />
+              {submitVat.isPending ? t('იგზავნება...') : t('დეკლარაციის გაგზავნა RS.ge-ზე')}
+            </button>
           </div>
+
+          {submitResult && (
+            <div className={`rounded-xl border p-4 text-sm ${submitResult.mode === 'submitted' ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/10 dark:text-emerald-300' : 'border-amber-200 bg-amber-50/70 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-300'}`}>
+              <p className="font-medium">
+                {submitResult.mode === 'submitted' ? t('დეკლარაცია გადაეგზავნა RS.ge-ს') : t('Sandbox რეჟიმი')} — {submitResult.period} · {t('გადასახდელი')}: {money(submitResult.net_vat)}
+              </p>
+              <p className="mt-1 text-xs opacity-80">{submitResult.detail}</p>
+            </div>
+          )}
 
           {vatExactLoading ? (
             <div className="card p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-dark-200 dark:border-dark-50">{t('იტვირთება...')}</div>

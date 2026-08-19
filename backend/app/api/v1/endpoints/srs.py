@@ -413,3 +413,76 @@ async def srs_status(
         balance_form_enabled=True,
         reconciliation=None,
     ))
+
+
+# ── Submit declaration to RS.ge (real SOAP when configured, sandbox otherwise) ─
+
+class VatSubmitRequest(BaseModel):
+    year: int = Field(..., ge=2020, le=2100)
+    month: int = Field(..., ge=1, le=12)
+
+
+class VatSubmitResult(BaseModel):
+    mode: str  # "submitted" | "sandbox"
+    period: str
+    vat_payable: float
+    vat_credit: float
+    net_vat: float
+    detail: str
+
+
+@router.post("/vat-declaration/submit", response_model=ResponseBase[VatSubmitResult])
+async def submit_vat_declaration(
+    payload: VatSubmitRequest,
+    current_user: User = Depends(require_module("srs", "can_access")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Submit the VAT declaration to RS.ge.
+
+    With RS_SERVICE_USER/RS_SERVICE_PASSWORD configured this calls the real
+    RS.ge SOAP export_declaration endpoint. Otherwise it runs in sandbox mode:
+    the computed figures are returned as if submitted (nothing leaves the app).
+    """
+    from app.core.config import settings
+    from app.services.rs_ge import RSGeClient, RSGeError
+
+    # Reuse the declaration computation (same logic as GET /vat-declaration)
+    period = f"{payload.year}-{payload.month:02d}"
+    period_start = date(payload.year, payload.month, 1)
+    period_end = date(payload.year + 1, 1, 1) if payload.month == 12 else date(payload.year, payload.month + 1, 1)
+
+    revenue_result = await db.execute(
+        select(sa_func.coalesce(sa_func.sum(JournalEntryLine.credit_amount - JournalEntryLine.debit_amount), 0))
+        .select_from(JournalEntryLine).join(JournalEntry).join(GLAccount)
+        .where(JournalEntry.company_id == current_user.company_id, GLAccount.code.like("4%"),
+               JournalEntry.entry_date >= period_start, JournalEntry.entry_date < period_end)
+    )
+    revenue = float(revenue_result.scalar() or 0)
+    expense_result = await db.execute(
+        select(sa_func.coalesce(sa_func.sum(JournalEntryLine.debit_amount - JournalEntryLine.credit_amount), 0))
+        .select_from(JournalEntryLine).join(JournalEntry).join(GLAccount)
+        .where(JournalEntry.company_id == current_user.company_id, GLAccount.code.like("5%"),
+               JournalEntry.entry_date >= period_start, JournalEntry.entry_date < period_end)
+    )
+    expenses = float(expense_result.scalar() or 0)
+    vat_on_sales = round(revenue * 0.18 / 1.18, 2)
+    vat_on_purchases = round(expenses * 0.18 / 1.18, 2)
+    net_vat = round(vat_on_sales - vat_on_purchases, 2)
+
+    if settings.RS_SERVICE_USER and settings.RS_SERVICE_PASSWORD:
+        client = RSGeClient(settings.RS_WAYBILL_URL, settings.RS_SERVICE_USER, settings.RS_SERVICE_PASSWORD)
+        try:
+            await client.export_declaration(period=period, declaration_type="vat")
+        except RSGeError as exc:
+            raise HTTPException(status_code=502, detail=f"RS.ge გაგზავნა ვერ მოხერხდა: {exc}")
+        return ResponseBase(data=VatSubmitResult(
+            mode="submitted", period=period, vat_payable=vat_on_sales,
+            vat_credit=vat_on_purchases, net_vat=net_vat,
+            detail="დეკლარაცია გადაეგზავნა RS.ge-ს",
+        ), message="დეკლარაცია წარმატებით გადაეგზავნა RS.ge-ს")
+
+    return ResponseBase(data=VatSubmitResult(
+        mode="sandbox", period=period, vat_payable=vat_on_sales,
+        vat_credit=vat_on_purchases, net_vat=net_vat,
+        detail="RS.ge კრედენციალი არ არის დაყენებული — მონაცემები მზადაა, გაგზავნა sandbox რეჟიმში",
+    ), message="დეკლარაციის მონაცემები გამოითვალა (sandbox — RS.ge კრედენციალი არ არის)")
