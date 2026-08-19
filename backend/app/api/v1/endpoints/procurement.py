@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import require_module
 from app.models.email_calendar import EmailMessage
+from app.services.email_service import send_email_smtp, smtp_configured
 from app.models.product import Product
 from app.models.procurement import (
     BlanketOrder,
@@ -246,6 +247,16 @@ async def send_rfq_email(
     db.add(m)
     rfq.status = "sent"
     await db.flush()
+
+    # Real SMTP send when configured; sandbox otherwise (message already stored).
+    if smtp_configured():
+        try:
+            send_email_smtp(supplier.email, m.subject, body)
+        except Exception:
+            m.status = "failed"
+            await db.flush()
+            raise HTTPException(status_code=502, detail="ელ.ფოსტის გაგზავნა ვერ მოხერხდა (SMTP)")
+
     return ResponseBase(
         data={"id": str(m.id), "to_email": m.to_email, "subject": m.subject, "status": m.status},
         message="RFQ გაეგზავნა მომწოდებელს",

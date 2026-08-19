@@ -48,6 +48,15 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: str = "*"
     
+    # SMTP (real email sending; falls back to sandbox when unset)
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
+    FROM_EMAIL: str = "noreply@business-os.ge"
+    FROM_NAME: str = "Business OS"
+
     # Pagination
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100

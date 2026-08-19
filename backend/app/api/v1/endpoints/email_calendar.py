@@ -11,6 +11,7 @@ from app.core.dependencies import get_current_user, require_module
 from app.models.email_calendar import CalendarEvent, EmailMessage
 from app.models.user import User
 from app.schemas.common import ResponseBase
+from app.services.email_service import send_email_smtp, smtp_configured
 
 router = APIRouter(prefix="/email-calendar", tags=["ელ.ფოსტა და კალენდარი"])
 
@@ -51,7 +52,17 @@ async def send_email(
         status="sent",
     )
     db.add(m)
-    await db.commit()
+    await db.flush()
+
+    # Real SMTP send when configured; sandbox otherwise.
+    if smtp_configured():
+        try:
+            send_email_smtp(to_email, subject, data.get("body", ""))
+        except Exception:
+            m.status = "failed"
+            await db.flush()
+            raise HTTPException(status_code=502, detail="ელ.ფოსტის გაგზავნა ვერ მოხერხდა (SMTP)")
+
     await db.refresh(m)
     return ResponseBase(data={"id": str(m.id), "to_email": m.to_email, "subject": m.subject, "status": m.status}, message="ელ.ფოსტა გაიგზავნა")
 
