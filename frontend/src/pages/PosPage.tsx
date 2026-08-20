@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Minus, Trash2, ScanBarcode, Undo2, Gift, WifiOff, Printer, X, Banknote, UtensilsCrossed, Mail } from 'lucide-react'
+import { Plus, Minus, Trash2, ScanBarcode, Undo2, Gift, WifiOff, Printer, X, Banknote, UtensilsCrossed, Mail, SplitSquareHorizontal } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import { clientsApi, posApi, productsApi } from '../services/api'
@@ -61,6 +61,8 @@ export default function PosPage() {
   const [currencyRate, setCurrencyRate] = useState(1)
   const [couponCode, setCouponCode] = useState('')
   const [couponDiscount, setCouponDiscount] = useState(0)
+  const [splitFor, setSplitFor] = useState<any | null>(null)
+  const [splitParts, setSplitParts] = useState<{ items: { product_id: string; quantity: number }[] }[]>([{ items: [] }, { items: [] }])
 
   const { data: sessionsData } = useQuery({
     queryKey: ['pos-sessions'],
@@ -313,6 +315,15 @@ export default function PosPage() {
   const emailReceiptMut = useMutation({
     mutationFn: ({ id, email }: { id: string; email: string }) => posApi.emailReceipt(id, email),
     onSuccess: () => { setEmailFor(null); setEmailAddress('') },
+  })
+
+  const splitBillMut = useMutation({
+    mutationFn: ({ id, parts }: { id: string; parts: { items: { product_id: string; quantity: number }[] }[] }) =>
+      posApi.splitBill(id, parts),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pos-orders'] })
+      setSplitFor(null)
+    },
   })
 
   const addByBarcode = () => {
@@ -668,10 +679,15 @@ export default function PosPage() {
                     >
                       <Printer size={15} />
                     </button>
-                    {o.status !== 'refunded' && (
-                      <button onClick={() => setRefundFor(o)} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30" title={t('დაბრუნება')}>
-                        <Undo2 size={15} />
-                      </button>
+                    {o.status !== 'refunded' && o.status !== 'split' && (
+                      <>
+                        <button onClick={() => { setSplitFor(o); setSplitParts([{ items: (o.items || []).map((it: any) => ({ product_id: it.product_id, quantity: Number(it.quantity) })) }, { items: [] }]) }} className="p-1.5 rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30" title={t('ბილის გაყოფა')}>
+                          <SplitSquareHorizontal size={15} />
+                        </button>
+                        <button onClick={() => setRefundFor(o)} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30" title={t('დაბრუნება')}>
+                          <Undo2 size={15} />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -888,6 +904,26 @@ export default function PosPage() {
               {t('დამატება')}
             </button>
           </div>
+
+          {/* Floor plan */}
+          <div className="rounded-lg border border-brandgray-100 dark:border-dark-50 p-3">
+            <div className="text-xs font-semibold text-brandgray-600 dark:text-gray-300 mb-2">{t('სართულის გეგმა')}</div>
+            <div className="relative h-48 rounded-lg bg-brandgray-50 dark:bg-dark-100 overflow-hidden">
+              {tables.map((tb: any) => (
+                <button
+                  key={tb.id}
+                  onClick={() => tb.status === 'occupied' ? freeMut.mutate(tb.id) : occupyMut.mutate(tb.id)}
+                  style={{ left: `${(tb.pos_x ?? 20 + (tables.indexOf(tb) % 4) * 25)}%`, top: `${(tb.pos_y ?? 20 + Math.floor(tables.indexOf(tb) / 4) * 30)}%` }}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 w-14 h-10 rounded-lg text-xs font-semibold flex items-center justify-center shadow-sm ${tb.status === 'occupied' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'}`}
+                  title={`${tb.name} (${tb.pos_x ?? '?'}, ${tb.pos_y ?? '?'})`}
+                >
+                  {tb.name}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-brandgray-400 mt-1">{t('დაჭერით მაგიდაზე — დაკავება/გათავისუფლება')}</p>
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-72 overflow-y-auto">
             {tables.length === 0 ? (
               <p className="text-sm text-brandgray-400 dark:text-gray-500 col-span-full text-center py-6">{t('მაგიდები არ არის')}</p>
@@ -932,6 +968,61 @@ export default function PosPage() {
               className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50"
             >
               {t('გაგზავნა')}
+            </button>
+          </div>
+        )}
+      </Modal>
+
+      {/* Split bill modal */}
+      <Modal open={!!splitFor} onClose={() => setSplitFor(null)} title={t('ბილის გაყოფა')} size="lg">
+        {splitFor && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              {t('შეკვეთა')}: <span className="font-semibold">{splitFor.order_number}</span> — {money(Number(splitFor.total))}
+            </p>
+            {splitParts.map((part, pi) => (
+              <div key={pi} className="rounded-lg border border-brandgray-100 dark:border-dark-50 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-brandgray-600 dark:text-gray-300">{t('ნაწილი')} {pi + 1}</span>
+                  <button
+                    onClick={() => setSplitParts(prev => prev.filter((_, j) => j !== pi))}
+                    disabled={splitParts.length <= 2}
+                    className="text-xs text-red-400 hover:text-red-600 disabled:opacity-30"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+                {(splitFor.items || []).map((it: any) => (
+                  <div key={it.product_id} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-800 dark:text-gray-200">{it.product_name}</span>
+                    <input
+                      type="number" min={0} max={Number(it.quantity)}
+                      className="w-16 rounded border border-brandgray-200 px-1.5 py-0.5 text-xs text-right focus:outline-none dark:border-dark-50 dark:bg-dark-100"
+                      value={part.items.find(x => x.product_id === it.product_id)?.quantity ?? 0}
+                      onChange={e => setSplitParts(prev => prev.map((p, j) => j === pi ? {
+                        ...p,
+                        items: [
+                          ...p.items.filter(x => x.product_id !== it.product_id),
+                          ...(Number(e.target.value) > 0 ? [{ product_id: it.product_id, quantity: Number(e.target.value) }] : []),
+                        ],
+                      } : p))}
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
+            <button
+              onClick={() => setSplitParts(prev => [...prev, { items: [] }])}
+              className="w-full px-3 py-2 rounded-lg border border-dashed border-brandgray-200 text-sm text-brandgray-500 hover:border-primary-300 hover:text-primary-600 dark:border-dark-50"
+            >
+              + {t('ნაწილის დამატება')}
+            </button>
+            <button
+              onClick={() => splitBillMut.mutate({ id: splitFor.id, parts: splitParts })}
+              disabled={splitBillMut.isPending}
+              className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50"
+            >
+              {t('გაყოფა')}
             </button>
           </div>
         )}

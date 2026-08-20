@@ -1222,3 +1222,93 @@ async def escpos_receipt(
         "escpos_base64": base64.b64encode(stream).decode(),
         "drawer_base64": base64.b64encode(open_cash_drawer()).decode(),
     }, message="ESC/POS ნაკადი მზადაა")
+
+
+# ── Split bill ──────────────────────────────────────────────────────────────
+
+@router.post("/orders/{order_id}/split", response_model=ResponseBase[dict], status_code=201)
+async def split_bill(
+    order_id: UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_create")),
+):
+    """Split a completed order into multiple bills (Odoo split-bill style).
+
+    payload: {"parts": [{"client_id": "...", "items": [{"product_id": "...", "quantity": 1}], "tip_amount": 0}, ...]}
+    Each part becomes its own POS order; the original is marked 'split'.
+    """
+    order = (await db.execute(
+        select(POSOrder).where(POSOrder.id == order_id, POSOrder.company_id == current_user.company_id)
+        .options(selectinload(POSOrder.items))
+    )).unique().scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+    if order.status == "split":
+        raise HTTPException(status_code=409, detail="შეკვეთა უკვე გაყოფილია")
+
+    parts = payload.get("parts", [])
+    if len(parts) < 2:
+        raise HTTPException(status_code=400, detail="მინიმუმ 2 ნაწილია საჭირო")
+
+    # validate: sum of part quantities per product == original quantities
+    original_qty: dict[str, Decimal] = {}
+    for it in order.items:
+        original_qty[str(it.product_id)] = original_qty.get(str(it.product_id), Decimal("0")) + it.quantity
+    part_qty: dict[str, Decimal] = {}
+    for part in parts:
+        for item in part.get("items", []):
+            pid = str(item["product_id"])
+            part_qty[pid] = part_qty.get(pid, Decimal("0")) + Decimal(str(item["quantity"]))
+    for pid, qty in original_qty.items():
+        if part_qty.get(pid, Decimal("0")) != qty:
+            raise HTTPException(status_code=409, detail="ნაწილების რაოდენობა არ ემთხვევა ორიგინალ შეკვეთას")
+
+    created = []
+    for part in parts:
+        subtotal = Decimal("0")
+        items = []
+        for item in part.get("items", []):
+            product = (await db.execute(
+                select(Product).where(Product.id == item["product_id"], Product.company_id == current_user.company_id)
+            )).scalar_one_or_none()
+            if not product:
+                raise HTTPException(status_code=404, detail=f"პროდუქტი {item['product_id']} არ მოიძებნა")
+            qty = Decimal(str(item["quantity"]))
+            price = Decimal(str(item.get("unit_price", product.sale_price)))
+            line_total = (qty * price).quantize(Decimal("0.01"))
+            subtotal += line_total
+            items.append({
+                "product_id": product.id, "product_name": product.name,
+                "quantity": qty, "unit_price": price, "discount_amount": Decimal("0"),
+                "course": item.get("course", "main"), "line_total": line_total,
+            })
+        vat = (subtotal * Decimal("0.18")).quantize(Decimal("0.01"))
+        total = subtotal + vat
+        tip = Decimal(str(part.get("tip_amount", 0))).quantize(Decimal("0.01"))
+        total += tip
+        count = (await db.execute(
+            select(func.count(POSOrder.id)).where(POSOrder.company_id == current_user.company_id)
+        )).scalar() or 0
+        new_order = POSOrder(
+            company_id=current_user.company_id, session_id=order.session_id,
+            client_id=part.get("client_id"),
+            order_number=f"POS-{utc_now():%y%m%d}-{count + 1:04d}",
+            status="completed", subtotal=subtotal, vat_amount=vat, total=total,
+            tip_amount=tip, payment_method="cash", created_by=current_user.id,
+        )
+        db.add(new_order)
+        await db.flush()
+        for item in items:
+            db.add(POSOrderItem(pos_order_id=new_order.id, **item))
+        await db.flush()
+        await post_pos_sale(
+            db, current_user.company_id, current_user,
+            entry_date=utc_now().date(), reference_id=new_order.id,
+            subtotal=subtotal, vat_amount=vat, total=total, tip_amount=tip,
+        )
+        created.append({"id": str(new_order.id), "order_number": new_order.order_number, "total": float(total)})
+
+    order.status = "split"
+    await db.flush()
+    return ResponseBase(data={"parts": created}, message="შეკვეთა გაიყო")

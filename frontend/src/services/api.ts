@@ -758,6 +758,8 @@ export const posApi = {
   escposReceipt: (orderId: string) => api.get(`/pos/orders/${orderId}/escpos`),
   setTablePosition: (id: string, pos_x: number, pos_y: number) =>
     api.patch(`/pos/tables/${id}/position`, null, { params: { pos_x, pos_y } }),
+  splitBill: (orderId: string, parts: Record<string, unknown>[]) =>
+    api.post(`/pos/orders/${orderId}/split`, { parts }),
 }
 
 // HR API — payroll, payslips, leave, attendance, appraisal, recruitment
