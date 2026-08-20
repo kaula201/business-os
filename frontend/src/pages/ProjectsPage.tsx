@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Briefcase, Plus, Search, Calendar, User, DollarSign, ChevronDown, ChevronRight, Flag, TrendingUp, X } from 'lucide-react'
+import { Briefcase, Plus, Search, Calendar, User, DollarSign, ChevronDown, ChevronRight, Flag, TrendingUp, X, LayoutTemplate } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import { api, projectsApi } from '../services/api'
@@ -33,6 +33,11 @@ export default function ProjectsPage() {
   const [milestoneForm, setMilestoneForm] = useState({ name: '', due_date: '', status: 'pending' })
   const [form, setForm] = useState({ code: '', name: '', description: '', manager_id: '', start_date: '', end_date: '', budget_amount: 0, notes: '' })
   const [error, setError] = useState('')
+  const [templateOpen, setTemplateOpen] = useState(false)
+  const [templates, setTemplates] = useState<any[]>([])
+  const [templateForm, setTemplateForm] = useState({ name: '', description: '', default_budget: 0, milestones: '' })
+  const [instantiateFor, setInstantiateFor] = useState<any | null>(null)
+  const [instantiateForm, setInstantiateForm] = useState({ name: '', code: '', budget_amount: 0 })
 
   const { data, isLoading } = useQuery({
     queryKey: ['projects', search],
@@ -78,6 +83,21 @@ export default function ProjectsPage() {
 
   const totalBudget = projects.reduce((s, p) => s + p.budget_amount, 0)
   const totalSpent = projects.reduce((s, p) => s + p.spent_amount, 0)
+  const totalRevenue = projects.reduce((s, p) => s + (p as any).revenue_amount || 0, 0)
+
+  const createTemplateMut = useMutation({
+    mutationFn: (d: any) => {
+      const milestones = (d.milestones || '').split('\n').map((l: string) => l.trim()).filter(Boolean)
+        .map((name: string) => ({ name, tasks: [] }))
+      return projectsApi.createTemplate({ name: d.name, description: d.description, default_budget: d.default_budget, milestones })
+    },
+    onSuccess: () => { setTemplateOpen(false); setTemplateForm({ name: '', description: '', default_budget: 0, milestones: '' }); projectsApi.listTemplates().then(r => setTemplates(r.data.data)) },
+  })
+
+  const instantiateMut = useMutation({
+    mutationFn: ({ templateId, data }: { templateId: string; data: any }) => projectsApi.instantiateTemplate(templateId, data),
+    onSuccess: () => { setInstantiateFor(null); queryClient.invalidateQueries({ queryKey: ['projects'] }) },
+  })
 
   return (
     <div className="space-y-6">
@@ -86,11 +106,15 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('პროექტები')}</h1>
           <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('პროექტების მართვა, განრიგი, ბიუჯეტი')}</p>
         </div>
-        <button onClick={() => { setForm({ code: '', name: '', description: '', manager_id: '', start_date: '', end_date: '', budget_amount: 0, notes: '' }); setShowModal(true) }}
-          className="btn btn-primary flex items-center gap-2"><Plus size={18} /> {t('ახალი პროექტი')}</button>
+        <div className="flex gap-2">
+          <button onClick={() => { setTemplateOpen(true); projectsApi.listTemplates().then(r => setTemplates(r.data.data)) }}
+            className="btn btn-secondary flex items-center gap-2"><LayoutTemplate size={18} /> {t('შაბლონები')}</button>
+          <button onClick={() => { setForm({ code: '', name: '', description: '', manager_id: '', start_date: '', end_date: '', budget_amount: 0, notes: '' }); setShowModal(true) }}
+            className="btn btn-primary flex items-center gap-2"><Plus size={18} /> {t('ახალი პროექტი')}</button>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
           <p className="text-xs text-gray-500 dark:text-gray-400">{t('პროექტების რაოდენობა')}</p>
           <p className="mt-2 text-xl font-bold text-brandgray-900 dark:text-gray-100">{projects.length}</p>
@@ -102,6 +126,10 @@ export default function ProjectsPage() {
         <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
           <p className="text-xs text-gray-500 dark:text-gray-400">{t('დახარჯული')}</p>
           <p className="mt-2 text-xl font-bold text-amber-700 dark:text-amber-400">{money(totalSpent)}</p>
+        </div>
+        <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('შემოსავალი')}</p>
+          <p className="mt-2 text-xl font-bold text-emerald-700 dark:text-emerald-400">{money(totalRevenue)}</p>
         </div>
       </div>
 
@@ -230,6 +258,70 @@ export default function ProjectsPage() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Templates Modal ──────────────────────────────────────────── */}
+      <Modal open={templateOpen} onClose={() => setTemplateOpen(false)} title={t('შაბლონები')} size="lg">
+        <div className="space-y-4">
+          <div className="rounded-lg border border-brandgray-100 dark:border-dark-50 p-3 space-y-2">
+            <p className="text-sm font-semibold text-brandgray-900 dark:text-gray-100">{t('ახალი შაბლონი')}</p>
+            <input value={templateForm.name} onChange={e => setTemplateForm({ ...templateForm, name: e.target.value })}
+              placeholder={t('შაბლონის სახელი')} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            <input value={templateForm.description} onChange={e => setTemplateForm({ ...templateForm, description: e.target.value })}
+              placeholder={t('აღწერა')} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            <input type="number" value={templateForm.default_budget || ''} onChange={e => setTemplateForm({ ...templateForm, default_budget: Number(e.target.value) || 0 })}
+              placeholder={t('ნაგულისხმევი ბიუჯეტი')} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            <textarea value={templateForm.milestones} onChange={e => setTemplateForm({ ...templateForm, milestones: e.target.value })}
+              placeholder={t('ეტაპები (თითო ხაზზე)')} rows={3} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            <button onClick={() => createTemplateMut.mutate(templateForm)} disabled={!templateForm.name || createTemplateMut.isPending}
+              className="w-full rounded-lg bg-primary-600 px-3 py-2 text-sm text-white disabled:opacity-50">
+              {t('შენახვა')}
+            </button>
+          </div>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {templates.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">{t('შაბლონები არ არის')}</p>
+            ) : templates.map((tmpl: any) => (
+              <div key={tmpl.id} className="flex items-center justify-between rounded-lg border border-brandgray-100 dark:border-dark-50 px-3 py-2">
+                <div>
+                  <div className="font-medium text-brandgray-900 dark:text-gray-100">{tmpl.name}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {tmpl.milestones?.length || 0} {t('ეტაპი')} · {money(tmpl.default_budget)}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => { setInstantiateFor(tmpl); setInstantiateForm({ name: tmpl.name, code: '', budget_amount: tmpl.default_budget }) }}
+                    className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs text-white">
+                    {t('პროექტის შექმნა')}
+                  </button>
+                  <button onClick={() => projectsApi.removeTemplate(tmpl.id).then(() => projectsApi.listTemplates().then(r => setTemplates(r.data.data)))}
+                    className="rounded-lg bg-red-600 px-2 py-1.5 text-xs text-white">
+                    <X size={13} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Instantiate Modal ─────────────────────────────────────────── */}
+      <Modal open={!!instantiateFor} onClose={() => setInstantiateFor(null)} title={t('პროექტის შექმნა შაბლონიდან')}>
+        {instantiateFor && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500 dark:text-gray-400">{instantiateFor.name} — {instantiateFor.milestones?.length || 0} {t('ეტაპი')}</p>
+            <input value={instantiateForm.name} onChange={e => setInstantiateForm({ ...instantiateForm, name: e.target.value })}
+              placeholder={t('პროექტის სახელი')} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            <input value={instantiateForm.code} onChange={e => setInstantiateForm({ ...instantiateForm, code: e.target.value })}
+              placeholder={t('კოდი')} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            <input type="number" value={instantiateForm.budget_amount || ''} onChange={e => setInstantiateForm({ ...instantiateForm, budget_amount: Number(e.target.value) || 0 })}
+              placeholder={t('ბიუჯეტი')} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            <button onClick={() => instantiateMut.mutate({ templateId: instantiateFor.id, data: instantiateForm })} disabled={instantiateMut.isPending}
+              className="w-full rounded-lg bg-primary-600 px-3 py-2 text-sm text-white disabled:opacity-50">
+              {t('შექმნა')}
+            </button>
           </div>
         )}
       </Modal>

@@ -803,4 +803,9 @@ export const projectsApi = {
   removeMilestone: (projectId: string, milestoneId: string) => api.delete(`/projects/${projectId}/milestones/${milestoneId}`),
   progress: (projectId: string) => api.get(`/projects/${projectId}/progress`),
   profitability: (projectId: string) => api.get(`/projects/${projectId}/profitability`),
+  listTemplates: () => api.get('/projects/templates'),
+  createTemplate: (data: Record<string, unknown>) => api.post('/projects/templates', data),
+  instantiateTemplate: (templateId: string, data: Record<string, unknown>) =>
+    api.post(`/projects/templates/${templateId}/instantiate`, data),
+  removeTemplate: (templateId: string) => api.delete(`/projects/templates/${templateId}`),
 }

@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.models.user import User
-from app.models.projects import Project, ProjectMilestone
+from app.models.projects import Project, ProjectMilestone, ProjectTemplate, ProjectTemplateMilestone, ProjectTemplateTask
 from app.models.task import Task
 from app.models.budgeting import BudgetPlan
 from app.schemas.common import ResponseBase, PaginatedResponse
@@ -69,6 +69,136 @@ async def list_projects(
         items=items, total=total, page=page, page_size=page_size,
         total_pages=(total + page_size - 1) // page_size
     ))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Project Templates (Odoo-style) — must be declared BEFORE /{project_id} routes
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/templates", response_model=ResponseBase[list[dict]])
+async def list_templates(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_access")),
+):
+    rows = (await db.execute(
+        select(ProjectTemplate).where(ProjectTemplate.company_id == current_user.company_id)
+        .options(selectinload(ProjectTemplate.milestones).selectinload(ProjectTemplateMilestone.tasks))
+        .order_by(ProjectTemplate.created_at.desc())
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(t.id), "name": t.name, "description": t.description,
+        "default_budget": float(t.default_budget),
+        "milestones": [{
+            "id": str(m.id), "name": m.name, "description": m.description, "sort_order": m.sort_order,
+            "tasks": [{
+                "id": str(tt.id), "title": tt.title, "description": tt.description,
+                "priority": tt.priority, "sort_order": tt.sort_order,
+            } for tt in m.tasks],
+        } for m in t.milestones],
+    } for t in rows])
+
+
+@router.post("/templates", response_model=ResponseBase[dict], status_code=201)
+async def create_template(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_create")),
+):
+    """Create a template: {"name": "...", "description": "...", "default_budget": 0,
+    "milestones": [{"name": "...", "tasks": [{"title": "...", "priority": "medium"}]}]}"""
+    name = (payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="შაბლონის სახელი სავალდებულოა")
+    template = ProjectTemplate(
+        company_id=current_user.company_id, name=name,
+        description=payload.get("description"),
+        default_budget=Decimal(str(payload.get("default_budget") or 0)),
+        created_by=current_user.id,
+    )
+    db.add(template)
+    await db.flush()
+    for i, ms in enumerate(payload.get("milestones", [])):
+        milestone = ProjectTemplateMilestone(
+            template_id=template.id, name=ms.get("name", f"ეტაპი {i + 1}"),
+            description=ms.get("description"), sort_order=i,
+        )
+        db.add(milestone)
+        await db.flush()
+        for j, tk in enumerate(ms.get("tasks", [])):
+            db.add(ProjectTemplateTask(
+                template_id=template.id, milestone_id=milestone.id,
+                title=tk.get("title", ""), description=tk.get("description"),
+                priority=tk.get("priority", "medium"), sort_order=j,
+            ))
+    await db.flush()
+    return ResponseBase(data={"id": str(template.id), "name": template.name}, message="შაბლონი შეიქმნა")
+
+
+@router.post("/templates/{template_id}/instantiate", response_model=ResponseBase[dict], status_code=201)
+async def instantiate_template(
+    template_id: UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_create")),
+):
+    """Create a project from a template — copies milestones + tasks (Odoo-style)."""
+    template = (await db.execute(
+        select(ProjectTemplate).where(ProjectTemplate.id == template_id, ProjectTemplate.company_id == current_user.company_id)
+        .options(selectinload(ProjectTemplate.milestones).selectinload(ProjectTemplateMilestone.tasks))
+    )).unique().scalar_one_or_none()
+    if not template:
+        raise HTTPException(status_code=404, detail="შაბლონი არ მოიძებნა")
+
+    code = (payload.get("code") or "").strip() or f"PRJ-{template.name[:4].upper()}"
+    proj = Project(
+        company_id=current_user.company_id, code=code,
+        name=payload.get("name") or template.name,
+        description=payload.get("description") or template.description,
+        manager_id=payload.get("manager_id"),
+        status="draft",
+        start_date=payload.get("start_date"),
+        end_date=payload.get("end_date"),
+        budget_amount=Decimal(str(payload.get("budget_amount") if payload.get("budget_amount") is not None else template.default_budget)),
+    )
+    db.add(proj)
+    await db.flush()
+
+    milestone_map: dict[str, ProjectMilestone] = {}
+    for ms in template.milestones:
+        milestone = ProjectMilestone(
+            project_id=proj.id, name=ms.name, description=ms.description,
+            sort_order=ms.sort_order, status="pending",
+        )
+        db.add(milestone)
+        await db.flush()
+        milestone_map[str(ms.id)] = milestone
+        for tk in ms.tasks:
+            db.add(Task(
+                company_id=current_user.company_id, project_id=proj.id,
+                title=tk.title, description=tk.description,
+                priority=tk.priority, status="todo",
+                created_by=current_user.id,
+            ))
+    await db.flush()
+    return ResponseBase(data={
+        "id": str(proj.id), "code": proj.code, "name": proj.name,
+        "milestones_created": len(milestone_map),
+    }, message="პროექტი შეიქმნა შაბლონიდან")
+
+
+@router.delete("/templates/{template_id}", response_model=ResponseBase)
+async def delete_template(
+    template_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_create")),
+):
+    template = (await db.execute(
+        select(ProjectTemplate).where(ProjectTemplate.id == template_id, ProjectTemplate.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not template:
+        raise HTTPException(status_code=404, detail="შაბლონი არ მოიძებნა")
+    await db.delete(template)
+    return ResponseBase(message="შაბლონი წაიშალა")
 
 
 @router.post("/", response_model=ResponseBase[ProjectResponse], status_code=201)
@@ -155,7 +285,7 @@ async def update_project(
         setattr(proj, field, value)
 
     await db.flush()
-    await db.refresh(proj, ["manager", "owner", "budget_plan"])
+    await db.refresh(proj)
     resp = ProjectResponse.model_validate(proj)
     resp.manager_name = proj.manager.full_name if proj.manager else None
     resp.owner_name = proj.owner.full_name if proj.owner else None
@@ -353,15 +483,21 @@ async def get_project_profitability(
 
     budget = proj.budget_amount
     spent = proj.spent_amount
-    remaining = budget - spent
-    profit_pct = (remaining / budget * 100).quantize(Decimal("0.01")) if budget and budget > 0 else Decimal("0")
+    revenue = proj.revenue_amount
+    profit = revenue - spent
+    margin_pct = (profit / revenue * 100).quantize(Decimal("0.01")) if revenue and revenue > 0 else Decimal("0")
+    budget_remaining = budget - spent
 
     return ResponseBase(data={
         "budget_amount": float(budget),
         "spent_amount": float(spent),
-        "remaining_amount": float(remaining),
-        "profitability": float(remaining),
-        "profitability_percent": float(profit_pct),
+        "revenue_amount": float(revenue),
+        "profitability": float(profit),
+        "profitability_percent": float(margin_pct),
+        "budget_remaining": float(budget_remaining),
         "budget_plan_id": str(proj.budget_plan_id) if proj.budget_plan_id else None,
         "budget_plan_name": proj.budget_plan.name if proj.budget_plan else None,
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════

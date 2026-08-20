@@ -215,6 +215,27 @@ async def update_task(
 ):
     task = await _get_task_or_404(db, task_id, current_user.company_id)
 
+    # Dependency gate (Odoo-style): cannot start a task whose blockers are not done
+    if data.status == "in_progress" and task.status != "in_progress":
+        blockers = (await db.execute(
+            select(TaskDependency).where(
+                TaskDependency.task_id == task.id,
+                TaskDependency.dependency_type == "blocked_by",
+            )
+        )).scalars().all()
+        if blockers:
+            blocker_ids = [b.depends_on_task_id for b in blockers]
+            blocker_tasks = (await db.execute(
+                select(Task).where(Task.id.in_(blocker_ids))
+            )).scalars().all()
+            unfinished = [t for t in blocker_tasks if t.status != "done"]
+            if unfinished:
+                names = ", ".join(t.title for t in unfinished[:3])
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"დავალება ვერ დაიწყება — დაბლოკილია: {names}",
+                )
+
     update_data = data.model_dump(exclude_unset=True)
     tracked_fields = {"title", "description", "status", "priority", "due_date", "assigned_to", "client_id", "order_id", "project_id", "parent_id", "recurrence", "recurrence_end"}
 
@@ -241,7 +262,35 @@ async def update_task(
             )
         setattr(task, field, value)
 
+    # Recurrence (Odoo-style): when a recurring task is done, auto-create the next one
+    if task.status == "done" and task.recurrence:
+        from datetime import timedelta
+        base = task.due_date or utc_now()
+        if task.recurrence == "daily":
+            next_due = base + timedelta(days=1)
+        elif task.recurrence == "weekly":
+            next_due = base + timedelta(weeks=1)
+        elif task.recurrence == "monthly":
+            month = base.month + 1
+            year = base.year + (month - 1) // 12
+            month = (month - 1) % 12 + 1
+            next_due = base.replace(year=year, month=month)
+        else:
+            next_due = None
+        if next_due and (not task.recurrence_end or next_due.date() <= task.recurrence_end):
+            db.add(Task(
+                company_id=current_user.company_id,
+                client_id=task.client_id, order_id=task.order_id, project_id=task.project_id,
+                parent_id=task.parent_id,
+                title=task.title, description=task.description,
+                status="todo", priority=task.priority,
+                due_date=next_due, assigned_to=task.assigned_to,
+                recurrence=task.recurrence, recurrence_end=task.recurrence_end,
+                created_by=current_user.id,
+            ))
+
     await db.flush()
+    await db.refresh(task)
     return ResponseBase(data=_enrich_task_response(task))
 
 

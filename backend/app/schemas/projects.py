@@ -58,6 +58,8 @@ class ProjectCreate(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     budget_amount: Decimal = Field(default=Decimal("0"), max_digits=14, decimal_places=2)
+    spent_amount: Decimal = Field(default=Decimal("0"), max_digits=14, decimal_places=2)
+    revenue_amount: Decimal = Field(default=Decimal("0"), max_digits=14, decimal_places=2)
     budget_plan_id: Optional[UUID] = None
     notes: Optional[str] = None
 
@@ -74,6 +76,7 @@ class ProjectUpdate(BaseModel):
     completion_percent: Optional[Decimal] = Field(None, max_digits=5, decimal_places=2)
     budget_amount: Optional[Decimal] = Field(None, max_digits=14, decimal_places=2)
     spent_amount: Optional[Decimal] = Field(None, max_digits=14, decimal_places=2)
+    revenue_amount: Optional[Decimal] = Field(None, max_digits=14, decimal_places=2)
     budget_plan_id: Optional[UUID] = None
     notes: Optional[str] = None
 
@@ -94,6 +97,7 @@ class ProjectResponse(BaseModel):
     completion_percent: Decimal
     budget_amount: Decimal
     spent_amount: Decimal
+    revenue_amount: Decimal
     budget_plan_id: Optional[UUID] = None
     budget_plan_name: Optional[str] = None
     notes: Optional[str] = None
