@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.models.user import User
 from app.models.pos import POSSession, POSOrder, POSOrderItem
-from app.models.pos import POSRefund, POSLoyaltyAccount, POSLoyaltyTransaction, POSOfflineQueue, POSFiscalDevice
+from app.models.pos import POSRefund, POSLoyaltyAccount, POSLoyaltyTransaction, POSOfflineQueue, POSFiscalDevice, POSCoupon
 from app.models.pos_extended import GiftCard, GiftCardTransaction, POSCashMovement, POSZReport, POSPayment
 from app.models.pos_pricelist import ClientPriceList
 from app.models.product import Product
@@ -26,6 +26,7 @@ from app.schemas.pos import (
 from app.services.gl_posting import post_pos_sale, post_pos_refund, post_pos_credit
 from app.services.email_service import smtp_configured, send_email_smtp
 from app.models.email_calendar import EmailMessage
+from app.services.escpos import build_receipt, open_cash_drawer
 from datetime import date, datetime
 
 router = APIRouter(prefix="/pos", tags=["POS — სალარო"])
@@ -166,6 +167,7 @@ async def create_pos_order(
             "quantity": qty,
             "unit_price": price,
             "discount_amount": line_discount,
+            "course": item_data.course or "main",
             "line_total": line_total,
         })
 
@@ -349,6 +351,11 @@ async def create_pos_order(
         points = total.quantize(Decimal("0.01"))
         account.points += points
         account.total_earned += points
+        # Tier upgrade: bronze < 1000, silver < 5000, gold 5000+
+        if account.total_earned >= Decimal("5000"):
+            account.tier = "gold"
+        elif account.total_earned >= Decimal("1000"):
+            account.tier = "silver"
         db.add(POSLoyaltyTransaction(
             company_id=current_user.company_id, account_id=account.id, order_id=order.id,
             points=points, transaction_type="earn",
@@ -1117,3 +1124,101 @@ async def delete_price_list(
     await db.delete(row)
     await db.flush()
     return ResponseBase(data={"id": str(price_id)}, message="ფასი წაიშალა")
+
+
+# ── Coupons ──────────────────────────────────────────────────────────────────
+
+@router.get("/coupons", response_model=ResponseBase[list[dict]])
+async def list_coupons(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_access")),
+):
+    rows = (await db.execute(
+        select(POSCoupon).where(POSCoupon.company_id == current_user.company_id).order_by(POSCoupon.created_at.desc())
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(c.id), "code": c.code, "discount_percent": float(c.discount_percent),
+        "discount_amount": float(c.discount_amount), "max_uses": c.max_uses,
+        "used_count": c.used_count, "is_active": c.is_active,
+        "valid_from": c.valid_from.isoformat() if c.valid_from else None,
+        "valid_to": c.valid_to.isoformat() if c.valid_to else None,
+    } for c in rows])
+
+
+@router.post("/coupons", response_model=ResponseBase[dict], status_code=201)
+async def create_coupon(
+    code: str = Query(..., min_length=2),
+    discount_percent: Decimal = Query(0, ge=0, le=100),
+    discount_amount: Decimal = Query(0, ge=0),
+    max_uses: int = Query(1, ge=1),
+    valid_to: date | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_create")),
+):
+    existing = (await db.execute(
+        select(POSCoupon).where(POSCoupon.company_id == current_user.company_id, POSCoupon.code == code.upper())
+    )).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=409, detail="კუპონი ამ კოდით უკვე არსებობს")
+    coupon = POSCoupon(
+        company_id=current_user.company_id, code=code.upper(),
+        discount_percent=discount_percent, discount_amount=discount_amount,
+        max_uses=max_uses, valid_to=valid_to,
+    )
+    db.add(coupon)
+    await db.flush()
+    return ResponseBase(data={"id": str(coupon.id), "code": coupon.code}, message="კუპონი შეიქმნა")
+
+
+@router.post("/coupons/validate", response_model=ResponseBase[dict])
+async def validate_coupon(
+    code: str = Query(..., min_length=2),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_access")),
+):
+    """Validate a coupon code — returns the discount to apply."""
+    coupon = (await db.execute(
+        select(POSCoupon).where(POSCoupon.company_id == current_user.company_id, POSCoupon.code == code.upper())
+    )).scalar_one_or_none()
+    if not coupon or not coupon.is_active:
+        raise HTTPException(status_code=404, detail="კუპონი არ მოიძებნა")
+    if coupon.used_count >= coupon.max_uses:
+        raise HTTPException(status_code=409, detail="კუპონი ამოწურულია")
+    if coupon.valid_to and coupon.valid_to < utc_now().date():
+        raise HTTPException(status_code=409, detail="კუპონის ვადა გასულია")
+    return ResponseBase(data={
+        "id": str(coupon.id), "code": coupon.code,
+        "discount_percent": float(coupon.discount_percent),
+        "discount_amount": float(coupon.discount_amount),
+    }, message="კუპონი მოქმედებს")
+
+
+# ── ESC/POS printing ─────────────────────────────────────────────────────────
+
+@router.get("/orders/{order_id}/escpos", response_model=ResponseBase[dict])
+async def escpos_receipt(
+    order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_access")),
+):
+    """Return the ESC/POS byte stream (base64) for a receipt — send to a thermal printer."""
+    order = (await db.execute(
+        select(POSOrder).where(POSOrder.id == order_id, POSOrder.company_id == current_user.company_id)
+        .options(selectinload(POSOrder.items))
+    )).unique().scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+    import base64
+    stream = build_receipt({
+        "order_number": order.order_number,
+        "created_at": order.created_at.isoformat(),
+        "items": [{"product_name": it.product_name, "quantity": float(it.quantity), "line_total": float(it.line_total)} for it in order.items],
+        "subtotal": float(order.subtotal), "discount_amount": float(order.discount_amount),
+        "tip_amount": float(order.tip_amount), "vat_amount": float(order.vat_amount),
+        "total": float(order.total),
+    })
+    return ResponseBase(data={
+        "order_id": str(order.id), "order_number": order.order_number,
+        "escpos_base64": base64.b64encode(stream).decode(),
+        "drawer_base64": base64.b64encode(open_cash_drawer()).decode(),
+    }, message="ESC/POS ნაკადი მზადაა")

@@ -91,6 +91,26 @@ async def free_table(
     return ResponseBase(data={"id": str(table.id), "status": table.status}, message="მაგიდა გათავისუფლდა")
 
 
+@router.patch("/tables/{table_id}/position", response_model=ResponseBase[dict])
+async def set_table_position(
+    table_id: UUID,
+    pos_x: int = Query(..., ge=0),
+    pos_y: int = Query(..., ge=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_edit")),
+):
+    """Set table coordinates on the floor plan."""
+    table = (await db.execute(
+        select(RestaurantTable).where(RestaurantTable.id == table_id, RestaurantTable.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not table:
+        raise HTTPException(status_code=404, detail="მაგიდა არ მოიძებნა")
+    table.pos_x = pos_x
+    table.pos_y = pos_y
+    await db.flush()
+    return ResponseBase(data={"id": str(table.id), "pos_x": table.pos_x, "pos_y": table.pos_y}, message="მაგიდის პოზიცია განახლდა")
+
+
 # ── Order types ─────────────────────────────────────────────────────────────
 
 @router.get("/order-types", response_model=ResponseBase[list[dict]])

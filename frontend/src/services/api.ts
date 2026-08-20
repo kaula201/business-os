@@ -752,6 +752,12 @@ export const posApi = {
   kitchenQueue: () => api.get('/pos/kitchen/queue'),
   setKitchenStatus: (orderId: string, status: string) =>
     api.patch(`/pos/orders/${orderId}/kitchen-status`, null, { params: { status } }),
+  listCoupons: () => api.get('/pos/coupons'),
+  createCoupon: (data: Record<string, unknown>) => api.post('/pos/coupons', null, { params: data }),
+  validateCoupon: (code: string) => api.post('/pos/coupons/validate', null, { params: { code } }),
+  escposReceipt: (orderId: string) => api.get(`/pos/orders/${orderId}/escpos`),
+  setTablePosition: (id: string, pos_x: number, pos_y: number) =>
+    api.patch(`/pos/tables/${id}/position`, null, { params: { pos_x, pos_y } }),
 }
 
 // HR API — payroll, payslips, leave, attendance, appraisal, recruitment

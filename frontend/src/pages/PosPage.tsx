@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Minus, Trash2, ScanBarcode, Undo2, Gift, WifiOff, Printer, X, Banknote, UtensilsCrossed, Mail } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import { clientsApi, posApi, productsApi } from '../services/api'
+import { saveOfflineOrder, listOfflineOrders, removeOfflineOrder } from '../services/offlineStore'
 
 const inputCls = 'w-full rounded-lg border border-brandgray-200 bg-white px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200'
 
@@ -58,6 +59,8 @@ export default function PosPage() {
   const [payMethod, setPayMethod] = useState('cash')
   const [currency, setCurrency] = useState('GEL')
   const [currencyRate, setCurrencyRate] = useState(1)
+  const [couponCode, setCouponCode] = useState('')
+  const [couponDiscount, setCouponDiscount] = useState(0)
 
   const { data: sessionsData } = useQuery({
     queryKey: ['pos-sessions'],
@@ -110,26 +113,52 @@ export default function PosPage() {
   })
 
   const createOrder = useMutation({
-    mutationFn: () => posApi.createOrder({
-      session_id: openSession.id,
-      client_id: clientId || null,
-      items: cart.map(i => ({
-        product_id: i.product_id,
-        quantity: i.quantity,
-        unit_price: i.unit_price,
-        ...(i.discount_percent ? { discount_percent: i.discount_percent } : {}),
-      })),
-      payment_method: payMethod,
-      payments: splitPayments.length > 0 ? splitPayments : undefined,
-      ...(orderDiscount > 0 ? { discount_amount: orderDiscount } : {}),
-      ...(tipAmount > 0 ? { tip_amount: tipAmount } : {}),
-      ...(currency !== 'GEL' ? { currency, currency_rate: currencyRate } : {}),
-    }),
+    mutationFn: async () => {
+      const orderPayload = {
+        session_id: openSession.id,
+        client_id: clientId || null,
+        items: cart.map(i => ({
+          product_id: i.product_id,
+          quantity: i.quantity,
+          unit_price: i.unit_price,
+          ...(i.discount_percent ? { discount_percent: i.discount_percent } : {}),
+        })),
+        payment_method: payMethod,
+        payments: splitPayments.length > 0 ? splitPayments : undefined,
+        ...(orderDiscount > 0 ? { discount_amount: orderDiscount } : {}),
+        ...(couponDiscount > 0 ? { discount_amount: couponDiscount } : {}),
+        ...(tipAmount > 0 ? { tip_amount: tipAmount } : {}),
+        ...(currency !== 'GEL' ? { currency, currency_rate: currencyRate } : {}),
+      }
+      try {
+        const resp = await posApi.createOrder(orderPayload)
+        return { order: resp.data.data, offline: false }
+      } catch (e: any) {
+        // Network failure → save locally, sale completes offline (Odoo IoT style)
+        if (!e?.response) {
+          const localId = await saveOfflineOrder(orderPayload)
+          return {
+            order: {
+              id: `offline-${localId}`,
+              order_number: `OFF-${String(localId).padStart(4, '0')}`,
+              subtotal: cart.reduce((s, i) => s + i.line_total, 0),
+              vat_amount: cart.reduce((s, i) => s + i.line_total, 0) * 0.18,
+              total: cart.reduce((s, i) => s + i.line_total, 0) * 1.18,
+              items: cart.map(i => ({ product_name: i.name, quantity: i.quantity, line_total: i.line_total })),
+            },
+            offline: true,
+          }
+        }
+        throw e
+      }
+    },
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ['pos-orders'] })
       qc.invalidateQueries({ queryKey: ['pos-sessions'] })
-      const order = d.data.data
-      if (clientId) {
+      const order = d.order
+      if (d.offline) {
+        setOfflineQueue(prev => [...prev, { id: order.id, payload: {}, status: 'pending' }])
+      } else if (clientId) {
         if (loyaltyPoints > 0) {
           posApi.earnLoyalty(clientId, order.id, loyaltyPoints)
         }
@@ -137,15 +166,6 @@ export default function PosPage() {
           posApi.redeemLoyalty(clientId, Number(redeemPoints))
         }
         posApi.loyaltyBalance(clientId).then(r => setLoyaltyBalance(r.data.data.points))
-      }
-      if (offlineMode) {
-        posApi.queueOfflineOrder('local-device', {
-          session_id: openSession.id,
-          client_id: clientId || null,
-          items: cart.map(i => ({ product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price })),
-          payment_method: 'cash',
-        })
-          .then(() => qc.invalidateQueries({ queryKey: ['pos-offline'] }))
       }
       setLastReceipt(order)
       setCart([])
@@ -168,6 +188,34 @@ export default function PosPage() {
       setLoyaltyBalance(null)
     }
   }
+
+  // Auto-sync offline orders when the connection returns (Odoo IoT style)
+  useEffect(() => {
+    const sync = async () => {
+      const pending = await listOfflineOrders()
+      if (pending.length === 0) return
+      for (const entry of pending) {
+        try {
+          await posApi.createOrder(entry.payload)
+          await removeOfflineOrder(entry.local_id)
+        } catch (e: any) {
+          if (e?.response) {
+            // server rejected (e.g. insufficient stock) — drop it, don't retry forever
+            await removeOfflineOrder(entry.local_id)
+          }
+          break // network still down
+        }
+      }
+      const remaining = await listOfflineOrders()
+      setOfflineQueue(remaining.map((r: any) => ({ id: String(r.local_id), payload: r.payload, status: 'pending' })))
+      if (remaining.length === 0) {
+        qc.invalidateQueries({ queryKey: ['pos-orders'] })
+        qc.invalidateQueries({ queryKey: ['pos-sessions'] })
+      }
+    }
+    const timer = setInterval(sync, 15000)
+    return () => clearInterval(timer)
+  }, [qc])
 
   const printReceipt = () => {
     if (!lastReceipt) return
@@ -426,6 +474,28 @@ export default function PosPage() {
                 value={orderDiscount || ''} onChange={e => setOrderDiscount(Number(e.target.value) || 0)}
               />
             </div>
+            <div className="flex items-center gap-1.5">
+              <input
+                className={`${inputCls} flex-1`} placeholder={t('კუპონის კოდი')}
+                value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())}
+              />
+              <button
+                onClick={() => posApi.validateCoupon(couponCode).then(r => {
+                  const d = r.data.data
+                  setCouponDiscount(d.discount_percent > 0 ? subtotal * d.discount_percent / 100 : d.discount_amount)
+                }).catch(() => setCouponDiscount(0))}
+                disabled={!couponCode}
+                className="px-2.5 py-2 rounded-lg text-xs font-medium bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                {t('გამოყენება')}
+              </button>
+            </div>
+            {couponDiscount > 0 && (
+              <div className="flex justify-between text-xs text-amber-600 dark:text-amber-400">
+                <span>{t('კუპონი')}: {couponCode}</span>
+                <button onClick={() => { setCouponDiscount(0); setCouponCode('') }} className="hover:text-red-500"><X size={13} /></button>
+              </div>
+            )}
             <div className="flex justify-between text-brandgray-500 dark:text-gray-400">
               <span>VAT 18%</span><span className="font-mono">{money(vat)}</span>
             </div>
@@ -581,6 +651,22 @@ export default function PosPage() {
                     <span className="font-mono font-semibold">{money(Number(o.total))}</span>
                     <button onClick={() => { setEmailFor(o); setEmailAddress('') }} className="p-1.5 rounded-md text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30" title={t('ჩეკი ელ.ფოსტით')}>
                       <Mail size={15} />
+                    </button>
+                    <button
+                      onClick={() => posApi.escposReceipt(o.id).then(r => {
+                        const b64 = r.data.data.escpos_base64
+                        const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+                        const blob = new Blob([bytes], { type: 'application/octet-stream' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `${o.order_number}.bin`
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      })}
+                      className="p-1.5 rounded-md text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" title={t('ESC/POS ბეჭდვა')}
+                    >
+                      <Printer size={15} />
                     </button>
                     {o.status !== 'refunded' && (
                       <button onClick={() => setRefundFor(o)} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30" title={t('დაბრუნება')}>

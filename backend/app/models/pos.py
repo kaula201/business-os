@@ -1,9 +1,9 @@
 """Point of Sale models: POS session, POS order, POS payment."""
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -66,6 +66,7 @@ class POSOrderItem(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric(18, 3), nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     discount_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
+    course: Mapped[str] = mapped_column(String(20), default="main", nullable=False)  # starter, main, dessert
     line_total: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
 
     order = relationship("POSOrder", back_populates="items")
@@ -98,8 +99,27 @@ class POSLoyaltyAccount(Base):
     points: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0"), nullable=False)
     total_earned: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0"), nullable=False)
     total_redeemed: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0"), nullable=False)
+    tier: Mapped[str] = mapped_column(String(20), default="bronze", nullable=False)  # bronze, silver, gold
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class POSCoupon(Base):
+    """POS coupon — discount code redeemable at the register."""
+
+    __tablename__ = "pos_coupons"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    discount_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0"), nullable=False)
+    discount_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
+    max_uses: Mapped[int] = mapped_column(default=1, nullable=False)
+    used_count: Mapped[int] = mapped_column(default=0, nullable=False)
+    valid_from: Mapped[date | None] = mapped_column(Date, nullable=True)
+    valid_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
 class POSLoyaltyTransaction(Base):

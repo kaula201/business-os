@@ -32,6 +32,7 @@ class POSOrderItemCreate(BaseModel):
     unit_price: Decimal = Field(..., ge=0)
     discount_percent: Optional[Decimal] = Field(None, ge=0, le=100)
     discount_amount: Optional[Decimal] = Field(None, ge=0)
+    course: Optional[str] = Field(None, max_length=20)  # starter, main, dessert
 
 
 class POSOrderCreate(BaseModel):
