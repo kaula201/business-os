@@ -157,5 +157,29 @@ class POSFiscalDevice(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     device_type: Mapped[str] = mapped_column(String(30), default="fiscal_printer", nullable=False)  # fiscal_printer, terminal
     serial_number: Mapped[str] = mapped_column(String(100), nullable=False)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    port: Mapped[int] = mapped_column(default=9100, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class POSFiscalJournal(Base):
+    """Fiscal memory (software equivalent) — immutable, hash-chained sale records.
+
+    Every completed POS order appends a record: amount, order number, timestamp
+    and a SHA-256 hash of (previous hash + payload). Any tampering breaks the
+    chain, satisfying the auditability requirement of a fiscal memory.
+    """
+
+    __tablename__ = "pos_fiscal_journal"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    order_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("pos_orders.id"), nullable=False, index=True)
+    order_number: Mapped[str] = mapped_column(String(50), nullable=False)
+    total: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(10), default="GEL", nullable=False)
+    prev_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    block_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

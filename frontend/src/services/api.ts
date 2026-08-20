@@ -713,8 +713,6 @@ export const posApi = {
     api.post('/pos/offline/queue', payload, { params: { device_id: deviceId } }),
   syncOfflineOrder: (id: string) => api.post(`/pos/offline/queue/${id}/sync`),
   listFiscalDevices: () => api.get('/pos/fiscal-devices'),
-  registerFiscalDevice: (data: { name: string; device_type: string; serial_number: string }) =>
-    api.post('/pos/fiscal-devices', null, { params: data }),
   updateFiscalDevice: (id: string, is_active: boolean, name?: string) =>
     api.patch(`/pos/fiscal-devices/${id}`, null, { params: { is_active, name } }),
   // Gift cards
@@ -756,6 +754,11 @@ export const posApi = {
   createCoupon: (data: Record<string, unknown>) => api.post('/pos/coupons', null, { params: data }),
   validateCoupon: (code: string) => api.post('/pos/coupons/validate', null, { params: { code } }),
   escposReceipt: (orderId: string) => api.get(`/pos/orders/${orderId}/escpos`),
+  printReceipt: (orderId: string, deviceId: string) =>
+    api.post(`/pos/orders/${orderId}/print`, null, { params: { device_id: deviceId } }),
+  fiscalJournal: () => api.get('/pos/fiscal-journal'),
+  registerFiscalDevice: (data: { name: string; device_type: string; serial_number: string; ip_address?: string; port?: number }) =>
+    api.post('/pos/fiscal-devices', null, { params: data }),
   setTablePosition: (id: string, pos_x: number, pos_y: number) =>
     api.patch(`/pos/tables/${id}/position`, null, { params: { pos_x, pos_y } }),
   splitBill: (orderId: string, parts: Record<string, unknown>[]) =>

@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.models.user import User
 from app.models.pos import POSSession, POSOrder, POSOrderItem
-from app.models.pos import POSRefund, POSLoyaltyAccount, POSLoyaltyTransaction, POSOfflineQueue, POSFiscalDevice, POSCoupon
+from app.models.pos import POSRefund, POSLoyaltyAccount, POSLoyaltyTransaction, POSOfflineQueue, POSFiscalDevice, POSCoupon, POSFiscalJournal
 from app.models.pos_extended import GiftCard, GiftCardTransaction, POSCashMovement, POSZReport, POSPayment
 from app.models.pos_pricelist import ClientPriceList
 from app.models.product import Product
@@ -362,6 +362,23 @@ async def create_pos_order(
         ))
         await db.flush()
 
+    # Fiscal journal — hash-chained immutable record (fiscal memory, software equivalent)
+    import hashlib
+    last = (await db.execute(
+        select(POSFiscalJournal).where(POSFiscalJournal.company_id == current_user.company_id)
+        .order_by(POSFiscalJournal.created_at.desc()).limit(1)
+    )).scalars().first()
+    prev_hash = last.block_hash if last else "0" * 64
+    payload = f"{order.id}|{order.order_number}|{order.total}|{order.currency}|{order.created_at.isoformat()}"
+    payload_hash = hashlib.sha256(payload.encode()).hexdigest()
+    block_hash = hashlib.sha256(f"{prev_hash}{payload_hash}".encode()).hexdigest()
+    db.add(POSFiscalJournal(
+        company_id=current_user.company_id, order_id=order.id,
+        order_number=order.order_number, total=order.total, currency=currency,
+        prev_hash=prev_hash, payload_hash=payload_hash, block_hash=block_hash,
+    ))
+    await db.flush()
+
     # Reload with items
     result = (await db.execute(
         select(POSOrder).where(POSOrder.id == order.id).options(selectinload(POSOrder.items))
@@ -641,12 +658,15 @@ async def register_fiscal_device(
     name: str = Query(..., min_length=1),
     device_type: str = Query("fiscal_printer", pattern="^(fiscal_printer|terminal|barcode_scanner|cash_drawer|receipt_printer)$"),
     serial_number: str = Query(..., min_length=1),
+    ip_address: str | None = Query(None),
+    port: int = Query(9100, ge=1, le=65535),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("pos", "can_create")),
 ):
     device = POSFiscalDevice(
         company_id=current_user.company_id, name=name,
         device_type=device_type, serial_number=serial_number,
+        ip_address=ip_address, port=port,
     )
     db.add(device)
     await db.flush()
@@ -1222,6 +1242,77 @@ async def escpos_receipt(
         "escpos_base64": base64.b64encode(stream).decode(),
         "drawer_base64": base64.b64encode(open_cash_drawer()).decode(),
     }, message="ESC/POS ნაკადი მზადაა")
+
+
+@router.post("/orders/{order_id}/print", response_model=ResponseBase[dict])
+async def print_receipt(
+    order_id: UUID,
+    device_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_create")),
+):
+    """Send the receipt to a network printer directly (raw 9100, Odoo IoT style)."""
+    from app.services.escpos import send_to_printer
+
+    order = (await db.execute(
+        select(POSOrder).where(POSOrder.id == order_id, POSOrder.company_id == current_user.company_id)
+        .options(selectinload(POSOrder.items))
+    )).unique().scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+    device = (await db.execute(
+        select(POSFiscalDevice).where(POSFiscalDevice.id == device_id, POSFiscalDevice.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not device or not device.ip_address:
+        raise HTTPException(status_code=404, detail="მოწყობილობას IP მისამართი არ აქვს")
+
+    stream = build_receipt({
+        "order_number": order.order_number,
+        "created_at": order.created_at.isoformat(),
+        "items": [{"product_name": it.product_name, "quantity": float(it.quantity), "line_total": float(it.line_total)} for it in order.items],
+        "subtotal": float(order.subtotal), "discount_amount": float(order.discount_amount),
+        "tip_amount": float(order.tip_amount), "vat_amount": float(order.vat_amount),
+        "total": float(order.total),
+    })
+    try:
+        send_to_printer(device.ip_address, stream, device.port)
+    except OSError as exc:
+        raise HTTPException(status_code=502, detail=f"პრინტერი მიუწვდომელია: {device.ip_address}:{device.port} ({exc})")
+    return ResponseBase(data={"device": device.name, "ip": device.ip_address}, message="ჩეკი გაიგზავნა პრინტერზე")
+
+
+# ── Fiscal journal ───────────────────────────────────────────────────────────
+
+@router.get("/fiscal-journal", response_model=ResponseBase[dict])
+async def fiscal_journal(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_access")),
+):
+    """Fiscal memory — hash-chained sale records + chain integrity check."""
+    rows = (await db.execute(
+        select(POSFiscalJournal).where(POSFiscalJournal.company_id == current_user.company_id)
+        .order_by(POSFiscalJournal.created_at.asc())
+    )).scalars().all()
+    import hashlib
+    valid = True
+    prev = "0" * 64
+    for r in rows:
+        if r.prev_hash != prev:
+            valid = False
+        expected = hashlib.sha256(f"{r.prev_hash}{r.payload_hash}".encode()).hexdigest()
+        if r.block_hash != expected:
+            valid = False
+        prev = r.block_hash
+    return ResponseBase(data={
+        "records": [{
+            "id": str(r.id), "order_number": r.order_number,
+            "total": float(r.total), "currency": r.currency,
+            "block_hash": r.block_hash[:16] + "…",
+            "created_at": r.created_at.isoformat(),
+        } for r in rows],
+        "count": len(rows),
+        "chain_valid": valid,
+    })
 
 
 # ── Split bill ──────────────────────────────────────────────────────────────

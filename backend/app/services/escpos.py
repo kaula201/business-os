@@ -56,3 +56,14 @@ def build_receipt(order: dict, company_name: str = "Business OS") -> bytes:
 def open_cash_drawer() -> bytes:
     """Just the cash drawer kick command."""
     return INIT + DRAWER
+
+
+def send_to_printer(ip: str, data: bytes, port: int = 9100, timeout: float = 5.0) -> None:
+    """Send the raw ESC/POS stream to a network thermal printer (raw port 9100).
+
+    Odoo IoT-box style: direct TCP connection, no driver needed.
+    Raises OSError on failure so callers can report it.
+    """
+    import socket
+    with socket.create_connection((ip, port), timeout=timeout) as sock:
+        sock.sendall(data)

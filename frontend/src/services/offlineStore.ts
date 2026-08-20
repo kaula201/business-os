@@ -7,8 +7,9 @@
  */
 
 const DB_NAME = 'bos-pos-offline'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const STORE = 'orders'
+const CACHE_STORE = 'catalog'
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -18,11 +19,16 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE)) {
         db.createObjectStore(STORE, { keyPath: 'local_id', autoIncrement: true })
       }
+      if (!db.objectStoreNames.contains(CACHE_STORE)) {
+        db.createObjectStore(CACHE_STORE, { keyPath: 'key' })
+      }
     }
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
   })
 }
+
+// ── Offline orders ──────────────────────────────────────────────────────────
 
 export async function saveOfflineOrder(payload: Record<string, unknown>): Promise<number> {
   const db = await openDb()
@@ -60,6 +66,28 @@ export async function clearOfflineOrders(): Promise<void> {
     const tx = db.transaction(STORE, 'readwrite')
     const req = tx.objectStore(STORE).clear()
     req.onsuccess = () => resolve()
+    req.onerror = () => reject(req.error)
+  })
+}
+
+// ── Catalog cache (cold-start offline) ──────────────────────────────────────
+
+export async function cacheCatalog(key: string, data: unknown): Promise<void> {
+  const db = await openDb()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CACHE_STORE, 'readwrite')
+    const req = tx.objectStore(CACHE_STORE).put({ key, data, cached_at: new Date().toISOString() })
+    req.onsuccess = () => resolve()
+    req.onerror = () => reject(req.error)
+  })
+}
+
+export async function getCachedCatalog<T>(key: string): Promise<T | null> {
+  const db = await openDb()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CACHE_STORE, 'readonly')
+    const req = tx.objectStore(CACHE_STORE).get(key)
+    req.onsuccess = () => resolve((req.result as { data: T } | undefined)?.data ?? null)
     req.onerror = () => reject(req.error)
   })
 }

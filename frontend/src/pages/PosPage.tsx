@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Minus, Trash2, ScanBarcode, Undo2, Gift, WifiOff, Printer, X, Banknote, UtensilsCrossed, Mail, SplitSquareHorizontal } from 'lucide-react'
+import { Plus, Minus, Trash2, ScanBarcode, Undo2, Gift, WifiOff, Printer, X, Banknote, UtensilsCrossed, Mail, SplitSquareHorizontal, ShieldCheck } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import { clientsApi, posApi, productsApi } from '../services/api'
-import { saveOfflineOrder, listOfflineOrders, removeOfflineOrder } from '../services/offlineStore'
+import { saveOfflineOrder, listOfflineOrders, removeOfflineOrder, cacheCatalog, getCachedCatalog } from '../services/offlineStore'
 
 const inputCls = 'w-full rounded-lg border border-brandgray-200 bg-white px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200'
 
@@ -29,7 +29,7 @@ export default function PosPage() {
   const [loyaltyPoints, setLoyaltyPoints] = useState(0)
   const [refundFor, setRefundFor] = useState<any | null>(null)
   const [deviceOpen, setDeviceOpen] = useState(false)
-  const [deviceForm, setDeviceForm] = useState({ name: '', device_type: 'fiscal_printer', serial_number: '' })
+  const [deviceForm, setDeviceForm] = useState({ name: '', device_type: 'fiscal_printer', serial_number: '', ip_address: '', port: 9100 })
   const [offlineMode, setOfflineMode] = useState(false)
   const [offlineQueue, setOfflineQueue] = useState<any[]>([])
   const [loyaltyBalance, setLoyaltyBalance] = useState<number | null>(null)
@@ -63,6 +63,8 @@ export default function PosPage() {
   const [couponDiscount, setCouponDiscount] = useState(0)
   const [splitFor, setSplitFor] = useState<any | null>(null)
   const [splitParts, setSplitParts] = useState<{ items: { product_id: string; quantity: number }[] }[]>([{ items: [] }, { items: [] }])
+  const [fiscalOpen, setFiscalOpen] = useState(false)
+  const [fiscalData, setFiscalData] = useState<any | null>(null)
 
   const { data: sessionsData } = useQuery({
     queryKey: ['pos-sessions'],
@@ -97,11 +99,37 @@ export default function PosPage() {
 
   const { data: products } = useQuery({
     queryKey: ['products-all-pos'],
-    queryFn: () => productsApi.list({ page_size: 200 }).then(r => r.data.data.items),
+    queryFn: async () => {
+      try {
+        const resp = await productsApi.list({ page_size: 200 })
+        const items = resp.data.data.items
+        cacheCatalog('products', items) // cache for cold-start offline
+        return items
+      } catch (e: any) {
+        if (!e?.response) {
+          const cached = await getCachedCatalog<any[]>('products')
+          if (cached) return cached
+        }
+        throw e
+      }
+    },
   })
   const { data: clients } = useQuery({
     queryKey: ['clients-all-pos'],
-    queryFn: () => clientsApi.list({ page_size: 200 }).then(r => r.data.data.items),
+    queryFn: async () => {
+      try {
+        const resp = await clientsApi.list({ page_size: 200 })
+        const items = resp.data.data.items
+        cacheCatalog('clients', items)
+        return items
+      } catch (e: any) {
+        if (!e?.response) {
+          const cached = await getCachedCatalog<any[]>('clients')
+          if (cached) return cached
+        }
+        throw e
+      }
+    },
   })
 
   const openSessionMut = useMutation({
@@ -247,7 +275,7 @@ export default function PosPage() {
 
   const registerDevice = useMutation({
     mutationFn: () => posApi.registerFiscalDevice(deviceForm),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pos-devices'] }); setDeviceOpen(false); setDeviceForm({ name: '', device_type: 'fiscal_printer', serial_number: '' }) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pos-devices'] }); setDeviceOpen(false); setDeviceForm({ name: '', device_type: 'fiscal_printer', serial_number: '', ip_address: '', port: 9100 }) },
   })
 
   const toggleDevice = useMutation({
@@ -386,6 +414,12 @@ export default function PosPage() {
           <button onClick={() => { setTableOpen(true); posApi.listTables().then(r => setTables(r.data.data)) }}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400">
             <UtensilsCrossed size={15} /> {t('მაგიდები')}
+          </button>
+          <button
+            onClick={() => { setFiscalOpen(true); posApi.fiscalJournal().then(r => setFiscalData(r.data.data)) }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400"
+          >
+            <ShieldCheck size={15} /> {t('ფისკალური ჟურნალი')}
           </button>
           {openSession ? (
             <button onClick={() => closeSessionMut.mutate(openSession.id)}
@@ -664,17 +698,24 @@ export default function PosPage() {
                       <Mail size={15} />
                     </button>
                     <button
-                      onClick={() => posApi.escposReceipt(o.id).then(r => {
-                        const b64 = r.data.data.escpos_base64
-                        const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
-                        const blob = new Blob([bytes], { type: 'application/octet-stream' })
-                        const url = URL.createObjectURL(blob)
-                        const a = document.createElement('a')
-                        a.href = url
-                        a.download = `${o.order_number}.bin`
-                        a.click()
-                        URL.revokeObjectURL(url)
-                      })}
+                      onClick={async () => {
+                        const devices = await posApi.listFiscalDevices().then(r => r.data.data)
+                        const netDev = (devices || []).find((d: any) => d.ip_address)
+                        if (netDev) {
+                          await posApi.printReceipt(o.id, netDev.id)
+                        } else {
+                          const r = await posApi.escposReceipt(o.id)
+                          const b64 = r.data.data.escpos_base64
+                          const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+                          const blob = new Blob([bytes], { type: 'application/octet-stream' })
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `${o.order_number}.bin`
+                          a.click()
+                          URL.revokeObjectURL(url)
+                        }
+                      }}
                       className="p-1.5 rounded-md text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" title={t('ESC/POS ბეჭდვა')}
                     >
                       <Printer size={15} />
@@ -807,6 +848,16 @@ export default function PosPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('სერიული ნომერი')}</label>
               <input className={inputCls} value={deviceForm.serial_number} onChange={e => setDeviceForm({ ...deviceForm, serial_number: e.target.value })} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">IP ({t('არასავალდებულო')})</label>
+              <input className={inputCls} placeholder="192.168.1.50" value={deviceForm.ip_address} onChange={e => setDeviceForm({ ...deviceForm, ip_address: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Port</label>
+              <input type="number" className={inputCls} value={deviceForm.port} onChange={e => setDeviceForm({ ...deviceForm, port: Number(e.target.value) || 9100 })} />
             </div>
           </div>
           <button onClick={() => registerDevice.mutate()} disabled={registerDevice.isPending || !deviceForm.name || !deviceForm.serial_number}
@@ -1026,6 +1077,39 @@ export default function PosPage() {
             </button>
           </div>
         )}
+      </Modal>
+
+      {/* Fiscal journal modal */}
+      <Modal open={fiscalOpen} onClose={() => setFiscalOpen(false)} title={t('ფისკალური ჟურნალი')} size="lg">
+        <div className="space-y-4">
+          {fiscalData && (
+            <>
+              <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${fiscalData.chain_valid ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'}`}>
+                <ShieldCheck size={16} />
+                {fiscalData.chain_valid ? t('ჯაჭვი ხელშეუხებელია') : t('ჯაჭვი დარღვეულია!')}
+                <span className="ml-auto text-xs opacity-70">{fiscalData.count} {t('ჩანაწერი')}</span>
+              </div>
+              <div className="space-y-1.5 max-h-72 overflow-y-auto">
+                {fiscalData.records.length === 0 ? (
+                  <p className="text-sm text-brandgray-400 dark:text-gray-500 text-center py-6">{t('ჩანაწერები არ არის')}</p>
+                ) : (
+                  fiscalData.records.map((r: any) => (
+                    <div key={r.id} className="flex items-center justify-between rounded-lg border border-brandgray-100 dark:border-dark-50 px-3 py-2 text-sm">
+                      <div>
+                        <div className="font-mono font-medium text-gray-900 dark:text-gray-100">{r.order_number}</div>
+                        <div className="text-[10px] text-brandgray-400 font-mono">{r.block_hash}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono font-semibold">{money(r.total)}</div>
+                        <div className="text-[10px] text-brandgray-400">{r.currency} · {new Date(r.created_at).toLocaleString('ka-GE')}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </Modal>
     </div>
   )
