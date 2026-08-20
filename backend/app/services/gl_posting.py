@@ -34,6 +34,7 @@ DEFAULT_ACCOUNTS = [
     ("2110", "ვალდებულებები — ინვოისები", "liability"),
     ("2120", "ვალდებულებები — გადახდილი", "liability"),
     ("2200", "დღგ ვალდებულება", "liability"),
+    ("2800", "სასაჩუქრე ბარათების ვალდებულება", "liability"),
     # Equity (3xxx)
     ("3100", "საწესდებო კაპიტალი", "equity"),
     ("3200", "გაუნაწილებელი მოგება", "equity"),
@@ -180,6 +181,44 @@ async def post_customer_payment(
         lines=[
             ("1410", amount, Decimal("0")),
             ("1300", Decimal("0"), amount),
+        ],
+    )
+
+
+async def post_gift_card_issue(
+    db: AsyncSession, company_id: UUID, user: User, *,
+    entry_date: date, reference_id: UUID,
+    amount: Decimal,
+) -> JournalEntry:
+    """Gift card issued: Dr Cash (1410), Cr Gift-card liability (2800)."""
+    return await post_journal_entry(
+        db, company_id, user,
+        entry_date=entry_date,
+        description="სასაჩუქრე ბარათის გაცემა",
+        reference_type="gift_card_issue",
+        reference_id=reference_id,
+        lines=[
+            ("1410", amount, Decimal("0")),
+            ("2800", Decimal("0"), amount),
+        ],
+    )
+
+
+async def post_gift_card_redeem(
+    db: AsyncSession, company_id: UUID, user: User, *,
+    entry_date: date, reference_id: UUID,
+    amount: Decimal,
+) -> JournalEntry:
+    """Gift card redeemed: Dr Gift Card liability (2800), Cr Cash (1410)."""
+    return await post_journal_entry(
+        db, company_id, user,
+        entry_date=entry_date,
+        description="სასაჩუქრე ბარათით გადახდა",
+        reference_type="gift_card_redeem",
+        reference_id=reference_id,
+        lines=[
+            ("2800", amount, Decimal("0")),
+            ("1410", Decimal("0"), amount),
         ],
     )
 

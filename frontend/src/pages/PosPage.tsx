@@ -888,7 +888,42 @@ export default function PosPage() {
                     <div className="font-medium font-mono">{g.card_number}</div>
                     <div className="text-xs text-brandgray-500">PIN: {g.pin} · {g.status}</div>
                   </div>
-                  <span className="font-mono font-semibold">{money(g.balance)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-semibold">{money(g.balance)}</span>
+                    {g.status === 'active' && (
+                      <>
+                        <button
+                          onClick={() => posApi.updateGiftCard(g.id, { status: 'blocked' }).then(() => {
+                            posApi.listGiftCards().then(r => setGiftCards(r.data.data))
+                          })}
+                          className="px-2 py-1 rounded-md text-xs bg-amber-600 text-white hover:bg-amber-700"
+                          title={t('დაბლოკვა')}
+                        >
+                          {t('დაბლოკვა')}
+                        </button>
+                        <button
+                          onClick={() => posApi.voidGiftCard(g.id).then(() => {
+                            posApi.listGiftCards().then(r => setGiftCards(r.data.data))
+                          })}
+                          className="px-2 py-1 rounded-md text-xs bg-red-600 text-white hover:bg-red-700"
+                          title={t('ბარათის გაუქმება')}
+                        >
+                          {t('ბარათის გაუქმება')}
+                        </button>
+                      </>
+                    )}
+                    {g.status === 'blocked' && (
+                      <button
+                        onClick={() => posApi.updateGiftCard(g.id, { status: 'active' }).then(() => {
+                          posApi.listGiftCards().then(r => setGiftCards(r.data.data))
+                        })}
+                        className="px-2 py-1 rounded-md text-xs bg-emerald-600 text-white hover:bg-emerald-700"
+                        title={t('ბარათის გახსნა')}
+                      >
+                        {t('ბარათის გახსნა')}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))
             )}

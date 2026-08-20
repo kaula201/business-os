@@ -23,7 +23,7 @@ from app.schemas.pos import (
     POSSessionCreate, POSSessionResponse,
     POSOrderCreate, POSOrderResponse, POSOrderItemResponse,
 )
-from app.services.gl_posting import post_pos_sale, post_pos_refund, post_pos_credit
+from app.services.gl_posting import post_pos_sale, post_pos_refund, post_pos_credit, post_gift_card_issue, post_gift_card_redeem
 from app.services.email_service import smtp_configured, send_email_smtp
 from app.models.email_calendar import EmailMessage
 from app.services.escpos import build_receipt, open_cash_drawer
@@ -762,6 +762,11 @@ async def issue_gift_card(
         amount=amount, transaction_type="issue", created_by=current_user.id,
     ))
     await db.flush()
+    # GL: Dr Cash (1410) / Cr Gift-card liability (2800)
+    await post_gift_card_issue(
+        db, current_user.company_id, current_user,
+        entry_date=utc_now().date(), reference_id=card.id, amount=amount,
+    )
     return ResponseBase(data={
         "id": str(card.id), "card_number": card.card_number, "pin": card.pin,
         "balance": float(card.balance),
@@ -816,7 +821,73 @@ async def redeem_gift_card(
         amount=-amount, transaction_type="redeem", created_by=current_user.id,
     ))
     await db.flush()
+    # GL: Dr Gift-card liability (2800) / Cr Cash (1410)
+    await post_gift_card_redeem(
+        db, current_user.company_id, current_user,
+        entry_date=utc_now().date(), reference_id=card.id, amount=amount,
+    )
     return ResponseBase(data={"balance": float(card.balance)}, message="ბარათით გადახდა შესრულდა")
+
+
+@router.patch("/gift-cards/{card_id}", response_model=ResponseBase[dict])
+async def update_gift_card(
+    card_id: UUID,
+    status: str = Query(None, pattern="^(active|blocked|voided)$"),
+    expires_at: date | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_edit")),
+):
+    """Edit a gift card: block/unblock, change expiry."""
+    card = (await db.execute(
+        select(GiftCard).where(GiftCard.id == card_id, GiftCard.company_id == current_user.company_id).with_for_update()
+    )).scalar_one_or_none()
+    if not card:
+        raise HTTPException(status_code=404, detail="ბარათი არ მოიძებნა")
+    if status:
+        if card.status == "redeemed":
+            raise HTTPException(status_code=409, detail="გამოყენებული ბარათის სტატუსის შეცვლა არ შეიძლება")
+        card.status = status
+    if expires_at is not None:
+        card.expires_at = expires_at
+    await db.flush()
+    return ResponseBase(data={
+        "id": str(card.id), "status": card.status,
+        "expires_at": card.expires_at.isoformat() if card.expires_at else None,
+    }, message="ბარათი განახლდა")
+
+
+@router.post("/gift-cards/{card_id}/void", response_model=ResponseBase[dict])
+async def void_gift_card(
+    card_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_edit")),
+):
+    """Void a card — refund its remaining balance and reverse the liability."""
+    card = (await db.execute(
+        select(GiftCard).where(GiftCard.id == card_id, GiftCard.company_id == current_user.company_id).with_for_update()
+    )).scalar_one_or_none()
+    if not card:
+        raise HTTPException(status_code=404, detail="ბარათი არ მოიძებნა")
+    if card.status == "voided":
+        raise HTTPException(status_code=409, detail="ბარათი უკვე გაუქმებულია")
+    remaining = Decimal(str(card.balance))
+    card.status = "voided"
+    card.balance = Decimal("0")
+    db.add(GiftCardTransaction(
+        company_id=current_user.company_id, card_id=card.id,
+        amount=-remaining, transaction_type="void", created_by=current_user.id,
+    ))
+    await db.flush()
+    if remaining > 0:
+        # GL reversal of the issue: Dr liability (2800) / Cr cash (1410)
+        await post_gift_card_redeem(
+            db, current_user.company_id, current_user,
+            entry_date=utc_now().date(), reference_id=card.id, amount=remaining,
+        )
+    return ResponseBase(data={
+        "id": str(card.id), "status": card.status,
+        "refunded": float(remaining),
+    }, message="ბარათი გაუქმდა")
 
 
 # ── Cash register (X/Z reports, cash in/out) ─────────────────────────────────

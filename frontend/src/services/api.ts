@@ -723,6 +723,9 @@ export const posApi = {
     api.post(`/pos/gift-cards/${id}/top-up`, null, { params: { amount } }),
   redeemGiftCard: (id: string, amount: number, order_id?: string) =>
     api.post(`/pos/gift-cards/${id}/redeem`, null, { params: { amount, order_id } }),
+  updateGiftCard: (id: string, data: Record<string, unknown>) =>
+    api.patch(`/pos/gift-cards/${id}`, null, { params: data }),
+  voidGiftCard: (id: string) => api.post(`/pos/gift-cards/${id}/void`),
   // Cash register
   cashIn: (sessionId: string, amount: number, reason?: string) =>
     api.post(`/pos/sessions/${sessionId}/cash-in`, null, { params: { amount, reason } }),
