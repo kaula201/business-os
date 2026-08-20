@@ -320,6 +320,25 @@ async def post_pos_refund(
     )
 
 
+async def post_pos_credit(
+    db: AsyncSession, company_id: UUID, user: User, *,
+    entry_date: date, reference_id: UUID,
+    subtotal: Decimal, vat_amount: Decimal, total: Decimal,
+) -> JournalEntry:
+    """POS on-account (credit) sale: Dr Client Receivable (1300), Cr Revenue (4100), Cr VAT (2200)."""
+    return await post_journal_entry(
+        db, company_id, user,
+        entry_date=entry_date,
+        description="POS გაყიდვა ანგარიშზე",
+        reference_type="pos_credit", reference_id=reference_id,
+        lines=[
+            ("1300", total, Decimal("0")),
+            ("4100", Decimal("0"), subtotal),
+            ("2200", Decimal("0"), vat_amount),
+        ],
+    )
+
+
 async def post_supplier_payment(
     db: AsyncSession, company_id: UUID, user: User, *,
     entry_date: date, reference_id: UUID,

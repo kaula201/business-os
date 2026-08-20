@@ -33,6 +33,7 @@ class Client(Base):
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     credit_limit: Mapped[float | None] = mapped_column(Numeric(18, 2), default=0, nullable=True)
+    balance: Mapped[float] = mapped_column(Numeric(18, 2), default=0, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

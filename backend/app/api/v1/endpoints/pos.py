@@ -13,7 +13,9 @@ from app.models.user import User
 from app.models.pos import POSSession, POSOrder, POSOrderItem
 from app.models.pos import POSRefund, POSLoyaltyAccount, POSLoyaltyTransaction, POSOfflineQueue, POSFiscalDevice
 from app.models.pos_extended import GiftCard, GiftCardTransaction, POSCashMovement, POSZReport, POSPayment
+from app.models.pos_pricelist import ClientPriceList
 from app.models.product import Product
+from app.models.client import Client
 from app.models.warehouse import InventoryBalance, InventoryMovement, Warehouse
 from app.schemas.common import ResponseBase
 from app.core.time import utc_now
@@ -21,7 +23,7 @@ from app.schemas.pos import (
     POSSessionCreate, POSSessionResponse,
     POSOrderCreate, POSOrderResponse, POSOrderItemResponse,
 )
-from app.services.gl_posting import post_pos_sale, post_pos_refund
+from app.services.gl_posting import post_pos_sale, post_pos_refund, post_pos_credit
 from app.services.email_service import smtp_configured, send_email_smtp
 from app.models.email_calendar import EmailMessage
 from datetime import date, datetime
@@ -135,6 +137,18 @@ async def create_pos_order(
             raise HTTPException(status_code=404, detail=f"პროდუქტი {item_data.product_id} არ მოიძებნა")
         qty = Decimal(str(item_data.quantity))
         price = Decimal(str(item_data.unit_price))
+        # Client price list override (Odoo-style): client-specific price wins
+        if data.client_id:
+            pl = (await db.execute(
+                select(ClientPriceList).where(
+                    ClientPriceList.company_id == current_user.company_id,
+                    ClientPriceList.client_id == data.client_id,
+                    ClientPriceList.product_id == item_data.product_id,
+                    ClientPriceList.is_active.is_(True),
+                )
+            )).scalar_one_or_none()
+            if pl:
+                price = pl.price
         line_gross = (qty * price).quantize(Decimal("0.01"))
         # line-level discount: percent or fixed
         line_discount = Decimal("0")
@@ -220,6 +234,15 @@ async def create_pos_order(
     tip = Decimal(str(data.tip_amount or 0)).quantize(Decimal("0.01"))
     total += tip
 
+    # Multi-currency: store the foreign currency + rate; GL posts in GEL
+    currency = (data.currency or "GEL").upper()
+    rate = Decimal(str(data.currency_rate or 1))
+    gl_subtotal, gl_vat, gl_total = subtotal, vat, total
+    if currency != "GEL":
+        gl_subtotal = (subtotal * rate).quantize(Decimal("0.01"))
+        gl_vat = (vat * rate).quantize(Decimal("0.01"))
+        gl_total = (total * rate).quantize(Decimal("0.01"))
+
     order = POSOrder(
         company_id=current_user.company_id,
         session_id=data.session_id,
@@ -233,6 +256,8 @@ async def create_pos_order(
         total=total,
         payment_method=data.payment_method,
         payment_reference=data.payment_reference,
+        currency=currency,
+        currency_rate=rate,
         created_by=current_user.id,
     )
     db.add(order)
@@ -248,12 +273,28 @@ async def create_pos_order(
     await db.flush()
 
     # GL posting — every POS sale posts to the ledger (Odoo-style)
-    await post_pos_sale(
-        db, current_user.company_id, current_user,
-        entry_date=utc_now().date(), reference_id=order.id,
-        subtotal=subtotal, vat_amount=vat, total=total,
-        payment_method=data.payment_method, tip_amount=tip,
-    )
+    if data.payment_method == "credit":
+        # On-account sale: Dr Client Receivable (1300), client balance increases
+        await post_pos_credit(
+            db, current_user.company_id, current_user,
+            entry_date=utc_now().date(), reference_id=order.id,
+            subtotal=gl_subtotal, vat_amount=gl_vat, total=gl_total,
+        )
+        if data.client_id:
+            client = (await db.execute(
+                select(Client).where(Client.id == data.client_id, Client.company_id == current_user.company_id).with_for_update()
+            )).scalar_one_or_none()
+            if client:
+                client.balance = float(Decimal(str(client.balance or 0)) + gl_total)
+                if client.credit_limit and Decimal(str(client.balance)) > Decimal(str(client.credit_limit)):
+                    raise HTTPException(status_code=409, detail="კლიენტის საკრედიტო ლიმიტი გადაჭარბებულია")
+    else:
+        await post_pos_sale(
+            db, current_user.company_id, current_user,
+            entry_date=utc_now().date(), reference_id=order.id,
+            subtotal=gl_subtotal, vat_amount=gl_vat, total=gl_total,
+            payment_method=data.payment_method, tip_amount=tip,
+        )
 
     # Split payments — record each method and redeem gift cards
     if data.payments:
@@ -962,3 +1003,117 @@ async def email_receipt(
         data={"id": str(m.id), "to_email": to_email, "status": m.status},
         message="ჩეკი გაეგზავნა ელ.ფოსტით",
     )
+
+
+# ── Kitchen display system (KDS) ─────────────────────────────────────────────
+
+@router.get("/kitchen/queue", response_model=ResponseBase[list[dict]])
+async def kitchen_queue(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_access")),
+):
+    """KDS queue — orders waiting for the kitchen (new/preparing)."""
+    rows = (await db.execute(
+        select(POSOrder).where(
+            POSOrder.company_id == current_user.company_id,
+            POSOrder.kitchen_status.in_(["new", "preparing"]),
+        )
+        .options(selectinload(POSOrder.items))
+        .order_by(POSOrder.created_at.asc())
+    )).unique().scalars().all()
+    return ResponseBase(data=[{
+        "id": str(o.id), "order_number": o.order_number,
+        "kitchen_status": o.kitchen_status,
+        "created_at": o.created_at.isoformat(),
+        "items": [{
+            "product_name": it.product_name, "quantity": float(it.quantity),
+        } for it in o.items],
+    } for o in rows])
+
+
+@router.patch("/orders/{order_id}/kitchen-status", response_model=ResponseBase[dict])
+async def set_kitchen_status(
+    order_id: UUID,
+    status: str = Query(..., pattern="^(new|preparing|done)$"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_edit")),
+):
+    order = (await db.execute(
+        select(POSOrder).where(POSOrder.id == order_id, POSOrder.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+    order.kitchen_status = status
+    await db.flush()
+    return ResponseBase(data={"id": str(order.id), "kitchen_status": order.kitchen_status}, message="სამზარეულოს სტატუსი განახლდა")
+
+
+# ── Client price lists ───────────────────────────────────────────────────────
+
+@router.get("/price-lists", response_model=ResponseBase[list[dict]])
+async def list_price_lists(
+    client_id: UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_access")),
+):
+    filters = [ClientPriceList.company_id == current_user.company_id]
+    if client_id:
+        filters.append(ClientPriceList.client_id == client_id)
+    rows = (await db.execute(
+        select(ClientPriceList).where(*filters).order_by(ClientPriceList.created_at.desc())
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(p.id), "client_id": str(p.client_id), "product_id": str(p.product_id),
+        "price": float(p.price), "valid_from": p.valid_from.isoformat() if p.valid_from else None,
+        "valid_to": p.valid_to.isoformat() if p.valid_to else None, "is_active": p.is_active,
+    } for p in rows])
+
+
+@router.post("/price-lists", response_model=ResponseBase[dict], status_code=201)
+async def set_price_list(
+    client_id: UUID,
+    product_id: UUID,
+    price: Decimal = Query(..., gt=0),
+    valid_from: date | None = None,
+    valid_to: date | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_create")),
+):
+    """Set (or update) a client-specific price for a product."""
+    existing = (await db.execute(
+        select(ClientPriceList).where(
+            ClientPriceList.company_id == current_user.company_id,
+            ClientPriceList.client_id == client_id,
+            ClientPriceList.product_id == product_id,
+        )
+    )).scalar_one_or_none()
+    if existing:
+        existing.price = price
+        existing.valid_from = valid_from
+        existing.valid_to = valid_to
+        existing.is_active = True
+        await db.flush()
+        return ResponseBase(data={"id": str(existing.id), "price": float(existing.price)}, message="ფასი განახლდა")
+    row = ClientPriceList(
+        company_id=current_user.company_id, client_id=client_id, product_id=product_id,
+        price=price, valid_from=valid_from, valid_to=valid_to,
+    )
+    db.add(row)
+    await db.flush()
+    return ResponseBase(data={"id": str(row.id), "price": float(row.price)}, message="კლიენტის ფასი დაემატა")
+
+
+@router.delete("/price-lists/{price_id}", response_model=ResponseBase[dict])
+async def delete_price_list(
+    price_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_edit")),
+):
+    row = (await db.execute(
+        select(ClientPriceList).where(ClientPriceList.id == price_id, ClientPriceList.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="ფასი არ მოიძებნა")
+    await db.delete(row)
+    await db.flush()
+    return ResponseBase(data={"id": str(price_id)}, message="ფასი წაიშალა")

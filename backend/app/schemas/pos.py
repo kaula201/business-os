@@ -49,6 +49,9 @@ class POSOrderCreate(BaseModel):
     rounding_amount: Optional[Decimal] = Field(None)
     # Tip — added on top of the total (not VAT-able)
     tip_amount: Optional[Decimal] = Field(None, ge=0)
+    # Multi-currency: currency + rate (GEL amount = foreign amount × rate)
+    currency: Optional[str] = Field(None, max_length=10)
+    currency_rate: Optional[Decimal] = Field(None, gt=0)
 
 
 class POSOrderItemResponse(BaseModel):
@@ -78,6 +81,8 @@ class POSOrderResponse(BaseModel):
     total: float
     payment_method: str
     payment_reference: Optional[str] = None
+    currency: str = "GEL"
+    currency_rate: float = 1
     created_at: datetime
     items: list[POSOrderItemResponse] = []
 

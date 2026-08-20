@@ -749,6 +749,9 @@ export const posApi = {
     api.post(`/pos/self-order/${token}/submit`, { items }),
   emailReceipt: (orderId: string, to_email: string) =>
     api.post(`/pos/orders/${orderId}/email-receipt`, null, { params: { to_email } }),
+  kitchenQueue: () => api.get('/pos/kitchen/queue'),
+  setKitchenStatus: (orderId: string, status: string) =>
+    api.patch(`/pos/orders/${orderId}/kitchen-status`, null, { params: { status } }),
 }
 
 // HR API — payroll, payslips, leave, attendance, appraisal, recruitment

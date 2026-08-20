@@ -60,6 +60,7 @@ const AutomationsPage = lazy(() => import('./pages/AutomationsPage'))
 const AccountingControlsPage = lazy(() => import('./pages/AccountingControlsPage'))
 const ProcurementPage = lazy(() => import('./pages/ProcurementPage'))
 const PosPage = lazy(() => import('./pages/PosPage'))
+const KitchenPage = lazy(() => import('./pages/KitchenPage'))
 const CRMPage = lazy(() => import('./pages/CRMPage'))
 const HRPage = lazy(() => import('./pages/HRPage'))
 const DocumentsPage = lazy(() => import('./pages/DocumentsPage'))
@@ -147,6 +148,7 @@ function App() {
                   <Route path="/accounting-controls" element={<AccountingControlsPage />} />
                   <Route path="/procurement" element={<ProcurementPage />} />
                   <Route path="/pos" element={<PosPage />} />
+                  <Route path="/kitchen" element={<KitchenPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Routes>
               </Layout>

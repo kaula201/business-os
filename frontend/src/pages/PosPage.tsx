@@ -55,6 +55,9 @@ export default function PosPage() {
   const [tipAmount, setTipAmount] = useState(0)
   const [emailFor, setEmailFor] = useState<any | null>(null)
   const [emailAddress, setEmailAddress] = useState('')
+  const [payMethod, setPayMethod] = useState('cash')
+  const [currency, setCurrency] = useState('GEL')
+  const [currencyRate, setCurrencyRate] = useState(1)
 
   const { data: sessionsData } = useQuery({
     queryKey: ['pos-sessions'],
@@ -116,10 +119,11 @@ export default function PosPage() {
         unit_price: i.unit_price,
         ...(i.discount_percent ? { discount_percent: i.discount_percent } : {}),
       })),
-      payment_method: 'cash',
+      payment_method: payMethod,
       payments: splitPayments.length > 0 ? splitPayments : undefined,
       ...(orderDiscount > 0 ? { discount_amount: orderDiscount } : {}),
       ...(tipAmount > 0 ? { tip_amount: tipAmount } : {}),
+      ...(currency !== 'GEL' ? { currency, currency_rate: currencyRate } : {}),
     }),
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ['pos-orders'] })
@@ -439,6 +443,36 @@ export default function PosPage() {
           </div>
 
           <div className="mt-3 space-y-2">
+            {/* Payment method */}
+            <div className="flex gap-1.5">
+              {[
+                { v: 'cash', l: t('ნაღდი') },
+                { v: 'card', l: t('ბარათი') },
+                { v: 'credit', l: t('ანგარიშზე') },
+              ].map(m => (
+                <button
+                  key={m.v}
+                  onClick={() => setPayMethod(m.v)}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium ${payMethod === m.v ? 'bg-primary-600 text-white' : 'bg-brandgray-100 text-brandgray-600 hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-400'}`}
+                >
+                  {m.l}
+                </button>
+              ))}
+            </div>
+            {/* Currency */}
+            <div className="flex gap-1.5">
+              <select className={`${inputCls} flex-1`} value={currency} onChange={e => setCurrency(e.target.value)}>
+                <option value="GEL">GEL</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+              </select>
+              {currency !== 'GEL' && (
+                <input
+                  type="number" min={0.0001} step={0.0001} className={`${inputCls} w-28`} placeholder={t('კურსი')}
+                  value={currencyRate} onChange={e => setCurrencyRate(Number(e.target.value) || 1)}
+                />
+              )}
+            </div>
             {/* Split payment */}
             <div className="rounded-lg border border-brandgray-100 dark:border-dark-50 p-2.5 space-y-2">
               <div className="flex items-center justify-between">
