@@ -22,6 +22,8 @@ from app.schemas.pos import (
     POSOrderCreate, POSOrderResponse, POSOrderItemResponse,
 )
 from app.services.gl_posting import post_pos_sale, post_pos_refund
+from app.services.email_service import smtp_configured, send_email_smtp
+from app.models.email_calendar import EmailMessage
 from datetime import date, datetime
 
 router = APIRouter(prefix="/pos", tags=["POS — სალარო"])
@@ -214,6 +216,10 @@ async def create_pos_order(
         rounding = (rounded - total).quantize(Decimal("0.01"))
         total = rounded
 
+    # Tip — added on top of the total (not VAT-able)
+    tip = Decimal(str(data.tip_amount or 0)).quantize(Decimal("0.01"))
+    total += tip
+
     order = POSOrder(
         company_id=current_user.company_id,
         session_id=data.session_id,
@@ -222,6 +228,7 @@ async def create_pos_order(
         subtotal=subtotal,
         discount_amount=total_discount,
         rounding_amount=rounding,
+        tip_amount=tip,
         vat_amount=vat,
         total=total,
         payment_method=data.payment_method,
@@ -245,7 +252,7 @@ async def create_pos_order(
         db, current_user.company_id, current_user,
         entry_date=utc_now().date(), reference_id=order.id,
         subtotal=subtotal, vat_amount=vat, total=total,
-        payment_method=data.payment_method,
+        payment_method=data.payment_method, tip_amount=tip,
     )
 
     # Split payments — record each method and redeem gift cards
@@ -896,3 +903,62 @@ async def list_z_reports(
         "declared_cash": float(r.declared_cash) if r.declared_cash else None,
         "difference": float(r.difference), "closed_at": r.closed_at.isoformat(),
     } for r in rows])
+
+
+# ── Receipt by email ─────────────────────────────────────────────────────────
+
+@router.post("/orders/{order_id}/email-receipt", response_model=ResponseBase[dict])
+async def email_receipt(
+    order_id: UUID,
+    to_email: str = Query(..., min_length=3),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("pos", "can_create")),
+):
+    """Send the receipt of a completed POS order by email (SMTP or sandbox)."""
+    order = (await db.execute(
+        select(POSOrder).where(POSOrder.id == order_id, POSOrder.company_id == current_user.company_id)
+        .options(selectinload(POSOrder.items))
+    )).unique().scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+
+    lines = []
+    for it in order.items:
+        disc = f" (ფასდაკლება {it.discount_amount:g})" if it.discount_amount else ""
+        lines.append(f"{it.product_name} × {it.quantity:g} — {it.line_total:,.2f} ₾{disc}")
+    body = (
+        f"ჩეკი {order.order_number}\n"
+        f"თარიღი: {order.created_at:%d.%m.%Y %H:%M}\n"
+        f"--------------------------------\n"
+        + "\n".join(lines)
+        + f"\n--------------------------------\n"
+        f"ქვეჯამი: {order.subtotal:,.2f} ₾\n"
+        + (f"ფასდაკლება: {order.discount_amount:,.2f} ₾\n" if order.discount_amount else "")
+        + (f"ჩაი (tip): {order.tip_amount:,.2f} ₾\n" if order.tip_amount else "")
+        + f"VAT 18%: {order.vat_amount:,.2f} ₾\n"
+        f"სულ: {order.total:,.2f} ₾\n"
+        f"გადახდა: {order.payment_method}\n"
+        f"\nგმადლობთ!\n"
+    )
+    m = EmailMessage(
+        company_id=current_user.company_id,
+        to_email=to_email,
+        subject=f"ჩეკი {order.order_number}",
+        body=body,
+        status="sent",
+    )
+    db.add(m)
+    await db.flush()
+
+    if smtp_configured():
+        try:
+            send_email_smtp(to_email, m.subject, body)
+        except Exception:
+            m.status = "failed"
+            await db.flush()
+            raise HTTPException(status_code=502, detail="ელ.ფოსტის გაგზავნა ვერ მოხერხდა (SMTP)")
+
+    return ResponseBase(
+        data={"id": str(m.id), "to_email": to_email, "status": m.status},
+        message="ჩეკი გაეგზავნა ელ.ფოსტით",
+    )

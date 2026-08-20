@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Minus, Trash2, ScanBarcode, Undo2, Gift, WifiOff, Printer, X, Banknote, UtensilsCrossed } from 'lucide-react'
+import { Plus, Minus, Trash2, ScanBarcode, Undo2, Gift, WifiOff, Printer, X, Banknote, UtensilsCrossed, Mail } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import { clientsApi, posApi, productsApi } from '../services/api'
@@ -51,6 +51,10 @@ export default function PosPage() {
   const [splitAmount, setSplitAmount] = useState(0)
   const [splitGiftCard, setSplitGiftCard] = useState('')
   const [orderDiscount, setOrderDiscount] = useState(0)
+  const [activeCategory, setActiveCategory] = useState('all')
+  const [tipAmount, setTipAmount] = useState(0)
+  const [emailFor, setEmailFor] = useState<any | null>(null)
+  const [emailAddress, setEmailAddress] = useState('')
 
   const { data: sessionsData } = useQuery({
     queryKey: ['pos-sessions'],
@@ -115,6 +119,7 @@ export default function PosPage() {
       payment_method: 'cash',
       payments: splitPayments.length > 0 ? splitPayments : undefined,
       ...(orderDiscount > 0 ? { discount_amount: orderDiscount } : {}),
+      ...(tipAmount > 0 ? { tip_amount: tipAmount } : {}),
     }),
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ['pos-orders'] })
@@ -253,6 +258,11 @@ export default function PosPage() {
     onSuccess: () => posApi.listTables().then(r => setTables(r.data.data)),
   })
 
+  const emailReceiptMut = useMutation({
+    mutationFn: ({ id, email }: { id: string; email: string }) => posApi.emailReceipt(id, email),
+    onSuccess: () => { setEmailFor(null); setEmailAddress('') },
+  })
+
   const addByBarcode = () => {
     const p = (products || []).find((x: any) => x.barcode === barcode || x.sku === barcode)
     if (p) {
@@ -274,6 +284,11 @@ export default function PosPage() {
   const subtotal = cart.reduce((s, i) => s + i.line_total, 0)
   const vat = subtotal * 0.18
   const total = subtotal + vat
+
+  const categories: string[] = Array.from(new Set((products || []).map((p: any) => p.category_name || 'სხვა')))
+  const filteredProducts = activeCategory === 'all'
+    ? (products || [])
+    : (products || []).filter((p: any) => (p.category_name || 'სხვა') === activeCategory)
 
   const money = (v: number) => new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL' }).format(v)
 
@@ -333,8 +348,25 @@ export default function PosPage() {
                 value={barcode} onChange={e => setBarcode(e.target.value)} onKeyDown={e => e.key === 'Enter' && addByBarcode()} />
             </div>
           </div>
+          <div className="flex gap-1.5 flex-wrap mb-2">
+            <button
+              onClick={() => setActiveCategory('all')}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium ${activeCategory === 'all' ? 'bg-primary-600 text-white' : 'bg-brandgray-100 text-brandgray-600 hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-400'}`}
+            >
+              {t('ყველა')}
+            </button>
+            {categories.map((c) => (
+              <button
+                key={c}
+                onClick={() => setActiveCategory(c)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium ${activeCategory === c ? 'bg-primary-600 text-white' : 'bg-brandgray-100 text-brandgray-600 hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-400'}`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-2 gap-2 max-h-96 overflow-y-auto">
-            {(products || []).map((p: any) => (
+            {filteredProducts.map((p: any) => (
               <button key={p.id} onClick={() => addToCart(p)}
                 className="rounded-lg border border-brandgray-100 dark:border-dark-50 p-3 text-left hover:border-primary-300 hover:bg-primary-50/50 dark:hover:bg-primary-900/10">
                 <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{p.name}</div>
@@ -393,8 +425,16 @@ export default function PosPage() {
             <div className="flex justify-between text-brandgray-500 dark:text-gray-400">
               <span>VAT 18%</span><span className="font-mono">{money(vat)}</span>
             </div>
+            <div className="flex items-center justify-between text-brandgray-500 dark:text-gray-400">
+              <span>{t('ჩაი (tip)')}</span>
+              <input
+                type="number" min={0} placeholder="₾"
+                className="w-20 rounded border border-brandgray-200 px-1.5 py-0.5 text-xs text-right focus:outline-none focus:ring-1 focus:ring-primary-300 dark:border-dark-50 dark:bg-dark-100"
+                value={tipAmount || ''} onChange={e => setTipAmount(Number(e.target.value) || 0)}
+              />
+            </div>
             <div className="flex justify-between text-lg font-bold text-gray-900 dark:text-gray-100">
-              <span>{t('სულ')}</span><span className="font-mono">{money(total)}</span>
+              <span>{t('სულ')}</span><span className="font-mono">{money(total + tipAmount)}</span>
             </div>
           </div>
 
@@ -505,6 +545,9 @@ export default function PosPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-semibold">{money(Number(o.total))}</span>
+                    <button onClick={() => { setEmailFor(o); setEmailAddress('') }} className="p-1.5 rounded-md text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30" title={t('ჩეკი ელ.ფოსტით')}>
+                      <Mail size={15} />
+                    </button>
                     {o.status !== 'refunded' && (
                       <button onClick={() => setRefundFor(o)} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30" title={t('დაბრუნება')}>
                         <Undo2 size={15} />
@@ -750,6 +793,28 @@ export default function PosPage() {
             )}
           </div>
         </div>
+      </Modal>
+
+      {/* Email receipt modal */}
+      <Modal open={!!emailFor} onClose={() => setEmailFor(null)} title={t('ჩეკი ელ.ფოსტით')}>
+        {emailFor && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              {t('შეკვეთა')}: <span className="font-semibold">{emailFor.order_number}</span> — {money(Number(emailFor.total))}
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('ელ.ფოსტა')}</label>
+              <input type="email" className={inputCls} value={emailAddress} onChange={e => setEmailAddress(e.target.value)} placeholder="client@example.com" />
+            </div>
+            <button
+              onClick={() => emailReceiptMut.mutate({ id: emailFor.id, email: emailAddress })}
+              disabled={emailReceiptMut.isPending || !emailAddress.includes('@')}
+              className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50"
+            >
+              {t('გაგზავნა')}
+            </button>
+          </div>
+        )}
       </Modal>
     </div>
   )

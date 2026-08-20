@@ -145,6 +145,8 @@ const en: Record<string, string> = {
   'აირჩიე ბარათი': 'Select card',
   'სულ გადახდილი': 'Total paid',
   'შეკვეთის ფასდაკლება': 'Order discount',
+  'ჩაი (tip)': 'Tip',
+  'ჩეკი ელ.ფოსტით': 'Receipt by email',
   'დებიტორული': 'Receivable',
   'ვალდებულება': 'Payable',
   'გასავალი': 'Expense',

@@ -45,8 +45,10 @@ class POSOrderCreate(BaseModel):
     # Order-level discount (percent or fixed amount)
     discount_percent: Optional[Decimal] = Field(None, ge=0, le=100)
     discount_amount: Optional[Decimal] = Field(None, ge=0)
-    # Cash rounding (1 tetri) — GE law: cash totals round to 0.01
+    # Cash rounding (1 tetri) — GE law: cash totals round to nearest 0.01
     rounding_amount: Optional[Decimal] = Field(None)
+    # Tip — added on top of the total (not VAT-able)
+    tip_amount: Optional[Decimal] = Field(None, ge=0)
 
 
 class POSOrderItemResponse(BaseModel):
@@ -71,6 +73,7 @@ class POSOrderResponse(BaseModel):
     subtotal: float
     discount_amount: float = 0
     rounding_amount: float = 0
+    tip_amount: float = 0
     vat_amount: float
     total: float
     payment_method: str

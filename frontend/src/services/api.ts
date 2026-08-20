@@ -747,6 +747,8 @@ export const posApi = {
     api.post('/pos/self-order/start', null, { params: { table_id } }),
   submitSelfOrder: (token: string, items: Record<string, unknown>[]) =>
     api.post(`/pos/self-order/${token}/submit`, { items }),
+  emailReceipt: (orderId: string, to_email: string) =>
+    api.post(`/pos/orders/${orderId}/email-receipt`, null, { params: { to_email } }),
 }
 
 // HR API — payroll, payslips, leave, attendance, appraisal, recruitment

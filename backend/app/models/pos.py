@@ -41,6 +41,7 @@ class POSOrder(Base):
     subtotal: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"))
     discount_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
     rounding_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
+    tip_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
     vat_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"))
     total: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"))
     payment_method: Mapped[str] = mapped_column(String(50), default="cash")  # cash, card, transfer
