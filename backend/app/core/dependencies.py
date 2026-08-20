@@ -1,4 +1,6 @@
 # backend/app/core/dependencies.py
+import hashlib
+from datetime import datetime
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
@@ -6,6 +8,7 @@ from app.core.database import get_db, current_company_id
 from app.core.security import decode_token
 from app.models.user import User
 from app.models.module import AppModule, ModulePermission
+from app.models.integration import ApiKey
 
 
 async def get_current_user(
@@ -42,6 +45,36 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_or_api_key(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Accept either a Bearer JWT or an X-API-Key (Odoo JSON-2 API style).
+
+    API keys: SHA-256 hash lookup, expiration check, last_used_at update.
+    """
+    api_key = request.headers.get("X-API-Key")
+    if api_key:
+        key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+        key = (await db.execute(select(ApiKey).where(ApiKey.key_hash == key_hash))).scalar_one_or_none()
+        if not key or not key.is_active:
+            raise HTTPException(status_code=401, detail="არასწორი ან გაუქმებული API გასაღები")
+        if key.expires_at and key.expires_at < datetime.utcnow():
+            raise HTTPException(status_code=401, detail="API გასაღების ვადა გასულია")
+        user = (await db.execute(select(User).where(User.id == key.user_id))).scalar_one_or_none()
+        if not user or not user.is_active:
+            raise HTTPException(status_code=401, detail="მომხმარებელი არ მოიძებნა ან დეაქტივირებულია")
+        key.last_used_at = datetime.utcnow()
+        await db.flush()
+        await db.execute(
+            text("SELECT set_config('app.current_company_id', :cid, true)"),
+            {"cid": str(user.company_id)},
+        )
+        current_company_id.set(user.company_id)
+        return user
+    return await get_current_user(request, db)
+
+
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != User.Role.ADMIN:
         raise HTTPException(status_code=403, detail="მხოლოდ ადმინისტრატორს შეუძლია")
@@ -66,7 +99,7 @@ def require_module(module_code: str, permission: str = "can_access"):
     """
     async def _check(
         db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_user),
+        current_user: User = Depends(get_current_user_or_api_key),
     ) -> User:
         # Admin always has full access
         if current_user.role == User.Role.ADMIN:

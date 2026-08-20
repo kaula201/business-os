@@ -57,6 +57,7 @@ from app.api.v1.endpoints import (
     inventory_valuation,
     bank_rules,
     helpdesk,
+    api_keys,
     hr,
     hr_enhanced,
     integrations,
@@ -179,6 +180,7 @@ api_router.include_router(srs.router)
 api_router.include_router(search.router)
 api_router.include_router(expenses.router)
 api_router.include_router(helpdesk.router)
+api_router.include_router(api_keys.router)
 api_router.include_router(import_data.router)
 api_router.include_router(modules.router)
 api_router.include_router(settings_enhanced.router)

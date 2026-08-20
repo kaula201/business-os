@@ -1515,6 +1515,8 @@ const en: Record<string, string> = {
   'ახალი API Key': 'New API Key',
   'ახალი Webhook': 'New Webhook',
   'API Keys არ არის': 'No API keys',
+  'ახალი გასაღები': 'New key',
+  'როტაცია': 'Rotate',
   'Webhooks არ არის': 'No webhooks',
   'პრეფიქსი': 'Prefix',
   'უფლებები': 'Scopes',

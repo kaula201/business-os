@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Key, Webhook as WebhookIcon, Globe, Plus, Trash2, Copy } from 'lucide-react'
+import { Key, Webhook as WebhookIcon, Globe, Plus, Trash2, Copy, RefreshCw } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
-import { integrationsApi } from '../services/api'
+import { apiKeysApi, integrationsApi } from '../services/api'
 
 const tabs = [
   { id: 'keys', label: 'API Keys', icon: Key },
@@ -87,14 +87,19 @@ export default function IntegrationsPage() {
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
                 {(keys || []).length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('API Keys არ არის')}</td></tr>
+                  <tr><td colSpan={6} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('API Keys არ არის')}</td></tr>
                 ) : (keys || []).map((k: any) => (
                   <tr key={k.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{k.name}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">{k.key_prefix}...</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{k.scopes}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{k.expires_at ? new Date(k.expires_at).toLocaleDateString('ka-GE') : '—'}</td>
                     <td className="px-4 py-3">{k.is_active ? '✓' : '—'}</td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <button onClick={() => apiKeysApi.rotate(k.id).then(r => {
+                        alert(`${t('ახალი გასაღები')}: ${r.data.data.key}`)
+                        qc.invalidateQueries({ queryKey: ['int-keys'] })
+                      })} className="text-amber-500 hover:text-amber-700 mr-2" title={t('როტაცია')}><RefreshCw size={16} /></button>
                       <button onClick={() => removeKey.mutate(k.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
                     </td>
                   </tr>

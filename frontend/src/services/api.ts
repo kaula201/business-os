@@ -238,6 +238,15 @@ export const integrationsApi = {
   exportDeclaration: (data: Record<string, unknown>) => api.post('/integrations/rs/declarations/export', data),
 }
 
+// API Keys API (Odoo JSON-2 API style)
+export const apiKeysApi = {
+  list: () => api.get('/api-keys/'),
+  create: (data: Record<string, unknown>) => api.post('/api-keys/', data),
+  rotate: (id: string) => api.post(`/api-keys/${id}/rotate`),
+  revoke: (id: string) => api.post(`/api-keys/${id}/revoke`),
+  createBotUser: (data: Record<string, unknown>) => api.post('/api-keys/bot-users', data),
+}
+
 // Payments API
 export const paymentsApi = {
   list: () => api.get('/payments/'),
