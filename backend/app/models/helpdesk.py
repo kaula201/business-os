@@ -37,9 +37,13 @@ class HelpdeskTicket(Base):
     status: Mapped[str] = mapped_column(String(20), default="new", nullable=False)
     assignee_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     requester_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    team_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("helpdesk_teams.id"), nullable=True, index=True)
+    pipeline_stage_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("helpdesk_pipeline_stages.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     company = relationship("Company")
     assignee = relationship("User", foreign_keys=[assignee_id])
     requester = relationship("User", foreign_keys=[requester_id])
+    team = relationship("HelpdeskTeam", foreign_keys=[team_id])
+    pipeline_stage = relationship("HelpdeskPipelineStage", foreign_keys=[pipeline_stage_id])

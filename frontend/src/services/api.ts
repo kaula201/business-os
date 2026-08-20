@@ -199,6 +199,13 @@ export const helpdeskApi = {
   createFieldService: (data: Record<string, unknown>) => api.post('/helpdesk/field-service', data),
   emailIntake: () => api.get('/helpdesk/email-intake'),
   createEmailIntake: (data: Record<string, unknown>) => api.post('/helpdesk/email-intake', data),
+  teams: () => api.get('/helpdesk/teams'),
+  createTeam: (data: Record<string, unknown>) => api.post('/helpdesk/teams', data),
+  addTeamMember: (teamId: string, userId: string) => api.post(`/helpdesk/teams/${teamId}/members`, null, { params: { user_id: userId } }),
+  removeTeam: (teamId: string) => api.delete(`/helpdesk/teams/${teamId}`),
+  pipelines: () => api.get('/helpdesk/pipelines'),
+  createPipeline: (data: Record<string, unknown>) => api.post('/helpdesk/pipelines', data),
+  removePipeline: (pipelineId: string) => api.delete(`/helpdesk/pipelines/${pipelineId}`),
 }
 
 // Reports API

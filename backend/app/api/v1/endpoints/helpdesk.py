@@ -13,6 +13,7 @@ from app.models.user import User
 from app.models.helpdesk import HelpdeskTicket
 from app.models.helpdesk_ext import (
     HelpdeskQueue, HelpdeskSla, HelpdeskEscalation, CannedReply, KnowledgeArticle, FieldServiceJob, EmailIntakeRule,
+    HelpdeskTeam, HelpdeskTeamMember, HelpdeskPipeline, HelpdeskPipelineStage,
 )
 from app.schemas.helpdesk import (
     HelpdeskTicketCreate,
@@ -29,6 +30,8 @@ def _enrich_ticket(ticket: HelpdeskTicket) -> HelpdeskTicketResponse:
     resp = HelpdeskTicketResponse.model_validate(ticket)
     resp.assignee_name = ticket.assignee.full_name if ticket.assignee else None
     resp.requester_name = ticket.requester.full_name if ticket.requester else None
+    resp.team_name = ticket.team.name if ticket.team else None
+    resp.pipeline_stage_name = ticket.pipeline_stage.name if ticket.pipeline_stage else None
     return resp
 
 
@@ -72,6 +75,161 @@ async def list_tickets(
     ))
 
 
+# ── Teams (Odoo-style) ─────────────────────────────────────────────────────────
+
+@router.get("/teams", response_model=ResponseBase[list[dict]])
+async def list_teams(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_access")),
+):
+    rows = (await db.execute(
+        select(HelpdeskTeam).where(HelpdeskTeam.company_id == current_user.company_id)
+        .options(selectinload(HelpdeskTeam.lead))
+        .order_by(HelpdeskTeam.name)
+    )).scalars().all()
+    result = []
+    for team in rows:
+        members = (await db.execute(
+            select(HelpdeskTeamMember).where(HelpdeskTeamMember.team_id == team.id)
+        )).scalars().all()
+        result.append({
+            "id": str(team.id), "name": team.name, "description": team.description,
+            "lead_id": str(team.lead_id) if team.lead_id else None,
+            "lead_name": team.lead.full_name if team.lead else None,
+            "member_count": len(members),
+            "is_active": team.is_active,
+        })
+    return ResponseBase(data=result)
+
+
+@router.post("/teams", response_model=ResponseBase[dict], status_code=201)
+async def create_team(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_create")),
+):
+    name = (data.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="გუნდის სახელი სავალდებულოა")
+    team = HelpdeskTeam(
+        company_id=current_user.company_id, name=name,
+        description=data.get("description"), lead_id=data.get("lead_id"),
+    )
+    db.add(team)
+    await db.flush()
+    for uid in data.get("member_ids", []):
+        db.add(HelpdeskTeamMember(team_id=team.id, user_id=uid))
+    await db.commit()
+    return ResponseBase(data={"id": str(team.id), "name": team.name}, message="გუნდი შეიქმნა")
+
+
+@router.post("/teams/{team_id}/members", response_model=ResponseBase[dict])
+async def add_team_member(
+    team_id: UUID,
+    user_id: UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_create")),
+):
+    team = (await db.execute(
+        select(HelpdeskTeam).where(HelpdeskTeam.id == team_id, HelpdeskTeam.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not team:
+        raise HTTPException(status_code=404, detail="გუნდი არ მოიძებნა")
+    existing = (await db.execute(
+        select(HelpdeskTeamMember).where(HelpdeskTeamMember.team_id == team_id, HelpdeskTeamMember.user_id == user_id)
+    )).scalar_one_or_none()
+    if not existing:
+        db.add(HelpdeskTeamMember(team_id=team_id, user_id=user_id))
+        await db.commit()
+    return ResponseBase(data={"team_id": str(team_id), "user_id": str(user_id)}, message="წევრი დაემატა")
+
+
+@router.delete("/teams/{team_id}", response_model=ResponseBase)
+async def delete_team(
+    team_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_create")),
+):
+    team = (await db.execute(
+        select(HelpdeskTeam).where(HelpdeskTeam.id == team_id, HelpdeskTeam.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not team:
+        raise HTTPException(status_code=404, detail="გუნდი არ მოიძებნა")
+    await db.delete(team)
+    await db.commit()
+    return ResponseBase(message="გუნდი წაიშალა")
+
+
+# ── Pipelines (Odoo-style) ─────────────────────────────────────────────────────
+
+@router.get("/pipelines", response_model=ResponseBase[list[dict]])
+async def list_pipelines(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_access")),
+):
+    rows = (await db.execute(
+        select(HelpdeskPipeline).where(HelpdeskPipeline.company_id == current_user.company_id)
+        .options(selectinload(HelpdeskPipeline.stages))
+        .order_by(HelpdeskPipeline.created_at)
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(p.id), "name": p.name, "description": p.description,
+        "is_default": p.is_default, "is_active": p.is_active,
+        "stages": [{
+            "id": str(s.id), "name": s.name, "sort_order": s.sort_order, "is_done": s.is_done,
+        } for s in p.stages],
+    } for p in rows])
+
+
+@router.post("/pipelines", response_model=ResponseBase[dict], status_code=201)
+async def create_pipeline(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_create")),
+):
+    """Create a pipeline: {"name": "...", "stages": ["New", "Triaged", "Done"]}"""
+    name = (data.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="პაიპლაინის სახელი სავალდებულოა")
+    pipeline = HelpdeskPipeline(
+        company_id=current_user.company_id, name=name,
+        description=data.get("description"), is_default=bool(data.get("is_default")),
+    )
+    db.add(pipeline)
+    await db.flush()
+    for i, stage_name in enumerate(data.get("stages", [])):
+        db.add(HelpdeskPipelineStage(
+            pipeline_id=pipeline.id, name=stage_name, sort_order=i,
+            is_done=(i == len(data.get("stages", [])) - 1),
+        ))
+    await db.commit()
+    return ResponseBase(data={"id": str(pipeline.id), "name": pipeline.name}, message="პაიპლაინი შეიქმნა")
+
+
+@router.delete("/pipelines/{pipeline_id}", response_model=ResponseBase)
+async def delete_pipeline(
+    pipeline_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_create")),
+):
+    pipeline = (await db.execute(
+        select(HelpdeskPipeline).where(HelpdeskPipeline.id == pipeline_id, HelpdeskPipeline.company_id == current_user.company_id)
+        .options(selectinload(HelpdeskPipeline.stages))
+    )).scalar_one_or_none()
+    if not pipeline:
+        raise HTTPException(status_code=404, detail="პაიპლაინი არ მოიძებნა")
+    # detach tickets from this pipeline's stages before deleting
+    stage_ids = [s.id for s in pipeline.stages]
+    if stage_ids:
+        tickets = (await db.execute(
+            select(HelpdeskTicket).where(HelpdeskTicket.pipeline_stage_id.in_(stage_ids))
+        )).scalars().all()
+        for t in tickets:
+            t.pipeline_stage_id = None
+        await db.flush()
+    await db.delete(pipeline)
+    await db.commit()
+    return ResponseBase(message="პაიპლაინი წაიშალა")
 @router.get("/{ticket_id}", response_model=ResponseBase[HelpdeskTicketResponse])
 async def get_ticket(
     ticket_id: UUID,
@@ -82,7 +240,10 @@ async def get_ticket(
         select(HelpdeskTicket).where(
             HelpdeskTicket.id == ticket_id,
             HelpdeskTicket.company_id == current_user.company_id,
-        ).options(selectinload(HelpdeskTicket.assignee), selectinload(HelpdeskTicket.requester))
+        ).options(
+            selectinload(HelpdeskTicket.assignee), selectinload(HelpdeskTicket.requester),
+            selectinload(HelpdeskTicket.team), selectinload(HelpdeskTicket.pipeline_stage),
+        )
     )
     ticket = result.scalar_one_or_none()
     if not ticket:
@@ -104,10 +265,18 @@ async def create_ticket(
         status=data.status.value,
         assignee_id=data.assignee_id,
         requester_id=data.requester_id,
+        team_id=data.team_id,
+        pipeline_stage_id=data.pipeline_stage_id,
     )
     db.add(ticket)
     await db.commit()
-    await db.refresh(ticket)
+    result = await db.execute(
+        select(HelpdeskTicket).where(HelpdeskTicket.id == ticket.id).options(
+            selectinload(HelpdeskTicket.assignee), selectinload(HelpdeskTicket.requester),
+            selectinload(HelpdeskTicket.team), selectinload(HelpdeskTicket.pipeline_stage),
+        )
+    )
+    ticket = result.scalar_one()
     return ResponseBase(data=_enrich_ticket(ticket))
 
 
@@ -136,7 +305,13 @@ async def update_ticket(
             setattr(ticket, field, value)
 
     await db.commit()
-    await db.refresh(ticket)
+    result = await db.execute(
+        select(HelpdeskTicket).where(HelpdeskTicket.id == ticket.id).options(
+            selectinload(HelpdeskTicket.assignee), selectinload(HelpdeskTicket.requester),
+            selectinload(HelpdeskTicket.team), selectinload(HelpdeskTicket.pipeline_stage),
+        )
+    )
+    ticket = result.scalar_one()
     return ResponseBase(data=_enrich_ticket(ticket))
 
 

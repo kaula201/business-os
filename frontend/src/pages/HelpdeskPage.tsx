@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Ticket, Inbox, Timer, Layers, TrendingUp, MessageSquare, BookOpen, Wrench, Mail } from 'lucide-react'
+import { Plus, Ticket, Inbox, Timer, Layers, TrendingUp, MessageSquare, BookOpen, Wrench, Mail, Users, GitBranch, X } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
@@ -9,6 +9,8 @@ import { helpdeskApi } from '../services/api'
 
 const tabs = [
   { id: 'tickets', label: 'ტიკეტები', icon: Ticket },
+  { id: 'teams', label: 'გუნდები', icon: Users },
+  { id: 'pipelines', label: 'პაიპლაინები', icon: GitBranch },
   { id: 'queues', label: 'რიგები', icon: Layers },
   { id: 'slas', label: 'SLA', icon: Timer },
   { id: 'escalations', label: 'ესკალაციები', icon: TrendingUp },
@@ -53,6 +55,14 @@ export default function HelpdeskPage() {
   // Email intake form
   const [emailForm, setEmailForm] = useState({ mailbox: '', priority: 'medium' })
   const [emailOpen, setEmailOpen] = useState(false)
+  // Team form
+  const [teamForm, setTeamForm] = useState({ name: '', description: '' })
+  const [teamOpen, setTeamOpen] = useState(false)
+  const [teams, setTeams] = useState<any[]>([])
+  // Pipeline form
+  const [pipelineForm, setPipelineForm] = useState({ name: '', description: '', stages: '' })
+  const [pipelineOpen, setPipelineOpen] = useState(false)
+  const [pipelines, setPipelines] = useState<any[]>([])
 
   const { data: ticketsData, isLoading: ticketsLoading } = useQuery({
     queryKey: ['hd-tickets'],
@@ -106,6 +116,8 @@ export default function HelpdeskPage() {
 
   const openBtn = () => {
     if (tab === 'tickets') setTicketOpen(true)
+    else if (tab === 'teams') setTeamOpen(true)
+    else if (tab === 'pipelines') setPipelineOpen(true)
     else if (tab === 'queues') setQueueOpen(true)
     else if (tab === 'slas') setSlaOpen(true)
     else if (tab === 'canned') setCannedOpen(true)
@@ -116,7 +128,7 @@ export default function HelpdeskPage() {
 
   const btnLabel = () => {
     const map: Record<string, string> = {
-      tickets: 'ახალი ტიკეტი', queues: 'ახალი რიგი', slas: 'ახალი SLA', canned: 'ახალი მზა პასუხი',
+      tickets: 'ახალი ტიკეტი', teams: 'ახალი გუნდი', pipelines: 'ახალი პაიპლაინი', queues: 'ახალი რიგი', slas: 'ახალი SLA', canned: 'ახალი მზა პასუხი',
       knowledge: 'ახალი სტატია', field: 'ახალი საველე სამუშაო', email: 'ახალი წესი',
     }
     return map[tab] || ''
@@ -177,6 +189,49 @@ export default function HelpdeskPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {tab === 'teams' && (
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {teams.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400 col-span-full">{t('გუნდები არ არის')}</p>
+          ) : teams.map((tm: any) => (
+            <div key={tm.id} className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+              <div className="flex items-center justify-between">
+                <div className="font-semibold text-brandgray-900 dark:text-gray-100">{tm.name}</div>
+                <button onClick={() => helpdeskApi.removeTeam(tm.id).then(() => helpdeskApi.teams().then(r => setTeams(r.data.data)))}
+                  className="text-gray-400 hover:text-red-600"><X size={15} /></button>
+              </div>
+              <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">{tm.description || '—'}</div>
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                {t('ლიდერი')}: {tm.lead_name || '—'} · {tm.member_count} {t('წევრი')}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'pipelines' && (
+        <div className="grid gap-3 md:grid-cols-2">
+          {pipelines.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400 col-span-full">{t('პაიპლაინები არ არის')}</p>
+          ) : pipelines.map((pl: any) => (
+            <div key={pl.id} className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+              <div className="flex items-center justify-between">
+                <div className="font-semibold text-brandgray-900 dark:text-gray-100">{pl.name}</div>
+                <button onClick={() => helpdeskApi.removePipeline(pl.id).then(() => helpdeskApi.pipelines().then(r => setPipelines(r.data.data)))}
+                  className="text-gray-400 hover:text-red-600"><X size={15} /></button>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(pl.stages || []).map((s: any, i: number) => (
+                  <span key={s.id} className={`rounded-full px-2.5 py-1 text-xs font-medium ${s.is_done ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                    {i + 1}. {s.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -502,6 +557,55 @@ export default function HelpdeskPage() {
           </FormField>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button onClick={() => createEmail.mutate()} disabled={!emailForm.mailbox || createEmail.isPending}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Team modal */}
+      <Modal open={teamOpen} onClose={() => setTeamOpen(false)} title={t('ახალი გუნდი')}>
+        <div className="space-y-4">
+          <FormField label={t('სახელი')} required>
+            <input value={teamForm.name} onChange={e => setTeamForm({ ...teamForm, name: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          <FormField label={t('აღწერა')}>
+            <textarea value={teamForm.description} onChange={e => setTeamForm({ ...teamForm, description: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" rows={2} />
+          </FormField>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => helpdeskApi.createTeam(teamForm).then(() => {
+            setTeamOpen(false); setTeamForm({ name: '', description: '' }); helpdeskApi.teams().then(r => setTeams(r.data.data))
+          })} disabled={!teamForm.name}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Pipeline modal */}
+      <Modal open={pipelineOpen} onClose={() => setPipelineOpen(false)} title={t('ახალი პაიპლაინი')}>
+        <div className="space-y-4">
+          <FormField label={t('სახელი')} required>
+            <input value={pipelineForm.name} onChange={e => setPipelineForm({ ...pipelineForm, name: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          <FormField label={t('აღწერა')}>
+            <input value={pipelineForm.description} onChange={e => setPipelineForm({ ...pipelineForm, description: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          <FormField label={t('სტადიები (თითო ხაზზე)')} required>
+            <textarea value={pipelineForm.stages} onChange={e => setPipelineForm({ ...pipelineForm, stages: e.target.value })}
+              placeholder="New&#10;Triaged&#10;Done" className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" rows={3} />
+          </FormField>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => {
+            const stages = pipelineForm.stages.split('\n').map(s => s.trim()).filter(Boolean)
+            helpdeskApi.createPipeline({ name: pipelineForm.name, description: pipelineForm.description, stages }).then(() => {
+              setPipelineOpen(false); setPipelineForm({ name: '', description: '', stages: '' }); helpdeskApi.pipelines().then(r => setPipelines(r.data.data))
+            })
+          }} disabled={!pipelineForm.name || !pipelineForm.stages.trim()}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
             {t('შენახვა')}
           </button>
