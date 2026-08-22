@@ -71,6 +71,8 @@ async def get_current_user_or_api_key(
             {"cid": str(user.company_id)},
         )
         current_company_id.set(user.company_id)
+        # Expose the key's scopes for require_module enforcement (Odoo access rights)
+        request.state.api_key_scopes = [s.strip() for s in key.scopes.split(",") if s.strip()]
         return user
     return await get_current_user(request, db)
 
@@ -98,9 +100,15 @@ def require_module(module_code: str, permission: str = "can_access"):
         current_user: User = Depends(require_module("cash", "can_create"))
     """
     async def _check(
+        request: Request,
         db: AsyncSession = Depends(get_db),
         current_user: User = Depends(get_current_user_or_api_key),
     ) -> User:
+        # API key scope enforcement (Odoo access rights): the module must be in the key's scopes
+        scopes = getattr(request.state, "api_key_scopes", None)
+        if scopes is not None and "*" not in scopes and module_code not in scopes:
+            raise HTTPException(status_code=403, detail=f"API გასაღებს არ აქვს წვდომა მოდულზე: {module_code}")
+
         # Admin always has full access
         if current_user.role == User.Role.ADMIN:
             return current_user

@@ -45,6 +45,28 @@ async def test_api_key_lifecycle(client, auth_headers, test_company, db_session)
     assert resp.status_code == 401, resp.text
 
 
+async def test_api_key_scope_enforcement(client, auth_headers, test_company, db_session):
+    # key scoped to "projects" only
+    resp = await client.post("/api/v1/api-keys/", json={"name": "Scoped", "scopes": "projects", "ttl_days": 30}, headers=auth_headers)
+    assert resp.status_code == 201, resp.text
+    raw_key = resp.json()["data"]["key"]
+
+    # projects → allowed
+    resp = await client.get("/api/v1/projects/", headers={"X-API-Key": raw_key})
+    assert resp.status_code == 200, resp.text
+
+    # helpdesk → 403 (not in scopes)
+    resp = await client.get("/api/v1/helpdesk/", headers={"X-API-Key": raw_key})
+    assert resp.status_code == 403, resp.text
+    assert "წვდომა" in resp.json()["detail"]
+
+    # wildcard key → everything allowed
+    resp = await client.post("/api/v1/api-keys/", json={"name": "Wild", "scopes": "*", "ttl_days": 30}, headers=auth_headers)
+    raw_wild = resp.json()["data"]["key"]
+    resp = await client.get("/api/v1/helpdesk/", headers={"X-API-Key": raw_wild})
+    assert resp.status_code == 200, resp.text
+
+
 async def test_bot_user(client, auth_headers, test_company, db_session):
     resp = await client.post("/api/v1/api-keys/bot-users", json={
         "email": "bot@demo.ge", "name": "POS Bot",
