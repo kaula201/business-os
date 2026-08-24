@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Minus, Trash2, ScanBarcode, Undo2, Gift, WifiOff, Printer, X, Banknote, UtensilsCrossed, Mail, SplitSquareHorizontal, ShieldCheck } from 'lucide-react'
+import { Plus, Minus, Trash2, ScanBarcode, Undo2, Gift, WifiOff, Printer, X, Banknote, UtensilsCrossed, Mail, SplitSquareHorizontal, ShieldCheck, CreditCard, QrCode } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import { clientsApi, posApi, productsApi } from '../services/api'
@@ -355,6 +355,33 @@ export default function PosPage() {
     },
   })
 
+  // Cashier PIN verification (P1.5)
+  const [pinModalOpen, setPinModalOpen] = useState(false)
+  const [pinInput, setPinInput] = useState('')
+  const [pinVerified, setPinVerified] = useState(false)
+  const verifyPin = useMutation({
+    mutationFn: () => {
+      const stored = localStorage.getItem('user')
+      const uid = stored ? (JSON.parse(stored).id || '') : ''
+      return posApi.verifyCashierPin(uid, pinInput)
+    },
+    onSuccess: () => { setPinVerified(true); setPinModalOpen(false); setPinInput('') },
+  })
+  // Payment terminal / QR (P1.5)
+  const [termModalOpen, setTermModalOpen] = useState(false)
+  const chargeTerm = useMutation({
+    mutationFn: () => posApi.terminalCharge(selectedTerminal || '', checkoutTotal()),
+    onSuccess: (r) => { setTermRef(r.data.data?.transaction_id); setTermModalOpen(false) },
+  })
+  const [selectedTerminal, setSelectedTerminal] = useState<string | null>(null)
+  const [termRef, setTermRef] = useState<string | null>(null)
+  const qrPay = useMutation({
+    mutationFn: () => posApi.qrPay(checkoutTotal()),
+    onSuccess: (r) => { setTermRef(r.data.data?.reference); setTermModalOpen(false) },
+  })
+  const { data: terminals } = useQuery({ queryKey: ['pos-terminals'], queryFn: () => posApi.listTerminals().then(r => r.data.data) })
+  const { data: registers } = useQuery({ queryKey: ['pos-registers'], queryFn: () => posApi.listRegisters().then(r => r.data.data) })
+
   const addByBarcode = () => {
     const p = (products || []).find((x: any) => x.barcode === barcode || x.sku === barcode)
     if (p) {
@@ -376,6 +403,7 @@ export default function PosPage() {
   const subtotal = cart.reduce((s, i) => s + i.line_total, 0)
   const vat = subtotal * 0.18
   const total = subtotal + vat
+  const checkoutTotal = () => total
 
   const categories: string[] = Array.from(new Set((products || []).map((p: any) => p.category_name || 'სხვა')))
   const filteredProducts = activeCategory === 'all'
@@ -668,6 +696,30 @@ export default function PosPage() {
             <button onClick={() => createOrder.mutate()} disabled={createOrder.isPending || cart.length === 0 || !openSession}
               className="w-full px-4 py-3 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 disabled:opacity-50">
               {t('გადახდა და ჩეკი')} — {money(total)}
+            </button>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setPinModalOpen(true)}
+                className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium ${pinVerified ? 'bg-green-600 text-white' : 'bg-brandgray-100 text-brandgray-600 hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-400'}`}
+              >
+                {pinVerified ? '✓ ' + t('Cashier') : t('Cashier PIN')}
+              </button>
+              <button
+                onClick={() => setTermModalOpen(true)}
+                disabled={cart.length === 0 || !openSession}
+                className="flex-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-brandgray-100 text-brandgray-600 hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-400 disabled:opacity-50"
+              >
+                <CreditCard size={13} className="inline mr-1" />{t('ტერმინალი')}
+              </button>
+            </div>
+            {termRef && (
+              <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
+                {t('გადახდა დადასტურდა')}: <span className="font-mono">{termRef}</span>
+              </div>
+            )}
+            <button onClick={() => qrPay.mutate()} disabled={cart.length === 0 || !openSession || qrPay.isPending}
+              className="w-full px-4 py-2 rounded-lg bg-brandgray-100 text-brandgray-700 text-sm font-medium hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-300 disabled:opacity-50">
+              <QrCode size={14} className="inline mr-1" /> {t('QR გადახდა')} — {money(total)}
             </button>
             {lastReceipt && (
               <button onClick={printReceipt}
@@ -1149,6 +1201,60 @@ export default function PosPage() {
               </div>
             </>
           )}
+        </div>
+      </Modal>
+
+      {/* Cashier PIN modal */}
+      <Modal open={pinModalOpen} onClose={() => setPinModalOpen(false)} title={t('Cashier PIN')}>
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">{t('შეიყვანე cashier-ის PIN')}</p>
+          <input
+            type="password" inputMode="numeric" maxLength={8}
+            className={inputCls} value={pinInput}
+            onChange={e => setPinInput(e.target.value.replace(/\D/g, ''))}
+            placeholder="••••"
+          />
+          {verifyPin.isError && (
+            <p className="text-sm text-red-500">{t('არასწორი PIN')}</p>
+          )}
+          <button
+            onClick={() => verifyPin.mutate()}
+            disabled={verifyPin.isPending || pinInput.length < 4}
+            className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50"
+          >
+            {t('დადასტურება')}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Payment terminal modal */}
+      <Modal open={termModalOpen} onClose={() => setTermModalOpen(false)} title={t('ტერმინალი')}>
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">{t('თანხა')}: <span className="font-mono font-semibold">{money(total)}</span></p>
+          {(terminals || []).length === 0 ? (
+            <p className="text-sm text-amber-600 dark:text-amber-400">{t('ტერმინალი არ არის კონფიგურირებული')}</p>
+          ) : (
+            <select className={inputCls} value={selectedTerminal || ''} onChange={e => setSelectedTerminal(e.target.value)}>
+              <option value="">{t('აირჩიე ტერმინალი')}</option>
+              {(terminals || []).map((tm: any) => (
+                <option key={tm.id} value={tm.id}>{tm.name} ({tm.provider.toUpperCase()})</option>
+              ))}
+            </select>
+          )}
+          <button
+            onClick={() => selectedTerminal && chargeTerm.mutate()}
+            disabled={chargeTerm.isPending || !selectedTerminal}
+            className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50"
+          >
+            {t('გადახდა ტერმინალით')}
+          </button>
+          <button
+            onClick={() => qrPay.mutate()}
+            disabled={qrPay.isPending}
+            className="w-full px-4 py-2 rounded-lg bg-brandgray-100 text-brandgray-700 text-sm font-medium hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-300"
+          >
+            <QrCode size={14} className="inline mr-1" /> {t('QR გადახდა')}
+          </button>
         </div>
       </Modal>
     </div>

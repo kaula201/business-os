@@ -752,6 +752,20 @@ export const posApi = {
   zReport: (sessionId: string, declared_cash?: number) =>
     api.post(`/pos/sessions/${sessionId}/z-report`, null, { params: { declared_cash } }),
   listZReports: () => api.get('/pos/z-reports'),
+  // Hardware & configuration (P1.5)
+  listRegisters: () => api.get('/pos/registers'),
+  createRegister: (data: Record<string, unknown>) => api.post('/pos/registers', data),
+  listCashiers: () => api.get('/pos/cashiers'),
+  createCashier: (data: Record<string, unknown>) => api.post('/pos/cashiers', data),
+  verifyCashierPin: (userId: string, pin: string) => api.post('/pos/cashiers/verify', { user_id: userId, pin }),
+  listTerminals: () => api.get('/pos/terminals'),
+  createTerminal: (data: Record<string, unknown>) => api.post('/pos/terminals', data),
+  terminalCharge: (terminalId: string, amount: number, reference?: string) =>
+    api.post(`/pos/terminals/${terminalId}/charge`, { amount, reference }),
+  qrPay: (amount: number) => api.post('/pos/qr/pay', { amount }),
+  customerBalance: (clientId: string) => api.get(`/pos/customer-balance/${clientId}`),
+  customerDeposit: (clientId: string, amount: number) =>
+    api.post(`/pos/customers/${clientId}/deposit`, { amount }),
   // Restaurant
   listTables: () => api.get('/pos/tables'),
   createTable: (name: string, capacity: number) =>
