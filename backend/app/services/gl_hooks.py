@@ -190,6 +190,30 @@ async def post_sale_cogs_gl(
     )
 
 
+async def post_payroll_payment_gl(
+    db: AsyncSession,
+    company_id: UUID,
+    current_user: User,
+    *,
+    payslip_id: UUID,
+    payslip_number: str,
+    payment_date: date,
+    amount: Decimal,
+) -> None:
+    """Payroll bank payment: Dr Payroll payable (2300) / Cr Bank (1410)."""
+    await post_journal_entry(
+        db, company_id, current_user,
+        entry_date=payment_date,
+        description=f"ხელფასის გადახდა {payslip_number}",
+        reference_type="payslip_payment",
+        reference_id=payslip_id,
+        lines=[
+            ("2300", amount, Decimal("0")),   # Dr გადასახდელი ხელფასი იხურება
+            ("1410", Decimal("0"), amount),    # Cr ბანკი
+        ],
+    )
+
+
 async def post_payslip_gl(
     db: AsyncSession,
     company_id: UUID,

@@ -551,6 +551,37 @@ async def list_payslips(
     return ResponseBase(data=result)
 
 
+@router.post("/payslips/{payslip_id}/pay", response_model=ResponseBase[dict])
+async def pay_payslip(
+    payslip_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("hr", "can_create")),
+):
+    """Pay a payslip by bank transfer → closes 2300 against 1410 (bank payment)."""
+    from datetime import date as _date
+    payslip = (await db.execute(
+        select(Payslip).where(Payslip.id == payslip_id, Payslip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not payslip:
+        raise HTTPException(status_code=404, detail="Payslip არ მოიძებნა")
+    if payslip.status != "draft":
+        raise HTTPException(status_code=409, detail="მხოლოდ draft payslip-ის გადახდა შეიძლება")
+
+    from app.services.gl_hooks import post_payroll_payment_gl
+    payment_date = _date.fromisoformat(data.get("payment_date", _date.today().isoformat()))
+    await post_payroll_payment_gl(
+        db, current_user.company_id, current_user,
+        payslip_id=payslip.id,
+        payslip_number=payslip.payslip_number,
+        payment_date=payment_date,
+        amount=payslip.net_pay,
+    )
+    payslip.status = "paid"
+    await db.commit()
+    return ResponseBase(data={"id": str(payslip.id), "status": "paid"}, message="ხელფასი გადახდილია (ბანკი)")
+
+
 # ── Leave requests ────────────────────────────────────────────────────────────
 
 @router.get("/leave-requests", response_model=ResponseBase[list[dict]])

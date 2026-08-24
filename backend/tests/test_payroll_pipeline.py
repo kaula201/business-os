@@ -58,3 +58,26 @@ async def test_payroll_payslip_gl(client, auth_headers, test_company):
         assert balances.get("2210", Decimal("0")) == Decimal("20.00"), f"2210={balances.get('2210')}"
         assert balances.get("2220", Decimal("0")) == Decimal("150.00"), f"2220={balances.get('2220')}"
         assert balances.get("2300", Decimal("0")) == Decimal("830.00"), f"2300={balances.get('2300')}"
+
+        payslip_id = gen.json()["data"][0]["id"]
+
+    # 4. Pay payslip by bank → 2300 closed, 1410 reduced
+    pay = await client.post(f"/api/v1/hr/payslips/{payslip_id}/pay", json={"payment_date": "2026-08-31"}, headers=auth_headers)
+    assert pay.status_code == 200, pay.text
+
+    async with TestSessionLocal() as s:
+        accounts = (await s.execute(select(GLAccount).where(GLAccount.company_id == test_company.id))).scalars().all()
+        acc = {a.code: a for a in accounts}
+        balances = {}
+        for code, a in acc.items():
+            row = (await s.execute(
+                select(
+                    func.coalesce(func.sum(JournalEntryLine.debit_amount), 0),
+                    func.coalesce(func.sum(JournalEntryLine.credit_amount), 0),
+                ).where(JournalEntryLine.gl_account_id == a.id)
+            )).one()
+            dr, cr = Decimal(row[0]), Decimal(row[1])
+            balances[code] = dr - cr if a.account_type in ("asset", "expense") else cr - dr
+
+        assert balances.get("2300", Decimal("0")) == Decimal("0.00"), f"2300={balances.get('2300')} (should be cleared)"
+        assert balances.get("1410", Decimal("0")) == Decimal("-830.00"), f"1410={balances.get('1410')}"
