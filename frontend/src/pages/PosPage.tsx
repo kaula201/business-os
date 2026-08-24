@@ -134,7 +134,7 @@ export default function PosPage() {
   })
 
   const openSessionMut = useMutation({
-    mutationFn: () => posApi.openSession({ name: sessionName, opening_cash: Number(openingCash) || 0 }),
+    mutationFn: () => posApi.openSession({ name: sessionName, opening_cash: Number(openingCash) || 0, register_id: selectedRegister || undefined, cashier_id: pinCashierId || undefined }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['pos-sessions'] }); setSessionOpen(false); setSessionName(''); setOpeningCash('') },
   })
 
@@ -359,13 +359,27 @@ export default function PosPage() {
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [pinInput, setPinInput] = useState('')
   const [pinVerified, setPinVerified] = useState(false)
+  const [pinCashierId, setPinCashierId] = useState<string | undefined>(undefined)
   const verifyPin = useMutation({
     mutationFn: () => {
       const stored = localStorage.getItem('user')
       const uid = stored ? (JSON.parse(stored).id || '') : ''
       return posApi.verifyCashierPin(uid, pinInput)
     },
-    onSuccess: () => { setPinVerified(true); setPinModalOpen(false); setPinInput('') },
+    onSuccess: () => {
+      const stored = localStorage.getItem('user')
+      setPinCashierId(stored ? (JSON.parse(stored).id || undefined) : undefined)
+      setPinVerified(true); setPinModalOpen(false); setPinInput('')
+    },
+  })
+  const [selectedRegister, setSelectedRegister] = useState<string | undefined>(undefined)
+  // Customer deposit (P1.5)
+  const [depositOpen, setDepositOpen] = useState(false)
+  const [depositAmount, setDepositAmount] = useState('')
+  const [clientBalance, setClientBalance] = useState<number | null>(null)
+  const depositMut = useMutation({
+    mutationFn: () => posApi.customerDeposit(clientId, Number(depositAmount)),
+    onSuccess: (r) => { setClientBalance(r.data.data?.balance ?? null); setDepositOpen(false); setDepositAmount('') },
   })
   // Payment terminal / QR (P1.5)
   const [termModalOpen, setTermModalOpen] = useState(false)
@@ -674,11 +688,24 @@ export default function PosPage() {
             </select>
             {clientId && (
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Gift size={15} className="text-amber-500" />
-                  <span className="text-brandgray-600 dark:text-gray-300">{t('ბალანსი')}:</span>
-                  <span className="font-mono font-semibold text-amber-600 dark:text-amber-400">{loyaltyBalance ?? 0}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Gift size={15} className="text-amber-500" />
+                    <span className="text-brandgray-600 dark:text-gray-300">{t('ბალანსი')}:</span>
+                    <span className="font-mono font-semibold text-amber-600 dark:text-amber-400">{loyaltyBalance ?? 0}</span>
+                  </div>
+                  <button onClick={() => setDepositOpen(true)}
+                    className="rounded-lg border border-primary-200 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 dark:border-primary-800 dark:text-primary-300 dark:hover:bg-primary-900/30">
+                    {t('დეპოზიტის შეტანა')}
+                  </button>
                 </div>
+                {clientBalance !== null && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Banknote size={15} className="text-green-600" />
+                    <span className="text-brandgray-600 dark:text-gray-300">{t('კლიენტის ბალანსი')}:</span>
+                    <span className="font-mono font-semibold text-green-600 dark:text-green-400">{money(clientBalance)}</span>
+                  </div>
+                )}
                 <div className="flex gap-2 items-center">
                   <input type="number" className={inputCls} placeholder={t('ქულების დარიცხვა')}
                     value={loyaltyPoints || ''} onChange={e => setLoyaltyPoints(Number(e.target.value))} />
@@ -842,6 +869,25 @@ export default function PosPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('საწყისი ნაღდი ფული')}</label>
             <input className={inputCls} type="number" min="0" value={openingCash} onChange={e => setOpeningCash(e.target.value)} placeholder="0" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('სალარო (register)')}</label>
+            <select className={inputCls} value={selectedRegister || ''} onChange={e => setSelectedRegister(e.target.value || undefined)}>
+              <option value="">{t('აირჩიე სალარო')}</option>
+              {(registers || []).map((r: any) => (
+                <option key={r.id} value={r.id}>{r.code} — {r.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-brandgray-100 dark:border-dark-50 px-3 py-2">
+            <span className="text-sm text-gray-600 dark:text-gray-300">{t('Cashier')}</span>
+            {pinVerified ? (
+              <span className="text-xs font-medium text-green-600 dark:text-green-400">✓ {t('ვერიფიცირებული')}</span>
+            ) : (
+              <button onClick={() => setPinModalOpen(true)} className="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
+                {t('PIN-ით შესვლა')}
+              </button>
+            )}
           </div>
           <button onClick={() => openSessionMut.mutate()} disabled={openSessionMut.isPending || !sessionName}
             className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
@@ -1254,6 +1300,25 @@ export default function PosPage() {
             className="w-full px-4 py-2 rounded-lg bg-brandgray-100 text-brandgray-700 text-sm font-medium hover:bg-brandgray-200 dark:bg-dark-100 dark:text-gray-300"
           >
             <QrCode size={14} className="inline mr-1" /> {t('QR გადახდა')}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Customer deposit modal */}
+      <Modal open={depositOpen} onClose={() => setDepositOpen(false)} title={t('დეპოზიტის შეტანა')}>
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">{t('კლიენტის ბალანსი')}: <span className="font-mono font-semibold">{money(clientBalance ?? 0)}</span></p>
+          <input
+            type="number" min="0" step="0.01" className={inputCls}
+            value={depositAmount} onChange={e => setDepositAmount(e.target.value)}
+            placeholder="0.00"
+          />
+          <button
+            onClick={() => depositMut.mutate()}
+            disabled={depositMut.isPending || !depositAmount || Number(depositAmount) <= 0}
+            className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50"
+          >
+            {t('შენახვა')}
           </button>
         </div>
       </Modal>

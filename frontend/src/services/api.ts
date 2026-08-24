@@ -713,7 +713,7 @@ export const contractsApi = {
 // POS API — sessions, orders, refunds, loyalty, offline, fiscal devices
 export const posApi = {
   listSessions: (params?: { status?: string }) => api.get('/pos/sessions', { params }),
-  openSession: (data: { name: string; opening_cash?: number }) => api.post('/pos/sessions', data),
+  openSession: (data: { name: string; opening_cash?: number; register_id?: string; cashier_id?: string }) => api.post('/pos/sessions', data),
   closeSession: (id: string) => api.post(`/pos/sessions/${id}/close`),
   listOrders: (params?: { session_id?: string }) => api.get('/pos/orders', { params }),
   createOrder: (data: Record<string, unknown>) => api.post('/pos/orders', data),

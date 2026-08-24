@@ -60,6 +60,8 @@ async def open_session(
         name=data.name.strip(),
         opened_by=current_user.id,
         opening_cash=data.opening_cash or Decimal("0"),
+        register_id=data.register_id,
+        cashier_id=data.cashier_id,
     )
     db.add(session)
     await db.flush()
