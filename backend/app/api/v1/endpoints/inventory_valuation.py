@@ -32,6 +32,59 @@ class ValuationResult(BaseModel):
     total_value: float
 
 
+class ValuationSummary(BaseModel):
+    total_products: int
+    total_quantity: float
+    total_value: float
+    gl_inventory_balance: float
+    difference: float
+    reconciled: bool
+
+
+@router.get("/summary", response_model=ValuationSummary)
+async def valuation_summary(
+    db=Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Reconcile inventory valuation against the GL inventory account (1200)."""
+    require_stock_role(current_user)
+    from sqlalchemy import func, select as sa_select
+    from app.models.cost_layer import ProductCostLayer
+    from app.models.gl import GLAccount, JournalEntryLine, JournalEntry
+
+    layers = (await db.execute(
+        sa_select(ProductCostLayer).where(ProductCostLayer.company_id == current_user.company_id)
+    )).scalars().all()
+
+    total_value = Decimal("0")
+    total_qty = Decimal("0")
+    for layer in layers:
+        qty = Decimal(layer.quantity_remaining)
+        total_qty += qty
+        total_value += qty * Decimal(layer.weighted_avg_cost)
+
+    # GL 1200 (inventory) balance: debit - credit
+    gl_row = (await db.execute(
+        sa_select(
+            func.coalesce(func.sum(JournalEntryLine.debit_amount), 0).label("dr"),
+            func.coalesce(func.sum(JournalEntryLine.credit_amount), 0).label("cr"),
+        )
+        .select_from(JournalEntryLine)
+        .join(GLAccount, GLAccount.id == JournalEntryLine.gl_account_id)
+        .join(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
+        .where(GLAccount.company_id == current_user.company_id, GLAccount.code == "1200")
+    )).one()
+    gl_balance = Decimal(gl_row.dr) - Decimal(gl_row.cr)
+
+    diff = (total_value - gl_balance).quantize(Decimal("0.01"))
+    return ValuationSummary(
+        total_products=len(layers),
+        total_quantity=float(total_qty.quantize(Decimal("0.01"))),
+        total_value=float(total_value.quantize(Decimal("0.01"))),
+        gl_inventory_balance=float(gl_balance.quantize(Decimal("0.01"))),
+        difference=float(diff),
+        reconciled=abs(diff) < Decimal("0.01"),
+    )
 @router.get("/{product_id}", response_model=ValuationResult)
 async def get_product_valuation(
     product_id: uuid.UUID,

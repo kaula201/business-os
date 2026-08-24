@@ -32,6 +32,8 @@ def _enrich_ticket(ticket: HelpdeskTicket) -> HelpdeskTicketResponse:
     resp.requester_name = ticket.requester.full_name if ticket.requester else None
     resp.team_name = ticket.team.name if ticket.team else None
     resp.pipeline_stage_name = ticket.pipeline_stage.name if ticket.pipeline_stage else None
+    resp.client_name = ticket.client.name if ticket.client else None
+    resp.queue_name = ticket.queue.name if ticket.queue else None
     return resp
 
 
@@ -267,6 +269,9 @@ async def create_ticket(
         requester_id=data.requester_id,
         team_id=data.team_id,
         pipeline_stage_id=data.pipeline_stage_id,
+        client_id=data.client_id,
+        queue_id=data.queue_id,
+        attachment_url=data.attachment_url,
     )
     db.add(ticket)
     await db.commit()

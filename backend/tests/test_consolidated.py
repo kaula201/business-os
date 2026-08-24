@@ -120,6 +120,29 @@ async def test_consolidated_bs_aggregates_assets(client, auth_headers, test_comp
     assert data["net_income_included"] == 600.0
 
 
+async def test_consolidated_bs_balances_across_periods(client, auth_headers, test_company, db_session):
+    """Invariant: A = L + E even when income spans multiple months (P0 regression)."""
+    group = uuid.uuid4()
+    async with TestSessionLocal() as session:
+        co_a = await _setup_grouped_company(session, "Alpha", "CONS-BAL", group)
+        tc = (await session.execute(select(Company).where(Company.id == test_company.id))).scalar_one()
+        tc.company_group_id = group
+        await session.commit()
+        # July income 500 (asset 590 / VAT 90), August income 100 (bank 118 / VAT 18)
+        await _post_pl_entry(session, co_a, Decimal("500"), Decimal("0"), date(2026, 7, 24))
+        await _post_pl_entry(session, co_a, Decimal("100"), Decimal("0"), date(2026, 8, 19))
+
+    resp = await client.get("/api/v1/gl/consolidated/balance-sheet", params={
+        "as_of_date": "2026-08-31",
+    }, headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    # The full historical net income (600) must be in equity — not just August's 100
+    assert data["net_income_included"] == 600.0
+    diff = round(data["total_assets"] - data["total_liabilities"] - data["total_equity"], 2)
+    assert diff == 0.0, f"Balance sheet out of balance by {diff}"
+
+
 async def test_consolidated_scope_is_group_only(client, auth_headers, test_company, db_session):
     # A company in a different group must NOT be included
     group = uuid.uuid4()

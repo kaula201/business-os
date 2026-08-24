@@ -420,6 +420,7 @@ export const inventoryValuationApi = {
   get: (productId: string) => api.get(`/inventory/valuation/${productId}`),
   adjust: (data: { product_id: string; quantity: number; unit_cost: number; note?: string }) =>
     api.post('/inventory/valuation/adjust', data),
+  summary: () => api.get('/inventory/valuation/summary'),
 }
 
 export const customerFinanceApi = {
@@ -712,7 +713,7 @@ export const contractsApi = {
 // POS API — sessions, orders, refunds, loyalty, offline, fiscal devices
 export const posApi = {
   listSessions: (params?: { status?: string }) => api.get('/pos/sessions', { params }),
-  openSession: (data: { name: string }) => api.post('/pos/sessions', data),
+  openSession: (data: { name: string; opening_cash?: number }) => api.post('/pos/sessions', data),
   closeSession: (id: string) => api.post(`/pos/sessions/${id}/close`),
   listOrders: (params?: { session_id?: string }) => api.get('/pos/orders', { params }),
   createOrder: (data: Record<string, unknown>) => api.post('/pos/orders', data),

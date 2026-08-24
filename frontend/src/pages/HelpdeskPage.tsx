@@ -5,7 +5,7 @@ import { Plus, Ticket, Inbox, Timer, Layers, TrendingUp, MessageSquare, BookOpen
 
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
-import { helpdeskApi } from '../services/api'
+import { clientsApi, helpdeskApi } from '../services/api'
 
 const tabs = [
   { id: 'tickets', label: 'ტიკეტები', icon: Ticket },
@@ -35,7 +35,7 @@ export default function HelpdeskPage() {
   const [error, setError] = useState('')
 
   // Ticket form
-  const [ticketForm, setTicketForm] = useState({ subject: '', description: '', priority: 'medium' })
+  const [ticketForm, setTicketForm] = useState({ subject: '', description: '', priority: 'medium', client_id: '', queue_id: '', attachment_url: '' })
   const [ticketOpen, setTicketOpen] = useState(false)
   // Queue form
   const [queueForm, setQueueForm] = useState({ name: '', description: '' })
@@ -71,6 +71,7 @@ export default function HelpdeskPage() {
   const tickets: any[] = ticketsData?.items || []
 
   const { data: queues } = useQuery({ queryKey: ['hd-queues'], queryFn: () => helpdeskApi.queues().then(r => r.data.data) })
+  const { data: clients } = useQuery({ queryKey: ['hd-clients'], queryFn: () => clientsApi.list({ page_size: 100 }).then(r => r.data.data.items) })
   const { data: slas } = useQuery({ queryKey: ['hd-slas'], queryFn: () => helpdeskApi.slas().then(r => r.data.data) })
   const { data: escalations } = useQuery({ queryKey: ['hd-escalations'], queryFn: () => helpdeskApi.escalations().then(r => r.data.data) })
   const { data: canned } = useQuery({ queryKey: ['hd-canned'], queryFn: () => helpdeskApi.cannedReplies().then(r => r.data.data) })
@@ -80,7 +81,7 @@ export default function HelpdeskPage() {
 
   const createTicket = useMutation({
     mutationFn: () => helpdeskApi.createTicket(ticketForm),
-    onSuccess: () => { setTicketOpen(false); setTicketForm({ subject: '', description: '', priority: 'medium' }); qc.invalidateQueries({ queryKey: ['hd-tickets'] }) },
+    onSuccess: () => { setTicketOpen(false); setTicketForm({ subject: '', description: '', priority: 'medium', client_id: '', queue_id: '', attachment_url: '' }); qc.invalidateQueries({ queryKey: ['hd-tickets'] }) },
     onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
   const createQueue = useMutation({
@@ -406,6 +407,24 @@ export default function HelpdeskPage() {
               <option value="high">{t('მაღალი')}</option>
               <option value="urgent">{t('გადაუდებელი')}</option>
             </select>
+          </FormField>
+          <FormField label={t('კლიენტი')}>
+            <select value={ticketForm.client_id} onChange={e => setTicketForm({ ...ticketForm, client_id: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+              <option value="">—</option>
+              {(clients || []).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </FormField>
+          <FormField label={t('რიგი')}>
+            <select value={ticketForm.queue_id} onChange={e => setTicketForm({ ...ticketForm, queue_id: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+              <option value="">—</option>
+              {(queues || []).map((q: any) => <option key={q.id} value={q.id}>{q.name}</option>)}
+            </select>
+          </FormField>
+          <FormField label={t('დანართი (URL)')}>
+            <input value={ticketForm.attachment_url} onChange={e => setTicketForm({ ...ticketForm, attachment_url: e.target.value })}
+              placeholder="https://..." className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
           </FormField>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button onClick={() => createTicket.mutate()} disabled={!ticketForm.subject || createTicket.isPending}

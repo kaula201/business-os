@@ -23,6 +23,7 @@ export default function PosPage() {
   const qc = useQueryClient()
   const [sessionOpen, setSessionOpen] = useState(false)
   const [sessionName, setSessionName] = useState('')
+  const [openingCash, setOpeningCash] = useState('')
   const [cart, setCart] = useState<CartItem[]>([])
   const [barcode, setBarcode] = useState('')
   const [clientId, setClientId] = useState('')
@@ -133,8 +134,8 @@ export default function PosPage() {
   })
 
   const openSessionMut = useMutation({
-    mutationFn: () => posApi.openSession({ name: sessionName }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pos-sessions'] }); setSessionOpen(false); setSessionName('') },
+    mutationFn: () => posApi.openSession({ name: sessionName, opening_cash: Number(openingCash) || 0 }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pos-sessions'] }); setSessionOpen(false); setSessionName(''); setOpeningCash('') },
   })
 
   const closeSessionMut = useMutation({
@@ -769,7 +770,7 @@ export default function PosPage() {
               offlineItems.map((q: any) => (
                 <div key={q.id} className="flex items-center justify-between text-sm">
                   <span className="font-mono">{q.payload?.order_number || q.device_id}</span>
-                  <span className="text-amber-700 dark:text-amber-300">{q.status}</span>
+                  <span className="text-amber-700 dark:text-amber-300">{q.status === 'pending' ? t('მოლოდინში (POS)') : q.status === 'synced' ? t('სინქრონიზებული (POS)') : q.status}</span>
                   {q.status === 'pending' && (
                     <button onClick={() => syncOffline.mutate(q.id)} className="px-2 py-1 rounded-md text-xs bg-amber-600 text-white">{t('სინქრონიზაცია')}</button>
                   )}
@@ -785,6 +786,10 @@ export default function PosPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('ცვლის სახელი')}</label>
             <input className={inputCls} value={sessionName} onChange={e => setSessionName(e.target.value)} placeholder="ცვლა 1" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('საწყისი ნაღდი ფული')}</label>
+            <input className={inputCls} type="number" min="0" value={openingCash} onChange={e => setOpeningCash(e.target.value)} placeholder="0" />
           </div>
           <button onClick={() => openSessionMut.mutate()} disabled={openSessionMut.isPending || !sessionName}
             className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">

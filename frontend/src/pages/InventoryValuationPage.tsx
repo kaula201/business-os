@@ -37,6 +37,11 @@ export default function InventoryValuationPage() {
     enabled: !!selectedId,
   })
 
+  const { data: summary } = useQuery({
+    queryKey: ['inventory-valuation-summary'],
+    queryFn: () => inventoryValuationApi.summary().then(r => r.data),
+  })
+
   const adjust = useMutation({
     mutationFn: () => inventoryValuationApi.adjust({
       product_id: form.product_id, quantity: Number(form.quantity), unit_cost: Number(form.unit_cost),
@@ -52,6 +57,35 @@ export default function InventoryValuationPage() {
 
   return (
     <div className="space-y-5">
+      {summary && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <div className="text-xs text-gray-500 dark:text-gray-400">{t('პროდუქტები')}</div>
+            <div className="mt-1 text-lg font-bold text-brandgray-900 dark:text-gray-100">{summary.total_products}</div>
+          </div>
+          <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <div className="text-xs text-gray-500 dark:text-gray-400">{t('მარაგის ღირებულება (შეფასება)')}</div>
+            <div className="mt-1 text-lg font-bold text-brandgray-900 dark:text-gray-100">{money(summary.total_value)}</div>
+          </div>
+          <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <div className="text-xs text-gray-500 dark:text-gray-400">{t('GL 1200 ბალანსი')}</div>
+            <div className="mt-1 text-lg font-bold text-brandgray-900 dark:text-gray-100">{money(summary.gl_inventory_balance)}</div>
+          </div>
+          <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <div className="text-xs text-gray-500 dark:text-gray-400">{t('სხვაობა')}</div>
+            <div className={`mt-1 text-lg font-bold ${summary.reconciled ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              {money(summary.difference)}
+            </div>
+          </div>
+          <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <div className="text-xs text-gray-500 dark:text-gray-400">{t('სტატუსი')}</div>
+            <div className={`mt-1 text-lg font-bold ${summary.reconciled ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              {summary.reconciled ? t('შეჯერებულია (მარაგი)') : t('არ არის შეჯერებული (მარაგი)')}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-brandgray-800 dark:text-gray-100">{t('მარაგების შეფასება')}</h1>

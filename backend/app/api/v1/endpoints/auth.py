@@ -1,6 +1,6 @@
 # backend/app/api/v1/endpoints/auth.py
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -92,7 +92,7 @@ async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=ResponseBase[TokenResponse])
-async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
+async def login(data: UserLogin, request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
 
@@ -106,12 +106,17 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
     from datetime import datetime
     user.last_login = utc_now()
 
-    # Login history ჩაწერა
+    # Login history ჩაწერა — IP + device (user-agent)
+    client_ip = request.client.host if request.client else None
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    user_agent = request.headers.get("user-agent")
     db.add(LoginHistory(
         user_id=user.id,
         company_id=user.company_id,
-        ip_address=None,
-        user_agent=None,
+        ip_address=client_ip,
+        user_agent=(user_agent or "")[:255],
         success=True,
     ))
 

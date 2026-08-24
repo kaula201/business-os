@@ -57,11 +57,12 @@ async def _get_business_context(db: AsyncSession, user: User) -> str:
     revenue = await get_total_revenue(db, company_id)
     lines.append(f"ჯამური შემოსავალი (დადასტურებული ინვოისებიდან): {float(revenue):.2f} ₾")
 
-    # Low stock products
+    # Low stock products — only when a reorder threshold is actually set (min_stock > 0)
     low_stock = (await db.execute(
         select(func.count()).where(
             Product.company_id == company_id,
             Product.current_stock <= Product.min_stock,
+            Product.min_stock > 0,
             Product.is_active == True
         )
     )).scalar()

@@ -272,8 +272,8 @@ async def calculate_payroll(
 
         gross_pay = emp.base_salary
         pension_contribution = (gross_pay * Decimal("0.02")).quantize(Decimal("0.01"))
-        # Georgia Tax Code, Art. 81: standard personal income tax is 20%.
-        income_tax = (gross_pay * Decimal("0.20")).quantize(Decimal("0.01"))
+        # Georgia Tax Code: personal income tax is 15% (flat rate).
+        income_tax = (gross_pay * Decimal("0.15")).quantize(Decimal("0.01"))
         net_pay = (gross_pay - pension_contribution - income_tax).quantize(Decimal("0.01"))
 
         entry = PayrollEntry(

@@ -20,6 +20,7 @@ class POSSession(Base):
     opened_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     opened_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    opening_cash: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
     total_sales: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"))
     total_orders: Mapped[int] = mapped_column(default=0)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

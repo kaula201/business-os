@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 class POSSessionCreate(BaseModel):
     name: str = Field(..., max_length=255)
+    opening_cash: Optional[Decimal] = Field(None, ge=0)
 
 
 class POSSessionResponse(BaseModel):
@@ -18,6 +19,8 @@ class POSSessionResponse(BaseModel):
     status: str
     opened_at: datetime
     closed_at: Optional[datetime] = None
+    opening_cash: float = 0
+    opened_by: Optional[UUID] = None
     total_sales: float
     total_orders: int
     notes: Optional[str] = None

@@ -16,6 +16,9 @@ class HelpdeskTicketCreate(BaseModel):
     requester_id: Optional[UUID] = None
     team_id: Optional[UUID] = None
     pipeline_stage_id: Optional[UUID] = None
+    client_id: Optional[UUID] = None
+    queue_id: Optional[UUID] = None
+    attachment_url: Optional[str] = None
 
 
 class HelpdeskTicketUpdate(BaseModel):
@@ -27,6 +30,9 @@ class HelpdeskTicketUpdate(BaseModel):
     requester_id: Optional[UUID] = None
     team_id: Optional[UUID] = None
     pipeline_stage_id: Optional[UUID] = None
+    client_id: Optional[UUID] = None
+    queue_id: Optional[UUID] = None
+    attachment_url: Optional[str] = None
 
 
 class HelpdeskTicketResponse(BaseModel):
@@ -44,6 +50,11 @@ class HelpdeskTicketResponse(BaseModel):
     team_name: Optional[str] = None
     pipeline_stage_id: Optional[UUID] = None
     pipeline_stage_name: Optional[str] = None
+    client_id: Optional[UUID] = None
+    client_name: Optional[str] = None
+    queue_id: Optional[UUID] = None
+    queue_name: Optional[str] = None
+    attachment_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -59,6 +70,8 @@ class HelpdeskTicketListResponse(BaseModel):
     requester_name: Optional[str] = None
     team_name: Optional[str] = None
     pipeline_stage_name: Optional[str] = None
+    client_name: Optional[str] = None
+    queue_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

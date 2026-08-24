@@ -134,7 +134,7 @@ async def _aggregate(
 
 
 async def consolidated_profit_loss(
-    db: AsyncSession, company_ids: list[UUID], date_from: date, date_to: date,
+    db: AsyncSession, company_ids: list[UUID], date_from: date | None, date_to: date,
     presentation_currency: str | None = None, fx_method: str = "average",
 ) -> dict:
     aggregate, target = await _aggregate(
@@ -170,7 +170,7 @@ async def consolidated_balance_sheet(
         else:
             equity_accounts.append(row); total_equity += row["balance"]
     pl = await consolidated_profit_loss(
-        db, company_ids, date(as_of_date.year, as_of_date.month, 1), as_of_date,
+        db, company_ids, None, as_of_date,
         presentation_currency, "average" if presentation_currency else fx_method,
     )
     net_income = pl["net_income"]

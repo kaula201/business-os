@@ -1,4 +1,4 @@
-"""Regression: Georgian standard payroll income tax is 20% (Tax Code Art. 81)."""
+"""Regression: Georgian standard payroll income tax is 15% (flat rate)."""
 from datetime import date
 from decimal import Decimal
 
@@ -9,7 +9,7 @@ from app.models.hr import Employee
 
 
 @pytest.mark.asyncio
-async def test_standard_payroll_income_tax_is_twenty_percent(
+async def test_standard_payroll_income_tax_is_fifteen_percent(
     client, db_session, test_company, auth_headers,
 ):
     employee = Employee(
@@ -32,6 +32,6 @@ async def test_standard_payroll_income_tax_is_twenty_percent(
     )
     assert response.status_code == 200, response.text
     row = response.json()["data"][0]
-    assert Decimal(str(row["income_tax"])) == Decimal("600.00")
-    assert Decimal(str(row["pension_contribution"])) == Decimal("60.00")
-    assert Decimal(str(row["net_pay"])) == Decimal("2340.00")
+    assert Decimal(str(row["income_tax"])) == Decimal("450.00")  # 15% of 3000
+    assert Decimal(str(row["pension_contribution"])) == Decimal("60.00")  # 2%
+    assert Decimal(str(row["net_pay"])) == Decimal("2490.00")  # 3000 - 450 - 60

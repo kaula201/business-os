@@ -2,6 +2,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense, ReactNode } from 'react'
 import OnboardingWizard from './components/OnboardingWizard'
+import ErrorBoundary from './components/ErrorBoundary'
 import { useAuthStore } from './store/authStore'
 import Layout from './components/layout/Layout'
 const LoginPage = lazy(() => import('./pages/LoginPage'))
@@ -77,17 +78,18 @@ function App() {
     <BrowserRouter>
       <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50 text-sm text-gray-500 dark:bg-dark-300 dark:text-gray-400">იტვირთება...</div>}>
         <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/vendor/login" element={<VendorLoginPage />} />
-        <Route path="/vendor/dashboard" element={<VendorDashboardPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/login" element={<ErrorBoundary><LoginPage /></ErrorBoundary>} />
+        <Route path="/vendor/login" element={<ErrorBoundary><VendorLoginPage /></ErrorBoundary>} />
+        <Route path="/vendor/dashboard" element={<ErrorBoundary><VendorDashboardPage /></ErrorBoundary>} />
+        <Route path="/register" element={<ErrorBoundary><RegisterPage /></ErrorBoundary>} />
+        <Route path="/verify-email" element={<ErrorBoundary><VerifyEmailPage /></ErrorBoundary>} />
         <Route
           path="/*"
           element={
             <ProtectedRoute>
               <Layout>
                 <OnboardingWizard />
+                <ErrorBoundary>
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
@@ -151,6 +153,7 @@ function App() {
                   <Route path="/kitchen" element={<KitchenPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Routes>
+                </ErrorBoundary>
               </Layout>
             </ProtectedRoute>
           }

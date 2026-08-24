@@ -78,7 +78,7 @@ export default function AssetsPage() {
     queryKey: ['fixed-assets'],
     queryFn: () => api.get('/assets/').then((r) => r.data.data),
   })
-  const assets: FixedAsset[] = assetsData || []
+  const assets: FixedAsset[] = assetsData?.items || []
 
   const visible = search.trim()
     ? assets.filter((a) => a.name.toLowerCase().includes(search.trim().toLowerCase()) || a.asset_type.includes(search.trim().toLowerCase()))

@@ -59,6 +59,7 @@ async def open_session(
         company_id=current_user.company_id,
         name=data.name.strip(),
         opened_by=current_user.id,
+        opening_cash=data.opening_cash or Decimal("0"),
     )
     db.add(session)
     await db.flush()
