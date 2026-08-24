@@ -17,6 +17,27 @@ function money(v: number) {
   return new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL' }).format(v)
 }
 
+// P0.2: business-meaningful valuation statuses (Odoo-style)
+function statusColor(status: string) {
+  switch (status) {
+    case 'reconciled': return 'text-green-600 dark:text-green-400'
+    case 'no_data': return 'text-gray-400 dark:text-gray-500'
+    case 'computing': return 'text-blue-600 dark:text-blue-400'
+    case 'gl_posting_needed': return 'text-amber-600 dark:text-amber-400'
+    default: return 'text-red-600 dark:text-red-400' // difference
+  }
+}
+
+function statusLabel(status: string, t: (k: string) => string) {
+  switch (status) {
+    case 'reconciled': return t('შეჯერებულია (მარაგი)')
+    case 'no_data': return t('მონაცემები არ არის')
+    case 'computing': return t('გამოთვლა მიმდინარეობს')
+    case 'gl_posting_needed': return t('GL გატარება საჭიროა')
+    default: return t('სხვაობაა')
+  }
+}
+
 const inputCls = 'w-full rounded-lg border border-brandgray-200 bg-white px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200'
 
 export default function InventoryValuationPage() {
@@ -79,8 +100,8 @@ export default function InventoryValuationPage() {
           </div>
           <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
             <div className="text-xs text-gray-500 dark:text-gray-400">{t('სტატუსი')}</div>
-            <div className={`mt-1 text-lg font-bold ${summary.reconciled ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-              {summary.reconciled ? t('შეჯერებულია (მარაგი)') : t('არ არის შეჯერებული (მარაგი)')}
+            <div className={`mt-1 text-lg font-bold ${statusColor(summary.status)}`}>
+              {statusLabel(summary.status, t)}
             </div>
           </div>
         </div>

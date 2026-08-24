@@ -132,3 +132,15 @@ async def test_valuation_summary_reflects_warehouse(client, auth_headers, test_c
     assert data["total_products"] == 1, data
     assert data["total_quantity"] == 5.0, data
     assert data["total_value"] == 50.0, data  # 5 × 10
+    assert data["status"] == "gl_posting_needed", data  # stock exists, GL 1200 = 0
+    assert data["reconciled"] is False, data
+
+
+async def test_valuation_summary_no_data_status(client, auth_headers, test_company):
+    """Empty warehouse → status 'no_data', never 'reconciled' (P0.2)."""
+    resp = await client.get("/api/v1/inventory/valuation/summary", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["total_products"] == 0, data
+    assert data["status"] == "no_data", data
+    assert data["reconciled"] is False, data

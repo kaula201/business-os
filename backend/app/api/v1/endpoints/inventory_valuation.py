@@ -39,6 +39,9 @@ class ValuationSummary(BaseModel):
     gl_inventory_balance: float
     difference: float
     reconciled: bool
+    # P0.2: explicit status — never claim "reconciled" on an empty source
+    status: str = "no_data"  # no_data | computing | reconciled | difference | gl_posting_needed
+    source_count: int = 0    # products actually included in the valuation
 
 
 @router.get("/summary", response_model=ValuationSummary)
@@ -87,13 +90,30 @@ async def valuation_summary(
     gl_balance = Decimal(gl_row.dr) - Decimal(gl_row.cr)
 
     diff = (total_value - gl_balance).quantize(Decimal("0.01"))
+
+    # P0.2: business-meaningful status — never "reconciled" on an empty source
+    if len(product_ids) == 0:
+        status = "no_data"
+        reconciled = False
+    elif abs(diff) < Decimal("0.01"):
+        status = "reconciled"
+        reconciled = True
+    elif gl_balance == Decimal("0") and total_value > 0:
+        status = "gl_posting_needed"
+        reconciled = False
+    else:
+        status = "difference"
+        reconciled = False
+
     return ValuationSummary(
         total_products=len(product_ids),
         total_quantity=float(total_qty.quantize(Decimal("0.01"))),
         total_value=float(total_value.quantize(Decimal("0.01"))),
         gl_inventory_balance=float(gl_balance.quantize(Decimal("0.01"))),
         difference=float(diff),
-        reconciled=abs(diff) < Decimal("0.01"),
+        reconciled=reconciled,
+        status=status,
+        source_count=len(product_ids),
     )
 @router.get("/{product_id}", response_model=ValuationResult)
 async def get_product_valuation(
