@@ -1,4 +1,5 @@
 """HR / Payroll API: departments, employees, payroll, timesheets."""
+import json
 from datetime import date
 from decimal import Decimal
 from uuid import UUID
@@ -271,10 +272,16 @@ async def calculate_payroll(
             continue
 
         gross_pay = emp.base_salary
-        pension_contribution = (gross_pay * Decimal("0.02")).quantize(Decimal("0.01"))
-        # Georgia Tax Code: personal income tax is 15% (flat rate).
-        income_tax = (gross_pay * Decimal("0.15")).quantize(Decimal("0.01"))
-        net_pay = (gross_pay - pension_contribution - income_tax).quantize(Decimal("0.01"))
+        from app.services.payroll_rules import compute_payroll
+        calc = compute_payroll(
+            gross_pay=gross_pay,
+            pension_participant=emp.pension_participant,
+            period_year=data.year,
+            period_month=data.month,
+        )
+        pension_contribution = calc["pension_contribution"]
+        income_tax = calc["income_tax"]
+        net_pay = calc["net_pay"]
 
         entry = PayrollEntry(
             company_id=current_user.company_id,
@@ -478,6 +485,26 @@ async def generate_payslips(
         count = (await db.execute(
             select(func.count(Payslip.id)).where(Payslip.company_id == company_id)
         )).scalar() or 0
+        from app.services.payroll_rules import compute_payroll
+        calc = compute_payroll(
+            gross_pay=entry.gross_pay,
+            pension_participant=True,
+            period_year=year,
+            period_month=month,
+        )
+        explanation = {
+            "meta": calc["explanation"].meta,
+            "lines": [
+                {
+                    "label_ka": l.label_ka, "label_en": l.label_en,
+                    "basis_ka": l.basis_ka, "basis_en": l.basis_en,
+                    "note_ka": l.note_ka, "note_en": l.note_en,
+                    "rate": l.rate, "amount": l.amount,
+                }
+                for l in calc["explanation"].lines
+            ],
+        }
+        import json as _json
         payslip = Payslip(
             company_id=company_id,
             employee_id=entry.employee_id,
@@ -492,6 +519,7 @@ async def generate_payslips(
             pension_contribution=entry.pension_contribution,
             income_tax=entry.income_tax,
             net_pay=entry.net_pay,
+            explanation=_json.dumps(explanation, ensure_ascii=False),
         )
         db.add(payslip)
         await db.flush()
@@ -547,6 +575,7 @@ async def list_payslips(
             "net_pay": float(p.net_pay),
             "status": p.status,
             "created_at": p.created_at.isoformat(),
+            "explanation": json.loads(p.explanation) if p.explanation else None,
         })
     return ResponseBase(data=result)
 

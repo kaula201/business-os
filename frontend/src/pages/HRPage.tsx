@@ -126,6 +126,7 @@ export default function HRPage() {
   const departments: Department[] = deptData || []
   const payrollEntries: PayrollEntry[] = payrollData?.items || []
   const payslips: any[] = payslipData || []
+  const [explainPayslip, setExplainPayslip] = useState<any>(null)
   const leaveRequests: any[] = leaveData || []
   const attendanceRecords: any[] = attendanceData || []
   const reviews: any[] = reviewData || []
@@ -555,12 +556,51 @@ export default function HRPage() {
                       <td className="px-4 py-3 text-right text-amber-700 dark:text-amber-400">{money(p.pension_contribution)}</td>
                       <td className="px-4 py-3 text-right text-amber-700 dark:text-amber-400">{money(p.income_tax)}</td>
                       <td className="px-4 py-3 text-right font-semibold text-green-700 dark:text-green-400">{money(p.net_pay)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button onClick={() => setExplainPayslip(p)}
+                          className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-medium text-brandgray-600 hover:bg-gray-50 dark:border-dark-50 dark:text-gray-300 dark:hover:bg-dark-100">
+                          {t('ახსნა')}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
+          {explainPayslip && explainPayslip.explanation && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setExplainPayslip(null)}>
+              <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-dark-200" onClick={e => e.stopPropagation()}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-brandgray-900 dark:text-gray-100">{t('გადასახადის ახსნა')}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{explainPayslip.payslip_number} — {explainPayslip.employee_name}</p>
+                  </div>
+                  <button onClick={() => setExplainPayslip(null)} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100">✕</button>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {explainPayslip.explanation.lines?.map((line: any, i: number) => (
+                    <div key={i} className="rounded-xl border border-gray-100 p-3 dark:border-dark-50">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-brandgray-900 dark:text-gray-100">{line.label_ka}</span>
+                        <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-bold text-primary-700 dark:bg-primary-900/30 dark:text-primary-200">{line.rate}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{line.basis_ka}</p>
+                      <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">{line.note_ka}</p>
+                      <p className="mt-1 text-right text-sm font-bold text-gray-900 dark:text-gray-100">{money(line.amount)}</p>
+                    </div>
+                  ))}
+                  {explainPayslip.explanation.meta && (
+                    <div className="rounded-xl bg-gray-50 p-3 text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                      <div className="flex justify-between"><span>{t('ზოგადი განაკვეთი')}:</span><span>{explainPayslip.explanation.meta.general_rate}</span></div>
+                      <div className="mt-1 flex justify-between"><span>{t('მოქმედი განაკვეთი')}:</span><span>{explainPayslip.explanation.meta.applied_rate}</span></div>
+                      <div className="mt-1 flex justify-between"><span>{t('სამართლებრივი საფუძველი')}:</span><span>{explainPayslip.explanation.meta.legal_basis_ka}</span></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 

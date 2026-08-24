@@ -97,6 +97,8 @@ class Employee(Base):
     base_salary: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"), nullable=False)
     salary_currency: Mapped[str] = mapped_column(String(3), default="GEL", nullable=False)
     hourly_rate: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    # Pension fund participant — law: 2% employee + 2% employer (Art. 37, Georgian pension law)
+    pension_participant: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Manager
     manager_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
@@ -169,6 +171,8 @@ class Payslip(Base):
     pension_contribution: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"), nullable=False)
     income_tax: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"), nullable=False)
     net_pay: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"), nullable=False)
+    # JSON: per-line legal explanation (rate, basis, note) for transparency
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
