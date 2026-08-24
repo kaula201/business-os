@@ -468,7 +468,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
             <span className="ml-auto w-2 h-2 bg-accent-500 rounded-full animate-pulse" />
           </button>
           <div className="text-xs text-gray-400 text-center dark:text-gray-500">
-            {t('ვერსია 1.0.0 — MVP')}
+            {t('ვერსია 2.0')}
           </div>
         </div>
       </aside>

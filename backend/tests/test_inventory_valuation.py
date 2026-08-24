@@ -102,3 +102,33 @@ async def test_valuation_api_tenant_scoped(client, auth_headers, test_company):
     # Unknown product id in this company → 404 (not a stray layer)
     resp = await client.get(f"/api/v1/inventory/valuation/{uuid.uuid4()}", headers=auth_headers)
     assert resp.status_code == 404
+
+
+async def test_valuation_summary_reflects_warehouse(client, auth_headers, test_company):
+    """Summary must aggregate on-hand balances × cost — not cost layers (P0 fix)."""
+    from app.models.warehouse import InventoryBalance, Warehouse
+
+    async with TestSessionLocal() as session:
+        product = Product(
+            company_id=test_company.id,
+            sku=f"SUM-{uuid.uuid4().hex[:6]}",
+            name="Summary Product",
+            sale_price=30,
+            purchase_price=10,
+            current_stock=5,
+        )
+        wh = Warehouse(company_id=test_company.id, code=f"SUM-WH-{uuid.uuid4().hex[:4]}", name="Sum WH", is_active=True)
+        session.add_all([product, wh])
+        await session.flush()
+        session.add(InventoryBalance(
+            company_id=test_company.id, warehouse_id=wh.id,
+            product_id=product.id, quantity=Decimal("5"),
+        ))
+        await session.commit()
+
+    resp = await client.get("/api/v1/inventory/valuation/summary", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["total_products"] == 1, data
+    assert data["total_quantity"] == 5.0, data
+    assert data["total_value"] == 50.0, data  # 5 × 10

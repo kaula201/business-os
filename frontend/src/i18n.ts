@@ -81,7 +81,7 @@ const en: Record<string, string> = {
   'სხვა': 'Other',
   'ოპერაციები': 'Operations',
   'CRM — გაყიდვების მართვა': 'CRM — Sales management',
-  'ვერსია 1.0.0 — MVP': 'Version 1.0.0 — MVP',
+  'ვერსია 2.0': 'Version 2.0',
   'შენიშვნა': 'Note',
   'დასახელება': 'Name',
   'აღწერა': 'Description',

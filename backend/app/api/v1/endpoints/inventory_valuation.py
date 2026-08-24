@@ -49,19 +49,29 @@ async def valuation_summary(
     """Reconcile inventory valuation against the GL inventory account (1200)."""
     require_stock_role(current_user)
     from sqlalchemy import func, select as sa_select
-    from app.models.cost_layer import ProductCostLayer
     from app.models.gl import GLAccount, JournalEntryLine, JournalEntry
+    from app.models.product import Product
+    from app.models.warehouse import InventoryBalance
 
-    layers = (await db.execute(
-        sa_select(ProductCostLayer).where(ProductCostLayer.company_id == current_user.company_id)
-    )).scalars().all()
+    # Valuation from on-hand balances × weighted average cost (purchase_price)
+    rows = (await db.execute(
+        sa_select(Product.id, Product.current_stock, Product.purchase_price)
+        .join(InventoryBalance, InventoryBalance.product_id == Product.id)
+        .where(
+            Product.company_id == current_user.company_id,
+            InventoryBalance.company_id == current_user.company_id,
+        )
+    )).all()
 
     total_value = Decimal("0")
     total_qty = Decimal("0")
-    for layer in layers:
-        qty = Decimal(layer.quantity_remaining)
-        total_qty += qty
-        total_value += qty * Decimal(layer.weighted_avg_cost)
+    product_ids = set()
+    for product_id, qty, unit_cost in rows:
+        if not qty or qty <= 0:
+            continue
+        product_ids.add(str(product_id))
+        total_qty += Decimal(str(qty))
+        total_value += Decimal(str(qty)) * Decimal(str(unit_cost or 0))
 
     # GL 1200 (inventory) balance: debit - credit
     gl_row = (await db.execute(
@@ -78,7 +88,7 @@ async def valuation_summary(
 
     diff = (total_value - gl_balance).quantize(Decimal("0.01"))
     return ValuationSummary(
-        total_products=len(layers),
+        total_products=len(product_ids),
         total_quantity=float(total_qty.quantize(Decimal("0.01"))),
         total_value=float(total_value.quantize(Decimal("0.01"))),
         gl_inventory_balance=float(gl_balance.quantize(Decimal("0.01"))),
