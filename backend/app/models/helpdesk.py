@@ -42,6 +42,9 @@ class HelpdeskTicket(Base):
     client_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=True, index=True)
     queue_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("helpdesk_queues.id"), nullable=True, index=True)
     attachment_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    sla_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("helpdesk_slas.id"), nullable=True, index=True)
+    response_deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    resolution_deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

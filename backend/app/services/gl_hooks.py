@@ -166,6 +166,83 @@ async def post_customer_bank_reconciliation_reversal_gl(
     )
 
 
+async def post_sale_cogs_gl(
+    db: AsyncSession,
+    company_id: UUID,
+    current_user: User,
+    *,
+    order_id: UUID,
+    order_number: str,
+    entry_date: date,
+    cogs_amount: Decimal,
+) -> None:
+    """Sale COGS: Dr COGS (5100) / Cr Inventory (1200) — Odoo-style at shipping."""
+    await post_journal_entry(
+        db, company_id, current_user,
+        entry_date=entry_date,
+        description=f"გაყიდული საქონლის ღირებულება {order_number}",
+        reference_type="order_cogs",
+        reference_id=order_id,
+        lines=[
+            ("5100", cogs_amount, Decimal("0")),   # Dr COGS
+            ("1200", Decimal("0"), cogs_amount),    # Cr მარაგები
+        ],
+    )
+
+
+async def post_payslip_gl(
+    db: AsyncSession,
+    company_id: UUID,
+    current_user: User,
+    *,
+    payslip_id: UUID,
+    payslip_number: str,
+    period_date: date,
+    gross_pay: Decimal,
+    pension_contribution: Decimal,
+    income_tax: Decimal,
+    net_pay: Decimal,
+) -> None:
+    """Payslip: Dr Salary expense (5200) / Cr Pension (2210), Tax (2220), Net payable (2300)."""
+    await post_journal_entry(
+        db, company_id, current_user,
+        entry_date=period_date,
+        description=f"ხელფასი {payslip_number}",
+        reference_type="payslip",
+        reference_id=payslip_id,
+        lines=[
+            ("5200", gross_pay, Decimal("0")),                    # Dr ხელფასის ხარჯი
+            ("2210", Decimal("0"), pension_contribution),          # Cr პენსიის ვალდებულება
+            ("2220", Decimal("0"), income_tax),                    # Cr საშემოსავლო გადასახადი
+            ("2300", Decimal("0"), net_pay),                       # Cr გადასახდელი ხელფასი
+        ],
+    )
+
+
+async def post_goods_receipt_gl(
+    db: AsyncSession,
+    company_id: UUID,
+    current_user: User,
+    *,
+    receipt_id: UUID,
+    receipt_number: str,
+    receipt_date: date,
+    subtotal: Decimal,
+) -> None:
+    """Goods receipt: Dr Inventory (1200) / Cr Goods-in-transit (2110)."""
+    await post_journal_entry(
+        db, company_id, current_user,
+        entry_date=receipt_date,
+        description=f"საქონლის მიღება {receipt_number}",
+        reference_type="goods_receipt",
+        reference_id=receipt_id,
+        lines=[
+            ("1200", subtotal, Decimal("0")),   # Dr მარაგები
+            ("2110", Decimal("0"), subtotal),    # Cr ვალდებულებები — ინვოისები
+        ],
+    )
+
+
 async def post_supplier_invoice_gl(
     db: AsyncSession,
     company_id: UUID,
@@ -179,7 +256,7 @@ async def post_supplier_invoice_gl(
     subtotal: Decimal,
     tax_account_code: str = "5300",
 ) -> None:
-    """Supplier invoice with document-snapshotted VAT input account."""
+    """Supplier invoice: close goods-in-transit (2110), create AP (2100)."""
     await post_journal_entry(
         db, company_id, current_user,
         entry_date=invoice_date,
@@ -187,9 +264,9 @@ async def post_supplier_invoice_gl(
         reference_type="supplier_invoice",
         reference_id=invoice_id,
         lines=[
-            ("5100", subtotal, Decimal("0")),          # Dr გაყიდული საქონლის ღირებულება
+            ("2110", subtotal, Decimal("0")),          # Dr იხურება მიღებული საქონელი
             (tax_account_code, vat_amount, Decimal("0")), # Dr Fiscal-position VAT input
-            ("2110", Decimal("0"), total),              # Cr ვალდებულებები — ინვოისები
+            ("2100", Decimal("0"), total),              # Cr ვალდებულებები მომწოდებლების მიმართ
         ],
     )
 
@@ -205,7 +282,7 @@ async def post_supplier_payment_gl(
     payment_date: date,
     amount: Decimal,
 ) -> None:
-    """Supplier payment: Dr AP (2110) / Cr Bank (1410)."""
+    """Supplier payment: Dr AP (2100) / Cr Bank (1410)."""
     await post_journal_entry(
         db, company_id, current_user,
         entry_date=payment_date,
@@ -213,7 +290,7 @@ async def post_supplier_payment_gl(
         reference_type="supplier_payment",
         reference_id=payment_id,
         lines=[
-            ("2110", amount, Decimal("0")),            # Dr ვალდებულებები
+            ("2100", amount, Decimal("0")),            # Dr ვალდებულებები მომწოდებლების მიმართ
             ("1410", Decimal("0"), amount),             # Cr ბანკი
         ],
     )

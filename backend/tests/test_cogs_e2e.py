@@ -177,6 +177,13 @@ async def run_sale_flow(client, auth_headers, product, warehouse, customer, suff
         headers=auth_headers,
     )
     assert confirmed.status_code == 200, confirmed.text
+    # ship → COGS posted (Dr 5100 / Cr 1200)
+    shipped = await client.patch(
+        f"/api/v1/orders/{order_id}/status",
+        json={"status": "shipping"},
+        headers=auth_headers,
+    )
+    assert shipped.status_code == 200, shipped.text
     invoice_res = await client.post(
         "/api/v1/invoices/generate",
         json={
@@ -241,13 +248,13 @@ async def test_cogs_flows_from_purchase_to_profit_loss(
         client, auth_headers, product, warehouse, customer, "FLOW"
     )
 
-    # GL: COGS (5100) has debit 100 (10 units x 10); Revenue (4100) credit 600
+    # GL: COGS (5100) has debit 60 (6 units x 10); Revenue (4100) credit 600
     cogs_balance = await gl_balance_for(db_session, test_company.id, "5100")
     revenue_balance = await gl_balance_for(db_session, test_company.id, "4100")
-    assert cogs_balance == Decimal("100")
+    assert cogs_balance == Decimal("60")
     assert revenue_balance == Decimal("-600")
 
-    # P&L report aggregates them: COGS (5100) 100 + VAT expense (5300) 18 = 118
+    # P&L report aggregates them: COGS (5100) 60 + VAT expense (5300) 18 = 78
     pl_res = await client.get(
         "/api/v1/gl/profit-loss/",
         params={
@@ -265,10 +272,10 @@ async def test_cogs_flows_from_purchase_to_profit_loss(
     expense_total = sum(
         float(a["balance"]) for a in pl.get("expense_accounts", [])
     )
-    # Expense balances must be POSITIVE (debit side): COGS 100 + VAT 18
+    # Expense balances must be POSITIVE (debit side): COGS 60 + VAT 18
     assert abs(income_total - 600) < 0.01
-    assert abs(expense_total - 118) < 0.01
-    assert abs(float(pl.get("net_income", 0)) - 482) < 0.01
+    assert abs(expense_total - 78) < 0.01
+    assert abs(float(pl.get("net_income", 0)) - 522) < 0.01
 
 
 @pytest.mark.asyncio
@@ -285,10 +292,7 @@ async def test_partial_sale_reduces_stock_but_cogs_stays_purchase_based(
         client, auth_headers, product, warehouse, customer, "PARTIAL"
     )
 
-    # Purchase-based COGS: the sale does not change warehouse quantity at
-    # invoice time — the cost was already recognized on the supplier invoice
-    # (5100). Reservation/fulfillment decrement is a separate, later operation
-    # (covered by order lifecycle tests).
+    # Odoo-style: shipping decrements stock (10 - 6 = 4) and posts COGS
     await db_session.refresh(product)
     balance = (
         await db_session.execute(
@@ -298,4 +302,4 @@ async def test_partial_sale_reduces_stock_but_cogs_stays_purchase_based(
             )
         )
     ).scalar_one()
-    assert balance.quantity == Decimal("10")
+    assert balance.quantity == Decimal("4")

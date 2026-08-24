@@ -273,6 +273,20 @@ async def create_ticket(
         queue_id=data.queue_id,
         attachment_url=data.attachment_url,
     )
+    # SLA auto-assignment: pick the active SLA matching the ticket priority
+    sla = (await db.execute(
+        select(HelpdeskSla).where(
+            HelpdeskSla.company_id == current_user.company_id,
+            HelpdeskSla.priority == data.priority.value,
+            HelpdeskSla.is_active.is_(True),
+        ).order_by(HelpdeskSla.created_at).limit(1)
+    )).scalar_one_or_none()
+    if sla:
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        ticket.sla_id = sla.id
+        ticket.response_deadline = now + timedelta(hours=sla.response_hours)
+        ticket.resolution_deadline = now + timedelta(hours=sla.resolution_hours)
     db.add(ticket)
     await db.commit()
     result = await db.execute(

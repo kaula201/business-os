@@ -495,6 +495,18 @@ async def generate_payslips(
         )
         db.add(payslip)
         await db.flush()
+        # GL: Dr 5200 / Cr 2210, 2220, 2300 — Odoo-style payslip posting
+        from app.services.gl_hooks import post_payslip_gl
+        await post_payslip_gl(
+            db, company_id, current_user,
+            payslip_id=payslip.id,
+            payslip_number=payslip.payslip_number,
+            period_date=date(year, month, 1),
+            gross_pay=entry.gross_pay,
+            pension_contribution=entry.pension_contribution,
+            income_tax=entry.income_tax,
+            net_pay=entry.net_pay,
+        )
         emp = (await db.execute(select(Employee).where(Employee.id == entry.employee_id))).scalar_one_or_none()
         created.append({
             "id": str(payslip.id),

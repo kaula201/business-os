@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 
@@ -778,6 +778,20 @@ async def post_goods_receipt(
                 for item in data.items
             ],
         },
+    )
+    # GL: Dr 1200 (inventory) / Cr 2110 (goods in transit) — Odoo-style receipt posting
+    from app.services.gl_hooks import post_goods_receipt_gl
+    receipt_subtotal = sum(
+        (Decimal(locked_item_map[item.purchase_order_item_id].unit_price)
+         * Decimal(item.quantity))
+        for item in data.items
+    )
+    await post_goods_receipt_gl(
+        db, current_user.company_id, current_user,
+        receipt_id=receipt.id,
+        receipt_number=receipt_number,
+        receipt_date=date.today(),
+        subtotal=receipt_subtotal,
     )
     receipt = (
         await db.execute(

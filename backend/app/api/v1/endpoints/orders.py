@@ -1,6 +1,6 @@
 import json
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID
@@ -49,7 +49,7 @@ router = APIRouter(prefix="/orders", tags=["შეკვეთები"])
 
 ALLOWED_TRANSITIONS = {
     OrderStatus.DRAFT.value: {OrderStatus.CONFIRMED.value, OrderStatus.CANCELLED.value},
-    OrderStatus.CONFIRMED.value: {OrderStatus.PREPARING.value, OrderStatus.CANCELLED.value},
+    OrderStatus.CONFIRMED.value: {OrderStatus.PREPARING.value, OrderStatus.SHIPPING.value, OrderStatus.COMPLETED.value, OrderStatus.CANCELLED.value},
     OrderStatus.PREPARING.value: {OrderStatus.SHIPPING.value, OrderStatus.CANCELLED.value},
     OrderStatus.SHIPPING.value: {OrderStatus.COMPLETED.value},
     OrderStatus.COMPLETED.value: {OrderStatus.RETURNED.value},
@@ -809,6 +809,18 @@ async def _issue_reserved_stock(
                 created_by=current_user.id,
             )
         )
+        # COGS: Dr 5100 / Cr 1200 at weighted average cost (Odoo-style)
+        from app.services.gl_hooks import post_sale_cogs_gl
+        unit_cost = Decimal(str(product.purchase_price or 0))
+        cogs_amount = (unit_cost * Decimal(str(reservation.quantity))).quantize(Decimal("0.01"))
+        if cogs_amount > 0:
+            await post_sale_cogs_gl(
+                db, current_user.company_id, current_user,
+                order_id=order.id,
+                order_number=order.order_number,
+                entry_date=date.today(),
+                cogs_amount=cogs_amount,
+            )
 
 
 async def _return_order_stock(

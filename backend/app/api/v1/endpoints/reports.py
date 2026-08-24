@@ -443,6 +443,12 @@ async def delete_saved_report(
     r = result.scalar_one_or_none()
     if not r:
         raise HTTPException(status_code=404, detail="რეპორტი არ მოიძებნა")
+    # detach schedules referencing this report before deleting (FK integrity)
+    schedules = (await db.execute(
+        select(ReportSchedule).where(ReportSchedule.report_id == report_id)
+    )).scalars().all()
+    for s in schedules:
+        await db.delete(s)
     await db.delete(r)
     await db.commit()
     return ResponseBase(data={"id": str(report_id)}, message="რეპორტი წაიშალა")

@@ -46,4 +46,6 @@ class WebhookEvent(Base):
     payload: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")  # pending|delivered|failed
     attempts: Mapped[int] = mapped_column(default=0, nullable=False)
+    last_response_code: Mapped[int | None] = mapped_column(nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

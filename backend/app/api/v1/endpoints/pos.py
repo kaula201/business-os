@@ -1001,7 +1001,7 @@ async def z_report(
     total_refunds = sum((r.amount for r in refunds), Decimal("0"))
     cash_in = sum((m.amount for m in movements if m.movement_type == "cash_in"), Decimal("0"))
     cash_out = sum((m.amount for m in movements if m.movement_type == "cash_out"), Decimal("0"))
-    expected_cash = cash_sales + cash_in - cash_out - total_refunds
+    expected_cash = session.opening_cash + cash_sales + cash_in - cash_out - total_refunds
     difference = (declared_cash or expected_cash) - expected_cash
 
     count = (await db.execute(

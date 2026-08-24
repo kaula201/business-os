@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -252,7 +253,7 @@ async def pick_item(
             PickListItem.id == payload.item_id,
             PickList.id == pick_list_id,
             PickList.company_id == company_id,
-        ).with_for_update()
+        ).with_for_update().options(selectinload(PickListItem.pick_list))
     )).scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="პიკინგის ელემენტი არ მოიძებნა")
@@ -273,6 +274,13 @@ async def pick_item(
     if not balance or Decimal(balance.quantity) < payload.quantity:
         raise HTTPException(status_code=409, detail="საწყობში არასაკმარისი ნაშთია")
     balance.quantity = Decimal(balance.quantity) - payload.quantity
+
+    # keep Product.current_stock in sync (Odoo-style stock on hand)
+    product = (await db.execute(
+        select(Product).where(Product.id == item.product_id, Product.company_id == company_id).with_for_update()
+    )).scalar_one_or_none()
+    if product:
+        product.current_stock = float(Decimal(str(product.current_stock or 0)) - payload.quantity)
 
     if item.batch_id:
         batch = (await db.execute(
