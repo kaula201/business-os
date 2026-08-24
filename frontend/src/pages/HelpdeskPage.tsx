@@ -35,8 +35,25 @@ export default function HelpdeskPage() {
   const [error, setError] = useState('')
 
   // Ticket form
-  const [ticketForm, setTicketForm] = useState({ subject: '', description: '', priority: 'medium', client_id: '', queue_id: '', attachment_url: '', assignee_id: '' })
+  const [ticketForm, setTicketForm] = useState({ subject: '', description: '', priority: 'medium', client_id: '', queue_id: '', attachment_url: '', assignee_id: '', category: '', ticket_type: '', source_channel: 'email', tags: '' })
   const [ticketOpen, setTicketOpen] = useState(false)
+  const [detailTicket, setDetailTicket] = useState<any>(null)
+  const openDetail = (tk: any) => {
+    setDetailTicket(tk)
+    helpdeskApi.messages(tk.id).then(r => setDetailMessages(r.data.data)).catch(() => setDetailMessages([]))
+    helpdeskApi.attachments(tk.id).then(r => setDetailAttachments(r.data.data)).catch(() => setDetailAttachments([]))
+    helpdeskApi.followers(tk.id).then(r => setDetailFollowers(r.data.data)).catch(() => setDetailFollowers([]))
+    helpdeskApi.kbSuggestions(tk.id).then(r => setDetailKb(r.data.data)).catch(() => setDetailKb([]))
+  }
+  const [detailMessages, setDetailMessages] = useState<any[]>([])
+  const [detailAttachments, setDetailAttachments] = useState<any[]>([])
+  const [detailFollowers, setDetailFollowers] = useState<any[]>([])
+  const [detailKb, setDetailKb] = useState<any[]>([])
+  const [msgBody, setMsgBody] = useState('')
+  const [timeMinutes, setTimeMinutes] = useState('')
+  const [satScore, setSatScore] = useState('')
+  const [satComment, setSatComment] = useState('')
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
   // Queue form
   const [queueForm, setQueueForm] = useState({ name: '', description: '' })
   const [queueOpen, setQueueOpen] = useState(false)
@@ -81,8 +98,11 @@ export default function HelpdeskPage() {
   const { data: emailRules } = useQuery({ queryKey: ['hd-email'], queryFn: () => helpdeskApi.emailIntake().then(r => r.data.data) })
 
   const createTicket = useMutation({
-    mutationFn: () => helpdeskApi.createTicket(ticketForm),
-    onSuccess: () => { setTicketOpen(false); setTicketForm({ subject: '', description: '', priority: 'medium', client_id: '', queue_id: '', attachment_url: '', assignee_id: '' }); qc.invalidateQueries({ queryKey: ['hd-tickets'] }) },
+    mutationFn: () => helpdeskApi.createTicket({
+      ...ticketForm,
+      tags: ticketForm.tags ? ticketForm.tags.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined,
+    }),
+    onSuccess: () => { setTicketOpen(false); setTicketForm({ subject: '', description: '', priority: 'medium', client_id: '', queue_id: '', attachment_url: '', assignee_id: '', category: '', ticket_type: '', source_channel: 'email', tags: '' }); qc.invalidateQueries({ queryKey: ['hd-tickets'] }) },
     onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
   const createQueue = useMutation({
@@ -180,7 +200,16 @@ export default function HelpdeskPage() {
                   <tr><td colSpan={4} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('ტიკეტები არ არის')}</td></tr>
                 ) : tickets.map((tk: any) => (
                   <tr key={tk.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
-                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{tk.subject}</td>
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">
+                      <button onClick={() => openDetail(tk)} className="hover:text-primary-600 hover:underline">{tk.subject}</button>
+                      {tk.tags?.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {tk.tags.map((tag: string) => (
+                            <span key={tag} className="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-200">{tag}</span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tk.priority}</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[tk.status] || ''}`}>{tk.status}</span>
@@ -434,6 +463,44 @@ export default function HelpdeskPage() {
             <input value={ticketForm.attachment_url} onChange={e => setTicketForm({ ...ticketForm, attachment_url: e.target.value })}
               placeholder="https://..." className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
           </FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label={t('კატეგორია')}>
+              <select value={ticketForm.category} onChange={e => setTicketForm({ ...ticketForm, category: e.target.value })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+                <option value="">—</option>
+                <option value="bug">Bug</option>
+                <option value="feature">Feature</option>
+                <option value="question">Question</option>
+                <option value="incident">Incident</option>
+              </select>
+            </FormField>
+            <FormField label={t('ტიპი')}>
+              <select value={ticketForm.ticket_type} onChange={e => setTicketForm({ ...ticketForm, ticket_type: e.target.value })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+                <option value="">—</option>
+                <option value="support">Support</option>
+                <option value="sales">Sales</option>
+                <option value="billing">Billing</option>
+                <option value="technical">Technical</option>
+              </select>
+            </FormField>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label={t('წყარო')}>
+              <select value={ticketForm.source_channel} onChange={e => setTicketForm({ ...ticketForm, source_channel: e.target.value })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+                <option value="email">Email</option>
+                <option value="portal">Portal</option>
+                <option value="phone">Phone</option>
+                <option value="chat">Chat</option>
+                <option value="api">API</option>
+              </select>
+            </FormField>
+            <FormField label={t('ტეგები')}>
+              <input value={ticketForm.tags} onChange={e => setTicketForm({ ...ticketForm, tags: e.target.value })}
+                placeholder="auth, urgent" className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+          </div>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button onClick={() => createTicket.mutate()} disabled={!ticketForm.subject || createTicket.isPending}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
@@ -637,6 +704,120 @@ export default function HelpdeskPage() {
             {t('შენახვა')}
           </button>
         </div>
+      </Modal>
+
+      {/* Ticket detail modal — messages, followers, attachments, time, satisfaction, KB */}
+      <Modal open={!!detailTicket} onClose={() => setDetailTicket(null)} title={detailTicket?.subject || ''} size="lg">
+        {detailTicket && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-brandgray-100 px-2 py-1 dark:bg-dark-100">{t('პრიორიტეტი')}: {detailTicket.priority}</span>
+              <span className="rounded-full bg-brandgray-100 px-2 py-1 dark:bg-dark-100">{t('სტატუსი')}: {detailTicket.status}</span>
+              {detailTicket.category && <span className="rounded-full bg-brandgray-100 px-2 py-1 dark:bg-dark-100">{t('კატეგორია')}: {detailTicket.category}</span>}
+              {detailTicket.source_channel && <span className="rounded-full bg-brandgray-100 px-2 py-1 dark:bg-dark-100">{t('წყარო')}: {detailTicket.source_channel}</span>}
+              {detailTicket.resolution_deadline && (
+                <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                  SLA: {new Date(detailTicket.resolution_deadline).toLocaleString('ka-GE')}
+                </span>
+              )}
+              {detailTicket.time_spent_minutes > 0 && (
+                <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
+                  {t('დრო')}: {detailTicket.time_spent_minutes} {t('წთ')}
+                </span>
+              )}
+              {detailTicket.satisfaction_score && (
+                <span className="rounded-full bg-green-50 px-2 py-1 text-green-700 dark:bg-green-900/20 dark:text-green-300">
+                  {t('კმაყოფილება')}: {'★'.repeat(detailTicket.satisfaction_score)}
+                </span>
+              )}
+            </div>
+
+            {/* Conversation thread */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('საუბარი')}</h4>
+              <div className="space-y-2 max-h-48 overflow-y-auto rounded-lg border border-brandgray-100 p-3 dark:border-dark-50">
+                {detailMessages.length === 0 ? (
+                  <p className="text-sm text-gray-400">{t('საუბრის შეტყობინებები არ არის')}</p>
+                ) : detailMessages.map((m: any) => (
+                  <div key={m.id} className={`rounded-lg px-3 py-2 text-sm ${m.direction === 'inbound' ? 'bg-gray-50 dark:bg-dark-100' : 'bg-primary-50 dark:bg-primary-900/20'}`}>
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>{m.author_name || '—'} · {m.channel}</span>
+                      <span>{new Date(m.created_at).toLocaleString('ka-GE')}</span>
+                    </div>
+                    <p className="mt-1 text-gray-800 dark:text-gray-200">{m.body}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex gap-2">
+                <input value={msgBody} onChange={e => setMsgBody(e.target.value)} placeholder={t('პასუხი...')}
+                  className="flex-1 rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+                <button onClick={() => {
+                  helpdeskApi.addMessage(detailTicket.id, { body: msgBody, direction: 'outbound', channel: 'email' })
+                    .then(() => { setMsgBody(''); return helpdeskApi.messages(detailTicket.id).then(r => setDetailMessages(r.data.data)) })
+                }} disabled={!msgBody}
+                  className="rounded-lg bg-primary-600 px-3 py-2 text-sm text-white disabled:opacity-50">{t('გაგზავნა')}</button>
+              </div>
+            </div>
+
+            {/* Attachments */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('დანართები')}</h4>
+              <div className="flex flex-wrap gap-2">
+                {detailAttachments.map((a: any) => (
+                  <span key={a.id} className="rounded-lg border border-brandgray-100 px-2 py-1 text-xs dark:border-dark-50">{a.filename} ({a.size_bytes} B)</span>
+                ))}
+                <label className="cursor-pointer rounded-lg border border-dashed border-brandgray-200 px-2 py-1 text-xs text-brandgray-500 hover:border-primary-300 dark:border-dark-50">
+                  + {t('ატვირთვა')}
+                  <input type="file" className="hidden" onChange={e => {
+                    const f = e.target.files?.[0] || null
+                    setUploadFile(f)
+                    if (f) {
+                      const fd = new FormData()
+                      fd.append('file', f)
+                      helpdeskApi.uploadAttachment(detailTicket.id, fd).then(() => helpdeskApi.attachments(detailTicket.id).then(r => setDetailAttachments(r.data.data)))
+                    }
+                  }} />
+                </label>
+              </div>
+            </div>
+
+            {/* Time spent + satisfaction */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('დრო (წთ)')}</label>
+                <div className="flex gap-2">
+                  <input type="number" min={1} value={timeMinutes} onChange={e => setTimeMinutes(e.target.value)}
+                    className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+                  <button onClick={() => {
+                    helpdeskApi.addTimeSpent(detailTicket.id, Number(timeMinutes)).then(() => { setTimeMinutes(''); return helpdeskApi.get(detailTicket.id).then(r => setDetailTicket(r.data.data)) })
+                  }} disabled={!timeMinutes} className="rounded-lg bg-brandgray-800 px-3 py-2 text-sm text-white disabled:opacity-50">+</button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('კმაყოფილება (1-5)')}</label>
+                <div className="flex gap-2">
+                  <input type="number" min={1} max={5} value={satScore} onChange={e => setSatScore(e.target.value)}
+                    className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+                  <button onClick={() => {
+                    helpdeskApi.rateSatisfaction(detailTicket.id, { score: Number(satScore), comment: satComment }).then(() => { setSatScore(''); return helpdeskApi.get(detailTicket.id).then(r => setDetailTicket(r.data.data)) })
+                  }} disabled={!satScore} className="rounded-lg bg-brandgray-800 px-3 py-2 text-sm text-white disabled:opacity-50">✓</button>
+                </div>
+              </div>
+            </div>
+
+            {/* KB suggestions */}
+            {detailKb.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('ცოდნის ბაზის რჩევები')}</h4>
+                <div className="space-y-1">
+                  {detailKb.map((k: any) => (
+                    <div key={k.id} className="rounded-lg border border-brandgray-100 px-3 py-2 text-sm dark:border-dark-50">{k.title}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   )

@@ -19,6 +19,14 @@ class HelpdeskTicketCreate(BaseModel):
     client_id: Optional[UUID] = None
     queue_id: Optional[UUID] = None
     attachment_url: Optional[str] = None
+    # P1.6 rich fields
+    category: Optional[str] = None
+    ticket_type: Optional[str] = None
+    source_channel: Optional[str] = None
+    tags: Optional[list[str]] = None
+    related_product_id: Optional[UUID] = None
+    related_invoice_id: Optional[UUID] = None
+    related_order_id: Optional[UUID] = None
 
 
 class HelpdeskTicketUpdate(BaseModel):
@@ -33,6 +41,16 @@ class HelpdeskTicketUpdate(BaseModel):
     client_id: Optional[UUID] = None
     queue_id: Optional[UUID] = None
     attachment_url: Optional[str] = None
+    category: Optional[str] = None
+    ticket_type: Optional[str] = None
+    source_channel: Optional[str] = None
+    tags: Optional[list[str]] = None
+    related_product_id: Optional[UUID] = None
+    related_invoice_id: Optional[UUID] = None
+    related_order_id: Optional[UUID] = None
+    time_spent_minutes: Optional[int] = None
+    satisfaction_score: Optional[int] = Field(None, ge=1, le=5)
+    satisfaction_comment: Optional[str] = None
 
 
 class HelpdeskTicketResponse(BaseModel):
@@ -55,6 +73,19 @@ class HelpdeskTicketResponse(BaseModel):
     queue_id: Optional[UUID] = None
     queue_name: Optional[str] = None
     attachment_url: Optional[str] = None
+    sla_id: Optional[UUID] = None
+    response_deadline: Optional[datetime] = None
+    resolution_deadline: Optional[datetime] = None
+    category: Optional[str] = None
+    ticket_type: Optional[str] = None
+    source_channel: Optional[str] = None
+    tags: Optional[list] = None
+    related_product_id: Optional[UUID] = None
+    related_invoice_id: Optional[UUID] = None
+    related_order_id: Optional[UUID] = None
+    time_spent_minutes: int = 0
+    satisfaction_score: Optional[int] = None
+    satisfaction_comment: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

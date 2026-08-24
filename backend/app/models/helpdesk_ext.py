@@ -143,3 +143,44 @@ class EmailIntakeRule(Base):
     priority: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class HelpdeskFollower(Base):
+    """Ticket followers/watchers — notified on updates."""
+
+    __tablename__ = "helpdesk_followers"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    ticket_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("helpdesk_tickets.id"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class HelpdeskMessage(Base):
+    """Ticket conversation — email thread + portal chat messages."""
+
+    __tablename__ = "helpdesk_messages"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    ticket_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("helpdesk_tickets.id"), nullable=False, index=True)
+    author_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    author_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    direction: Mapped[str] = mapped_column(String(10), default="inbound", nullable=False)  # inbound, outbound
+    channel: Mapped[str] = mapped_column(String(20), default="email", nullable=False)  # email, portal, phone, chat
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class HelpdeskAttachment(Base):
+    """Real file attachment — binary stored on disk, metadata in DB."""
+
+    __tablename__ = "helpdesk_attachments"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    ticket_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("helpdesk_tickets.id"), nullable=False, index=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), default="application/octet-stream", nullable=False)
+    size_bytes: Mapped[int] = mapped_column(default=0, nullable=False)
+    storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

@@ -206,6 +206,17 @@ export const helpdeskApi = {
   pipelines: () => api.get('/helpdesk/pipelines'),
   createPipeline: (data: Record<string, unknown>) => api.post('/helpdesk/pipelines', data),
   removePipeline: (pipelineId: string) => api.delete(`/helpdesk/pipelines/${pipelineId}`),
+  // P1.6 rich ticket features
+  get: (id: string) => api.get(`/helpdesk/${id}`),
+  messages: (id: string) => api.get(`/helpdesk/${id}/messages`),
+  addMessage: (id: string, data: Record<string, unknown>) => api.post(`/helpdesk/${id}/messages`, data),
+  followers: (id: string) => api.get(`/helpdesk/${id}/followers`),
+  addFollower: (id: string, userId: string) => api.post(`/helpdesk/${id}/followers`, { user_id: userId }),
+  attachments: (id: string) => api.get(`/helpdesk/${id}/attachments`),
+  uploadAttachment: (id: string, formData: FormData) => api.post(`/helpdesk/${id}/attachments`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  addTimeSpent: (id: string, minutes: number) => api.post(`/helpdesk/${id}/time-spent`, { minutes }),
+  rateSatisfaction: (id: string, data: Record<string, unknown>) => api.post(`/helpdesk/${id}/satisfaction`, data),
+  kbSuggestions: (id: string) => api.get(`/helpdesk/${id}/kb-suggestions`),
 }
 
 // Reports API

@@ -1,6 +1,9 @@
 # backend/app/api/v1/endpoints/helpdesk.py
 """Helpdesk ticket management API."""
-from fastapi import APIRouter, Depends, HTTPException, Query
+import uuid
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -14,6 +17,7 @@ from app.models.helpdesk import HelpdeskTicket
 from app.models.helpdesk_ext import (
     HelpdeskQueue, HelpdeskSla, HelpdeskEscalation, CannedReply, KnowledgeArticle, FieldServiceJob, EmailIntakeRule,
     HelpdeskTeam, HelpdeskTeamMember, HelpdeskPipeline, HelpdeskPipelineStage,
+    HelpdeskFollower, HelpdeskMessage, HelpdeskAttachment,
 )
 from app.schemas.helpdesk import (
     HelpdeskTicketCreate,
@@ -272,6 +276,13 @@ async def create_ticket(
         client_id=data.client_id,
         queue_id=data.queue_id,
         attachment_url=data.attachment_url,
+        category=data.category,
+        ticket_type=data.ticket_type,
+        source_channel=data.source_channel,
+        tags=data.tags,
+        related_product_id=data.related_product_id,
+        related_invoice_id=data.related_invoice_id,
+        related_order_id=data.related_order_id,
     )
     # SLA auto-assignment: pick the active SLA matching the ticket priority
     sla = (await db.execute(
@@ -554,3 +565,223 @@ async def create_email_intake(
     await db.commit()
     await db.refresh(r)
     return ResponseBase(data={"id": str(r.id), "mailbox": r.mailbox}, message="წესი შეიქმნა")
+
+
+# ── Messages (email thread / portal conversation) ────────────────────────────
+
+
+@router.get("/{ticket_id}/messages", response_model=ResponseBase[list[dict]])
+async def list_ticket_messages(
+    ticket_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_access")),
+):
+    rows = (await db.execute(
+        select(HelpdeskMessage).where(
+            HelpdeskMessage.ticket_id == ticket_id,
+            HelpdeskMessage.company_id == current_user.company_id,
+        ).order_by(HelpdeskMessage.created_at)
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(m.id), "author_id": str(m.author_id) if m.author_id else None,
+        "author_name": m.author_name, "direction": m.direction, "channel": m.channel,
+        "body": m.body, "created_at": m.created_at.isoformat(),
+    } for m in rows])
+
+
+@router.post("/{ticket_id}/messages", response_model=ResponseBase[dict], status_code=201)
+async def add_ticket_message(
+    ticket_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_edit")),
+):
+    ticket = (await db.execute(
+        select(HelpdeskTicket).where(HelpdeskTicket.id == ticket_id, HelpdeskTicket.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="ტიკეტი არ მოიძებნა")
+    m = HelpdeskMessage(
+        company_id=current_user.company_id,
+        ticket_id=ticket_id,
+        author_id=current_user.id,
+        author_name=data.get("author_name") or current_user.full_name,
+        direction=data.get("direction", "outbound"),
+        channel=data.get("channel", "email"),
+        body=data.get("body", ""),
+    )
+    db.add(m)
+    await db.flush()
+    return ResponseBase(data={"id": str(m.id), "channel": m.channel}, message="შეტყობინება დაემატა")
+
+
+# ── Followers / watchers ─────────────────────────────────────────────────────
+
+
+@router.get("/{ticket_id}/followers", response_model=ResponseBase[list[dict]])
+async def list_followers(
+    ticket_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_access")),
+):
+    rows = (await db.execute(
+        select(HelpdeskFollower).where(
+            HelpdeskFollower.ticket_id == ticket_id,
+            HelpdeskFollower.company_id == current_user.company_id,
+        )
+    )).scalars().all()
+    return ResponseBase(data=[{"id": str(f.id), "user_id": str(f.user_id)} for f in rows])
+
+
+@router.post("/{ticket_id}/followers", response_model=ResponseBase[dict], status_code=201)
+async def add_follower(
+    ticket_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_edit")),
+):
+    user_id = data.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=422, detail="user_id აუცილებელია")
+    existing = (await db.execute(
+        select(HelpdeskFollower).where(
+            HelpdeskFollower.ticket_id == ticket_id,
+            HelpdeskFollower.user_id == user_id,
+        )
+    )).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=409, detail="მომხმარებელი უკვე ადევნებს თვალს")
+    f = HelpdeskFollower(company_id=current_user.company_id, ticket_id=ticket_id, user_id=user_id)
+    db.add(f)
+    await db.flush()
+    return ResponseBase(data={"id": str(f.id)}, message="ფოლოვერი დაემატა")
+
+
+# ── Attachments (real file upload) ────────────────────────────────────────────
+
+
+@router.post("/{ticket_id}/attachments", response_model=ResponseBase[dict], status_code=201)
+async def upload_attachment(
+    ticket_id: UUID,
+    file: UploadFile,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_edit")),
+):
+    ticket = (await db.execute(
+        select(HelpdeskTicket).where(HelpdeskTicket.id == ticket_id, HelpdeskTicket.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="ტიკეტი არ მოიძებნა")
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="ფაილი 10MB-ზე დიდია")
+    storage_dir = Path(f"/app/uploads/helpdesk/{current_user.company_id}")
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    storage_path = storage_dir / f"{uuid.uuid4().hex}_{file.filename}"
+    storage_path.write_bytes(content)
+    att = HelpdeskAttachment(
+        company_id=current_user.company_id,
+        ticket_id=ticket_id,
+        filename=file.filename or "file",
+        content_type=file.content_type or "application/octet-stream",
+        size_bytes=len(content),
+        storage_path=str(storage_path),
+        uploaded_by=current_user.id,
+    )
+    db.add(att)
+    await db.flush()
+    return ResponseBase(data={"id": str(att.id), "filename": att.filename, "size_bytes": att.size_bytes}, message="ფაილი ატვირთულია")
+
+
+@router.get("/{ticket_id}/attachments", response_model=ResponseBase[list[dict]])
+async def list_attachments(
+    ticket_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_access")),
+):
+    rows = (await db.execute(
+        select(HelpdeskAttachment).where(
+            HelpdeskAttachment.ticket_id == ticket_id,
+            HelpdeskAttachment.company_id == current_user.company_id,
+        )
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(a.id), "filename": a.filename, "content_type": a.content_type,
+        "size_bytes": a.size_bytes, "created_at": a.created_at.isoformat(),
+    } for a in rows])
+
+
+# ── Time spent + satisfaction ────────────────────────────────────────────────
+
+
+@router.post("/{ticket_id}/time-spent", response_model=ResponseBase[dict])
+async def add_time_spent(
+    ticket_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_edit")),
+):
+    minutes = int(data.get("minutes", 0))
+    if minutes <= 0:
+        raise HTTPException(status_code=422, detail="წუთები დადებითი უნდა იყოს")
+    ticket = (await db.execute(
+        select(HelpdeskTicket).where(HelpdeskTicket.id == ticket_id, HelpdeskTicket.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="ტიკეტი არ მოიძებნა")
+    ticket.time_spent_minutes = (ticket.time_spent_minutes or 0) + minutes
+    await db.flush()
+    return ResponseBase(data={"time_spent_minutes": ticket.time_spent_minutes}, message="დრო დაემატა")
+
+
+@router.post("/{ticket_id}/satisfaction", response_model=ResponseBase[dict])
+async def rate_satisfaction(
+    ticket_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_edit")),
+):
+    score = int(data.get("score", 0))
+    if score < 1 or score > 5:
+        raise HTTPException(status_code=422, detail="შეფასება 1-დან 5-მდე უნდა იყოს")
+    ticket = (await db.execute(
+        select(HelpdeskTicket).where(HelpdeskTicket.id == ticket_id, HelpdeskTicket.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="ტიკეტი არ მოიძებნა")
+    ticket.satisfaction_score = score
+    ticket.satisfaction_comment = data.get("comment")
+    await db.flush()
+    return ResponseBase(data={"satisfaction_score": score}, message="შეფასება შენახულია")
+
+
+# ── Knowledge-base suggestion ────────────────────────────────────────────────
+
+
+@router.get("/{ticket_id}/kb-suggestions", response_model=ResponseBase[list[dict]])
+async def kb_suggestions(
+    ticket_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("helpdesk", "can_access")),
+):
+    ticket = (await db.execute(
+        select(HelpdeskTicket).where(HelpdeskTicket.id == ticket_id, HelpdeskTicket.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="ტიკეტი არ მოიძებნა")
+    # Simple keyword match on subject/description against published articles
+    articles = (await db.execute(
+        select(KnowledgeArticle).where(
+            KnowledgeArticle.company_id == current_user.company_id,
+            KnowledgeArticle.is_published.is_(True),
+        )
+    )).scalars().all()
+    haystack = f"{ticket.subject} {ticket.description or ''}".lower()
+    words = [w for w in haystack.split() if len(w) > 3]
+    scored = []
+    for art in articles:
+        score = sum(1 for w in words if w in art.title.lower() or w in (art.content or "").lower())
+        if score > 0:
+            scored.append({"id": str(art.id), "title": art.title, "score": score})
+    scored.sort(key=lambda x: -x["score"])
+    return ResponseBase(data=scored[:5])
