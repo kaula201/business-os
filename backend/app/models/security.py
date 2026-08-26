@@ -12,11 +12,21 @@ from app.core.database import Base
 class LoginHistory(Base):
     __tablename__ = "login_history"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    company_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=True, index=True)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
     success: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Security P1.7: human-readable device, geo, active sessions, revocation
+    device_name: Mapped[str | None] = mapped_column(String(120), nullable=True)   # "Chrome 138 on macOS"
+    os_name: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    device_type: Mapped[str | None] = mapped_column(String(20), nullable=True)   # desktop, mobile, tablet, bot
+    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    session_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # jti of access token
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 

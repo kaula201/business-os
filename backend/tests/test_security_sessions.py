@@ -1,0 +1,73 @@
+"""P1.7 Security — failed login recorded, device parsing, sessions, revoke, audit log."""
+import uuid
+
+import pytest
+from sqlalchemy import select
+
+from app.models.audit import AuditLog
+from app.models.security import LoginHistory
+from tests.conftest import TestSessionLocal
+
+pytestmark = pytest.mark.asyncio
+
+
+async def test_failed_login_recorded(client, test_company):
+    r = await client.post("/api/v1/auth/login", json={"email": "no-such-user@demo.ge", "password": "wrong"})
+    assert r.status_code == 401
+    async with TestSessionLocal() as session:
+        rows = (await session.execute(select(LoginHistory).where(LoginHistory.success.is_(False)))).scalars().all()
+        assert len(rows) >= 1
+        # device parsing should be populated (curl/bot UA)
+        assert rows[0].device_name is not None
+
+
+async def test_login_records_device_and_session(client, auth_headers):
+    # auth_headers fixture already performed a successful login
+    async with TestSessionLocal() as session:
+        rows = (await session.execute(
+            select(LoginHistory).where(LoginHistory.success.is_(True)).order_by(LoginHistory.created_at.desc()).limit(1)
+        )).scalars().all()
+        assert len(rows) == 1
+        h = rows[0]
+        assert h.device_name is not None
+        assert h.session_key is not None
+        assert h.is_active is True
+
+
+async def test_sessions_and_revoke(client, auth_headers):
+    sess = await client.get("/api/v1/auth/sessions", headers=auth_headers)
+    assert sess.status_code == 200, sess.text
+    sessions = sess.json()["data"]
+    assert len(sessions) >= 1
+    sid = sessions[0]["id"]
+    rev = await client.post(f"/api/v1/auth/sessions/{sid}/revoke", headers=auth_headers)
+    assert rev.status_code == 200, rev.text
+    assert rev.json()["data"]["revoked"] is True
+
+
+async def test_logout_revokes_current(client, auth_headers):
+    lg = await client.post("/api/v1/auth/logout", headers=auth_headers)
+    assert lg.status_code == 200, lg.text
+    assert lg.json()["data"]["logged_out"] is True
+
+
+async def test_audit_log_entries(client, auth_headers):
+    al = await client.get("/api/v1/auth/audit-logs", headers=auth_headers)
+    assert al.status_code == 200, al.text
+    assert isinstance(al.json()["data"], list)
+
+
+async def test_ua_parser():
+    from app.services.ua_parser import parse_user_agent
+    d = parse_user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
+    assert "Chrome" in d["device_name"]
+    assert d["os_name"] == "macOS"
+    assert d["device_type"] == "desktop"
+
+    m = parse_user_agent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile Safari/604.1")
+    assert m["device_type"] == "mobile"
+    assert m["os_name"] == "iOS"
+
+    b = parse_user_agent("curl/8.7.1")
+    assert b["device_type"] == "bot"
+    assert "curl" in b["device_name"].lower()

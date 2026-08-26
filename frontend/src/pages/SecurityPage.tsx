@@ -10,6 +10,8 @@ import { securityApi, fieldAccessApi } from '../services/api'
 const tabs = [
   { id: '2fa', label: '2FA', icon: ShieldCheck },
   { id: 'history', label: 'შესვლის ისტორია', icon: History },
+  { id: 'sessions', label: 'აქტიური სესიები', icon: KeyRound },
+  { id: 'audit', label: 'Audit Log', icon: GitBranch },
   { id: 'steps', label: 'Approval Steps', icon: GitBranch },
   { id: 'fields', label: 'Field Access', icon: Eye },
 ]
@@ -23,6 +25,8 @@ export default function SecurityPage() {
 
   const { data: twoFa } = useQuery({ queryKey: ['sec-2fa'], queryFn: () => securityApi.twoFaStatus().then(r => r.data.data) })
   const { data: history } = useQuery({ queryKey: ['sec-history'], queryFn: () => securityApi.loginHistory().then(r => r.data.data) })
+  const { data: sessions } = useQuery({ queryKey: ['sec-sessions'], queryFn: () => securityApi.sessions().then(r => r.data.data) })
+  const { data: auditLogs } = useQuery({ queryKey: ['sec-audit'], queryFn: () => securityApi.auditLogs().then(r => r.data.data) })
   const { data: fieldRules } = useQuery({ queryKey: ['sec-fields'], queryFn: () => fieldAccessApi.list().then(r => r.data.data) })
 
   const [fieldForm, setFieldForm] = useState({ module: 'clients', role: 'employee', field: '', can_view: true, can_edit: false })
@@ -107,13 +111,84 @@ export default function SecurityPage() {
                 ) : (history || []).map((h: any) => (
                   <tr key={h.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-mono text-xs text-gray-700 dark:text-gray-300">{h.ip_address || '—'}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{h.user_agent ? h.user_agent.slice(0, 50) : '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                      {h.device_name || (h.user_agent ? h.user_agent.slice(0, 50) : '—')}
+                      {h.city && <span className="ml-1 text-xs text-gray-400">({h.city}{h.country ? `, ${h.country}` : ''})</span>}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${h.success ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                         {h.success ? t('წარმატებული') : t('წარუმატებელი')}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(h.created_at).toLocaleString('ka-GE')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'sessions' && (
+        <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('მოწყობილობა')}</th>
+                  <th className="px-4 py-3">{t('IP მისამართი')}</th>
+                  <th className="px-4 py-3">{t('ბოლო აქტივობა')}</th>
+                  <th className="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(sessions || []).length === 0 ? (
+                  <tr><td colSpan={4} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('აქტიური სესიები არ არის')}</td></tr>
+                ) : (sessions || []).map((s: any) => (
+                  <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{s.device_name || '—'}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-700 dark:text-gray-300">{s.ip_address || '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{s.last_seen_at ? new Date(s.last_seen_at).toLocaleString('ka-GE') : '—'}</td>
+                    <td className="px-4 py-3 text-right">
+                      <button onClick={() => securityApi.revokeSession(s.id).then(() => qc.invalidateQueries({ queryKey: ['sec-sessions'] }))}
+                        className="text-xs font-medium text-red-500 hover:text-red-700">{t('გაუქმება')}</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'audit' && (
+        <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('ვინ')}</th>
+                  <th className="px-4 py-3">{t('მოქმედება')}</th>
+                  <th className="px-4 py-3">{t('ობიექტი')}</th>
+                  <th className="px-4 py-3">{t('ძველი მნიშვნელობა')}</th>
+                  <th className="px-4 py-3">{t('ახალი მნიშვნელობა')}</th>
+                  <th className="px-4 py-3">{t('როდის')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(auditLogs || []).length === 0 ? (
+                  <tr><td colSpan={6} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('Audit ჩანაწერები არ არის')}</td></tr>
+                ) : (auditLogs || []).map((a: any) => (
+                  <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{a.user_name || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{a.action}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                      {a.entity_type}{a.field_name ? `:${a.field_name}` : ''}
+                      {a.entity_label ? ` — ${a.entity_label}` : ''}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{a.old_value || '—'}</td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{a.new_value || '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(a.created_at).toLocaleString('ka-GE')}</td>
                   </tr>
                 ))}
               </tbody>
