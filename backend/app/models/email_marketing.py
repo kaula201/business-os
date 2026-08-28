@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, JSON, String, func
+from sqlalchemy import DateTime, ForeignKey, JSON, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -20,6 +20,7 @@ class EmailCampaign(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     subject: Mapped[str] = mapped_column(String(500), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False, default="")
     audience: Mapped[Any] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(
         String(20), default="draft", nullable=False, index=True

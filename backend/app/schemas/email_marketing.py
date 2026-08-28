@@ -10,6 +10,7 @@ EMAIL_CAMPAIGN_STATUSES = {"draft", "sent", "scheduled", "cancelled"}
 class EmailCampaignCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     subject: str = Field(min_length=1, max_length=500)
+    body: str = Field(default="", max_length=100000)
     audience: Any | None = None
     status: str = Field(default="draft", max_length=20)
     scheduled_at: datetime | None = None
@@ -27,6 +28,7 @@ class EmailCampaignCreate(BaseModel):
 class EmailCampaignUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     subject: str | None = Field(default=None, min_length=1, max_length=500)
+    body: str | None = Field(default=None, max_length=100000)
     audience: Any | None = None
     status: str | None = Field(default=None, max_length=20)
     scheduled_at: datetime | None = None
@@ -46,6 +48,7 @@ class EmailCampaignResponse(BaseModel):
     company_id: UUID
     name: str
     subject: str
+    body: str
     audience: Any | None
     status: str
     scheduled_at: datetime | None

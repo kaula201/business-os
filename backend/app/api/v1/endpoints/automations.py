@@ -1,5 +1,6 @@
 """Automation endpoints — trigger → action rules CRUD."""
 import uuid
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -8,10 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.models.automation import AutomationRule
+from app.models.email_calendar import EmailMessage
+from app.models.task import Task
 from app.models.user import User
 from app.schemas.common import ResponseBase
+from app.services.email_service import send_email_smtp, smtp_configured
 
 router = APIRouter(prefix="/automations", tags=["ავტომატიზაცია"])
+
+# Triggers the rule engine reacts to.
+KNOWN_TRIGGERS = {"invoice_issued", "order_created", "stock_low", "task_overdue", "client_created"}
 
 
 @router.get("/", response_model=ResponseBase[list[dict]])
@@ -92,3 +99,77 @@ async def delete_rule(
     await db.delete(rule)
     await db.commit()
     return ResponseBase(data={"id": str(rule_id)}, message="წესი წაიშალა")
+
+
+@router.post("/trigger/{trigger}", response_model=ResponseBase[dict])
+async def run_trigger(
+    trigger: str,
+    data: dict | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Fire a business event; every active rule matching the trigger runs its action."""
+    if trigger not in KNOWN_TRIGGERS:
+        raise HTTPException(status_code=422, detail=f"უცნობი trigger: {trigger}")
+
+    rules = (await db.execute(
+        select(AutomationRule).where(
+            AutomationRule.company_id == current_user.company_id,
+            AutomationRule.trigger == trigger,
+            AutomationRule.is_active.is_(True),
+        )
+    )).scalars().all()
+
+    data = data or {}
+    executed = []
+    for rule in rules:
+        try:
+            if rule.action == "send_email":
+                target = data.get("email") or rule.target
+                if not target:
+                    continue
+                subject = data.get("subject") or f"შეტყობინება: {trigger}"
+                body = data.get("body") or (
+                    f"მოვლენა: {trigger}\n"
+                    f"ობიექტი: {data.get('entity', '—')} {data.get('entity_id', '')}\n"
+                    f"დეტალები: {data.get('details', '—')}"
+                )
+                if smtp_configured():
+                    send_email_smtp(target, subject, body)
+                else:
+                    db.add(EmailMessage(
+                        company_id=current_user.company_id, to_email=target,
+                        subject=subject, body=body, status="sent",
+                    ))
+                    await db.flush()
+            elif rule.action == "create_task":
+                assignee_id = data.get("assignee_id") or current_user.id
+                db.add(Task(
+                    company_id=current_user.company_id,
+                    title=data.get("task_title") or f"[ავტომატური] {rule.name}",
+                    description=data.get("details", ""),
+                    status="todo",
+                    priority=data.get("priority", "medium"),
+                    assigned_to=assignee_id,
+                    due_date=data.get("due_date") or (datetime.utcnow() + timedelta(days=2)),
+                    created_by=current_user.id,
+                ))
+                await db.flush()
+            else:  # notify
+                db.add(EmailMessage(
+                    company_id=current_user.company_id,
+                    to_email=rule.target or current_user.email,
+                    subject=f"შეტყობინება: {trigger}",
+                    body=data.get("details", f"მოვლენა: {trigger}"),
+                    status="sent",
+                ))
+                await db.flush()
+            executed.append({"rule": rule.name, "action": rule.action})
+        except Exception:
+            continue
+
+    await db.commit()
+    return ResponseBase(
+        data={"trigger": trigger, "matched_rules": len(rules), "executed": executed},
+        message=f"Trigger {trigger} დამუშავდა — {len(executed)} წესი შესრულდა",
+    )
