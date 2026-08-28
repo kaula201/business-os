@@ -254,6 +254,8 @@ class GoodsReceiptResponse(BaseModel):
     purchase_order_status: str
     notes: str | None
     received_at: datetime
+    quality_status: str | None = None
+    quality_notes: str | None = None
     items: list[GoodsReceiptItemResponse]
 
 

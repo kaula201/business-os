@@ -200,6 +200,8 @@ def build_receipt_response(receipt: GoodsReceipt) -> GoodsReceiptResponse:
         purchase_order_status=receipt.purchase_order.status,
         notes=receipt.notes,
         received_at=receipt.received_at,
+        quality_status=receipt.quality_status,
+        quality_notes=receipt.quality_notes,
         items=[
             GoodsReceiptItemResponse(
                 id=item.id,
