@@ -373,6 +373,9 @@ export const purchaseOrdersApi = {
   history: (id: string) => api.get(`/purchase-orders/${id}/history`),
   receipts: (id: string) => api.get(`/purchase-orders/${id}/receipts`),
   receive: (id: string, data: any) => api.post(`/purchase-orders/${id}/receipts`, data),
+  qualityCheck: (poId: string, receiptId: string, data: any) =>
+    api.post(`/purchase-orders/${poId}/receipts/${receiptId}/quality-check`, data),
+  threeWayMatch: (id: string) => api.get(`/purchase-orders/${id}/three-way-match`),
 }
 
 export const purchaseCostsApi = {

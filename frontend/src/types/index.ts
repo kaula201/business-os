@@ -428,6 +428,8 @@ export interface GoodsReceipt {
   purchase_order_status: PurchaseOrderStatus
   notes?: string
   received_at: string
+  quality_status?: string | null
+  quality_notes?: string | null
   items: {
     id: string
     purchase_order_item_id: string

@@ -88,6 +88,11 @@ export default function PurchasesPage() {
   const [receiptError, setReceiptError] = useState('')
   const [receiptNotes, setReceiptNotes] = useState('')
   const [receiptQuantities, setReceiptQuantities] = useState<Record<string, number>>({})
+  // Quality check (P1.9)
+  const [qualityFor, setQualityFor] = useState<any>(null)
+  const [qualityStatus, setQualityStatus] = useState('passed')
+  const [qualityNotes, setQualityNotes] = useState('')
+  const [threeWay, setThreeWay] = useState<any>(null)
   const [form, setForm] = useState<PurchaseOrderCreate>({
     supplier_id: '',
     warehouse_id: '',
@@ -362,7 +367,20 @@ export default function PurchasesPage() {
 
             <div className="grid md:grid-cols-2 gap-5">
               <div><h3 className="font-semibold flex items-center gap-2 mb-3"><ClipboardList size={18} /> {t('სტატუსის ისტორია')}</h3><div className="space-y-3">{history.map((item) => <div key={item.id} className="flex gap-3"><div className="w-2 h-2 rounded-full bg-primary-500 mt-2" /><div><StatusBadge status={item.status} map={purchaseOrderStatusMap} /><p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{new Date(item.created_at).toLocaleString('ka-GE')}</p>{item.notes && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{item.notes}</p>}</div></div>)}</div></div>
-              <div><h3 className="font-semibold flex items-center gap-2 mb-3"><PackageCheck size={18} /> {t('მიღებები')}</h3>{receipts.length ? <div className="space-y-2">{receipts.map((receipt) => <div key={receipt.id} className="p-3 border rounded-lg flex justify-between"><div><p className="font-medium">{receipt.receipt_number}</p><p className="text-xs text-gray-500 dark:text-gray-400">{new Date(receipt.received_at).toLocaleString('ka-GE')}</p></div><p className="text-sm text-gray-600 dark:text-gray-400">{receipt.items.reduce((sum, item) => sum + item.quantity, 0)} ერთ.</p></div>)}</div> : <p className="text-sm text-gray-500 dark:text-gray-400">{t('მიღება ჯერ არ დაფიქსირებულა')}</p>}</div>
+              <div><h3 className="font-semibold flex items-center gap-2 mb-3"><PackageCheck size={18} /> {t('მიღებები')}</h3>{receipts.length ? <div className="space-y-2">{receipts.map((receipt) => <div key={receipt.id} className="p-3 border rounded-lg flex justify-between items-center"><div><p className="font-medium">{receipt.receipt_number}</p><p className="text-xs text-gray-500 dark:text-gray-400">{new Date(receipt.received_at).toLocaleString('ka-GE')}</p>{receipt.quality_status && <p className={`text-xs mt-1 font-medium ${receipt.quality_status === 'passed' ? 'text-green-600' : receipt.quality_status === 'failed' ? 'text-red-600' : 'text-amber-600'}`}>{t('ხარისხი')}: {receipt.quality_status}</p>}</div><div className="flex items-center gap-2"><p className="text-sm text-gray-600 dark:text-gray-400">{receipt.items.reduce((sum, item) => sum + item.quantity, 0)} ერთ.</p><button onClick={() => { setQualityFor(receipt); setQualityStatus(receipt.quality_status || 'passed'); setQualityNotes(receipt.quality_notes || '') }} className="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">{t('ხარისხის შემოწმება')}</button></div></div>)}</div> : <p className="text-sm text-gray-500 dark:text-gray-400">{t('მიღება ჯერ არ დაფიქსირებულა')}</p>}</div>
+              <div className="mt-3">
+                <button onClick={() => purchaseOrdersApi.threeWayMatch(selected.id).then(r => setThreeWay(r.data.data))} className="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
+                  {t('სამმხრივი შეჯერება')}
+                </button>
+                {threeWay && (
+                  <div className="mt-2 rounded-lg border border-brandgray-100 dark:border-dark-50 p-3 text-sm space-y-1">
+                    <div className="flex justify-between"><span className="text-gray-500">{t('შეკვეთილი')}</span><span className="font-mono">{threeWay.total_ordered} / {threeWay.total_ordered_amount} ₾</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">{t('მიღებული')}</span><span className="font-mono">{threeWay.total_received} / {threeWay.total_received_amount} ₾</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">{t('ინვოისირებული')}</span><span className="font-mono">{threeWay.total_billed} / {threeWay.total_billed_amount} ₾</span></div>
+                    <div className={`flex justify-between font-semibold ${threeWay.status === 'match' ? 'text-green-600' : 'text-amber-600'}`}><span>{t('სტატუსი')}</span><span>{threeWay.status}</span></div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {selected.status === 'draft' && !canApproveSelected && (
@@ -395,6 +413,35 @@ export default function PurchasesPage() {
       </Modal>
 
       <ConfirmDialog open={Boolean(action && selected)} onClose={() => setAction(null)} onConfirm={() => selected && action && statusMutation.mutate({ id: selected.id, target: action })} title={action === 'approved' ? t('შესყიდვის შეკვეთის დამტკიცება') : t('შესყიდვის შეკვეთის გაუქმება')} message={action === 'approved' ? t('დამტკიცების შემდეგ შესაძლებელი გახდება საქონლის მიღება. მარაგი ამ ეტაპზე ჯერ არ შეიცვლება.') : t('გაუქმებული შესყიდვის შეკვეთის აღდგენა შეუძლებელი იქნება.')} confirmLabel={action === 'approved' ? t('დამტკიცება') : t('გაუქმება')} variant={action === 'approved' ? 'warning' : 'danger'} loading={statusMutation.isPending} />
+
+      {/* Quality check modal (P1.9) */}
+      <Modal open={!!qualityFor} onClose={() => setQualityFor(null)} title={t('ხარისხის შემოწმება')}>
+        {qualityFor && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">{qualityFor.receipt_number}</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('სტატუსი')}</label>
+              <select value={qualityStatus} onChange={e => setQualityStatus(e.target.value)} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+                <option value="passed">{t('გავიდა')}</option>
+                <option value="failed">{t('ჩავარდა')}</option>
+                <option value="partial">{t('ნაწილობრივი')}</option>
+                <option value="pending">{t('მოლოდინში')}</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('შენიშვნა')}</label>
+              <textarea value={qualityNotes} onChange={e => setQualityNotes(e.target.value)} rows={3} className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </div>
+            <button
+              onClick={() => selected && purchaseOrdersApi.qualityCheck(selected.id, qualityFor.id, { status: qualityStatus, notes: qualityNotes })
+                .then(() => { setQualityFor(null); queryClient.invalidateQueries({ queryKey: ['purchase-order-receipts'] }) })}
+              className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium"
+            >
+              {t('შენახვა')}
+            </button>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
