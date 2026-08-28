@@ -1855,6 +1855,13 @@ const en: Record<string, string> = {
   'ხელმოწერილია': 'Signed at',
   'ხელახლა გაგზავნა': 'Resend',
   'მოწვევის გაგზავნა ელფოსტაზე': 'Send invitation by email',
+  // Signer (public)
+  'დოკუმენტის ხელმოწერა': 'Sign a document',
+  'მოწვევა მიღებულია. გთხოვთ მიუთითოთ თქვენი ელფოსტა (ის, რომელზეც მოწვევა გამოგიგზავნეთ) და მოაწეროთ ხელი დოკუმენტს.': 'Invitation received. Please enter your email (the one the invitation was sent to) and sign the document.',
+  'დოკუმენტი ხელმოწერილია': 'Document signed',
+  'მოთხოვნა უარყოფილია': 'Request declined',
+  'შეცდომა ხელმოწერისას': 'Error while signing',
+  'ხელმოწერა': 'Sign',
 }
 
 i18n.use(initReactI18next).init({

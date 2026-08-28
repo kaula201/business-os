@@ -6,10 +6,12 @@ import { ShoppingCart, Plus, Trash2, CreditCard, Package, Store } from 'lucide-r
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
 import { ecommerceApi } from '../services/api'
+import { useAuthStore } from '../store/authStore'
 
 export default function StorefrontPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const [tab, setTab] = useState<'store' | 'cart' | 'orders' | 'admin'>('store')
   const [cartId, setCartId] = useState<string | null>(localStorage.getItem('ecom_cart'))
   const [category, setCategory] = useState('')
@@ -25,10 +27,18 @@ export default function StorefrontPage() {
   const { data: cart } = useQuery({
     queryKey: ['ecom-cart', cartId],
     queryFn: () => (cartId ? ecommerceApi.getCart(cartId).then(r => r.data.data) : null),
-    enabled: !!cartId,
+    enabled: !!cartId && isAuthenticated,
   })
-  const { data: orders } = useQuery({ queryKey: ['ecom-orders'], queryFn: () => ecommerceApi.orders().then(r => r.data.data) })
-  const { data: adminProducts } = useQuery({ queryKey: ['ecom-admin'], queryFn: () => ecommerceApi.adminProducts().then(r => r.data.data.items) })
+  const { data: orders } = useQuery({
+    queryKey: ['ecom-orders'],
+    queryFn: () => ecommerceApi.orders().then(r => r.data.data),
+    enabled: isAuthenticated,
+  })
+  const { data: adminProducts } = useQuery({
+    queryKey: ['ecom-admin'],
+    queryFn: () => ecommerceApi.adminProducts().then(r => r.data.data.items),
+    enabled: isAuthenticated,
+  })
 
   const ensureCart = async () => {
     if (cartId) return cartId
@@ -84,7 +94,7 @@ export default function StorefrontPage() {
       </div>
 
       <div className="flex gap-2 border-b dark:border-dark-50">
-        {tabs.map(([key, label, Icon]) => (
+        {tabs.filter(([key]) => key === 'store' || isAuthenticated).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setTab(key)} className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium ${tab === key ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>
             <Icon size={16} /> {t(label)}
             {key === 'cart' && cart?.items?.length ? <span className="badge badge-primary">{cart.items.length}</span> : null}

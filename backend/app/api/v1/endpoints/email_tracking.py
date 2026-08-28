@@ -249,9 +249,9 @@ async def resend_signature_request(
 async def sign_request(
     data: SignatureSignRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
-    """Sign or decline a request by token + signer email (the signer acts)."""
+    """Sign or decline a request by token + signer email (the signer acts).
+    The signing token IS the authorization — no login required."""
     req = (await db.execute(select(SignatureRequest).where(
         SignatureRequest.signing_token == data.token,
     ).with_for_update())).scalar_one_or_none()
@@ -265,8 +265,6 @@ async def sign_request(
     req.status = "signed" if data.decision == "sign" else "declined"
     req.signed_by_email = data.signer_email
     req.signed_at = utc_now()
-    add_audit(db, current_user, "signature_request.signed", "signature_request", req.id,
-              {"decision": data.decision})
     await db.commit()
     await db.refresh(req)
     return ResponseBase(data=_sig_response(req))

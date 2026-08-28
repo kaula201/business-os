@@ -76,6 +76,7 @@ const MaintenancePage = lazy(() => import('./pages/MaintenancePage'))
 const PlmPage = lazy(() => import('./pages/PlmPage'))
 const QualityPage = lazy(() => import('./pages/QualityPage'))
 const SignPage = lazy(() => import('./pages/SignPage'))
+const SignerPage = lazy(() => import('./pages/SignerPage'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -92,6 +93,8 @@ function App() {
         <Route path="/vendor/dashboard" element={<ErrorBoundary><VendorDashboardPage /></ErrorBoundary>} />
         <Route path="/register" element={<ErrorBoundary><RegisterPage /></ErrorBoundary>} />
         <Route path="/verify-email" element={<ErrorBoundary><VerifyEmailPage /></ErrorBoundary>} />
+        <Route path="/sign/:token" element={<ErrorBoundary><SignerPage /></ErrorBoundary>} />
+        <Route path="/storefront" element={<ErrorBoundary><StorefrontPage /></ErrorBoundary>} />
         <Route
           path="/*"
           element={
