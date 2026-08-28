@@ -25,6 +25,7 @@ from app.api.v1.endpoints import (
     documents,
     ecommerce,
     studio,
+    marketplace,
     payments,
     email_calendar,
     field_access,
@@ -141,6 +142,7 @@ api_router.include_router(deferred.router)
 api_router.include_router(documents.router)
 api_router.include_router(ecommerce.router)
 api_router.include_router(studio.router)
+api_router.include_router(marketplace.router)
 api_router.include_router(payments.router)
 api_router.include_router(email_calendar.router)
 api_router.include_router(field_access.router)
