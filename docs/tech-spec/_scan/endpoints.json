@@ -3933,8 +3933,8 @@
    },
    {
     "method": "GET",
-    "path": "/apps/{app_id}",
-    "full_path": "/marketplace/apps/{app_id}",
+    "path": "/apps/{app_id:uuid}",
+    "full_path": "/marketplace/apps/{app_id:uuid}",
     "function": "get_marketplace_app",
     "doc": "",
     "auth": false
@@ -3949,24 +3949,24 @@
    },
    {
     "method": "POST",
-    "path": "/apps/{app_id}/install",
-    "full_path": "/marketplace/apps/{app_id}/install",
+    "path": "/apps/{app_id:uuid}/install",
+    "full_path": "/marketplace/apps/{app_id:uuid}/install",
     "function": "install_marketplace_app",
     "doc": "",
     "auth": false
    },
    {
     "method": "POST",
-    "path": "/apps/{app_id}/uninstall",
-    "full_path": "/marketplace/apps/{app_id}/uninstall",
+    "path": "/apps/{app_id:uuid}/uninstall",
+    "full_path": "/marketplace/apps/{app_id:uuid}/uninstall",
     "function": "uninstall_marketplace_app",
     "doc": "",
     "auth": false
    },
    {
     "method": "PATCH",
-    "path": "/apps/{app_id}/config",
-    "full_path": "/marketplace/apps/{app_id}/config",
+    "path": "/apps/{app_id:uuid}/config",
+    "full_path": "/marketplace/apps/{app_id:uuid}/config",
     "function": "update_app_config",
     "doc": "",
     "auth": false
