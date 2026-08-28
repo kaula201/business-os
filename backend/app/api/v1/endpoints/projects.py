@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.models.user import User
-from app.models.projects import Project, ProjectMilestone, ProjectTemplate, ProjectTemplateMilestone, ProjectTemplateTask
+from app.models.projects import Project, ProjectMember, ProjectMilestone, ProjectTemplate, ProjectTemplateMilestone, ProjectTemplateTask, ProjectTimesheet
 from app.models.task import Task
 from app.models.budgeting import BudgetPlan
 from app.schemas.common import ResponseBase, PaginatedResponse
@@ -501,3 +501,207 @@ async def get_project_profitability(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════ Resource planning — project members ═══════════════════
+
+@router.get("/{project_id}/members", response_model=ResponseBase[list[dict]])
+async def list_project_members(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_access")),
+):
+    rows = (await db.execute(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.company_id == current_user.company_id,
+        ).options(selectinload(ProjectMember.user))
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(m.id), "project_id": str(m.project_id), "user_id": str(m.user_id),
+        "user_name": m.user.full_name if m.user else None,
+        "role": m.role, "allocation_percent": float(m.allocation_percent),
+        "start_date": m.start_date.isoformat() if m.start_date else None,
+        "end_date": m.end_date.isoformat() if m.end_date else None,
+        "hourly_rate": float(m.hourly_rate),
+    } for m in rows])
+
+
+@router.post("/{project_id}/members", response_model=ResponseBase[dict], status_code=201)
+async def add_project_member(
+    project_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_edit")),
+):
+    proj = (await db.execute(select(Project).where(
+        Project.id == project_id, Project.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not proj:
+        raise HTTPException(status_code=404, detail="პროექტი არ მოიძებნა")
+    member = ProjectMember(
+        company_id=current_user.company_id, project_id=project_id,
+        user_id=data["user_id"],
+        role=data.get("role", "member"),
+        allocation_percent=Decimal(str(data.get("allocation_percent", 100))),
+        start_date=date.fromisoformat(data["start_date"]) if data.get("start_date") else None,
+        end_date=date.fromisoformat(data["end_date"]) if data.get("end_date") else None,
+        hourly_rate=Decimal(str(data.get("hourly_rate", 0))),
+    )
+    db.add(member)
+    await db.commit()
+    await db.refresh(member)
+    return ResponseBase(data={"id": str(member.id)}, message="წევრი დაემატა")
+
+
+@router.patch("/members/{member_id}", response_model=ResponseBase[dict])
+async def update_project_member(
+    member_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_edit")),
+):
+    member = (await db.execute(select(ProjectMember).where(
+        ProjectMember.id == member_id, ProjectMember.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=404, detail="წევრი არ მოიძებნა")
+    if "role" in data:
+        member.role = data["role"]
+    if "allocation_percent" in data:
+        member.allocation_percent = Decimal(str(data["allocation_percent"]))
+    if "hourly_rate" in data:
+        member.hourly_rate = Decimal(str(data["hourly_rate"]))
+    if "end_date" in data:
+        member.end_date = data["end_date"]
+    await db.commit()
+    return ResponseBase(data={"id": str(member_id)}, message="წევრი განახლდა")
+
+
+@router.delete("/members/{member_id}", response_model=ResponseBase[dict])
+async def remove_project_member(
+    member_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_edit")),
+):
+    member = (await db.execute(select(ProjectMember).where(
+        ProjectMember.id == member_id, ProjectMember.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=404, detail="წევრი არ მოიძებნა")
+    await db.delete(member)
+    await db.commit()
+    return ResponseBase(data={"id": str(member_id)}, message="წევრი წაიშალა")
+
+
+# ═══════════════════════ Time tracking — project timesheets ═══════════════════
+
+@router.get("/{project_id}/timesheets", response_model=ResponseBase[dict])
+async def list_project_timesheets(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_access")),
+):
+    rows = (await db.execute(
+        select(ProjectTimesheet).where(
+            ProjectTimesheet.project_id == project_id,
+            ProjectTimesheet.company_id == current_user.company_id,
+        ).options(selectinload(ProjectTimesheet.user))
+        .order_by(ProjectTimesheet.work_date.desc()).limit(200)
+    )).scalars().all()
+    total_hours = sum((t.hours for t in rows), Decimal("0"))
+    return ResponseBase(data={
+        "total_hours": float(total_hours),
+        "items": [{
+            "id": str(t.id), "project_id": str(t.project_id),
+            "task_id": str(t.task_id) if t.task_id else None,
+            "user_id": str(t.user_id),
+            "user_name": t.user.full_name if t.user else None,
+            "work_date": t.work_date.isoformat(),
+            "hours": float(t.hours), "billable": t.billable,
+            "description": t.description,
+        } for t in rows],
+    })
+
+
+@router.post("/{project_id}/timesheets", response_model=ResponseBase[dict], status_code=201)
+async def add_timesheet_entry(
+    project_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_edit")),
+):
+    proj = (await db.execute(select(Project).where(
+        Project.id == project_id, Project.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not proj:
+        raise HTTPException(status_code=404, detail="პროექტი არ მოიძებნა")
+    entry = ProjectTimesheet(
+        company_id=current_user.company_id, project_id=project_id,
+        task_id=data.get("task_id"),
+        user_id=data.get("user_id") or current_user.id,
+        work_date=date.fromisoformat(data["work_date"]),
+        hours=Decimal(str(data.get("hours", 0))),
+        description=data.get("description"),
+        billable=bool(data.get("billable", True)),
+    )
+    db.add(entry)
+    await db.commit()
+    await db.refresh(entry)
+    # roll hours into project spent_amount
+    proj.spent_amount = (proj.spent_amount or Decimal("0")) + entry.hours * (
+        (await db.execute(select(ProjectMember.hourly_rate).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == entry.user_id,
+            ProjectMember.company_id == current_user.company_id,
+        ))).scalar() or Decimal("0"))
+    await db.commit()
+    return ResponseBase(data={"id": str(entry.id)}, message="დრო დაფიქსირდა")
+
+
+@router.delete("/timesheets/{entry_id}", response_model=ResponseBase[dict])
+async def delete_timesheet_entry(
+    entry_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_edit")),
+):
+    entry = (await db.execute(select(ProjectTimesheet).where(
+        ProjectTimesheet.id == entry_id, ProjectTimesheet.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="ჩანაწერი არ მოიძებნა")
+    await db.delete(entry)
+    await db.commit()
+    return ResponseBase(data={"id": str(entry_id)}, message="ჩანაწერი წაიშალა")
+
+
+# ═══════════════════════ Resource utilization dashboard ═══════════════════════
+
+@router.get("/resources/utilization", response_model=ResponseBase[list[dict]])
+async def resource_utilization(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_access")),
+):
+    """Per-user load: sum of allocations across active projects."""
+    members = (await db.execute(
+        select(ProjectMember).where(ProjectMember.company_id == current_user.company_id)
+        .options(selectinload(ProjectMember.user), selectinload(ProjectMember.project))
+    )).scalars().all()
+    by_user: dict = {}
+    for m in members:
+        if m.project and m.project.status != "cancelled":
+            key = str(m.user_id)
+            agg = by_user.setdefault(key, {
+                "user_id": key, "user_name": m.user.full_name if m.user else None,
+                "total_allocation": Decimal("0"), "project_count": 0, "projects": [],
+            })
+            agg["total_allocation"] += m.allocation_percent
+            agg["project_count"] += 1
+            agg["projects"].append({
+                "project_id": str(m.project_id), "project_name": m.project.name,
+                "allocation_percent": float(m.allocation_percent), "role": m.role,
+            })
+    return ResponseBase(data=[{
+        **{k: (float(v) if isinstance(v, Decimal) else v) for k, v in u.items() if k != "projects"},
+        "projects": u["projects"],
+    } for u in by_user.values()])

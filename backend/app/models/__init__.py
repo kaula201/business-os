@@ -80,7 +80,7 @@ from app.models.production import (
     BillOfMaterial, BOMItem, WorkOrder, WorkCenter,
     ProductionReservation, FinishedGoodsReceipt,
 )
-from app.models.projects import Project, ProjectMilestone
+from app.models.projects import Project, ProjectMember, ProjectMilestone, ProjectTimesheet
 from app.models.report import ReportPreference
 from app.models.helpdesk import HelpdeskTicket
 from app.models.pos import POSSession, POSOrder, POSOrderItem
