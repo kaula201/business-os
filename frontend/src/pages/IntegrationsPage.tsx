@@ -19,9 +19,9 @@ export default function IntegrationsPage() {
   const [tab, setTab] = useState('keys')
   const [error, setError] = useState('')
   const [newKey, setNewKey] = useState('')
-  const [keyForm, setKeyForm] = useState({ name: '', scopes: 'read' })
+  const [keyForm, setKeyForm] = useState({ name: '', scopes: 'read', allowed_ips: '', rate_limit_per_minute: 120, expires_at: '' })
   const [keyOpen, setKeyOpen] = useState(false)
-  const [hookForm, setHookForm] = useState({ name: '', url: '', events: 'invoice.created' })
+  const [hookForm, setHookForm] = useState({ name: '', url: '', events: 'invoice.created', retry_max: 3, retry_backoff_seconds: 60 })
   const [hookOpen, setHookOpen] = useState(false)
 
   const { data: keys } = useQuery({ queryKey: ['int-keys'], queryFn: () => integrationsApi.apiKeys().then(r => r.data.data) })
@@ -29,8 +29,12 @@ export default function IntegrationsPage() {
   const { data: rsStatus } = useQuery({ queryKey: ['int-rs'], queryFn: () => integrationsApi.rsStatus().then(r => r.data.data) })
 
   const createKey = useMutation({
-    mutationFn: () => integrationsApi.createApiKey(keyForm),
-    onSuccess: (r: any) => { setNewKey(r.data.data.key); setKeyOpen(false); setKeyForm({ name: '', scopes: 'read' }); qc.invalidateQueries({ queryKey: ['int-keys'] }) },
+    mutationFn: () => integrationsApi.createApiKey({
+      ...keyForm,
+      allowed_ips: keyForm.allowed_ips ? keyForm.allowed_ips.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined,
+      expires_at: keyForm.expires_at ? new Date(keyForm.expires_at).toISOString() : undefined,
+    }),
+    onSuccess: (r: any) => { setNewKey(r.data.data.key); setKeyOpen(false); setKeyForm({ name: '', scopes: 'read', allowed_ips: '', rate_limit_per_minute: 120, expires_at: '' }); qc.invalidateQueries({ queryKey: ['int-keys'] }) },
     onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
   const removeKey = useMutation({
@@ -39,7 +43,7 @@ export default function IntegrationsPage() {
   })
   const createHook = useMutation({
     mutationFn: () => integrationsApi.createWebhook(hookForm),
-    onSuccess: () => { setHookOpen(false); setHookForm({ name: '', url: '', events: 'invoice.created' }); qc.invalidateQueries({ queryKey: ['int-hooks'] }) },
+    onSuccess: () => { setHookOpen(false); setHookForm({ name: '', url: '', events: 'invoice.created', retry_max: 3, retry_backoff_seconds: 60 }); qc.invalidateQueries({ queryKey: ['int-hooks'] }) },
     onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
   const removeHook = useMutation({
@@ -172,8 +176,25 @@ export default function IntegrationsPage() {
               <option value="read">read</option>
               <option value="write">write</option>
               <option value="admin">admin</option>
+              <option value="*">* (ყველა)</option>
+              <option value="sales.read,projects.read">sales.read, projects.read</option>
+              <option value="inventory.write,pos.read">inventory.write, pos.read</option>
             </select>
           </FormField>
+          <FormField label={t('დაშვებული IP-ები (მძიმით)')}>
+            <input value={keyForm.allowed_ips} onChange={e => setKeyForm({ ...keyForm, allowed_ips: e.target.value })}
+              placeholder="203.0.113.5, 10.0.0.0/8" className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label={t('Rate limit (წთ)')}>
+              <input type="number" min={1} value={keyForm.rate_limit_per_minute} onChange={e => setKeyForm({ ...keyForm, rate_limit_per_minute: Number(e.target.value) || 120 })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+            <FormField label={t('ვადა (არასავალდებულო)')}>
+              <input type="date" value={keyForm.expires_at} onChange={e => setKeyForm({ ...keyForm, expires_at: e.target.value })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+          </div>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button onClick={() => createKey.mutate()} disabled={!keyForm.name || createKey.isPending}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
@@ -208,6 +229,16 @@ export default function IntegrationsPage() {
             <input value={hookForm.events} onChange={e => setHookForm({ ...hookForm, events: e.target.value })}
               placeholder="invoice.created, client.created" className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
           </FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label={t('Retry max')}>
+              <input type="number" min={1} value={hookForm.retry_max} onChange={e => setHookForm({ ...hookForm, retry_max: Number(e.target.value) || 3 })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+            <FormField label={t('Backoff (წმ)')}>
+              <input type="number" min={1} value={hookForm.retry_backoff_seconds} onChange={e => setHookForm({ ...hookForm, retry_backoff_seconds: Number(e.target.value) || 60 })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+          </div>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button onClick={() => createHook.mutate()} disabled={!hookForm.name || !hookForm.url || createHook.isPending}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
