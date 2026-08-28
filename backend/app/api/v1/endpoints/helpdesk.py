@@ -10,8 +10,10 @@ from sqlalchemy.orm import selectinload
 from typing import Optional
 from uuid import UUID
 
+from datetime import date, datetime
 from app.core.database import get_db
-from app.core.dependencies import require_module
+from app.core.dependencies import get_current_user, require_module
+from app.core.time import utc_now
 from app.models.user import User
 from app.models.helpdesk import HelpdeskTicket
 from app.models.helpdesk_ext import (
@@ -236,7 +238,7 @@ async def delete_pipeline(
     await db.delete(pipeline)
     await db.commit()
     return ResponseBase(message="პაიპლაინი წაიშალა")
-@router.get("/{ticket_id}", response_model=ResponseBase[HelpdeskTicketResponse])
+@router.get("/{ticket_id:uuid}", response_model=ResponseBase[HelpdeskTicketResponse])
 async def get_ticket(
     ticket_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -310,7 +312,7 @@ async def create_ticket(
     return ResponseBase(data=_enrich_ticket(ticket))
 
 
-@router.put("/{ticket_id}", response_model=ResponseBase[HelpdeskTicketResponse])
+@router.put("/{ticket_id:uuid}", response_model=ResponseBase[HelpdeskTicketResponse])
 async def update_ticket(
     ticket_id: UUID,
     data: HelpdeskTicketUpdate,
@@ -345,7 +347,7 @@ async def update_ticket(
     return ResponseBase(data=_enrich_ticket(ticket))
 
 
-@router.delete("/{ticket_id}", response_model=ResponseBase[dict])
+@router.delete("/{ticket_id:uuid}", response_model=ResponseBase[dict])
 async def delete_ticket(
     ticket_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -510,13 +512,50 @@ async def create_knowledge(
 
 @router.get("/field-service", response_model=ResponseBase[list[dict]])
 async def list_field_service(
+    technician_id: Optional[UUID] = None,
+    status: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("helpdesk", "can_access")),
 ):
+    filters = [FieldServiceJob.company_id == current_user.company_id]
+    if technician_id:
+        filters.append(FieldServiceJob.technician_id == technician_id)
+    if status:
+        filters.append(FieldServiceJob.status == status)
     result = await db.execute(
-        select(FieldServiceJob).where(FieldServiceJob.company_id == current_user.company_id).order_by(FieldServiceJob.scheduled_date)
+        select(FieldServiceJob).where(*filters).order_by(FieldServiceJob.scheduled_date)
     )
-    return ResponseBase(data=[{"id": str(f.id), "ticket_id": str(f.ticket_id) if f.ticket_id else None, "technician_id": str(f.technician_id) if f.technician_id else None, "scheduled_date": f.scheduled_date.isoformat() if f.scheduled_date else None, "status": f.status, "address": f.address} for f in result.scalars().all()])
+    return ResponseBase(data=[{
+        "id": str(f.id), "ticket_id": str(f.ticket_id) if f.ticket_id else None,
+        "technician_id": str(f.technician_id) if f.technician_id else None,
+        "client_id": str(f.client_id) if f.client_id else None,
+        "scheduled_date": f.scheduled_date.isoformat() if f.scheduled_date else None,
+        "status": f.status, "priority": f.priority, "address": f.address,
+        "started_at": f.started_at.isoformat() if f.started_at else None,
+        "completed_at": f.completed_at.isoformat() if f.completed_at else None,
+        "work_summary": f.work_summary, "client_signature": f.client_signature,
+    } for f in result.scalars().all()])
+
+
+@router.get("/field-service/my-jobs", response_model=ResponseBase[list[dict]])
+async def my_field_service_jobs(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mobile view: jobs assigned to the current technician (not completed)."""
+    result = await db.execute(
+        select(FieldServiceJob).where(
+            FieldServiceJob.company_id == current_user.company_id,
+            FieldServiceJob.technician_id == current_user.id,
+            FieldServiceJob.status.in_(["scheduled", "in_progress"]),
+        ).order_by(FieldServiceJob.scheduled_date)
+    )
+    return ResponseBase(data=[{
+        "id": str(f.id), "ticket_id": str(f.ticket_id) if f.ticket_id else None,
+        "client_id": str(f.client_id) if f.client_id else None,
+        "scheduled_date": f.scheduled_date.isoformat() if f.scheduled_date else None,
+        "status": f.status, "priority": f.priority, "address": f.address,
+    } for f in result.scalars().all()])
 
 
 @router.post("/field-service", response_model=ResponseBase[dict], status_code=201)
@@ -530,8 +569,9 @@ async def create_field_service(
         ticket_id=data.get("ticket_id"),
         technician_id=data.get("technician_id"),
         client_id=data.get("client_id"),
-        scheduled_date=data.get("scheduled_date"),
+        scheduled_date=date.fromisoformat(data["scheduled_date"]) if data.get("scheduled_date") else None,
         status=data.get("status", "scheduled"),
+        priority=data.get("priority", "medium"),
         address=data.get("address"),
         notes=data.get("notes"),
     )
@@ -539,6 +579,48 @@ async def create_field_service(
     await db.commit()
     await db.refresh(f)
     return ResponseBase(data={"id": str(f.id), "status": f.status}, message="საველე სამუშაო შეიქმნა")
+
+
+@router.post("/field-service/{job_id}/start", response_model=ResponseBase[dict])
+async def start_field_service(
+    job_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    f = (await db.execute(select(FieldServiceJob).where(
+        FieldServiceJob.id == job_id, FieldServiceJob.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not f:
+        raise HTTPException(status_code=404, detail="სამუშაო არ მოიძებნა")
+    if f.status == "completed":
+        raise HTTPException(status_code=400, detail="დასრულებული სამუშაოს დაწყება შეუძლებელია")
+    f.status = "in_progress"
+    f.started_at = utc_now()
+    await db.commit()
+    return ResponseBase(data={"id": str(job_id), "status": f.status}, message="სამუშაო დაიწყო")
+
+
+@router.post("/field-service/{job_id}/complete", response_model=ResponseBase[dict])
+async def complete_field_service(
+    job_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Technician completes the job: work summary + client signature."""
+    f = (await db.execute(select(FieldServiceJob).where(
+        FieldServiceJob.id == job_id, FieldServiceJob.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not f:
+        raise HTTPException(status_code=404, detail="სამუშაო არ მოიძებნა")
+    if f.status == "completed":
+        raise HTTPException(status_code=400, detail="სამუშაო უკვე დასრულებულია")
+    f.status = "completed"
+    f.completed_at = utc_now()
+    f.work_summary = data.get("work_summary")
+    f.client_signature = data.get("client_signature")
+    await db.commit()
+    return ResponseBase(data={"id": str(job_id), "status": f.status}, message="სამუშაო დასრულდა")
 
 
 # ── Email intake ────────────────────────────────────────────────────────────────
@@ -570,7 +652,7 @@ async def create_email_intake(
 # ── Messages (email thread / portal conversation) ────────────────────────────
 
 
-@router.get("/{ticket_id}/messages", response_model=ResponseBase[list[dict]])
+@router.get("/{ticket_id:uuid}/messages", response_model=ResponseBase[list[dict]])
 async def list_ticket_messages(
     ticket_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -589,7 +671,7 @@ async def list_ticket_messages(
     } for m in rows])
 
 
-@router.post("/{ticket_id}/messages", response_model=ResponseBase[dict], status_code=201)
+@router.post("/{ticket_id:uuid}/messages", response_model=ResponseBase[dict], status_code=201)
 async def add_ticket_message(
     ticket_id: UUID,
     data: dict,
@@ -618,7 +700,7 @@ async def add_ticket_message(
 # ── Followers / watchers ─────────────────────────────────────────────────────
 
 
-@router.get("/{ticket_id}/followers", response_model=ResponseBase[list[dict]])
+@router.get("/{ticket_id:uuid}/followers", response_model=ResponseBase[list[dict]])
 async def list_followers(
     ticket_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -633,7 +715,7 @@ async def list_followers(
     return ResponseBase(data=[{"id": str(f.id), "user_id": str(f.user_id)} for f in rows])
 
 
-@router.post("/{ticket_id}/followers", response_model=ResponseBase[dict], status_code=201)
+@router.post("/{ticket_id:uuid}/followers", response_model=ResponseBase[dict], status_code=201)
 async def add_follower(
     ticket_id: UUID,
     data: dict,
@@ -660,7 +742,7 @@ async def add_follower(
 # ── Attachments (real file upload) ────────────────────────────────────────────
 
 
-@router.post("/{ticket_id}/attachments", response_model=ResponseBase[dict], status_code=201)
+@router.post("/{ticket_id:uuid}/attachments", response_model=ResponseBase[dict], status_code=201)
 async def upload_attachment(
     ticket_id: UUID,
     file: UploadFile,
@@ -693,7 +775,7 @@ async def upload_attachment(
     return ResponseBase(data={"id": str(att.id), "filename": att.filename, "size_bytes": att.size_bytes}, message="ფაილი ატვირთულია")
 
 
-@router.get("/{ticket_id}/attachments", response_model=ResponseBase[list[dict]])
+@router.get("/{ticket_id:uuid}/attachments", response_model=ResponseBase[list[dict]])
 async def list_attachments(
     ticket_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -714,7 +796,7 @@ async def list_attachments(
 # ── Time spent + satisfaction ────────────────────────────────────────────────
 
 
-@router.post("/{ticket_id}/time-spent", response_model=ResponseBase[dict])
+@router.post("/{ticket_id:uuid}/time-spent", response_model=ResponseBase[dict])
 async def add_time_spent(
     ticket_id: UUID,
     data: dict,
@@ -734,7 +816,7 @@ async def add_time_spent(
     return ResponseBase(data={"time_spent_minutes": ticket.time_spent_minutes}, message="დრო დაემატა")
 
 
-@router.post("/{ticket_id}/satisfaction", response_model=ResponseBase[dict])
+@router.post("/{ticket_id:uuid}/satisfaction", response_model=ResponseBase[dict])
 async def rate_satisfaction(
     ticket_id: UUID,
     data: dict,
@@ -758,7 +840,7 @@ async def rate_satisfaction(
 # ── Knowledge-base suggestion ────────────────────────────────────────────────
 
 
-@router.get("/{ticket_id}/kb-suggestions", response_model=ResponseBase[list[dict]])
+@router.get("/{ticket_id:uuid}/kb-suggestions", response_model=ResponseBase[list[dict]])
 async def kb_suggestions(
     ticket_id: UUID,
     db: AsyncSession = Depends(get_db),

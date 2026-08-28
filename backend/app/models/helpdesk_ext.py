@@ -129,8 +129,14 @@ class FieldServiceJob(Base):
     client_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=True)
     scheduled_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="scheduled", nullable=False)
+    # scheduled | in_progress | completed | cancelled
+    priority: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)  # low|medium|high|urgent
     address: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    work_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    client_signature: Mapped[str | None] = mapped_column(Text, nullable=True)  # signer name
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
