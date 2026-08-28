@@ -1,0 +1,7372 @@
+[
+ {
+  "file": "backend/app/api/v1/endpoints/accounting_controls.py",
+  "prefix": "/accounting-controls",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/fiscal-positions",
+    "full_path": "/accounting-controls/fiscal-positions",
+    "function": "list_fiscal_positions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/fiscal-positions",
+    "full_path": "/accounting-controls/fiscal-positions",
+    "function": "create_fiscal_position",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/consolidation-mappings",
+    "full_path": "/accounting-controls/consolidation-mappings",
+    "function": "list_mappings",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/consolidation-mappings",
+    "full_path": "/accounting-controls/consolidation-mappings",
+    "function": "create_mapping",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/fx-rates",
+    "full_path": "/accounting-controls/fx-rates",
+    "function": "list_fx_rates",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/fx-rates",
+    "full_path": "/accounting-controls/fx-rates",
+    "function": "create_fx_rate",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/accounting_periods.py",
+  "prefix": "/accounting-periods",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/{year}/{month}/close",
+    "full_path": "/accounting-periods/{year}/{month}/close",
+    "function": "close_period",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{year}/{month}/reopen",
+    "full_path": "/accounting-periods/{year}/{month}/reopen",
+    "function": "reopen_period",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{period_id}/history",
+    "full_path": "/accounting-periods/{period_id}/history",
+    "function": "period_history",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/accounting_periods_enhanced.py",
+  "prefix": "/accounting-periods",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/{year}/{month}/close-checklist",
+    "full_path": "/accounting-periods/{year}/{month}/close-checklist",
+    "function": "period_close_checklist",
+    "doc": "Return pre-close checklist for a given period.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/ai.py",
+  "prefix": "/ai",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/chat",
+    "full_path": "/ai/chat",
+    "function": "chat",
+    "doc": "AI Assistant with OpenAI + business context.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/quick-actions",
+    "full_path": "/ai/quick-actions",
+    "function": "get_quick_actions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/reindex",
+    "full_path": "/ai/reindex",
+    "function": "reindex_data",
+    "doc": "Re-index all business data for RAG search.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/analytic.py",
+  "prefix": "/analytic",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/accounts",
+    "full_path": "/analytic/accounts",
+    "function": "list_accounts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/accounts",
+    "full_path": "/analytic/accounts",
+    "function": "create_account",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/accounts/{account_id}",
+    "full_path": "/analytic/accounts/{account_id}",
+    "function": "update_account",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/entries",
+    "full_path": "/analytic/entries",
+    "function": "list_entries",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/entries",
+    "full_path": "/analytic/entries",
+    "function": "create_entry",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/entries/{entry_id}",
+    "full_path": "/analytic/entries/{entry_id}",
+    "function": "delete_entry",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/allocation-rules",
+    "full_path": "/analytic/allocation-rules",
+    "function": "list_allocation_rules",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/allocation-rules",
+    "full_path": "/analytic/allocation-rules",
+    "function": "create_allocation_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/gl-reconciliation",
+    "full_path": "/analytic/gl-reconciliation",
+    "function": "gl_reconciliation",
+    "doc": "Compare GL account balances with analytic entry totals per GL account.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/api_keys.py",
+  "prefix": "/api-keys",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/api-keys/",
+    "function": "list_api_keys",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/api-keys/",
+    "function": "create_api_key",
+    "doc": "Create an API key. Returns the raw key ONCE — store it securely.",
+    "auth": true
+   },
+   {
+    "method": "POST",
+    "path": "/{key_id}/rotate",
+    "full_path": "/api-keys/{key_id}/rotate",
+    "function": "rotate_api_key",
+    "doc": "Rotate: revoke the old key, issue a new one (Odoo rotation).",
+    "auth": true
+   },
+   {
+    "method": "POST",
+    "path": "/{key_id}/revoke",
+    "full_path": "/api-keys/{key_id}/revoke",
+    "function": "revoke_api_key",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "POST",
+    "path": "/bot-users",
+    "full_path": "/api-keys/bot-users",
+    "function": "create_bot_user",
+    "doc": "Create a dedicated bot user (no interactive login) for API access.",
+    "auth": true
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/approvals.py",
+  "prefix": "/approvals",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/approvals/",
+    "function": "list_approvals",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{request_id}",
+    "full_path": "/approvals/{request_id}",
+    "function": "get_approval",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/approvals/",
+    "function": "create_approval",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{request_id}",
+    "full_path": "/approvals/{request_id}",
+    "function": "update_approval",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{request_id}",
+    "full_path": "/approvals/{request_id}",
+    "function": "delete_approval",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{request_id}/approve",
+    "full_path": "/approvals/{request_id}/approve",
+    "function": "approve_approval",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{request_id}/steps",
+    "full_path": "/approvals/{request_id}/steps",
+    "function": "list_approval_steps",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{request_id}/steps",
+    "full_path": "/approvals/{request_id}/steps",
+    "function": "add_approval_step",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/steps/{step_id}/decide",
+    "full_path": "/approvals/steps/{step_id}/decide",
+    "function": "decide_approval_step",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/assets.py",
+  "prefix": "/assets",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/assets/",
+    "function": "list_assets",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{asset_id}",
+    "full_path": "/assets/{asset_id}",
+    "function": "get_asset",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/assets/",
+    "function": "create_asset",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/{asset_id}",
+    "full_path": "/assets/{asset_id}",
+    "function": "update_asset",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{asset_id}",
+    "full_path": "/assets/{asset_id}",
+    "function": "delete_asset",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{asset_id}/run-depreciation",
+    "full_path": "/assets/{asset_id}/run-depreciation",
+    "function": "run_depreciation",
+    "doc": "Calculate and record one month of depreciation.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{asset_id}/depreciation-history",
+    "full_path": "/assets/{asset_id}/depreciation-history",
+    "function": "depreciation_history",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{asset_id}/schedule",
+    "full_path": "/assets/{asset_id}/schedule",
+    "function": "depreciation_schedule",
+    "doc": "Projected depreciation schedule — every future period until fully depreciated.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/run-all-depreciation",
+    "full_path": "/assets/run-all-depreciation",
+    "function": "run_all_depreciation",
+    "doc": "Run one depreciation period for every active asset — each with its own GL entry.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{asset_id}/dispose",
+    "full_path": "/assets/{asset_id}/dispose",
+    "function": "dispose_asset",
+    "doc": "Dispose an asset: write off cost + accumulated depreciation, post GL gain/loss (proceeds vs book value) and mark the asset disposed.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/auth.py",
+  "prefix": "/auth",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/sso-token",
+    "full_path": "/auth/sso-token",
+    "function": "get_sso_token",
+    "doc": "Issue a short-lived cross-app SSO token for CRM OS. Signed with the same JWT_SECRET_KEY (HS256) that CRM OS trusts. Payload carries the user's email + name + type='sso'; expires in 5 minutes.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/register",
+    "full_path": "/auth/register",
+    "function": "register",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/login",
+    "full_path": "/auth/login",
+    "function": "login",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/refresh",
+    "full_path": "/auth/refresh",
+    "function": "refresh_token",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/forgot-password",
+    "full_path": "/auth/forgot-password",
+    "function": "forgot_password",
+    "doc": "Generate a password-reset token. In production this would be emailed.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/reset-password",
+    "full_path": "/auth/reset-password",
+    "function": "reset_password",
+    "doc": "Reset password using a valid reset token.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/verify-email",
+    "full_path": "/auth/verify-email",
+    "function": "verify_email",
+    "doc": "Verify email address using a verification token.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/resend-verification",
+    "full_path": "/auth/resend-verification",
+    "function": "resend_verification",
+    "doc": "Resend email verification token.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/2fa/status",
+    "full_path": "/auth/2fa/status",
+    "function": "two_fa_status",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/2fa/setup",
+    "full_path": "/auth/2fa/setup",
+    "function": "two_fa_setup",
+    "doc": "Generate a TOTP secret for the user (sandbox: returns the secret to display).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/2fa/disable",
+    "full_path": "/auth/2fa/disable",
+    "function": "two_fa_disable",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/login-history",
+    "full_path": "/auth/login-history",
+    "function": "login_history",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/sessions",
+    "full_path": "/auth/sessions",
+    "function": "active_sessions",
+    "doc": "List the current user's active sessions (device, IP, last seen).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/sessions/{session_id}/revoke",
+    "full_path": "/auth/sessions/{session_id}/revoke",
+    "function": "revoke_session",
+    "doc": "Revoke a session — the access token becomes invalid server-side.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/logout",
+    "full_path": "/auth/logout",
+    "function": "logout",
+    "doc": "Logout — revoke the current session.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/audit-logs",
+    "full_path": "/auth/audit-logs",
+    "function": "list_audit_logs",
+    "doc": "Audit trail — who changed what, old vs new value, when, under which company.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/automations.py",
+  "prefix": "/automations",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/automations/",
+    "function": "list_rules",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/automations/",
+    "function": "create_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{rule_id}",
+    "full_path": "/automations/{rule_id}",
+    "function": "update_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{rule_id}",
+    "full_path": "/automations/{rule_id}",
+    "function": "delete_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trigger/{trigger}",
+    "full_path": "/automations/trigger/{trigger}",
+    "function": "run_trigger",
+    "doc": "Fire a business event; every active rule matching the trigger runs its action.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/bank_batch.py",
+  "prefix": "",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/bank-reconciliations/batch-approve",
+    "full_path": "/bank-reconciliations/batch-approve",
+    "function": "batch_approve_suggestions",
+    "doc": "Approve several reconciliation suggestions in one call. Each item delegates to the corresponding single-row reconcile endpoint, so the exact same validation, idempotency and GL posting logic is applie",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/bank_rules.py",
+  "prefix": "/banking/reconciliation-rules",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/banking/reconciliation-rules/",
+    "function": "list_rules",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/banking/reconciliation-rules/",
+    "function": "create_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{rule_id}",
+    "full_path": "/banking/reconciliation-rules/{rule_id}",
+    "function": "update_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{rule_id}",
+    "full_path": "/banking/reconciliation-rules/{rule_id}",
+    "function": "delete_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/apply",
+    "full_path": "/banking/reconciliation-rules/apply",
+    "function": "apply_all_rules",
+    "doc": "Apply all active rules to unmatched transactions.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/banking.py",
+  "prefix": "",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/bank-accounts/",
+    "full_path": "/bank-accounts/",
+    "function": "list_bank_accounts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/bank-accounts/{account_id}/balance",
+    "full_path": "/bank-accounts/{account_id}/balance",
+    "function": "bank_account_balance",
+    "doc": "Return bank account balance: total debits, total credits, net balance.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/bank-accounts/",
+    "full_path": "/bank-accounts/",
+    "function": "create_bank_account",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/bank-accounts/{account_id}/statement-imports",
+    "full_path": "/bank-accounts/{account_id}/statement-imports",
+    "function": "import_bank_statement",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/bank-transactions/",
+    "full_path": "/bank-transactions/",
+    "function": "list_bank_transactions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/reconciliation-suggestions",
+    "full_path": "/reconciliation-suggestions",
+    "function": "reconciliation_suggestions",
+    "doc": "Return unmatched bank transactions with candidate payable/receivable matches and a confidence score (0-100) so the user can review and approve in batch.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/bank-transactions/{transaction_id}/reconciliations",
+    "full_path": "/bank-transactions/{transaction_id}/reconciliations",
+    "function": "reconcile_bank_transaction",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/bank-reconciliations/",
+    "full_path": "/bank-reconciliations/",
+    "function": "list_bank_reconciliations",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/bank-reconciliations/{reconciliation_id}/reversal",
+    "full_path": "/bank-reconciliations/{reconciliation_id}/reversal",
+    "function": "reverse_bank_reconciliation",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/connections",
+    "full_path": "/connections",
+    "function": "list_connections",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/connections",
+    "full_path": "/connections",
+    "function": "create_connection",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/connections/{connection_id}",
+    "full_path": "/connections/{connection_id}",
+    "function": "delete_connection",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/connections/{connection_id}/sync",
+    "full_path": "/connections/{connection_id}/sync",
+    "function": "sync_connection",
+    "doc": "Sync bank transactions from TBC/BOG. Accepts a list of transactions (date, reference, description, counterparty, amount, direction, currency) and imports them with fingerprint deduplication.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/budgeting.py",
+  "prefix": "/budgeting",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/plans",
+    "full_path": "/budgeting/plans",
+    "function": "list_plans",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/plans",
+    "full_path": "/budgeting/plans",
+    "function": "create_plan",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/plans/{plan_id}",
+    "full_path": "/budgeting/plans/{plan_id}",
+    "function": "update_plan",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/plans/{plan_id}",
+    "full_path": "/budgeting/plans/{plan_id}",
+    "function": "delete_plan",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/plans/{plan_id}/lines",
+    "full_path": "/budgeting/plans/{plan_id}/lines",
+    "function": "list_budget_lines",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/plans/{plan_id}/lines",
+    "full_path": "/budgeting/plans/{plan_id}/lines",
+    "function": "create_budget_lines",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/plans/{plan_id}/period-breakdown",
+    "full_path": "/budgeting/plans/{plan_id}/period-breakdown",
+    "function": "budget_period_breakdown",
+    "doc": "Return per-period breakdown for a budget plan.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/scenarios",
+    "full_path": "/budgeting/scenarios",
+    "function": "list_scenarios",
+    "doc": "List all budget scenarios for comparison.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/cash.py",
+  "prefix": "/cash",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/accounts",
+    "full_path": "/cash/accounts",
+    "function": "list_cash_accounts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/accounts",
+    "full_path": "/cash/accounts",
+    "function": "create_cash_account",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/accounts/{account_id}",
+    "full_path": "/cash/accounts/{account_id}",
+    "function": "update_cash_account",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/accounts/{account_id}",
+    "full_path": "/cash/accounts/{account_id}",
+    "function": "delete_cash_account",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/accounts/{account_id}/transactions",
+    "full_path": "/cash/accounts/{account_id}/transactions",
+    "function": "list_cash_transactions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/accounts/{account_id}/transactions",
+    "full_path": "/cash/accounts/{account_id}/transactions",
+    "function": "create_cash_transaction",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/accounts/{account_id}/daily-report",
+    "full_path": "/cash/accounts/{account_id}/daily-report",
+    "function": "cash_daily_report",
+    "doc": "Get daily cash report: opening balance, inflow, outflow, closing balance.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/clients.py",
+  "prefix": "/clients",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/clients/",
+    "function": "list_clients",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{client_id}",
+    "full_path": "/clients/{client_id}",
+    "function": "get_client",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/clients/",
+    "function": "create_client",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{client_id}",
+    "full_path": "/clients/{client_id}",
+    "function": "update_client",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{client_id}",
+    "full_path": "/clients/{client_id}",
+    "function": "delete_client",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{client_id}/interactions",
+    "full_path": "/clients/{client_id}/interactions",
+    "function": "add_interaction",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/company.py",
+  "prefix": "/companies",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/me",
+    "full_path": "/companies/me",
+    "function": "get_my_company",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/me",
+    "full_path": "/companies/me",
+    "function": "update_my_company",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/consolidated.py",
+  "prefix": "/gl/consolidated",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/companies",
+    "full_path": "/gl/consolidated/companies",
+    "function": "consolidated_companies",
+    "doc": "Companies included in the current user's consolidated scope.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/profit-loss",
+    "full_path": "/gl/consolidated/profit-loss",
+    "function": "consolidated_pl",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/balance-sheet",
+    "full_path": "/gl/consolidated/balance-sheet",
+    "function": "consolidated_bs",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/consolidation_eliminations.py",
+  "prefix": "/gl/consolidation-eliminations",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/gl/consolidation-eliminations/",
+    "function": "list_eliminations",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/gl/consolidation-eliminations/",
+    "function": "create_elimination",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{elimination_id}/approve",
+    "full_path": "/gl/consolidation-eliminations/{elimination_id}/approve",
+    "function": "approve_elimination",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{elimination_id}/reverse",
+    "full_path": "/gl/consolidation-eliminations/{elimination_id}/reverse",
+    "function": "reverse_elimination",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/auto-detect",
+    "full_path": "/gl/consolidation-eliminations/auto-detect",
+    "function": "auto_detect_eliminations",
+    "doc": "Detect invoices issued to companies in the same consolidation group and create draft eliminations (revenue 4100 vs expense 5100).",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/consolidation_purchases.py",
+  "prefix": "/gl/consolidation-eliminations",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/auto-detect-purchases",
+    "full_path": "/gl/consolidation-eliminations/auto-detect-purchases",
+    "function": "auto_detect_purchase_eliminations",
+    "doc": "Detect supplier invoices issued by companies in the same consolidation group and create draft eliminations (Dr expense, Cr income mirror). Also mirrors the transaction on the counterparty's books (sup",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/contracts.py",
+  "prefix": "/contracts",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/contracts/",
+    "function": "list_contracts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{contract_id}",
+    "full_path": "/contracts/{contract_id}",
+    "function": "get_contract",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/contracts/",
+    "function": "create_contract",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{contract_id}",
+    "full_path": "/contracts/{contract_id}",
+    "function": "update_contract",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{contract_id}",
+    "full_path": "/contracts/{contract_id}",
+    "function": "delete_contract",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/crm.py",
+  "prefix": "/crm",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/leads",
+    "full_path": "/crm/leads",
+    "function": "create_lead",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/leads",
+    "full_path": "/crm/leads",
+    "function": "list_leads",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/leads/{lead_id}",
+    "full_path": "/crm/leads/{lead_id}",
+    "function": "update_lead",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/leads/{lead_id}/convert",
+    "full_path": "/crm/leads/{lead_id}/convert",
+    "function": "convert_lead",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/opportunities",
+    "full_path": "/crm/opportunities",
+    "function": "create_opportunity",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/opportunities",
+    "full_path": "/crm/opportunities",
+    "function": "list_opportunities",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/opportunities/{opportunity_id}",
+    "full_path": "/crm/opportunities/{opportunity_id}",
+    "function": "update_opportunity",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/activities",
+    "full_path": "/crm/activities",
+    "function": "create_activity",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/activities",
+    "full_path": "/crm/activities",
+    "function": "list_activities",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/activities/{activity_id}",
+    "full_path": "/crm/activities/{activity_id}",
+    "function": "update_activity",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/crm_enhanced.py",
+  "prefix": "/crm",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/forecast",
+    "full_path": "/crm/forecast",
+    "function": "pipeline_forecast",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/pipeline-value",
+    "full_path": "/crm/pipeline-value",
+    "function": "pipeline_value_by_stage",
+    "doc": "Return pipeline value aggregated by stage, excluding won/lost.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/conversion-rate",
+    "full_path": "/crm/conversion-rate",
+    "function": "conversion_rate",
+    "doc": "Return lead-to-client conversion rate for the given period.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/lead-sources",
+    "full_path": "/crm/lead-sources",
+    "function": "lead_source_tracking",
+    "doc": "Return lead statistics grouped by source.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/stale-leads",
+    "full_path": "/crm/stale-leads",
+    "function": "stale_leads",
+    "doc": "Return leads with no activity in the last N days (stale follow-up). Default 30 days.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/leads/bulk/status",
+    "full_path": "/crm/leads/bulk/status",
+    "function": "bulk_update_lead_status",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/opportunities/bulk/stage",
+    "full_path": "/crm/opportunities/bulk/stage",
+    "function": "bulk_update_opportunity_stage",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/leads/check-duplicates",
+    "full_path": "/crm/leads/check-duplicates",
+    "function": "check_duplicates",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/crm_export.py",
+  "prefix": "/crm",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/export/leads",
+    "full_path": "/crm/export/leads",
+    "function": "export_leads",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export/opportunities",
+    "full_path": "/crm/export/opportunities",
+    "function": "export_opportunities",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/currency.py",
+  "prefix": "/currency",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/rates/sync-nbg",
+    "full_path": "/currency/rates/sync-nbg",
+    "function": "sync_nbg_rates",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/rates/nbg-status",
+    "full_path": "/currency/rates/nbg-status",
+    "function": "nbg_sync_status",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/rates",
+    "full_path": "/currency/rates",
+    "function": "list_rates",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/rates",
+    "full_path": "/currency/rates",
+    "function": "create_rate",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/rates/{rate_id}",
+    "full_path": "/currency/rates/{rate_id}",
+    "function": "delete_rate",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/convert",
+    "full_path": "/currency/convert",
+    "function": "convert_currency",
+    "doc": "Convert amount between currencies using latest available rate.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/customer_finance.py",
+  "prefix": "",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/customer-receivables/",
+    "full_path": "/customer-receivables/",
+    "function": "list_receivables",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/customer-receivables/{receivable_id}",
+    "full_path": "/customer-receivables/{receivable_id}",
+    "function": "get_receivable",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/customer-receivables/{receivable_id}/payments",
+    "full_path": "/customer-receivables/{receivable_id}/payments",
+    "function": "create_payment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/customer-payments/{payment_id}/reversal",
+    "full_path": "/customer-payments/{payment_id}/reversal",
+    "function": "reverse_payment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/customer-receivables/{receivable_id}/credit-notes",
+    "full_path": "/customer-receivables/{receivable_id}/credit-notes",
+    "function": "create_credit_note",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/bank-transactions/{transaction_id}/customer-reconciliations",
+    "full_path": "/bank-transactions/{transaction_id}/customer-reconciliations",
+    "function": "reconcile_customer_receivable",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/customer-receivables/{receivable_id}/statement",
+    "full_path": "/customer-receivables/{receivable_id}/statement",
+    "function": "customer_statement",
+    "doc": "Return full customer statement: invoice, payments, credit notes, balance history.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/bank-customer-reconciliations/",
+    "full_path": "/bank-customer-reconciliations/",
+    "function": "list_customer_reconciliations",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/bank-customer-reconciliations/{reconciliation_id}/reversal",
+    "full_path": "/bank-customer-reconciliations/{reconciliation_id}/reversal",
+    "function": "reverse_customer_reconciliation",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/customer_portal.py",
+  "prefix": "/customer-portal",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/customer-portal/",
+    "function": "list_portal_users",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{portal_user_id}",
+    "full_path": "/customer-portal/{portal_user_id}",
+    "function": "get_portal_user",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/customer-portal/",
+    "function": "create_portal_user",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{portal_user_id}",
+    "full_path": "/customer-portal/{portal_user_id}",
+    "function": "update_portal_user",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/clients/{client_id}/summary",
+    "full_path": "/customer-portal/clients/{client_id}/summary",
+    "function": "client_portal_summary",
+    "doc": "Client's own financial picture: invoices, orders, outstanding balance.",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{portal_user_id}",
+    "full_path": "/customer-portal/{portal_user_id}",
+    "function": "delete_portal_user",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/dashboard.py",
+  "prefix": "/dashboard",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/summary",
+    "full_path": "/dashboard/summary",
+    "function": "get_dashboard_summary",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/refresh-views",
+    "full_path": "/dashboard/refresh-views",
+    "function": "refresh_views",
+    "doc": "Manually refresh materialized views (mv_sales_daily, mv_receivables_aging, mv_stock_balances).",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/dashboard_enhanced.py",
+  "prefix": "/dashboard",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/extended-kpis",
+    "full_path": "/dashboard/extended-kpis",
+    "function": "extended_kpis",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/quick-actions",
+    "full_path": "/dashboard/quick-actions",
+    "function": "quick_actions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export/summary",
+    "full_path": "/dashboard/export/summary",
+    "function": "export_dashboard_summary",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/aging",
+    "full_path": "/dashboard/aging",
+    "function": "aging_summary",
+    "doc": "AR/AP aging: outstanding receivables and payables by due-date bucket.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/cash-flow",
+    "full_path": "/dashboard/cash-flow",
+    "function": "cash_flow",
+    "doc": "Last 6 months of cash in/out: customer payments vs supplier payments.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/drill-down/{entity}",
+    "full_path": "/dashboard/drill-down/{entity}",
+    "function": "drill_down",
+    "doc": "Drill-down rows for AR or AP in one explicitly selected currency.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/deferred.py",
+  "prefix": "/deferred",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/schedules",
+    "full_path": "/deferred/schedules",
+    "function": "list_schedules",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/schedules",
+    "full_path": "/deferred/schedules",
+    "function": "create_schedule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/recognitions/{recognition_id}/recognize",
+    "full_path": "/deferred/recognitions/{recognition_id}/recognize",
+    "function": "recognize_one",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/recognize-due",
+    "full_path": "/deferred/recognize-due",
+    "function": "recognize_due",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/preview-due",
+    "full_path": "/deferred/preview-due",
+    "function": "preview_due",
+    "doc": "Preview which periods would be recognized without executing.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/recognitions/{recognition_id}/reverse",
+    "full_path": "/deferred/recognitions/{recognition_id}/reverse",
+    "function": "reverse_recognition",
+    "doc": "Reverse a recognized period — creates reversing GL entry.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/schedules/{schedule_id}/cancel",
+    "full_path": "/deferred/schedules/{schedule_id}/cancel",
+    "function": "cancel_schedule",
+    "doc": "Cancel a deferred schedule — mark all pending periods cancelled. Recognized periods stay untouched; the schedule status becomes 'cancelled'.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/documents.py",
+  "prefix": "/documents",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/upload-policy",
+    "full_path": "/documents/upload-policy",
+    "function": "get_upload_policy",
+    "doc": "Get the file upload security policy.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/categories",
+    "full_path": "/documents/categories",
+    "function": "list_categories",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/categories/tree",
+    "full_path": "/documents/categories/tree",
+    "function": "list_categories_tree",
+    "doc": "Get categories as a nested tree for folder hierarchy UI.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/categories/{cat_id}",
+    "full_path": "/documents/categories/{cat_id}",
+    "function": "get_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/categories",
+    "full_path": "/documents/categories",
+    "function": "create_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/categories/{cat_id}",
+    "full_path": "/documents/categories/{cat_id}",
+    "function": "update_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/categories/{cat_id}",
+    "full_path": "/documents/categories/{cat_id}",
+    "function": "delete_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/documents/",
+    "function": "list_documents",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/documents/",
+    "function": "create_document",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{doc_id}",
+    "full_path": "/documents/{doc_id}",
+    "function": "get_document",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{doc_id}",
+    "full_path": "/documents/{doc_id}",
+    "function": "update_document",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{doc_id}",
+    "full_path": "/documents/{doc_id}",
+    "function": "archive_document",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{doc_id}/permanent",
+    "full_path": "/documents/{doc_id}/permanent",
+    "function": "permanent_delete_document",
+    "doc": "Permanently delete a document and all its versions. Audit-logged destructive action.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{doc_id}/versions",
+    "full_path": "/documents/{doc_id}/versions",
+    "function": "list_versions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{doc_id}/versions",
+    "full_path": "/documents/{doc_id}/versions",
+    "function": "create_version",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{doc_id}/versions/{version_id}",
+    "full_path": "/documents/{doc_id}/versions/{version_id}",
+    "function": "get_version",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{doc_id}/versions/{version_id}/restore",
+    "full_path": "/documents/{doc_id}/versions/{version_id}/restore",
+    "function": "restore_version",
+    "doc": "Restore a previous version as the current version.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{doc_id}/submit-for-approval",
+    "full_path": "/documents/{doc_id}/submit-for-approval",
+    "function": "submit_document_for_approval",
+    "doc": "Submit a draft document for approval.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{doc_id}/approve",
+    "full_path": "/documents/{doc_id}/approve",
+    "function": "approve_document",
+    "doc": "Approve or reject a document pending approval.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{doc_id}/publish",
+    "full_path": "/documents/{doc_id}/publish",
+    "function": "publish_document",
+    "doc": "Publish an approved document.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{doc_id}/approval-history",
+    "full_path": "/documents/{doc_id}/approval-history",
+    "function": "get_approval_history",
+    "doc": "Get the approval workflow history for a document.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{doc_id}/audit-log",
+    "full_path": "/documents/{doc_id}/audit-log",
+    "function": "get_document_audit_log",
+    "doc": "Get audit trail for a specific document.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/audit-log",
+    "full_path": "/documents/audit-log",
+    "function": "list_document_audit_logs",
+    "doc": "Get the full document audit trail across all documents.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/expired",
+    "full_path": "/documents/expired",
+    "function": "list_expired_documents",
+    "doc": "List documents that have passed their retention expiry date.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/ecommerce.py",
+  "prefix": "/ecommerce",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/categories",
+    "full_path": "/ecommerce/categories",
+    "function": "list_ecom_categories",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/categories",
+    "full_path": "/ecommerce/categories",
+    "function": "create_ecom_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/categories/{cat_id}",
+    "full_path": "/ecommerce/categories/{cat_id}",
+    "function": "update_ecom_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/categories/{cat_id}",
+    "full_path": "/ecommerce/categories/{cat_id}",
+    "function": "delete_ecom_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/products",
+    "full_path": "/ecommerce/products",
+    "function": "list_ecom_products",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/products",
+    "full_path": "/ecommerce/products",
+    "function": "create_ecom_product",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/products/{product_id}",
+    "full_path": "/ecommerce/products/{product_id}",
+    "function": "update_ecom_product",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/products/{product_id}",
+    "full_path": "/ecommerce/products/{product_id}",
+    "function": "delete_ecom_product",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/storefront/categories",
+    "full_path": "/ecommerce/storefront/categories",
+    "function": "public_categories",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/storefront/products",
+    "full_path": "/ecommerce/storefront/products",
+    "function": "public_products",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/cart",
+    "full_path": "/ecommerce/cart",
+    "function": "create_cart",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/cart/{cart_id}/items",
+    "full_path": "/ecommerce/cart/{cart_id}/items",
+    "function": "add_cart_item",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/cart/{cart_id}",
+    "full_path": "/ecommerce/cart/{cart_id}",
+    "function": "get_cart",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/cart/{cart_id}/checkout",
+    "full_path": "/ecommerce/cart/{cart_id}/checkout",
+    "function": "checkout",
+    "doc": "Convert cart to an e-commerce order.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/orders",
+    "full_path": "/ecommerce/orders",
+    "function": "list_orders",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/email_calendar.py",
+  "prefix": "/email-calendar",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/emails",
+    "full_path": "/email-calendar/emails",
+    "function": "list_emails",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/emails",
+    "full_path": "/email-calendar/emails",
+    "function": "send_email",
+    "doc": "Send an email. In sandbox mode the message is stored with status 'sent'.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/events",
+    "full_path": "/email-calendar/events",
+    "function": "list_events",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/events",
+    "full_path": "/email-calendar/events",
+    "function": "create_event",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/events/{event_id}",
+    "full_path": "/email-calendar/events/{event_id}",
+    "function": "delete_event",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/email_marketing.py",
+  "prefix": "/email-campaigns",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/email-campaigns/",
+    "function": "list_email_campaigns",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{campaign_id}",
+    "full_path": "/email-campaigns/{campaign_id}",
+    "function": "get_email_campaign",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/email-campaigns/",
+    "function": "create_email_campaign",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{campaign_id}",
+    "full_path": "/email-campaigns/{campaign_id}",
+    "function": "update_email_campaign",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{campaign_id}/send",
+    "full_path": "/email-campaigns/{campaign_id}/send",
+    "function": "send_campaign",
+    "doc": "Send the campaign to its audience. Real SMTP when configured, else sandbox (email_messages).",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{campaign_id}",
+    "full_path": "/email-campaigns/{campaign_id}",
+    "function": "delete_email_campaign",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/email_tracking.py",
+  "prefix": "",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/email-events/",
+    "full_path": "/email-events/",
+    "function": "record_email_event",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/email-campaigns/{campaign_id}/stats",
+    "full_path": "/email-campaigns/{campaign_id}/stats",
+    "function": "campaign_stats",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/email-events/",
+    "full_path": "/email-events/",
+    "function": "list_email_events",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/signature-requests/",
+    "full_path": "/signature-requests/",
+    "function": "list_signature_requests",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/signature-requests/",
+    "full_path": "/signature-requests/",
+    "function": "create_signature_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/signature-requests/{req_id}/resend",
+    "full_path": "/signature-requests/{req_id}/resend",
+    "function": "resend_signature_request",
+    "doc": "Re-send the signing invitation email (new token).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/signature-requests/sign",
+    "full_path": "/signature-requests/sign",
+    "function": "sign_request",
+    "doc": "Sign or decline a request by token + signer email (the signer acts).",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/exchange_differences.py",
+  "prefix": "/gl/exchange-differences",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/run",
+    "full_path": "/gl/exchange-differences/run",
+    "function": "run_exchange_differences",
+    "doc": "Revalue all open foreign-currency receivables and post GL differences.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/gl/exchange-differences/",
+    "function": "list_exchange_differences",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/expenses.py",
+  "prefix": "/expenses",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/categories",
+    "full_path": "/expenses/categories",
+    "function": "list_categories",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/categories",
+    "full_path": "/expenses/categories",
+    "function": "create_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/expenses/",
+    "function": "list_expenses",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/expenses/",
+    "function": "create_expense",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/{expense_id}",
+    "full_path": "/expenses/{expense_id}",
+    "function": "update_expense",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{expense_id}/approve",
+    "full_path": "/expenses/{expense_id}/approve",
+    "function": "approve_expense",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{expense_id}/reject",
+    "full_path": "/expenses/{expense_id}/reject",
+    "function": "reject_expense",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/export.py",
+  "prefix": "/export",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/clients",
+    "full_path": "/export/clients",
+    "function": "download_clients",
+    "doc": "Export clients to Excel.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/products",
+    "full_path": "/export/products",
+    "function": "download_products",
+    "doc": "Export products to Excel.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/orders",
+    "full_path": "/export/orders",
+    "function": "download_orders",
+    "doc": "Export orders to Excel.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/tasks",
+    "full_path": "/export/tasks",
+    "function": "download_tasks",
+    "doc": "Export tasks to Excel.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/exports.py",
+  "prefix": "/exports",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/orders",
+    "full_path": "/exports/orders",
+    "function": "export_orders",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/clients",
+    "full_path": "/exports/clients",
+    "function": "export_clients",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/products",
+    "full_path": "/exports/products",
+    "function": "export_products",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/tasks",
+    "full_path": "/exports/tasks",
+    "function": "export_tasks",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/field_access.py",
+  "prefix": "/field-access",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/field-access/",
+    "function": "list_rules",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/field-access/",
+    "function": "create_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{rule_id}",
+    "full_path": "/field-access/{rule_id}",
+    "function": "delete_rule",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/financial_automation.py",
+  "prefix": "/gl/automation",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/run",
+    "full_path": "/gl/automation/run",
+    "function": "run_automation",
+    "doc": "Run the monthly close for the current company (or a specified one) now.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/fleet.py",
+  "prefix": "/fleet",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/vehicles",
+    "full_path": "/fleet/vehicles",
+    "function": "list_vehicles",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/vehicles/{vehicle_id}",
+    "full_path": "/fleet/vehicles/{vehicle_id}",
+    "function": "get_vehicle",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/vehicles",
+    "full_path": "/fleet/vehicles",
+    "function": "create_vehicle",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/vehicles/{vehicle_id}",
+    "full_path": "/fleet/vehicles/{vehicle_id}",
+    "function": "update_vehicle",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/vehicles/{vehicle_id}",
+    "full_path": "/fleet/vehicles/{vehicle_id}",
+    "function": "delete_vehicle",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/vehicles/{vehicle_id}/fuel-logs",
+    "full_path": "/fleet/vehicles/{vehicle_id}/fuel-logs",
+    "function": "list_fuel_logs",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/vehicles/{vehicle_id}/fuel-logs",
+    "full_path": "/fleet/vehicles/{vehicle_id}/fuel-logs",
+    "function": "create_fuel_log",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/fuel-logs/{log_id}",
+    "full_path": "/fleet/fuel-logs/{log_id}",
+    "function": "delete_fuel_log",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/vehicles/{vehicle_id}/services",
+    "full_path": "/fleet/vehicles/{vehicle_id}/services",
+    "function": "list_service_records",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/vehicles/{vehicle_id}/services",
+    "full_path": "/fleet/vehicles/{vehicle_id}/services",
+    "function": "create_service_record",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/services/{record_id}",
+    "full_path": "/fleet/services/{record_id}",
+    "function": "delete_service_record",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/vehicles/{vehicle_id}/drivers",
+    "full_path": "/fleet/vehicles/{vehicle_id}/drivers",
+    "function": "list_driver_assignments",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/vehicles/{vehicle_id}/drivers",
+    "full_path": "/fleet/vehicles/{vehicle_id}/drivers",
+    "function": "create_driver_assignment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/drivers/{assignment_id}",
+    "full_path": "/fleet/drivers/{assignment_id}",
+    "function": "update_driver_assignment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/drivers/{assignment_id}",
+    "full_path": "/fleet/drivers/{assignment_id}",
+    "function": "delete_driver_assignment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/vehicles/{vehicle_id}/odometer",
+    "full_path": "/fleet/vehicles/{vehicle_id}/odometer",
+    "function": "list_odometer_readings",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/vehicles/{vehicle_id}/odometer",
+    "full_path": "/fleet/vehicles/{vehicle_id}/odometer",
+    "function": "create_odometer_reading",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/odometer/{reading_id}",
+    "full_path": "/fleet/odometer/{reading_id}",
+    "function": "delete_odometer_reading",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/fleet_enhanced.py",
+  "prefix": "/fleet",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/fuel-report",
+    "full_path": "/fleet/fuel-report",
+    "function": "fuel_consumption_report",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/service-alerts",
+    "full_path": "/fleet/service-alerts",
+    "function": "service_alerts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/analytics",
+    "full_path": "/fleet/analytics",
+    "function": "fleet_analytics",
+    "doc": "Compute liters-per-100km across the fleet from odometer deltas and fuel totals. For each vehicle, take its earliest and latest odometer reading. The distance is the delta; the fuel used is the sum of ",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export/vehicles",
+    "full_path": "/fleet/export/vehicles",
+    "function": "export_vehicles",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/gl.py",
+  "prefix": "/gl",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/accounts/",
+    "full_path": "/gl/accounts/",
+    "function": "list_accounts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/accounts/",
+    "full_path": "/gl/accounts/",
+    "function": "create_account",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/accounts/{account_id}",
+    "full_path": "/gl/accounts/{account_id}",
+    "function": "get_account",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/accounts/{account_id}",
+    "full_path": "/gl/accounts/{account_id}",
+    "function": "update_account",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/journal-entries/",
+    "full_path": "/gl/journal-entries/",
+    "function": "list_journal_entries",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/journal-entries/",
+    "full_path": "/gl/journal-entries/",
+    "function": "create_manual_journal_entry",
+    "doc": "Create a manual journal entry (double-entry). Validates balance and tenant-scoped accounts.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/journal-entries/{entry_id}",
+    "full_path": "/gl/journal-entries/{entry_id}",
+    "function": "get_journal_entry",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/trial-balance/",
+    "full_path": "/gl/trial-balance/",
+    "function": "trial_balance",
+    "doc": "Return account balances (debit - credit) as of a given date.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/profit-loss/",
+    "full_path": "/gl/profit-loss/",
+    "function": "profit_loss",
+    "doc": "Return income statement: income and expense accounts with balances.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/balance-sheet/",
+    "full_path": "/gl/balance-sheet/",
+    "function": "balance_sheet",
+    "doc": "Return balance sheet: assets, liabilities, equity with balances. Includes net income from P&L as retained earnings in equity.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/gl_enhanced.py",
+  "prefix": "/gl",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/period-close",
+    "full_path": "/gl/period-close",
+    "function": "close_accounting_period",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/analytics",
+    "full_path": "/gl/analytics",
+    "function": "gl_analytics",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export/accounts",
+    "full_path": "/gl/export/accounts",
+    "function": "export_chart_of_accounts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export/journal",
+    "full_path": "/gl/export/journal",
+    "function": "export_journal_entries",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export/trial-balance",
+    "full_path": "/gl/export/trial-balance",
+    "function": "export_trial_balance",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/helpdesk.py",
+  "prefix": "/helpdesk",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/helpdesk/",
+    "function": "list_tickets",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/teams",
+    "full_path": "/helpdesk/teams",
+    "function": "list_teams",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/teams",
+    "full_path": "/helpdesk/teams",
+    "function": "create_team",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/teams/{team_id}/members",
+    "full_path": "/helpdesk/teams/{team_id}/members",
+    "function": "add_team_member",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/teams/{team_id}",
+    "full_path": "/helpdesk/teams/{team_id}",
+    "function": "delete_team",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/pipelines",
+    "full_path": "/helpdesk/pipelines",
+    "function": "list_pipelines",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/pipelines",
+    "full_path": "/helpdesk/pipelines",
+    "function": "create_pipeline",
+    "doc": "Create a pipeline: {\"name\": \"...\", \"stages\": [\"New\", \"Triaged\", \"Done\"]}",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/pipelines/{pipeline_id}",
+    "full_path": "/helpdesk/pipelines/{pipeline_id}",
+    "function": "delete_pipeline",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{ticket_id:uuid}",
+    "full_path": "/helpdesk/{ticket_id:uuid}",
+    "function": "get_ticket",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/helpdesk/",
+    "function": "create_ticket",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/{ticket_id:uuid}",
+    "full_path": "/helpdesk/{ticket_id:uuid}",
+    "function": "update_ticket",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{ticket_id:uuid}",
+    "full_path": "/helpdesk/{ticket_id:uuid}",
+    "function": "delete_ticket",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/queues",
+    "full_path": "/helpdesk/queues",
+    "function": "list_queues",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/queues",
+    "full_path": "/helpdesk/queues",
+    "function": "create_queue",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/slas",
+    "full_path": "/helpdesk/slas",
+    "function": "list_slas",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/slas",
+    "full_path": "/helpdesk/slas",
+    "function": "create_sla",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/escalations",
+    "full_path": "/helpdesk/escalations",
+    "function": "list_escalations",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/escalations",
+    "full_path": "/helpdesk/escalations",
+    "function": "create_escalation",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/canned-replies",
+    "full_path": "/helpdesk/canned-replies",
+    "function": "list_canned_replies",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/canned-replies",
+    "full_path": "/helpdesk/canned-replies",
+    "function": "create_canned_reply",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/knowledge",
+    "full_path": "/helpdesk/knowledge",
+    "function": "list_knowledge",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/knowledge",
+    "full_path": "/helpdesk/knowledge",
+    "function": "create_knowledge",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/field-service",
+    "full_path": "/helpdesk/field-service",
+    "function": "list_field_service",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/field-service/my-jobs",
+    "full_path": "/helpdesk/field-service/my-jobs",
+    "function": "my_field_service_jobs",
+    "doc": "Mobile view: jobs assigned to the current technician (not completed).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/field-service",
+    "full_path": "/helpdesk/field-service",
+    "function": "create_field_service",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/field-service/{job_id}/start",
+    "full_path": "/helpdesk/field-service/{job_id}/start",
+    "function": "start_field_service",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/field-service/{job_id}/complete",
+    "full_path": "/helpdesk/field-service/{job_id}/complete",
+    "function": "complete_field_service",
+    "doc": "Technician completes the job: work summary + client signature.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/email-intake",
+    "full_path": "/helpdesk/email-intake",
+    "function": "list_email_intake",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/email-intake",
+    "full_path": "/helpdesk/email-intake",
+    "function": "create_email_intake",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{ticket_id:uuid}/messages",
+    "full_path": "/helpdesk/{ticket_id:uuid}/messages",
+    "function": "list_ticket_messages",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{ticket_id:uuid}/messages",
+    "full_path": "/helpdesk/{ticket_id:uuid}/messages",
+    "function": "add_ticket_message",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{ticket_id:uuid}/followers",
+    "full_path": "/helpdesk/{ticket_id:uuid}/followers",
+    "function": "list_followers",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{ticket_id:uuid}/followers",
+    "full_path": "/helpdesk/{ticket_id:uuid}/followers",
+    "function": "add_follower",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{ticket_id:uuid}/attachments",
+    "full_path": "/helpdesk/{ticket_id:uuid}/attachments",
+    "function": "upload_attachment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{ticket_id:uuid}/attachments",
+    "full_path": "/helpdesk/{ticket_id:uuid}/attachments",
+    "function": "list_attachments",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{ticket_id:uuid}/time-spent",
+    "full_path": "/helpdesk/{ticket_id:uuid}/time-spent",
+    "function": "add_time_spent",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{ticket_id:uuid}/satisfaction",
+    "full_path": "/helpdesk/{ticket_id:uuid}/satisfaction",
+    "function": "rate_satisfaction",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{ticket_id:uuid}/kb-suggestions",
+    "full_path": "/helpdesk/{ticket_id:uuid}/kb-suggestions",
+    "function": "kb_suggestions",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/hr.py",
+  "prefix": "/hr",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/departments",
+    "full_path": "/hr/departments",
+    "function": "list_departments",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/departments",
+    "full_path": "/hr/departments",
+    "function": "create_department",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/departments/{dept_id}",
+    "full_path": "/hr/departments/{dept_id}",
+    "function": "update_department",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/employees",
+    "full_path": "/hr/employees",
+    "function": "list_employees",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/employees",
+    "full_path": "/hr/employees",
+    "function": "create_employee",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/employees/{emp_id}",
+    "full_path": "/hr/employees/{emp_id}",
+    "function": "get_employee",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/employees/{emp_id}",
+    "full_path": "/hr/employees/{emp_id}",
+    "function": "update_employee",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/payroll/calculate",
+    "full_path": "/hr/payroll/calculate",
+    "function": "calculate_payroll",
+    "doc": "Calculate payroll for all active employees for a given period.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/payroll",
+    "full_path": "/hr/payroll",
+    "function": "list_payroll",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/payroll/{entry_id}",
+    "full_path": "/hr/payroll/{entry_id}",
+    "function": "update_payroll_entry",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/timesheets",
+    "full_path": "/hr/timesheets",
+    "function": "list_timesheets",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/timesheets",
+    "full_path": "/hr/timesheets",
+    "function": "create_timesheet",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/payslips/generate",
+    "full_path": "/hr/payslips/generate",
+    "function": "generate_payslips",
+    "doc": "Generate payslips from approved payroll entries for a period.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/payslips",
+    "full_path": "/hr/payslips",
+    "function": "list_payslips",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/payslips/{payslip_id}/pay",
+    "full_path": "/hr/payslips/{payslip_id}/pay",
+    "function": "pay_payslip",
+    "doc": "Pay a payslip by bank transfer → closes 2300 against 1410 (bank payment).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/leave-requests",
+    "full_path": "/hr/leave-requests",
+    "function": "list_leave_requests",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/leave-requests",
+    "full_path": "/hr/leave-requests",
+    "function": "create_leave_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/leave-requests/{leave_id}/approve",
+    "full_path": "/hr/leave-requests/{leave_id}/approve",
+    "function": "approve_leave_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/attendance",
+    "full_path": "/hr/attendance",
+    "function": "list_attendance",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/attendance",
+    "full_path": "/hr/attendance",
+    "function": "create_attendance",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/reviews",
+    "full_path": "/hr/reviews",
+    "function": "list_reviews",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/reviews",
+    "full_path": "/hr/reviews",
+    "function": "create_review",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/hr_enhanced.py",
+  "prefix": "/hr",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/analytics",
+    "full_path": "/hr/analytics",
+    "function": "hr_analytics",
+    "doc": "Recursively build department tree node.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/department-tree",
+    "full_path": "/hr/department-tree",
+    "function": "department_tree",
+    "doc": "Get full department hierarchy tree.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/departments/{dept_id}/children",
+    "full_path": "/hr/departments/{dept_id}/children",
+    "function": "department_children",
+    "doc": "Get direct children of a department.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/departments/{dept_id}",
+    "full_path": "/hr/departments/{dept_id}",
+    "function": "get_department",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/me",
+    "full_path": "/hr/me",
+    "function": "my_profile",
+    "doc": "Get own employee profile (self-service).",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/me",
+    "full_path": "/hr/me",
+    "function": "update_my_profile",
+    "doc": "Update own employee profile (self-service).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/me/leave-balances",
+    "full_path": "/hr/me/leave-balances",
+    "function": "my_leave_balances",
+    "doc": "Get own leave balances.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/me/leave-requests",
+    "full_path": "/hr/me/leave-requests",
+    "function": "my_leave_requests",
+    "doc": "Get own leave requests.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/me/documents",
+    "full_path": "/hr/me/documents",
+    "function": "my_documents",
+    "doc": "Get own documents.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/me/performance-reviews",
+    "full_path": "/hr/me/performance-reviews",
+    "function": "my_performance_reviews",
+    "doc": "Get own performance reviews.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/documents",
+    "full_path": "/hr/documents",
+    "function": "list_employee_documents",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/documents",
+    "full_path": "/hr/documents",
+    "function": "create_employee_document",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/documents/{doc_id}",
+    "full_path": "/hr/documents/{doc_id}",
+    "function": "get_employee_document",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/documents/{doc_id}",
+    "full_path": "/hr/documents/{doc_id}",
+    "function": "update_employee_document",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/documents/{doc_id}/verify",
+    "full_path": "/hr/documents/{doc_id}/verify",
+    "function": "verify_employee_document",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/leave-types",
+    "full_path": "/hr/leave-types",
+    "function": "list_leave_types",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/leave-types",
+    "full_path": "/hr/leave-types",
+    "function": "create_leave_type",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/leave-types/{lt_id}",
+    "full_path": "/hr/leave-types/{lt_id}",
+    "function": "update_leave_type",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/leave-balances",
+    "full_path": "/hr/leave-balances",
+    "function": "list_leave_balances",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/leave-balances",
+    "full_path": "/hr/leave-balances",
+    "function": "create_leave_balance",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/leave-balances/{lb_id}",
+    "full_path": "/hr/leave-balances/{lb_id}",
+    "function": "update_leave_balance",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/leave-requests",
+    "full_path": "/hr/leave-requests",
+    "function": "list_leave_requests",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/leave-requests",
+    "full_path": "/hr/leave-requests",
+    "function": "create_leave_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/leave-requests/{lr_id}",
+    "full_path": "/hr/leave-requests/{lr_id}",
+    "function": "get_leave_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/leave-requests/{lr_id}/approve",
+    "full_path": "/hr/leave-requests/{lr_id}/approve",
+    "function": "approve_leave_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/leave-requests/{lr_id}/cancel",
+    "full_path": "/hr/leave-requests/{lr_id}/cancel",
+    "function": "cancel_leave_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/attendance-records",
+    "full_path": "/hr/attendance-records",
+    "function": "list_attendance_records",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/attendance-records",
+    "full_path": "/hr/attendance-records",
+    "function": "create_attendance_record",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/attendance-records/bulk",
+    "full_path": "/hr/attendance-records/bulk",
+    "function": "bulk_create_attendance",
+    "doc": "Bulk create attendance records for multiple employees on the same date.",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/attendance-records/{att_id}",
+    "full_path": "/hr/attendance-records/{att_id}",
+    "function": "update_attendance_record",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/attendance",
+    "full_path": "/hr/attendance",
+    "function": "attendance_summary",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/performance-reviews",
+    "full_path": "/hr/performance-reviews",
+    "function": "list_performance_reviews",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/performance-reviews",
+    "full_path": "/hr/performance-reviews",
+    "function": "create_performance_review",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/performance-reviews/{pr_id}",
+    "full_path": "/hr/performance-reviews/{pr_id}",
+    "function": "get_performance_review",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/performance-reviews/{pr_id}",
+    "full_path": "/hr/performance-reviews/{pr_id}",
+    "function": "update_performance_review",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/performance-reviews/{pr_id}/acknowledge",
+    "full_path": "/hr/performance-reviews/{pr_id}/acknowledge",
+    "function": "acknowledge_performance_review",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/performance-goals",
+    "full_path": "/hr/performance-goals",
+    "function": "list_performance_goals",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/performance-goals/{goal_id}",
+    "full_path": "/hr/performance-goals/{goal_id}",
+    "function": "update_performance_goal",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/payroll-summary",
+    "full_path": "/hr/payroll-summary",
+    "function": "payroll_summary",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export/employees",
+    "full_path": "/hr/export/employees",
+    "function": "export_employees",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export/payroll",
+    "full_path": "/hr/export/payroll",
+    "function": "export_payroll",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/import_data.py",
+  "prefix": "/import",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/clients",
+    "full_path": "/import/clients",
+    "function": "import_clients",
+    "doc": "Import clients from Excel (.xlsx). Expected columns: name, identification_code, phone, email, address, notes.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/products",
+    "full_path": "/import/products",
+    "function": "import_products",
+    "doc": "Import products from Excel (.xlsx). Expected columns: sku, name, category_name, unit, sale_price, purchase_price, min_stock, current_stock.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/integrations.py",
+  "prefix": "/integrations",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/rs/status",
+    "full_path": "/integrations/rs/status",
+    "function": "rs_status",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/rs/waybills/{waybill_number}",
+    "full_path": "/integrations/rs/waybills/{waybill_number}",
+    "function": "get_rs_waybill",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/rs/invoices/submit",
+    "full_path": "/integrations/rs/invoices/submit",
+    "function": "submit_invoice",
+    "doc": "Submit an invoice (ანგარიშ-ფაქტურა) to RS.ge.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/rs/waybills/submit",
+    "full_path": "/integrations/rs/waybills/submit",
+    "function": "submit_waybill",
+    "doc": "Submit a waybill (ზედნადები) to RS.ge.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/rs/declarations/export",
+    "full_path": "/integrations/rs/declarations/export",
+    "function": "export_declaration",
+    "doc": "Export a tax declaration (VAT / income tax) for a period.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/api-keys",
+    "full_path": "/integrations/api-keys",
+    "function": "list_api_keys",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/api-keys",
+    "full_path": "/integrations/api-keys",
+    "function": "create_api_key",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/api-keys/{key_id}",
+    "full_path": "/integrations/api-keys/{key_id}",
+    "function": "delete_api_key",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/webhooks",
+    "full_path": "/integrations/webhooks",
+    "function": "list_webhooks",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/webhooks",
+    "full_path": "/integrations/webhooks",
+    "function": "create_webhook",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/webhooks/{webhook_id}",
+    "full_path": "/integrations/webhooks/{webhook_id}",
+    "function": "delete_webhook",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/webhook-events",
+    "full_path": "/integrations/webhook-events",
+    "function": "list_webhook_events",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/webhook-events/retry",
+    "full_path": "/integrations/webhook-events/retry",
+    "function": "retry_failed_events",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/public/status",
+    "full_path": "/integrations/public/status",
+    "function": "public_status",
+    "doc": "Public endpoint authenticated via X-API-Key header.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/inventory_valuation.py",
+  "prefix": "/inventory/valuation",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/summary",
+    "full_path": "/inventory/valuation/summary",
+    "function": "valuation_summary",
+    "doc": "Reconcile inventory valuation against the GL inventory account (1200).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{product_id}",
+    "full_path": "/inventory/valuation/{product_id}",
+    "function": "get_product_valuation",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/adjust",
+    "full_path": "/inventory/valuation/adjust",
+    "function": "adjust_valuation",
+    "doc": "Manually inject an incoming layer (e.g. opening balance / correction).",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/invoices.py",
+  "prefix": "/invoices",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/generate",
+    "full_path": "/invoices/generate",
+    "function": "generate_invoice",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{invoice_id}/issue",
+    "full_path": "/invoices/{invoice_id}/issue",
+    "function": "issue_invoice",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{invoice_id}/draft",
+    "full_path": "/invoices/{invoice_id}/draft",
+    "function": "update_invoice_draft",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/invoices/",
+    "function": "list_invoices",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{invoice_id}",
+    "full_path": "/invoices/{invoice_id}",
+    "function": "get_invoice",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{invoice_id}/preview",
+    "full_path": "/invoices/{invoice_id}/preview",
+    "function": "preview_invoice",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{invoice_id}/download",
+    "full_path": "/invoices/{invoice_id}/download",
+    "function": "download_invoice",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{invoice_id}/download-word",
+    "full_path": "/invoices/{invoice_id}/download-word",
+    "function": "download_invoice_word",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{invoice_id}/download-excel",
+    "full_path": "/invoices/{invoice_id}/download-excel",
+    "function": "download_invoice_excel",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/invoices_enhanced.py",
+  "prefix": "/invoices",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/aging",
+    "full_path": "/invoices/aging",
+    "function": "invoice_aging",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/analytics",
+    "full_path": "/invoices/analytics",
+    "function": "invoice_analytics",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/bulk/issue",
+    "full_path": "/invoices/bulk/issue",
+    "function": "bulk_issue_invoices",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/bulk/cancel",
+    "full_path": "/invoices/bulk/cancel",
+    "function": "bulk_cancel_invoices",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export",
+    "full_path": "/invoices/export",
+    "function": "export_invoices",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/leaves.py",
+  "prefix": "/leaves",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/leaves/",
+    "function": "list_leaves",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{leave_id}",
+    "full_path": "/leaves/{leave_id}",
+    "function": "get_leave",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/leaves/",
+    "function": "create_leave",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{leave_id}",
+    "full_path": "/leaves/{leave_id}",
+    "function": "update_leave",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{leave_id}/approve",
+    "full_path": "/leaves/{leave_id}/approve",
+    "function": "approve_leave",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{leave_id}",
+    "full_path": "/leaves/{leave_id}",
+    "function": "delete_leave",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/live_chat.py",
+  "prefix": "/live-chat",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/live-chat/",
+    "function": "list_messages",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{message_id}",
+    "full_path": "/live-chat/{message_id}",
+    "function": "get_message",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/live-chat/",
+    "function": "create_message",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{message_id}",
+    "full_path": "/live-chat/{message_id}",
+    "function": "delete_message",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/maintenance.py",
+  "prefix": "/maintenance",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/plans",
+    "full_path": "/maintenance/plans",
+    "function": "list_plans",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/plans",
+    "full_path": "/maintenance/plans",
+    "function": "create_plan",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/orders",
+    "full_path": "/maintenance/orders",
+    "function": "list_orders",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/orders",
+    "full_path": "/maintenance/orders",
+    "function": "create_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/orders/{order_id}",
+    "full_path": "/maintenance/orders/{order_id}",
+    "function": "update_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/repairs",
+    "full_path": "/maintenance/repairs",
+    "function": "list_repairs",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/repairs",
+    "full_path": "/maintenance/repairs",
+    "function": "create_repair",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/repairs/{repair_id}",
+    "full_path": "/maintenance/repairs/{repair_id}",
+    "function": "update_repair",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/modules.py",
+  "prefix": "/modules",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/modules/",
+    "function": "list_modules",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/modules/",
+    "function": "create_module",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "GET",
+    "path": "/company",
+    "full_path": "/modules/company",
+    "function": "get_company_modules",
+    "doc": "Return every active module with its enabled state for the current company.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/company/{module_id}/toggle",
+    "full_path": "/modules/company/{module_id}/toggle",
+    "function": "toggle_company_module",
+    "doc": "Enable or disable a module for the current company.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{module_id}",
+    "full_path": "/modules/{module_id}",
+    "function": "get_module",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/permissions/{module_id}",
+    "full_path": "/modules/permissions/{module_id}",
+    "function": "list_module_permissions",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "POST",
+    "path": "/permissions/{module_id}",
+    "full_path": "/modules/permissions/{module_id}",
+    "function": "upsert_module_permission",
+    "doc": "Create or update a permission row for a (module, role) pair.",
+    "auth": true
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/notifications.py",
+  "prefix": "/notifications",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/notifications/",
+    "function": "list_notifications",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/unread-count",
+    "full_path": "/notifications/unread-count",
+    "function": "unread_count",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{notification_id}/read",
+    "full_path": "/notifications/{notification_id}/read",
+    "function": "mark_read",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/read-all",
+    "full_path": "/notifications/read-all",
+    "function": "mark_all_read",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/orders.py",
+  "prefix": "/orders",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/stock-check",
+    "full_path": "/orders/stock-check",
+    "function": "check_order_stock_availability",
+    "doc": "Check stock availability for a set of products before creating an order.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/lifecycle",
+    "full_path": "/orders/lifecycle",
+    "function": "get_order_lifecycle",
+    "doc": "Get the order lifecycle visualization: all statuses, current position, available transitions.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{order_id}/lifecycle",
+    "full_path": "/orders/{order_id}/lifecycle",
+    "function": "get_order_lifecycle_for_order",
+    "doc": "Get lifecycle visualization for a specific order.",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{order_id}/payment",
+    "full_path": "/orders/{order_id}/payment",
+    "function": "update_order_payment",
+    "doc": "Update payment status for an order.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{order_id}/timeline",
+    "full_path": "/orders/{order_id}/timeline",
+    "function": "get_order_timeline",
+    "doc": "Get the full order history timeline combining status changes, payment updates, and audit events.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/orders/",
+    "function": "list_orders",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{order_id}",
+    "full_path": "/orders/{order_id}",
+    "function": "get_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/orders/",
+    "function": "create_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{order_id}/status",
+    "full_path": "/orders/{order_id}/status",
+    "function": "change_order_status",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{order_id}/reservations",
+    "full_path": "/orders/{order_id}/reservations",
+    "function": "list_order_reservations",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{order_id}/history",
+    "full_path": "/orders/{order_id}/history",
+    "function": "list_order_history",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/orders_enhanced.py",
+  "prefix": "/orders",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/analytics",
+    "full_path": "/orders/analytics",
+    "function": "order_analytics",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/bulk/status",
+    "full_path": "/orders/bulk/status",
+    "function": "bulk_update_order_status",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export",
+    "full_path": "/orders/export",
+    "function": "export_orders",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/payments.py",
+  "prefix": "/payments",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/payments/",
+    "function": "list_payments",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/payments/",
+    "function": "create_payment",
+    "doc": "Create a payment transaction. In sandbox mode returns a mock provider_ref.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{payment_id}/confirm",
+    "full_path": "/payments/{payment_id}/confirm",
+    "function": "confirm_payment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{payment_id}/refund",
+    "full_path": "/payments/{payment_id}/refund",
+    "function": "refund_payment",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/plm.py",
+  "prefix": "/plm",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/products/{product_id}/versions",
+    "full_path": "/plm/products/{product_id}/versions",
+    "function": "list_versions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/products/{product_id}/versions",
+    "full_path": "/plm/products/{product_id}/versions",
+    "function": "create_version",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/engineering-changes",
+    "full_path": "/plm/engineering-changes",
+    "function": "list_ecos",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/engineering-changes",
+    "full_path": "/plm/engineering-changes",
+    "function": "create_eco",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/engineering-changes/{eco_id}",
+    "full_path": "/plm/engineering-changes/{eco_id}",
+    "function": "update_eco",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/products/{product_id}/lifecycle",
+    "full_path": "/plm/products/{product_id}/lifecycle",
+    "function": "get_lifecycle",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/products/{product_id}/lifecycle",
+    "full_path": "/plm/products/{product_id}/lifecycle",
+    "function": "update_lifecycle",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/pos.py",
+  "prefix": "/pos",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/sessions",
+    "full_path": "/pos/sessions",
+    "function": "list_sessions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/sessions",
+    "full_path": "/pos/sessions",
+    "function": "open_session",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/sessions/{session_id}/close",
+    "full_path": "/pos/sessions/{session_id}/close",
+    "function": "close_session",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/orders",
+    "full_path": "/pos/orders",
+    "function": "list_pos_orders",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/orders",
+    "full_path": "/pos/orders",
+    "function": "create_pos_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/orders/{order_id}/refund",
+    "full_path": "/pos/orders/{order_id}/refund",
+    "function": "refund_pos_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/refunds",
+    "full_path": "/pos/refunds",
+    "function": "list_refunds",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/loyalty/{client_id}",
+    "full_path": "/pos/loyalty/{client_id}",
+    "function": "loyalty_balance",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/loyalty/earn",
+    "full_path": "/pos/loyalty/earn",
+    "function": "earn_loyalty_points",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/loyalty/redeem",
+    "full_path": "/pos/loyalty/redeem",
+    "function": "redeem_loyalty_points",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/offline/queue",
+    "full_path": "/pos/offline/queue",
+    "function": "queue_offline_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/offline/queue",
+    "full_path": "/pos/offline/queue",
+    "function": "list_offline_queue",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/offline/queue/{queue_id}/sync",
+    "full_path": "/pos/offline/queue/{queue_id}/sync",
+    "function": "sync_offline_order",
+    "doc": "Sync a queued offline order — actually creates the POS order from the payload.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/fiscal-devices",
+    "full_path": "/pos/fiscal-devices",
+    "function": "list_fiscal_devices",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/fiscal-devices",
+    "full_path": "/pos/fiscal-devices",
+    "function": "register_fiscal_device",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/fiscal-devices/{device_id}",
+    "full_path": "/pos/fiscal-devices/{device_id}",
+    "function": "update_fiscal_device",
+    "doc": "Toggle a device active/inactive or rename it.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/hardware/status",
+    "full_path": "/pos/hardware/status",
+    "function": "hardware_status",
+    "doc": "POS hardware overview: registered devices by type + online/offline state.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/gift-cards",
+    "full_path": "/pos/gift-cards",
+    "function": "list_gift_cards",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/gift-cards",
+    "full_path": "/pos/gift-cards",
+    "function": "issue_gift_card",
+    "doc": "Issue a gift card with a unique number and optional PIN.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/gift-cards/{card_id}/top-up",
+    "full_path": "/pos/gift-cards/{card_id}/top-up",
+    "function": "top_up_gift_card",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/gift-cards/{card_id}/redeem",
+    "full_path": "/pos/gift-cards/{card_id}/redeem",
+    "function": "redeem_gift_card",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/gift-cards/{card_id}",
+    "full_path": "/pos/gift-cards/{card_id}",
+    "function": "update_gift_card",
+    "doc": "Edit a gift card: block/unblock, change expiry.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/gift-cards/{card_id}/void",
+    "full_path": "/pos/gift-cards/{card_id}/void",
+    "function": "void_gift_card",
+    "doc": "Void a card — refund its remaining balance and reverse the liability.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/sessions/{session_id}/cash-in",
+    "full_path": "/pos/sessions/{session_id}/cash-in",
+    "function": "cash_in",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/sessions/{session_id}/cash-out",
+    "full_path": "/pos/sessions/{session_id}/cash-out",
+    "function": "cash_out",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/sessions/{session_id}/x-report",
+    "full_path": "/pos/sessions/{session_id}/x-report",
+    "function": "x_report",
+    "doc": "X-report — live session totals without closing.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/sessions/{session_id}/z-report",
+    "full_path": "/pos/sessions/{session_id}/z-report",
+    "function": "z_report",
+    "doc": "Z-report — close the session with a full cash register report.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/z-reports",
+    "full_path": "/pos/z-reports",
+    "function": "list_z_reports",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/orders/{order_id}/email-receipt",
+    "full_path": "/pos/orders/{order_id}/email-receipt",
+    "function": "email_receipt",
+    "doc": "Send the receipt of a completed POS order by email (SMTP or sandbox).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/kitchen/queue",
+    "full_path": "/pos/kitchen/queue",
+    "function": "kitchen_queue",
+    "doc": "KDS queue — orders waiting for the kitchen (new/preparing).",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/orders/{order_id}/kitchen-status",
+    "full_path": "/pos/orders/{order_id}/kitchen-status",
+    "function": "set_kitchen_status",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/price-lists",
+    "full_path": "/pos/price-lists",
+    "function": "list_price_lists",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/price-lists",
+    "full_path": "/pos/price-lists",
+    "function": "set_price_list",
+    "doc": "Set (or update) a client-specific price for a product.",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/price-lists/{price_id}",
+    "full_path": "/pos/price-lists/{price_id}",
+    "function": "delete_price_list",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/coupons",
+    "full_path": "/pos/coupons",
+    "function": "list_coupons",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/coupons",
+    "full_path": "/pos/coupons",
+    "function": "create_coupon",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/coupons/validate",
+    "full_path": "/pos/coupons/validate",
+    "function": "validate_coupon",
+    "doc": "Validate a coupon code — returns the discount to apply.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/orders/{order_id}/escpos",
+    "full_path": "/pos/orders/{order_id}/escpos",
+    "function": "escpos_receipt",
+    "doc": "Return the ESC/POS byte stream (base64) for a receipt — send to a thermal printer.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/orders/{order_id}/print",
+    "full_path": "/pos/orders/{order_id}/print",
+    "function": "print_receipt",
+    "doc": "Send the receipt to a network printer directly (raw 9100, Odoo IoT style).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/fiscal-journal",
+    "full_path": "/pos/fiscal-journal",
+    "function": "fiscal_journal",
+    "doc": "Fiscal memory — hash-chained sale records + chain integrity check.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/orders/{order_id}/split",
+    "full_path": "/pos/orders/{order_id}/split",
+    "function": "split_bill",
+    "doc": "Split a completed order into multiple bills (Odoo split-bill style). payload: {\"parts\": [{\"client_id\": \"...\", \"items\": [{\"product_id\": \"...\", \"quantity\": 1}], \"tip_amount\": 0}, ...]} Each part becomes",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/pos_hardware.py",
+  "prefix": "/pos",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/registers",
+    "full_path": "/pos/registers",
+    "function": "list_registers",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/registers",
+    "full_path": "/pos/registers",
+    "function": "create_register",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/cashiers",
+    "full_path": "/pos/cashiers",
+    "function": "list_cashiers",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/cashiers",
+    "full_path": "/pos/cashiers",
+    "function": "create_cashier",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/cashiers/verify",
+    "full_path": "/pos/cashiers/verify",
+    "function": "verify_cashier_pin",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/terminals",
+    "full_path": "/pos/terminals",
+    "function": "list_terminals",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/terminals",
+    "full_path": "/pos/terminals",
+    "function": "create_terminal",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/terminals/{terminal_id}/charge",
+    "full_path": "/pos/terminals/{terminal_id}/charge",
+    "function": "terminal_charge",
+    "doc": "Card charge via TBC/BOG terminal — real integration hooks to the provider SDK.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/customer-balance/{client_id}",
+    "full_path": "/pos/customer-balance/{client_id}",
+    "function": "customer_balance",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/customers/{client_id}/deposit",
+    "full_path": "/pos/customers/{client_id}/deposit",
+    "function": "customer_deposit",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/qr/pay",
+    "full_path": "/pos/qr/pay",
+    "function": "qr_payment",
+    "doc": "QR payment — order paid via bank QR (TBC Pay / BOG Pay style).",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/pos_restaurant.py",
+  "prefix": "/pos",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/tables",
+    "full_path": "/pos/tables",
+    "function": "list_tables",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/tables",
+    "full_path": "/pos/tables",
+    "function": "create_table",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/tables/{table_id}/occupy",
+    "full_path": "/pos/tables/{table_id}/occupy",
+    "function": "occupy_table",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/tables/{table_id}/free",
+    "full_path": "/pos/tables/{table_id}/free",
+    "function": "free_table",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/tables/{table_id}/position",
+    "full_path": "/pos/tables/{table_id}/position",
+    "function": "set_table_position",
+    "doc": "Set table coordinates on the floor plan.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/order-types",
+    "full_path": "/pos/order-types",
+    "function": "list_order_types",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/order-types",
+    "full_path": "/pos/order-types",
+    "function": "create_order_type",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/self-order/start",
+    "full_path": "/pos/self-order/start",
+    "function": "start_self_order",
+    "doc": "Start a self-ordering session (customer scans QR).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/self-order/{token}/submit",
+    "full_path": "/pos/self-order/{token}/submit",
+    "function": "submit_self_order",
+    "doc": "Customer submits their order from the self-ordering session.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/price_lists.py",
+  "prefix": "",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/price-lists/",
+    "full_path": "/price-lists/",
+    "function": "list_price_lists",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/price-lists/",
+    "full_path": "/price-lists/",
+    "function": "create_price_list",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/price-lists/{price_list_id}",
+    "full_path": "/price-lists/{price_list_id}",
+    "function": "update_price_list",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/price-lists/{price_list_id}",
+    "full_path": "/price-lists/{price_list_id}",
+    "function": "delete_price_list",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/payment-terms/",
+    "full_path": "/payment-terms/",
+    "function": "list_payment_terms",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/payment-terms/",
+    "full_path": "/payment-terms/",
+    "function": "create_payment_term",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/payment-terms/{term_id}",
+    "full_path": "/payment-terms/{term_id}",
+    "function": "update_payment_term",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/payment-terms/{term_id}",
+    "full_path": "/payment-terms/{term_id}",
+    "function": "delete_payment_term",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/procurement.py",
+  "prefix": "/procurement",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/rfqs",
+    "full_path": "/procurement/rfqs",
+    "function": "create_rfq",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/rfqs",
+    "full_path": "/procurement/rfqs",
+    "function": "list_rfqs",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/rfqs/{rfq_id}/responses",
+    "full_path": "/procurement/rfqs/{rfq_id}/responses",
+    "function": "submit_rfq_response",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/rfqs/{rfq_id}/send-email",
+    "full_path": "/procurement/rfqs/{rfq_id}/send-email",
+    "function": "send_rfq_email",
+    "doc": "Send the RFQ to its supplier by email (sandbox: stored in email_messages).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/rfqs/{rfq_id}/comparison",
+    "full_path": "/procurement/rfqs/{rfq_id}/comparison",
+    "function": "rfq_comparison",
+    "doc": "Compare vendor offers line by line — best price per product.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/rfqs/{rfq_id}/award",
+    "full_path": "/procurement/rfqs/{rfq_id}/award",
+    "function": "award_rfq",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/price-lists",
+    "full_path": "/procurement/price-lists",
+    "function": "upsert_price_list",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/price-lists",
+    "full_path": "/procurement/price-lists",
+    "function": "list_price_lists",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/price-trend",
+    "full_path": "/procurement/price-trend",
+    "function": "price_trend",
+    "doc": "Vendor price history — chronological snapshots for trend analysis.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/blanket-orders",
+    "full_path": "/procurement/blanket-orders",
+    "function": "create_blanket_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/blanket-orders",
+    "full_path": "/procurement/blanket-orders",
+    "function": "list_blanket_orders",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/blanket-orders/{blanket_id}/activate",
+    "full_path": "/procurement/blanket-orders/{blanket_id}/activate",
+    "function": "activate_blanket_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/scorecards",
+    "full_path": "/procurement/scorecards",
+    "function": "upsert_scorecard",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/scorecards",
+    "full_path": "/procurement/scorecards",
+    "function": "list_scorecards",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/scorecards/auto-calculate",
+    "full_path": "/procurement/scorecards/auto-calculate",
+    "function": "auto_calculate_scorecards",
+    "doc": "Auto-compute on-time delivery rate per supplier from goods receipts for a period.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/auto-replenish",
+    "full_path": "/procurement/auto-replenish",
+    "function": "auto_replenish",
+    "doc": "Generate a draft purchase order from replenishment suggestions.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/production.py",
+  "prefix": "/production",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/boms",
+    "full_path": "/production/boms",
+    "function": "list_boms",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/boms",
+    "full_path": "/production/boms",
+    "function": "create_bom",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/boms/{bom_id}",
+    "full_path": "/production/boms/{bom_id}",
+    "function": "get_bom",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/boms/{bom_id}/cost",
+    "full_path": "/production/boms/{bom_id}/cost",
+    "function": "calculate_bom_cost",
+    "doc": "Calculate full cost breakdown for a BOM (material + labor + overhead).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/boms/{bom_id}/items",
+    "full_path": "/production/boms/{bom_id}/items",
+    "function": "list_bom_items",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/boms/{bom_id}/items",
+    "full_path": "/production/boms/{bom_id}/items",
+    "function": "add_bom_item",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/work-centers",
+    "full_path": "/production/work-centers",
+    "function": "list_work_centers",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/work-centers",
+    "full_path": "/production/work-centers",
+    "function": "create_work_center",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/work-orders",
+    "full_path": "/production/work-orders",
+    "function": "list_work_orders",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/work-orders",
+    "full_path": "/production/work-orders",
+    "function": "create_work_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/work-orders/{wo_id}",
+    "full_path": "/production/work-orders/{wo_id}",
+    "function": "get_work_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/work-orders/{wo_id}",
+    "full_path": "/production/work-orders/{wo_id}",
+    "function": "update_work_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/work-orders/{wo_id}/availability",
+    "full_path": "/production/work-orders/{wo_id}/availability",
+    "function": "check_component_availability",
+    "doc": "Check if all BOM components for a work order are available in warehouse.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/work-orders/{wo_id}/reservations",
+    "full_path": "/production/work-orders/{wo_id}/reservations",
+    "function": "list_reservations",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/work-orders/{wo_id}/reservations",
+    "full_path": "/production/work-orders/{wo_id}/reservations",
+    "function": "create_reservation",
+    "doc": "Reserve materials from warehouse for a work order.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/work-orders/{wo_id}/receipts",
+    "full_path": "/production/work-orders/{wo_id}/receipts",
+    "function": "list_receipts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/work-orders/{wo_id}/receipts",
+    "full_path": "/production/work-orders/{wo_id}/receipts",
+    "function": "create_finished_goods_receipt",
+    "doc": "Receive finished goods from a work order into warehouse.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/demo/workflow",
+    "full_path": "/production/demo/workflow",
+    "function": "production_workflow_demo",
+    "doc": "Run a full production workflow: create BOM → create WO → check availability → reserve → receive finished goods.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/products.py",
+  "prefix": "/products",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/products/",
+    "function": "list_products",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/categories/",
+    "full_path": "/products/categories/",
+    "function": "list_categories",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/categories",
+    "full_path": "/products/categories",
+    "function": "list_categories",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/categories/tree",
+    "full_path": "/products/categories/tree",
+    "function": "list_category_tree",
+    "doc": "Return all categories in a flat list (client builds tree from parent_id).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/categories/",
+    "full_path": "/products/categories/",
+    "function": "create_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/categories",
+    "full_path": "/products/categories",
+    "function": "create_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/categories/{category_id}",
+    "full_path": "/products/categories/{category_id}",
+    "function": "update_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/categories/{category_id}",
+    "full_path": "/products/categories/{category_id}",
+    "function": "delete_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{product_id}",
+    "full_path": "/products/{product_id}",
+    "function": "get_product",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/products/",
+    "function": "create_product",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{product_id}",
+    "full_path": "/products/{product_id}",
+    "function": "update_product",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{product_id}",
+    "full_path": "/products/{product_id}",
+    "function": "delete_product",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{product_id}/variants",
+    "full_path": "/products/{product_id}/variants",
+    "function": "list_variants",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{product_id}/variants",
+    "full_path": "/products/{product_id}/variants",
+    "function": "create_variant",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{product_id}/variants/{variant_id}",
+    "full_path": "/products/{product_id}/variants/{variant_id}",
+    "function": "update_variant",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{product_id}/variants/{variant_id}",
+    "full_path": "/products/{product_id}/variants/{variant_id}",
+    "function": "delete_variant",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{product_id}/images",
+    "full_path": "/products/{product_id}/images",
+    "function": "list_images",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{product_id}/images",
+    "full_path": "/products/{product_id}/images",
+    "function": "create_image",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{product_id}/images/{image_id}",
+    "full_path": "/products/{product_id}/images/{image_id}",
+    "function": "update_image",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{product_id}/images/{image_id}",
+    "full_path": "/products/{product_id}/images/{image_id}",
+    "function": "delete_image",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/adjust-stock",
+    "full_path": "/products/adjust-stock",
+    "function": "adjust_stock",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/stock-movements",
+    "full_path": "/products/stock-movements",
+    "function": "list_stock_movements",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/projects.py",
+  "prefix": "/projects",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/projects/",
+    "function": "list_projects",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/templates",
+    "full_path": "/projects/templates",
+    "function": "list_templates",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/templates",
+    "full_path": "/projects/templates",
+    "function": "create_template",
+    "doc": "Create a template: {\"name\": \"...\", \"description\": \"...\", \"default_budget\": 0, \"milestones\": [{\"name\": \"...\", \"tasks\": [{\"title\": \"...\", \"priority\": \"medium\"}]}]}",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/templates/{template_id}/instantiate",
+    "full_path": "/projects/templates/{template_id}/instantiate",
+    "function": "instantiate_template",
+    "doc": "Create a project from a template — copies milestones + tasks (Odoo-style).",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/templates/{template_id}",
+    "full_path": "/projects/templates/{template_id}",
+    "function": "delete_template",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/projects/",
+    "function": "create_project",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{project_id}",
+    "full_path": "/projects/{project_id}",
+    "function": "get_project",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{project_id}",
+    "full_path": "/projects/{project_id}",
+    "function": "update_project",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{project_id}",
+    "full_path": "/projects/{project_id}",
+    "function": "delete_project",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{project_id}/milestones",
+    "full_path": "/projects/{project_id}/milestones",
+    "function": "list_milestones",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{project_id}/milestones",
+    "full_path": "/projects/{project_id}/milestones",
+    "function": "create_milestone",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{project_id}/milestones/{milestone_id}",
+    "full_path": "/projects/{project_id}/milestones/{milestone_id}",
+    "function": "update_milestone",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{project_id}/milestones/{milestone_id}",
+    "full_path": "/projects/{project_id}/milestones/{milestone_id}",
+    "function": "delete_milestone",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{project_id}/progress",
+    "full_path": "/projects/{project_id}/progress",
+    "function": "get_project_progress",
+    "doc": "Get detailed progress breakdown for a project.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{project_id}/profitability",
+    "full_path": "/projects/{project_id}/profitability",
+    "function": "get_project_profitability",
+    "doc": "Get profitability analysis for a project.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{project_id}/members",
+    "full_path": "/projects/{project_id}/members",
+    "function": "list_project_members",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{project_id}/members",
+    "full_path": "/projects/{project_id}/members",
+    "function": "add_project_member",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/members/{member_id}",
+    "full_path": "/projects/members/{member_id}",
+    "function": "update_project_member",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/members/{member_id}",
+    "full_path": "/projects/members/{member_id}",
+    "function": "remove_project_member",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{project_id}/timesheets",
+    "full_path": "/projects/{project_id}/timesheets",
+    "function": "list_project_timesheets",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{project_id}/timesheets",
+    "full_path": "/projects/{project_id}/timesheets",
+    "function": "add_timesheet_entry",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/timesheets/{entry_id}",
+    "full_path": "/projects/timesheets/{entry_id}",
+    "function": "delete_timesheet_entry",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/resources/utilization",
+    "full_path": "/projects/resources/utilization",
+    "function": "resource_utilization",
+    "doc": "Per-user load: sum of allocations across active projects.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/purchase_approvals.py",
+  "prefix": "/purchase-approval-policy",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/purchase-approval-policy/",
+    "function": "get_purchase_approval_policy",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/",
+    "full_path": "/purchase-approval-policy/",
+    "function": "update_purchase_approval_policy",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/purchase_costs.py",
+  "prefix": "/purchase-cost-history",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/purchase-cost-history/",
+    "function": "list_purchase_cost_history",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/purchase_orders.py",
+  "prefix": "/purchase-orders",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/purchase-orders/",
+    "function": "list_purchase_orders",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/purchase-orders/",
+    "function": "create_purchase_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{purchase_order_id}",
+    "full_path": "/purchase-orders/{purchase_order_id}",
+    "function": "get_purchase_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{purchase_order_id}/history",
+    "full_path": "/purchase-orders/{purchase_order_id}/history",
+    "function": "get_purchase_order_history",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{purchase_order_id}/status",
+    "full_path": "/purchase-orders/{purchase_order_id}/status",
+    "function": "change_purchase_order_status",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{purchase_order_id}/receipts",
+    "full_path": "/purchase-orders/{purchase_order_id}/receipts",
+    "function": "list_goods_receipts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{purchase_order_id}/receipts",
+    "full_path": "/purchase-orders/{purchase_order_id}/receipts",
+    "function": "post_goods_receipt",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{purchase_order_id}/receipts/{receipt_id}/quality-check",
+    "full_path": "/purchase-orders/{purchase_order_id}/receipts/{receipt_id}/quality-check",
+    "function": "quality_check_receipt",
+    "doc": "Record the quality check result for a goods receipt (P1.9).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{purchase_order_id}/three-way-match",
+    "full_path": "/purchase-orders/{purchase_order_id}/three-way-match",
+    "function": "get_three_way_match",
+    "doc": "Compare ordered vs received vs billed quantities and amounts.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{purchase_order_id}/workflow",
+    "full_path": "/purchase-orders/{purchase_order_id}/workflow",
+    "function": "get_purchase_workflow",
+    "doc": "Visual workflow: PO → Goods Receipt → Supplier Invoice.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/approval-limits",
+    "full_path": "/purchase-orders/approval-limits",
+    "function": "get_approval_limit_info",
+    "doc": "Show approval limit vs current PO totals for visualization.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/quality_control.py",
+  "prefix": "/quality-control",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/quality-control/",
+    "function": "list_quality_checks",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{check_id}",
+    "full_path": "/quality-control/{check_id}",
+    "function": "get_quality_check",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/quality-control/",
+    "function": "create_quality_check",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/{check_id}",
+    "full_path": "/quality-control/{check_id}",
+    "function": "update_quality_check",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{check_id}",
+    "full_path": "/quality-control/{check_id}",
+    "function": "delete_quality_check",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/quotations.py",
+  "prefix": "/quotations",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/quotations/",
+    "function": "list_quotations",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/quotations/",
+    "function": "create_quotation",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{quotation_id}",
+    "full_path": "/quotations/{quotation_id}",
+    "function": "get_quotation",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{quotation_id}/status",
+    "full_path": "/quotations/{quotation_id}/status",
+    "function": "update_quotation_status",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{quotation_id}/convert",
+    "full_path": "/quotations/{quotation_id}/convert",
+    "function": "convert_quotation_to_order",
+    "doc": "Convert an accepted quotation into a sales order.",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{quotation_id}",
+    "full_path": "/quotations/{quotation_id}",
+    "function": "delete_quotation",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/recruitment.py",
+  "prefix": "/recruitment",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/recruitment/",
+    "function": "list_job_postings",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{job_posting_id}",
+    "full_path": "/recruitment/{job_posting_id}",
+    "function": "get_job_posting",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/recruitment/",
+    "function": "create_job_posting",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{job_posting_id}",
+    "full_path": "/recruitment/{job_posting_id}",
+    "function": "update_job_posting",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{job_posting_id}",
+    "full_path": "/recruitment/{job_posting_id}",
+    "function": "delete_job_posting",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/recurring.py",
+  "prefix": "/gl/recurring",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/gl/recurring/",
+    "function": "list_recurring",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/gl/recurring/",
+    "function": "create_recurring",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{recurring_id}",
+    "full_path": "/gl/recurring/{recurring_id}",
+    "function": "get_recurring",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{recurring_id}",
+    "full_path": "/gl/recurring/{recurring_id}",
+    "function": "update_recurring",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{recurring_id}",
+    "full_path": "/gl/recurring/{recurring_id}",
+    "function": "delete_recurring",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/run",
+    "full_path": "/gl/recurring/run",
+    "function": "run_due",
+    "doc": "Post all due recurring entries now (manual trigger).",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/reports.py",
+  "prefix": "/reports",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/summary",
+    "full_path": "/reports/summary",
+    "function": "reports_summary",
+    "doc": "Full reports payload: KPIs, charts, metric definitions, export scope.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/revenue",
+    "full_path": "/reports/revenue",
+    "function": "reports_revenue",
+    "doc": "Revenue series for charts: grouped by month or by day.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/definitions",
+    "full_path": "/reports/definitions",
+    "function": "reports_definitions",
+    "doc": "Metric explanations/definitions for the reports UI (tooltips, help).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export-scope",
+    "full_path": "/reports/export-scope",
+    "function": "get_export_scope",
+    "doc": "Get the company's default report date-range + export-scope settings.",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/export-scope",
+    "full_path": "/reports/export-scope",
+    "function": "update_export_scope",
+    "doc": "Update the company's default export scope settings.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/saved",
+    "full_path": "/reports/saved",
+    "function": "list_saved_reports",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/saved",
+    "full_path": "/reports/saved",
+    "function": "create_saved_report",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/saved/{report_id}",
+    "full_path": "/reports/saved/{report_id}",
+    "function": "delete_saved_report",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/schedules",
+    "full_path": "/reports/schedules",
+    "function": "list_schedules",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/schedules",
+    "full_path": "/reports/schedules",
+    "function": "create_schedule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/dimensions",
+    "full_path": "/reports/dimensions",
+    "function": "list_dimensions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/dimensions",
+    "full_path": "/reports/dimensions",
+    "function": "create_dimension",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/pivot",
+    "full_path": "/reports/pivot",
+    "function": "pivot_report",
+    "doc": "Pivot-style aggregation: revenue/expenses grouped by month, branch, product or manager.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/sales_teams.py",
+  "prefix": "/sales",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/teams/",
+    "full_path": "/sales/teams/",
+    "function": "list_teams",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/teams/",
+    "full_path": "/sales/teams/",
+    "function": "create_team",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/teams/{team_id}",
+    "full_path": "/sales/teams/{team_id}",
+    "function": "update_team",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/teams/{team_id}",
+    "full_path": "/sales/teams/{team_id}",
+    "function": "delete_team",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/teams/{team_id}/members",
+    "full_path": "/sales/teams/{team_id}/members",
+    "function": "add_member",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/teams/{team_id}/members/{user_id}",
+    "full_path": "/sales/teams/{team_id}/members/{user_id}",
+    "function": "remove_member",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/targets/",
+    "full_path": "/sales/targets/",
+    "function": "list_targets",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/targets/",
+    "full_path": "/sales/targets/",
+    "function": "create_target",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/targets/{target_id}",
+    "full_path": "/sales/targets/{target_id}",
+    "function": "update_target",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/targets/{target_id}",
+    "full_path": "/sales/targets/{target_id}",
+    "function": "delete_target",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/commission-rules/",
+    "full_path": "/sales/commission-rules/",
+    "function": "list_commission_rules",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/commission-rules/",
+    "full_path": "/sales/commission-rules/",
+    "function": "create_commission_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/commission-rules/{rule_id}",
+    "full_path": "/sales/commission-rules/{rule_id}",
+    "function": "update_commission_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/commission-rules/{rule_id}",
+    "full_path": "/sales/commission-rules/{rule_id}",
+    "function": "delete_commission_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/commissions/",
+    "full_path": "/sales/commissions/",
+    "function": "list_commissions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/commissions/{accrual_id}/mark-paid",
+    "full_path": "/sales/commissions/{accrual_id}/mark-paid",
+    "function": "mark_commission_paid",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/search.py",
+  "prefix": "/search",
+  "routes": []
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/settings_enhanced.py",
+  "prefix": "/settings",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/system",
+    "full_path": "/settings/system",
+    "function": "system_info",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/modules",
+    "full_path": "/settings/modules",
+    "function": "list_all_modules",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/modules/toggle",
+    "full_path": "/settings/modules/toggle",
+    "function": "toggle_module",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/email",
+    "full_path": "/settings/email",
+    "function": "get_email_config",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/email",
+    "full_path": "/settings/email",
+    "function": "update_email_config",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/srs.py",
+  "prefix": "/srs",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/vat-declaration",
+    "full_path": "/srs/vat-declaration",
+    "function": "vat_declaration",
+    "doc": "Generate VAT declaration for a given period (simplified Georgian format).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/income-tax",
+    "full_path": "/srs/income-tax",
+    "function": "income_tax_report",
+    "doc": "Generate simplified income tax report.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/balance-form",
+    "full_path": "/srs/balance-form",
+    "function": "balance_form",
+    "doc": "Generate simplified balance sheet form (Georgian format).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/reconciliation",
+    "full_path": "/srs/reconciliation",
+    "function": "srs_reconciliation",
+    "doc": "Verify the GL is balanced for a period (debits == credits).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/status",
+    "full_path": "/srs/status",
+    "function": "srs_status",
+    "doc": "SRS integration readiness overview.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/vat-declaration/submit",
+    "full_path": "/srs/vat-declaration/submit",
+    "function": "submit_vat_declaration",
+    "doc": "Submit the VAT declaration to RS.ge. With RS_SERVICE_USER/RS_SERVICE_PASSWORD configured this calls the real RS.ge SOAP export_declaration endpoint. Otherwise it runs in sandbox mode: the computed fig",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/studio.py",
+  "prefix": "/studio",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/apps",
+    "full_path": "/studio/apps",
+    "function": "list_studio_apps",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/apps",
+    "full_path": "/studio/apps",
+    "function": "create_studio_app",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/apps/{app_id}",
+    "full_path": "/studio/apps/{app_id}",
+    "function": "update_studio_app",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/apps/{app_id}",
+    "full_path": "/studio/apps/{app_id}",
+    "function": "delete_studio_app",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/apps/{app_id}/forms",
+    "full_path": "/studio/apps/{app_id}/forms",
+    "function": "list_studio_forms",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/apps/{app_id}/forms",
+    "full_path": "/studio/apps/{app_id}/forms",
+    "function": "create_studio_form",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/forms/{form_id}",
+    "full_path": "/studio/forms/{form_id}",
+    "function": "delete_studio_form",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/forms/{form_id}/records",
+    "full_path": "/studio/forms/{form_id}/records",
+    "function": "list_studio_records",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/forms/{form_id}/records",
+    "full_path": "/studio/forms/{form_id}/records",
+    "function": "create_studio_record",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/records/{record_id}",
+    "full_path": "/studio/records/{record_id}",
+    "function": "delete_studio_record",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/subscriptions.py",
+  "prefix": "/subscriptions",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/subscriptions/",
+    "function": "list_subscriptions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{subscription_id}",
+    "full_path": "/subscriptions/{subscription_id}",
+    "function": "get_subscription",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/subscriptions/",
+    "function": "create_subscription",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{subscription_id}",
+    "full_path": "/subscriptions/{subscription_id}",
+    "function": "update_subscription",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{subscription_id}/renew",
+    "full_path": "/subscriptions/{subscription_id}/renew",
+    "function": "renew_subscription",
+    "doc": "Renew an active subscription: advance billing date, create a payable invoice for the amount.",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{subscription_id}",
+    "full_path": "/subscriptions/{subscription_id}",
+    "function": "delete_subscription",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/supplier_finance.py",
+  "prefix": "",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/supplier-invoices/",
+    "full_path": "/supplier-invoices/",
+    "function": "list_supplier_invoices",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/supplier-invoices/",
+    "full_path": "/supplier-invoices/",
+    "function": "create_supplier_invoice",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/supplier-invoices/{invoice_id}",
+    "full_path": "/supplier-invoices/{invoice_id}",
+    "function": "get_supplier_invoice",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/supplier-invoices/{invoice_id}/status",
+    "full_path": "/supplier-invoices/{invoice_id}/status",
+    "function": "change_supplier_invoice_status",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/supplier-payables/",
+    "full_path": "/supplier-payables/",
+    "function": "list_supplier_payables",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/supplier-payables/{payable_id}",
+    "full_path": "/supplier-payables/{payable_id}",
+    "function": "get_supplier_payable",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/supplier-payables/{payable_id}/payments",
+    "full_path": "/supplier-payables/{payable_id}/payments",
+    "function": "post_supplier_payment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/supplier-payables/{payable_id}/credit-notes",
+    "full_path": "/supplier-payables/{payable_id}/credit-notes",
+    "function": "post_supplier_credit_note",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/supplier-payments/{payment_id}/reversal",
+    "full_path": "/supplier-payments/{payment_id}/reversal",
+    "function": "reverse_supplier_payment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/supplier-invoices/check-duplicate",
+    "full_path": "/supplier-invoices/check-duplicate",
+    "function": "check_duplicate_invoice_endpoint",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/supplier-invoice-tolerances/",
+    "full_path": "/supplier-invoice-tolerances/",
+    "function": "get_supplier_invoice_tolerances",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/supplier-invoice-tolerances/",
+    "full_path": "/supplier-invoice-tolerances/",
+    "function": "update_supplier_invoice_tolerances",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/supplier-overpayments/apply",
+    "full_path": "/supplier-overpayments/apply",
+    "function": "apply_overpayment",
+    "doc": "Apply an overpayment from one payable to another payable.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/supplier-overpayments/",
+    "full_path": "/supplier-overpayments/",
+    "function": "list_supplier_overpayments",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/suppliers.py",
+  "prefix": "/suppliers",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/suppliers/",
+    "function": "list_suppliers",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/suppliers/",
+    "function": "create_supplier",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{supplier_id}",
+    "full_path": "/suppliers/{supplier_id}",
+    "function": "get_supplier",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{supplier_id}",
+    "full_path": "/suppliers/{supplier_id}",
+    "function": "update_supplier",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{supplier_id}/archive",
+    "full_path": "/suppliers/{supplier_id}/archive",
+    "function": "archive_supplier",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/check-duplicate-tax-id",
+    "full_path": "/suppliers/check-duplicate-tax-id",
+    "function": "check_duplicate_tax_id",
+    "doc": "Check if a tax ID (identification_code) is already used by another supplier.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{supplier_id}/bank-details",
+    "full_path": "/suppliers/{supplier_id}/bank-details",
+    "function": "list_supplier_bank_details",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{supplier_id}/bank-details",
+    "full_path": "/suppliers/{supplier_id}/bank-details",
+    "function": "create_supplier_bank_detail",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{supplier_id}/bank-details/{bank_detail_id}",
+    "full_path": "/suppliers/{supplier_id}/bank-details/{bank_detail_id}",
+    "function": "update_supplier_bank_detail",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{supplier_id}/bank-details/{bank_detail_id}",
+    "full_path": "/suppliers/{supplier_id}/bank-details/{bank_detail_id}",
+    "function": "delete_supplier_bank_detail",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{supplier_id}/ratings",
+    "full_path": "/suppliers/{supplier_id}/ratings",
+    "function": "rate_supplier",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{supplier_id}/ratings",
+    "full_path": "/suppliers/{supplier_id}/ratings",
+    "function": "list_supplier_ratings",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/seed-demo",
+    "full_path": "/suppliers/seed-demo",
+    "function": "seed_demo_suppliers",
+    "doc": "Seed demo supplier data for testing and onboarding.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/tasks.py",
+  "prefix": "/tasks",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/tasks/",
+    "function": "list_tasks",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{task_id}",
+    "full_path": "/tasks/{task_id}",
+    "function": "get_task",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/tasks/",
+    "function": "create_task",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{task_id}",
+    "full_path": "/tasks/{task_id}",
+    "function": "update_task",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{task_id}/comments",
+    "full_path": "/tasks/{task_id}/comments",
+    "function": "list_comments",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{task_id}/comments",
+    "full_path": "/tasks/{task_id}/comments",
+    "function": "add_comment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{task_id}/attachments",
+    "full_path": "/tasks/{task_id}/attachments",
+    "function": "list_attachments",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{task_id}/attachments",
+    "full_path": "/tasks/{task_id}/attachments",
+    "function": "upload_attachment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{task_id}/attachments/{attachment_id}",
+    "full_path": "/tasks/{task_id}/attachments/{attachment_id}",
+    "function": "delete_attachment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{task_id}/history",
+    "full_path": "/tasks/{task_id}/history",
+    "function": "list_history",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{task_id}/activity",
+    "full_path": "/tasks/{task_id}/activity",
+    "function": "get_activity_feed",
+    "doc": "Combined activity feed: history + comments + attachments.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{task_id}/reminders",
+    "full_path": "/tasks/{task_id}/reminders",
+    "function": "list_reminders",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{task_id}/reminders",
+    "full_path": "/tasks/{task_id}/reminders",
+    "function": "create_reminder",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{task_id}/reminders/{reminder_id}",
+    "full_path": "/tasks/{task_id}/reminders/{reminder_id}",
+    "function": "update_reminder",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{task_id}/reminders/{reminder_id}",
+    "full_path": "/tasks/{task_id}/reminders/{reminder_id}",
+    "function": "delete_reminder",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{task_id}/dependencies",
+    "full_path": "/tasks/{task_id}/dependencies",
+    "function": "list_dependencies",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{task_id}/dependents",
+    "full_path": "/tasks/{task_id}/dependents",
+    "function": "list_dependents",
+    "doc": "List tasks that depend on this task (reverse dependencies).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{task_id}/dependencies",
+    "full_path": "/tasks/{task_id}/dependencies",
+    "function": "create_dependency",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{task_id}/dependencies/{dependency_id}",
+    "full_path": "/tasks/{task_id}/dependencies/{dependency_id}",
+    "function": "delete_dependency",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/tasks_enhanced.py",
+  "prefix": "/tasks",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/kanban",
+    "full_path": "/tasks/kanban",
+    "function": "task_kanban",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/calendar",
+    "full_path": "/tasks/calendar",
+    "function": "task_calendar",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/analytics",
+    "full_path": "/tasks/analytics",
+    "function": "task_analytics",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/bulk/status",
+    "full_path": "/tasks/bulk/status",
+    "function": "bulk_update_task_status",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export",
+    "full_path": "/tasks/export",
+    "function": "export_tasks",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/tax_reports.py",
+  "prefix": "/tax-reports",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/vat",
+    "full_path": "/tax-reports/vat",
+    "function": "vat_return",
+    "doc": "VAT return for a period: output VAT (sales) vs input VAT (purchases).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/vat/register/sales",
+    "full_path": "/tax-reports/vat/register/sales",
+    "function": "sales_vat_register",
+    "doc": "Sales VAT register — every issued invoice in the range.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/vat/register/purchases",
+    "full_path": "/tax-reports/vat/register/purchases",
+    "function": "purchases_vat_register",
+    "doc": "Purchases VAT register — every supplier invoice in the range.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/tenders.py",
+  "prefix": "/procurement/tenders",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/{tender_id}/publish",
+    "full_path": "/procurement/tenders/{tender_id}/publish",
+    "function": "publish_tender",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{tender_id}/bids",
+    "full_path": "/procurement/tenders/{tender_id}/bids",
+    "function": "submit_bid",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{tender_id}/comparison",
+    "full_path": "/procurement/tenders/{tender_id}/comparison",
+    "function": "tender_comparison",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{tender_id}/award",
+    "full_path": "/procurement/tenders/{tender_id}/award",
+    "function": "award_tender",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/users.py",
+  "prefix": "/users",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/users/",
+    "function": "list_users",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/me",
+    "full_path": "/users/me",
+    "function": "get_me",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{user_id}",
+    "full_path": "/users/{user_id}",
+    "function": "get_user",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{user_id}",
+    "full_path": "/users/{user_id}",
+    "function": "update_user",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{user_id}",
+    "full_path": "/users/{user_id}",
+    "function": "deactivate_user",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/invite",
+    "full_path": "/users/invite",
+    "function": "invite_user",
+    "doc": "Invite a new user to the company (admin only).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/change-password",
+    "full_path": "/users/change-password",
+    "function": "change_password",
+    "doc": "Change the current user's password.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/vendor_analytics.py",
+  "prefix": "/procurement/vendor-analytics",
+  "routes": []
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/vendor_auth.py",
+  "prefix": "/vendor-auth",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/login",
+    "full_path": "/vendor-auth/login",
+    "function": "vendor_login",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/me",
+    "full_path": "/vendor-auth/me",
+    "function": "vendor_me",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/dashboard",
+    "full_path": "/vendor-auth/dashboard",
+    "function": "vendor_dashboard",
+    "doc": "Everything the supplier sees after login: RFQs, POs, invoices, price lists.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/vendor_portal.py",
+  "prefix": "/vendor-portal",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/vendor-portal/",
+    "function": "list_vendor_portal_users",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{portal_user_id}",
+    "full_path": "/vendor-portal/{portal_user_id}",
+    "function": "get_vendor_portal_user",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/vendor-portal/",
+    "function": "create_vendor_portal_user",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{portal_user_id}",
+    "full_path": "/vendor-portal/{portal_user_id}",
+    "function": "update_vendor_portal_user",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{portal_user_id}",
+    "full_path": "/vendor-portal/{portal_user_id}",
+    "function": "delete_vendor_portal_user",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/suppliers/{supplier_id}/summary",
+    "full_path": "/vendor-portal/suppliers/{supplier_id}/summary",
+    "function": "supplier_summary",
+    "doc": "Everything a supplier sees in its portal: RFQs, POs, invoices, price lists.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/warehouses.py",
+  "prefix": "/warehouses",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/",
+    "full_path": "/warehouses/",
+    "function": "list_warehouses",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/",
+    "full_path": "/warehouses/",
+    "function": "create_warehouse",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{warehouse_id}",
+    "full_path": "/warehouses/{warehouse_id}",
+    "function": "update_warehouse",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{warehouse_id}/set-default",
+    "full_path": "/warehouses/{warehouse_id}/set-default",
+    "function": "set_default_warehouse",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{warehouse_id}/archive",
+    "full_path": "/warehouses/{warehouse_id}/archive",
+    "function": "archive_warehouse",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/{warehouse_id}",
+    "full_path": "/warehouses/{warehouse_id}",
+    "function": "delete_warehouse",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/balances",
+    "full_path": "/warehouses/balances",
+    "function": "list_balances",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/adjust-stock",
+    "full_path": "/warehouses/adjust-stock",
+    "function": "adjust_warehouse_stock",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/transfers",
+    "full_path": "/warehouses/transfers",
+    "function": "transfer_stock",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/movements",
+    "full_path": "/warehouses/movements",
+    "function": "list_movements",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/zones",
+    "full_path": "/warehouses/zones",
+    "function": "list_zones",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/zones",
+    "full_path": "/warehouses/zones",
+    "function": "create_zone",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/zones/{zone_id}",
+    "full_path": "/warehouses/zones/{zone_id}",
+    "function": "update_zone",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/zones/{zone_id}",
+    "full_path": "/warehouses/zones/{zone_id}",
+    "function": "delete_zone",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/zone-balances",
+    "full_path": "/warehouses/zone-balances",
+    "function": "list_zone_balances",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/counts",
+    "full_path": "/warehouses/counts",
+    "function": "list_counts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/counts",
+    "full_path": "/warehouses/counts",
+    "function": "create_count",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/counts/{count_id}",
+    "full_path": "/warehouses/counts/{count_id}",
+    "function": "update_count",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/counts/{count_id}",
+    "full_path": "/warehouses/counts/{count_id}",
+    "function": "get_count",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/counts/{count_id}/lines",
+    "full_path": "/warehouses/counts/{count_id}/lines",
+    "function": "list_count_lines",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/counts/{count_id}/lines",
+    "full_path": "/warehouses/counts/{count_id}/lines",
+    "function": "add_count_line",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/counts/{count_id}/lines/{line_id}",
+    "full_path": "/warehouses/counts/{count_id}/lines/{line_id}",
+    "function": "update_count_line",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/counts/{count_id}/lines/{line_id}",
+    "full_path": "/warehouses/counts/{count_id}/lines/{line_id}",
+    "function": "delete_count_line",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/counts/{count_id}/post",
+    "full_path": "/warehouses/counts/{count_id}/post",
+    "function": "post_count",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/warehouses_enhanced.py",
+  "prefix": "/warehouses",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/valuation",
+    "full_path": "/warehouses/valuation",
+    "function": "stock_valuation",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/movement-analytics",
+    "full_path": "/warehouses/movement-analytics",
+    "function": "movement_analytics",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/low-stock",
+    "full_path": "/warehouses/low-stock",
+    "function": "low_stock_alerts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export/balances",
+    "full_path": "/warehouses/export/balances",
+    "function": "export_balances",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export/movements",
+    "full_path": "/warehouses/export/movements",
+    "function": "export_movements",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/wms.py",
+  "prefix": "/wms",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/batches",
+    "full_path": "/wms/batches",
+    "function": "create_batch",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/batches",
+    "full_path": "/wms/batches",
+    "function": "list_batches",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/batches/{batch_id}/receive",
+    "full_path": "/wms/batches/{batch_id}/receive",
+    "function": "receive_batch",
+    "doc": "Increase batch quantity on goods receipt.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/batches/{batch_id}/adjust",
+    "full_path": "/wms/batches/{batch_id}/adjust",
+    "function": "adjust_batch",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/batches/{batch_id}/transfer",
+    "full_path": "/wms/batches/{batch_id}/transfer",
+    "function": "transfer_batch",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/serials",
+    "full_path": "/wms/serials",
+    "function": "register_serial",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/serials",
+    "full_path": "/wms/serials",
+    "function": "list_serials",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/serials/{serial_id}/status",
+    "full_path": "/wms/serials/{serial_id}/status",
+    "function": "update_serial_status",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/wms_ops.py",
+  "prefix": "/wms-ops",
+  "routes": [
+   {
+    "method": "POST",
+    "path": "/pick-lists",
+    "full_path": "/wms-ops/pick-lists",
+    "function": "create_pick_list",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/pick-lists",
+    "full_path": "/wms-ops/pick-lists",
+    "function": "list_pick_lists",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/pick-lists/{pick_list_id}/pick",
+    "full_path": "/wms-ops/pick-lists/{pick_list_id}/pick",
+    "function": "pick_item",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/pick-lists/{pick_list_id}/complete",
+    "full_path": "/wms-ops/pick-lists/{pick_list_id}/complete",
+    "function": "complete_pick_list",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/packing-slips",
+    "full_path": "/wms-ops/packing-slips",
+    "function": "create_packing_slip",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/packing-slips",
+    "full_path": "/wms-ops/packing-slips",
+    "function": "list_packing_slips",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/replenishment-rules",
+    "full_path": "/wms-ops/replenishment-rules",
+    "function": "create_replenishment_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/replenishment-rules",
+    "full_path": "/wms-ops/replenishment-rules",
+    "function": "list_replenishment_rules",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/replenishment/suggestions",
+    "full_path": "/wms-ops/replenishment/suggestions",
+    "function": "replenishment_suggestions",
+    "doc": "Products below min level → suggested reorder quantity.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/landed-costs",
+    "full_path": "/wms-ops/landed-costs",
+    "function": "create_landed_cost",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/landed-costs",
+    "full_path": "/wms-ops/landed-costs",
+    "function": "list_landed_costs",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/landed-costs/{landed_cost_id}/allocate",
+    "full_path": "/wms-ops/landed-costs/{landed_cost_id}/allocate",
+    "function": "allocate_landed_cost",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/trace/{batch_id}",
+    "full_path": "/wms-ops/trace/{batch_id}",
+    "function": "batch_trace",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/trace/serial/{serial_id}",
+    "full_path": "/wms-ops/trace/serial/{serial_id}",
+    "function": "serial_trace",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/allocation/{product_id}",
+    "full_path": "/wms-ops/allocation/{product_id}",
+    "function": "allocation_suggestion",
+    "doc": "Suggest which batches to consume first for a product. FIFO — oldest production date first (first in, first out). FEFO — earliest expiry date first (first expiry, first out).",
+    "auth": false
+   }
+  ]
+ }
+]

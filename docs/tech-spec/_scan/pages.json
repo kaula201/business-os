@@ -1,0 +1,4667 @@
+[
+ {
+  "module_code": "AI",
+  "file": "frontend/src/pages/AIPage.tsx",
+  "lines": 169,
+  "buttons": [],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "AccountingControls",
+  "file": "frontend/src/pages/AccountingControlsPage.tsx",
+  "lines": 49,
+  "buttons": [
+   {
+    "label": "ახალი ჩანაწერი",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => create.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "AccountingPeriods",
+  "file": "frontend/src/pages/AccountingPeriodsPage.tsx",
+  "lines": 212,
+  "buttons": [
+   {
+    "label": "მუშავდება...",
+    "on_click": "() => { if (confirm(t('თვის დახურვის ავტომატური გაშვება (ამორტიზაცია, კურსი, დეფერირებული)?'))) runAutomation.mutate() }",
+    "disabled": true
+   },
+   {
+    "label": "ისტორია",
+    "on_click": "() => setHistoryPeriod(period)",
+    "disabled": false
+   },
+   {
+    "label": "გახსნა",
+    "on_click": "() => openAction('reopen', month)",
+    "disabled": false
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => openAction('close', month)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setAction(null)",
+    "disabled": false
+   },
+   {
+    "label": "პერიოდის დახურვა",
+    "on_click": "submitAction",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/accounting-periods?year=${year}"
+   },
+   {
+    "method": "GET",
+    "path": "/accounting-periods/${historyPeriod!.id}/history"
+   },
+   {
+    "method": "POST",
+    "path": "/accounting-periods/${year}/${month}/${type}"
+   },
+   {
+    "method": "POST",
+    "path": "/gl/automation/run"
+   }
+  ]
+ },
+ {
+  "module_code": "AnalyticAccounting",
+  "file": "frontend/src/pages/AnalyticAccountingPage.tsx",
+  "lines": 65,
+  "buttons": [
+   {
+    "label": "ცენტრი",
+    "on_click": "()=>{setError('');setAccountModal(true)}",
+    "disabled": false
+   },
+   {
+    "label": "ჩანაწერი",
+    "on_click": "()=>{setError('');setEntryModal(true)}",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "()=>setAccountModal(false)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "()=>createAccount.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "()=>setEntryModal(false)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "()=>createEntry.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/analytic/accounts"
+   },
+   {
+    "method": "GET",
+    "path": "/analytic/entries"
+   },
+   {
+    "method": "POST",
+    "path": "/analytic/accounts"
+   },
+   {
+    "method": "POST",
+    "path": "/analytic/entries"
+   },
+   {
+    "method": "DELETE",
+    "path": "/analytic/entries/${id}"
+   }
+  ]
+ },
+ {
+  "module_code": "Assets",
+  "file": "frontend/src/pages/AssetsPage.tsx",
+  "lines": 507,
+  "buttons": [
+   {
+    "label": "აქტივის დამატება",
+    "on_click": "() => { setAssetForm({ name: '', asset_type: 'equipment', purchase_date: today(), purchase_cost: 0, useful_life_years: 5",
+    "disabled": false
+   },
+   {
+    "label": "ირიცხება...",
+    "on_click": "() => { if (confirm(t('ყველა აქტივის ამორტიზაცია დავარიცხოთ მიმდინარე პერიოდისთვის?'))) runAllDep.mutate() }",
+    "disabled": true
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setDepResult(null)",
+    "disabled": false
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setRunAllResult(null)",
+    "disabled": false
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setDisposeFor(null)",
+    "disabled": false
+   },
+   {
+    "label": "მუშავდება...",
+    "on_click": "() => disposeAsset.mutate({ id: disposeFor.id, disposal_date: disposeDate, proceeds: disposeProceeds })",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setAssetModal(null)",
+    "disabled": false
+   },
+   {
+    "label": "იქმნება...",
+    "on_click": "() => { if (!assetForm.name.trim() || !assetForm.purchase_cost || !assetForm.useful_life_years) { setError(t('სახელი, ღი",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setAssetModal(null)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => updateAsset.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/assets/"
+   },
+   {
+    "method": "POST",
+    "path": "/assets/"
+   },
+   {
+    "method": "PUT",
+    "path": "/assets/${selectedAsset!.id}"
+   },
+   {
+    "method": "DELETE",
+    "path": "/assets/${id}"
+   },
+   {
+    "method": "POST",
+    "path": "/assets/${id}/run-depreciation"
+   },
+   {
+    "method": "GET",
+    "path": "/assets/${id}/depreciation-history"
+   },
+   {
+    "method": "GET",
+    "path": "/assets/${id}/schedule"
+   },
+   {
+    "method": "POST",
+    "path": "/assets/run-all-depreciation"
+   },
+   {
+    "method": "POST",
+    "path": "/assets/${id}/dispose"
+   }
+  ]
+ },
+ {
+  "module_code": "Automations",
+  "file": "frontend/src/pages/AutomationsPage.tsx",
+  "lines": 127,
+  "buttons": [
+   {
+    "label": "ახალი წესი",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "className=\"text-green-600\" /> : }",
+    "on_click": "() => toggleRule.mutate({ id: r.id, is_active: !r.is_active })",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createRule.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "manager",
+      "label": "manager"
+     },
+     {
+      "value": "admin",
+      "label": "admin"
+     },
+     {
+      "value": "accountant",
+      "label": "accountant"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "",
+    "client": "automationsApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "form",
+    "client": "automationsApi"
+   },
+   {
+    "method": "UPDATE",
+    "path": "id",
+    "client": "automationsApi"
+   },
+   {
+    "method": "REMOVE",
+    "path": "id",
+    "client": "automationsApi"
+   }
+  ]
+ },
+ {
+  "module_code": "BalanceSheet",
+  "file": "frontend/src/pages/BalanceSheetPage.tsx",
+  "lines": 147,
+  "buttons": [],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "BankRules",
+  "file": "frontend/src/pages/BankRulesPage.tsx",
+  "lines": 178,
+  "buttons": [
+   {
+    "label": "წესების გამოყენება",
+    "on_click": "() => apply.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "ახალი წესი",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => create.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Banking",
+  "file": "frontend/src/pages/BankingPage.tsx",
+  "lines": 342,
+  "buttons": [
+   {
+    "label": "ანგარიშის დამატება",
+    "on_click": "() => { setError(''); setAccountOpen(true) }",
+    "disabled": false
+   },
+   {
+    "label": "CSV იმპორტი",
+    "on_click": "() => { setError(''); setImportAccountId(accounts[0]?.id || ''); setImportOpen(true) }",
+    "disabled": true
+   },
+   {
+    "label": "ყველას დამტკიცება",
+    "on_click": "() => batchApprove.mutate(suggestions.filter((s: any) => s.candidates.length > 0).map((s: any) => ({ transaction_id: s.t",
+    "disabled": true
+   },
+   {
+    "label": "შეჯერება",
+    "on_click": "() => openReconcile(row)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => { setError(''); setReversalRow(row) }",
+    "disabled": false
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setAccountOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => createAccount.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setImportOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "იტვირთება...",
+    "on_click": "() => importStatement.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setReconcileTransaction(null)",
+    "disabled": false
+   },
+   {
+    "label": "მუშავდება...",
+    "on_click": "submitReconciliation",
+    "disabled": true
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setReversalRow(null)",
+    "disabled": false
+   },
+   {
+    "label": "მუშავდება...",
+    "on_click": "() => reverse.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Budgeting",
+  "file": "frontend/src/pages/BudgetingPage.tsx",
+  "lines": 233,
+  "buttons": [
+   {
+    "label": "ბიუჯეტი",
+    "on_click": "() => { setPlanForm({ name: '', fiscal_year: currentYear, period_type: 'monthly', notes: null }); setError(''); setPlanM",
+    "disabled": false
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setSelectedPlanId(null)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setPlanModal(null)",
+    "disabled": false
+   },
+   {
+    "label": "იქმნება...",
+    "on_click": "() => { if (!planForm.name.trim()) { setError(t('სახელი სავალდებულოა')); return }; createPlan.mutate() }",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/budgeting/plans"
+   },
+   {
+    "method": "GET",
+    "path": "/budgeting/plans/${selectedPlanId}/lines"
+   },
+   {
+    "method": "POST",
+    "path": "/budgeting/plans"
+   },
+   {
+    "method": "DELETE",
+    "path": "/budgeting/plans/${id}"
+   }
+  ]
+ },
+ {
+  "module_code": "CRM",
+  "file": "frontend/src/pages/CRMPage.tsx",
+  "lines": 499,
+  "buttons": [
+   {
+    "label": "CRM OS",
+    "on_click": "async () => { try { const { data } = await authApi.ssoToken() const ssoToken = data?.data?.token if (ssoToken) { window.",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ლიდი",
+    "on_click": "() => setNewLeadOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "×",
+    "on_click": "() => setMessage('')",
+    "disabled": false
+   },
+   {
+    "label": "· დღე",
+    "on_click": "() => { const full = leads.find((l) => l.id === lead.id) if (full) setSelectedLead(full) }",
+    "disabled": false
+   },
+   {
+    "label": "ყველას ნახვა",
+    "on_click": "() => changeView('leads')",
+    "disabled": false
+   },
+   {
+    "label": "ყველას ნახვა",
+    "on_click": "() => changeView('activities')",
+    "disabled": false
+   },
+   {
+    "label": "გახსნა",
+    "on_click": "() => setSelectedLead(lead)",
+    "disabled": false
+   },
+   {
+    "label": "დაკავშირებულად მონიშვნა",
+    "on_click": "() => updateLeadMutation.mutate({ id: selectedLead.id, data: { status: 'contacted' } })",
+    "disabled": true
+   },
+   {
+    "label": "კვალიფიცირება",
+    "on_click": "() => updateLeadMutation.mutate({ id: selectedLead.id, data: { status: 'qualified' } })",
+    "disabled": true
+   },
+   {
+    "label": "შესაძლებლობის შექმნა",
+    "on_click": "() => setOpportunityOpen(true)",
+    "disabled": true
+   },
+   {
+    "label": "კლიენტად გადაყვანა",
+    "on_click": "() => { setConvertForm({ ...convertForm, name: selectedLead.company_name }); setConvertOpen(true) }",
+    "disabled": true
+   },
+   {
+    "label": "შემდეგი მოქმედების დაგეგმვა",
+    "on_click": "() => setActivityOpen(true)",
+    "disabled": true
+   },
+   {
+    "label": "საკონტაქტო ინფორმაცია არ არის",
+    "on_click": "onOpen",
+    "disabled": false
+   },
+   {
+    "label": "შესრულებულად მონიშვნა",
+    "on_click": "onComplete",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "onCancel",
+    "disabled": false
+   },
+   {
+    "label": "ინახება…",
+    "on_click": null,
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "legal",
+      "label": ""
+     },
+     {
+      "value": "individual",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Cash",
+  "file": "frontend/src/pages/CashPage.tsx",
+  "lines": 440,
+  "buttons": [
+   {
+    "label": "სალაროს შექმნა",
+    "on_click": "() => { setAccountForm({ name: '', currency: 'GEL', notes: '' }); setError(''); setAccountModal('create') }",
+    "disabled": false
+   },
+   {
+    "label": "ოპერაცია",
+    "on_click": "() => { setTxForm({ cash_account_id: txAccountId, transaction_date: today(), direction: 'inflow', amount: 0, category: '",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setAccountModal(null)",
+    "disabled": false
+   },
+   {
+    "label": "იქმნება...",
+    "on_click": "() => createAccount.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setAccountModal(null)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => updateAccount.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setTxModal(false)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => { if (!txForm.amount || !txForm.transaction_date) { setError(t('შეავსეთ სავალდებულო ველები')); return } createTx.m",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/cash/accounts"
+   },
+   {
+    "method": "GET",
+    "path": "/cash/accounts/${txAccountId}/transactions"
+   },
+   {
+    "method": "GET",
+    "path": "/cash/accounts/${reportAccountId}/daily-report"
+   },
+   {
+    "method": "POST",
+    "path": "/cash/accounts"
+   },
+   {
+    "method": "PUT",
+    "path": "/cash/accounts/${selectedAccount!.id}"
+   },
+   {
+    "method": "DELETE",
+    "path": "/cash/accounts/${id}"
+   },
+   {
+    "method": "POST",
+    "path": "/cash/accounts/${txAccountId}/transactions"
+   }
+  ]
+ },
+ {
+  "module_code": "ChartOfAccounts",
+  "file": "frontend/src/pages/ChartOfAccountsPage.tsx",
+  "lines": 138,
+  "buttons": [
+   {
+    "label": "რედაქტირება",
+    "on_click": "e => { e.stopPropagation(); openEdit(a) }",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ანგარიში",
+    "on_click": "() => { resetForm(); setShowForm(true) }",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => { setShowForm(false); resetForm() }",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => editId ? updateMutation.mutate() : createMutation.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": []
+   }
+  ],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Clients",
+  "file": "frontend/src/pages/ClientsPage.tsx",
+  "lines": 294,
+  "buttons": [
+   {
+    "label": "Excel იმპორტი",
+    "on_click": "() => { setImportModal(true); setImportFile(null); setImportResult('') }",
+    "disabled": false
+   },
+   {
+    "label": "ახალი კლიენტი",
+    "on_click": "openCreate",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "closeModal",
+    "disabled": false
+   },
+   {
+    "label": "განახლება",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "რედაქტირება",
+    "on_click": "() => { setViewClient(null); openEdit(viewClient) }",
+    "disabled": false
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => { setImportModal(false); queryClient.invalidateQueries({ queryKey: ['clients'] }) }",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setImportModal(false)",
+    "disabled": false
+   },
+   {
+    "label": "იტვირთება...",
+    "on_click": "async () => { if (!importFile) return setImportLoading(true) setImportResult('') try { const res = await importApi.impor",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ search: search || undefined",
+    "client": "clientsApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "data",
+    "client": "clientsApi"
+   },
+   {
+    "method": "DELETE",
+    "path": "id",
+    "client": "clientsApi"
+   },
+   {
+    "method": "UPDATE",
+    "path": "editClient.id",
+    "client": "clientsApi"
+   }
+  ]
+ },
+ {
+  "module_code": "ConsolidatedReports",
+  "file": "frontend/src/pages/ConsolidatedReportsPage.tsx",
+  "lines": 182,
+  "buttons": [
+   {
+    "label": "მუშავდება...",
+    "on_click": "() => autoDetectPurchases.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "მუშავდება...",
+    "on_click": "() => autoDetect.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "დადასტურება",
+    "on_click": "() => approve.mutate(e.id)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => reverse.mutate(e.id)",
+    "disabled": false
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Currency",
+  "file": "frontend/src/pages/CurrencyPage.tsx",
+  "lines": 318,
+  "buttons": [
+   {
+    "label": "ახლდება...",
+    "on_click": "() => syncNbg.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "კურსის დამატება",
+    "on_click": "() => { setError(''); setNotice(''); setRateModal(true) }",
+    "disabled": false
+   },
+   {
+    "label": "გადართვა",
+    "on_click": "() => setConversionForm((f) => ({ ...f, from_currency: f.to_currency, to_currency: f.from_currency }))",
+    "disabled": false
+   },
+   {
+    "label": "გადაყვანა",
+    "on_click": "() => convert.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "ყველა ვალუტა",
+    "on_click": "() => setShowAll(true)",
+    "disabled": false
+   },
+   {
+    "label": "მხოლოდ არჩეული",
+    "on_click": "() => setShowAll(false)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setRateModal(false)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => createRate.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/currency/rates"
+   },
+   {
+    "method": "GET",
+    "path": "/currency/rates/nbg-status"
+   },
+   {
+    "method": "POST",
+    "path": "/currency/rates"
+   },
+   {
+    "method": "DELETE",
+    "path": "/currency/rates/${id}"
+   },
+   {
+    "method": "POST",
+    "path": "/currency/rates/sync-nbg?rate_date=${syncDate}"
+   },
+   {
+    "method": "POST",
+    "path": "/currency/rates/sync-nbg?rate_date=${syncDate}"
+   },
+   {
+    "method": "POST",
+    "path": "/currency/convert"
+   }
+  ]
+ },
+ {
+  "module_code": "CustomerFinance",
+  "file": "frontend/src/pages/CustomerFinancePage.tsx",
+  "lines": 249,
+  "buttons": [
+   {
+    "label": "ინახება...",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "იქმნება...",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "მუშავდება...",
+    "on_click": null,
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     },
+     {
+      "value": "unpaid",
+      "label": ""
+     },
+     {
+      "value": "partially_paid",
+      "label": ""
+     },
+     {
+      "value": "overdue",
+      "label": ""
+     },
+     {
+      "value": "paid",
+      "label": ""
+     },
+     {
+      "value": "credited",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Dashboard",
+  "file": "frontend/src/pages/DashboardPage.tsx",
+  "lines": 373,
+  "buttons": [
+   {
+    "label": "მორგება",
+    "on_click": "() => setShowCustomize(!showCustomize)",
+    "disabled": false
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "usersApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Deferred",
+  "file": "frontend/src/pages/DeferredPage.tsx",
+  "lines": 93,
+  "buttons": [
+   {
+    "label": "მუშავდება...",
+    "on_click": "()=>recognizeDue.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "ახალი გრაფიკი",
+    "on_click": "openCreate",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "()=>{if(confirm(t('გრაფიკი გავაუქმოთ?')))cancelSchedule.mutate(s.id)}",
+    "disabled": true
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "()=>setSelectedId(null)",
+    "disabled": false
+   },
+   {
+    "label": "აღიარება",
+    "on_click": "()=>recognize.mutate(r.id)",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "()=>setModal(false)",
+    "disabled": false
+   },
+   {
+    "label": "იქმნება...",
+    "on_click": "()=>create.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/deferred/schedules"
+   },
+   {
+    "method": "GET",
+    "path": "/gl/accounts/?page_size=100&is_active=true"
+   },
+   {
+    "method": "POST",
+    "path": "/deferred/schedules"
+   },
+   {
+    "method": "POST",
+    "path": "/deferred/recognitions/${id}/recognize"
+   },
+   {
+    "method": "POST",
+    "path": "/deferred/recognize-due"
+   },
+   {
+    "method": "POST",
+    "path": "/deferred/schedules/${id}/cancel"
+   }
+  ]
+ },
+ {
+  "module_code": "Documents",
+  "file": "frontend/src/pages/DocumentsPage.tsx",
+  "lines": 182,
+  "buttons": [
+   {
+    "label": "დოკუმენტის დამატება",
+    "on_click": "() => { resetForm(); setShowModal(true) }",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": null,
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": []
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/documents/"
+   },
+   {
+    "method": "GET",
+    "path": "/documents/categories"
+   },
+   {
+    "method": "POST",
+    "path": "/documents/"
+   },
+   {
+    "method": "DELETE",
+    "path": "/documents/${id}"
+   }
+  ]
+ },
+ {
+  "module_code": "EmailCalendar",
+  "file": "frontend/src/pages/EmailCalendarPage.tsx",
+  "lines": 177,
+  "buttons": [
+   {
+    "label": "ახალი ელ.ფოსტა",
+    "on_click": "() => tab === 'emails' ? setEmailOpen(true) : setEventOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "გაგზავნა",
+    "on_click": "() => sendEmail.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createEvent.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "meeting",
+      "label": ""
+     },
+     {
+      "value": "call",
+      "label": ""
+     },
+     {
+      "value": "reminder",
+      "label": ""
+     },
+     {
+      "value": "deadline",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "EmailTracking",
+  "file": "frontend/src/pages/EmailTrackingPage.tsx",
+  "lines": 140,
+  "buttons": [
+   {
+    "label": "ახალი ხელმოწერის მოთხოვნა",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "ელ.ფოსტის მოვლენები",
+    "on_click": "() => setTab('events')",
+    "disabled": false
+   },
+   {
+    "label": "ხელმოწერის მოთხოვნები",
+    "on_click": "() => setTab('signatures')",
+    "disabled": false
+   },
+   {
+    "label": "გაგზავნა",
+    "on_click": "() => createSig.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "ExchangeDifferences",
+  "file": "frontend/src/pages/ExchangeDifferencesPage.tsx",
+  "lines": 97,
+  "buttons": [
+   {
+    "label": "გადაფასება",
+    "on_click": "() => run.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Expenses",
+  "file": "frontend/src/pages/ExpensesPage.tsx",
+  "lines": 282,
+  "buttons": [
+   {
+    "label": "ახალი ხარჯი",
+    "on_click": "() => { setForm({ category_id: null, expense_date: today(), description: '', amount: 0, currency: 'GEL', notes: null }) ",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setModal(null)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => { if (!form.description.trim() || !form.amount) { setError(t('აღწერა და თანხა სავალდებულოა')); return }; createExp",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setModal(null)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => updateExpense.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/expenses/"
+   },
+   {
+    "method": "GET",
+    "path": "/expenses/categories"
+   },
+   {
+    "method": "POST",
+    "path": "/expenses/"
+   },
+   {
+    "method": "PUT",
+    "path": "/expenses/${selected!.id}"
+   },
+   {
+    "method": "POST",
+    "path": "/expenses/${id}/approve"
+   },
+   {
+    "method": "POST",
+    "path": "/expenses/${id}/reject"
+   }
+  ]
+ },
+ {
+  "module_code": "Fleet",
+  "file": "frontend/src/pages/FleetPage.tsx",
+  "lines": 995,
+  "buttons": [
+   {
+    "label": "ავტომობილი",
+    "on_click": "() => { setVehicleForm({ plate_number: '', brand: '', model: '', year: null, vin: '', color: '', fuel_type: 'petrol', en",
+    "disabled": false
+   },
+   {
+    "label": "საწვავი",
+    "on_click": "() => { if (!fuelVehicleId) return setFuelForm({ vehicle_id: fuelVehicleId, refuel_date: today(), liters: 0, price_per_l",
+    "disabled": true
+   },
+   {
+    "label": "მომსახურება",
+    "on_click": "() => { if (!serviceVehicleId) return setServiceForm({ vehicle_id: serviceVehicleId, service_date: today(), service_type",
+    "disabled": true
+   },
+   {
+    "label": "მძღოლი",
+    "on_click": "() => { if (!driverVehicleId) return setDriverForm({ vehicle_id: driverVehicleId, driver_name: '', driver_phone: '', dri",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setVehicleModal(null)",
+    "disabled": false
+   },
+   {
+    "label": "იქმნება...",
+    "on_click": "() => { if (!vehicleForm.plate_number.trim() || !vehicleForm.brand.trim() || !vehicleForm.model.trim()) { setError(t('ნო",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setVehicleModal(null)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => { if (!selectedVehicle) return updateVehicle.mutate({ id: selectedVehicle.id, d: vehicleEditForm }) }",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setFuelModal(false)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => { if (!fuelForm.liters || !fuelForm.price_per_liter || !fuelForm.total_amount || !fuelForm.mileage_at_refuel) { se",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setServiceModal(false)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => { if (!serviceForm.description.trim() || !serviceForm.mileage_at_service) { setError(t('აღწერა და გარბენი სავალდებ",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setDriverModal(null)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => { if (!driverForm.driver_name.trim()) { setError(t('მძღოლის სახელი სავალდებულოა')); return } createDriver.mutate({",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setDriverModal(null)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => { if (!selectedDriver) return updateDriver.mutate({ id: selectedDriver.id, d: driverEditForm }) }",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "HR",
+  "file": "frontend/src/pages/HRPage.tsx",
+  "lines": 995,
+  "buttons": [
+   {
+    "label": "თანამშრომლის დამატება",
+    "on_click": "() => { setEditId(null); resetForm(); setShowModal(true) }",
+    "disabled": false
+   },
+   {
+    "label": "დასწრების დაფიქსირება",
+    "on_click": "() => setAttModal(true)",
+    "disabled": false
+   },
+   {
+    "label": "შვებულების მოთხოვნა",
+    "on_click": "() => setLeaveModal(true)",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ვაკანსია",
+    "on_click": "() => setJobModal(true)",
+    "disabled": false
+   },
+   {
+    "label": "ახალი შეფასება",
+    "on_click": "() => setReviewModal(true)",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ჩანაწერი",
+    "on_click": "() => setTsModal(true)",
+    "disabled": false
+   },
+   {
+    "label": "რედაქტირება",
+    "on_click": "() => openEdit(emp)",
+    "disabled": false
+   },
+   {
+    "label": "რედაქტირება",
+    "on_click": "() => openEdit(emp)",
+    "disabled": false
+   },
+   {
+    "label": "მუშავდება...",
+    "on_click": "() => calcMutation.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "მუშავდება...",
+    "on_click": "() => genPayslips.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "ახსნა",
+    "on_click": "() => setExplainPayslip(p)",
+    "disabled": false
+   },
+   {
+    "label": "✕",
+    "on_click": "() => setExplainPayslip(null)",
+    "disabled": false
+   },
+   {
+    "label": "დამტკიცება",
+    "on_click": "() => approveLeave.mutate(lr.id)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createAttendance.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createLeave.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createJob.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createReview.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createTimesheet.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "permanent",
+      "label": ""
+     },
+     {
+      "value": "fixed_term",
+      "label": ""
+     },
+     {
+      "value": "contract",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "present",
+      "label": ""
+     },
+     {
+      "value": "absent",
+      "label": ""
+     },
+     {
+      "value": "late",
+      "label": ""
+     },
+     {
+      "value": "half_day",
+      "label": "Half day"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/hr/employees"
+   },
+   {
+    "method": "GET",
+    "path": "/hr/departments"
+   },
+   {
+    "method": "GET",
+    "path": "/hr/payroll"
+   },
+   {
+    "method": "GET",
+    "path": "/hr/payslips"
+   },
+   {
+    "method": "GET",
+    "path": "/hr/leave-requests"
+   },
+   {
+    "method": "GET",
+    "path": "/hr/attendance"
+   },
+   {
+    "method": "GET",
+    "path": "/hr/reviews"
+   },
+   {
+    "method": "GET",
+    "path": "/recruitment/job-postings"
+   },
+   {
+    "method": "GET",
+    "path": "/hr/timesheets"
+   },
+   {
+    "method": "PATCH",
+    "path": "/hr/employees/${editId}"
+   },
+   {
+    "method": "POST",
+    "path": "/hr/employees"
+   },
+   {
+    "method": "POST",
+    "path": "/hr/payroll/calculate"
+   },
+   {
+    "method": "POST",
+    "path": "/hr/payslips/generate"
+   },
+   {
+    "method": "POST",
+    "path": "/hr/leave-requests/${id}/approve"
+   },
+   {
+    "method": "POST",
+    "path": "/hr/attendance"
+   },
+   {
+    "method": "POST",
+    "path": "/hr/leave-requests"
+   },
+   {
+    "method": "POST",
+    "path": "/recruitment/job-postings"
+   },
+   {
+    "method": "POST",
+    "path": "/hr/timesheets"
+   },
+   {
+    "method": "POST",
+    "path": "/hr/reviews"
+   }
+  ]
+ },
+ {
+  "module_code": "Helpdesk",
+  "file": "frontend/src/pages/HelpdeskPage.tsx",
+  "lines": 825,
+  "buttons": [
+   {
+    "label": "შენახვა",
+    "on_click": "() => createTicket.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createQueue.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createSla.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createCanned.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createKb.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createField.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createEmail.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => helpdeskApi.createTeam(teamForm).then(() => { setTeamOpen(false); setTeamForm({ name: '', description: '' }); help",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => { const stages = pipelineForm.stages.split('\\n').map(s => s.trim()).filter(Boolean) helpdeskApi.createPipeline({ n",
+    "disabled": true
+   },
+   {
+    "label": "გაგზავნა",
+    "on_click": "() => { helpdeskApi.addMessage(detailTicket.id, { body: msgBody, direction: 'outbound', channel: 'email' }) .then(() => ",
+    "disabled": true
+   },
+   {
+    "label": "+",
+    "on_click": "() => { helpdeskApi.addTimeSpent(detailTicket.id, Number(timeMinutes)).then(() => { setTimeMinutes(''); return helpdeskA",
+    "disabled": true
+   },
+   {
+    "label": "✓",
+    "on_click": "() => { helpdeskApi.rateSatisfaction(detailTicket.id, { score: Number(satScore), comment: satComment }).then(() => { set",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "low",
+      "label": ""
+     },
+     {
+      "value": "medium",
+      "label": ""
+     },
+     {
+      "value": "high",
+      "label": ""
+     },
+     {
+      "value": "urgent",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     },
+     {
+      "value": "bug",
+      "label": "Bug"
+     },
+     {
+      "value": "feature",
+      "label": "Feature"
+     },
+     {
+      "value": "question",
+      "label": "Question"
+     },
+     {
+      "value": "incident",
+      "label": "Incident"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     },
+     {
+      "value": "support",
+      "label": "Support"
+     },
+     {
+      "value": "sales",
+      "label": "Sales"
+     },
+     {
+      "value": "billing",
+      "label": "Billing"
+     },
+     {
+      "value": "technical",
+      "label": "Technical"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "email",
+      "label": "Email"
+     },
+     {
+      "value": "portal",
+      "label": "Portal"
+     },
+     {
+      "value": "phone",
+      "label": "Phone"
+     },
+     {
+      "value": "chat",
+      "label": "Chat"
+     },
+     {
+      "value": "api",
+      "label": "API"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "low",
+      "label": ""
+     },
+     {
+      "value": "medium",
+      "label": ""
+     },
+     {
+      "value": "high",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "scheduled",
+      "label": ""
+     },
+     {
+      "value": "in_progress",
+      "label": ""
+     },
+     {
+      "value": "completed",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "low",
+      "label": ""
+     },
+     {
+      "value": "medium",
+      "label": ""
+     },
+     {
+      "value": "high",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "clientsApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "usersApi"
+   },
+   {
+    "method": "GET",
+    "path": "detailTicket.id",
+    "client": "helpdeskApi"
+   },
+   {
+    "method": "GET",
+    "path": "detailTicket.id",
+    "client": "helpdeskApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Integrations",
+  "file": "frontend/src/pages/IntegrationsPage.tsx",
+  "lines": 252,
+  "buttons": [
+   {
+    "label": "ახალი API Key",
+    "on_click": "() => { setNewKey(''); tab === 'keys' ? setKeyOpen(true) : setHookOpen(true) }",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createKey.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createHook.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "read",
+      "label": "read"
+     },
+     {
+      "value": "write",
+      "label": "write"
+     },
+     {
+      "value": "admin",
+      "label": "admin"
+     },
+     {
+      "value": "*",
+      "label": "* (ყველა)"
+     },
+     {
+      "value": "sales.read,projects.read",
+      "label": "sales.read, projects.read"
+     },
+     {
+      "value": "inventory.write,pos.read",
+      "label": "inventory.write, pos.read"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Inventory",
+  "file": "frontend/src/pages/InventoryPage.tsx",
+  "lines": 762,
+  "buttons": [
+   {
+    "label": "/> : }",
+    "on_click": "() => openStockAdjust(product)",
+    "disabled": false
+   },
+   {
+    "label": "მხოლოდ აქტიური",
+    "on_click": "() => setShowArchived((value) => !value)",
+    "disabled": false
+   },
+   {
+    "label": "ახალი საწყობი",
+    "on_click": "openWarehouseCreate",
+    "disabled": false
+   },
+   {
+    "label": "გადატანა",
+    "on_click": "openTransfer",
+    "disabled": true
+   },
+   {
+    "label": "ახალი პროდუქტი",
+    "on_click": "openProductCreate",
+    "disabled": false
+   },
+   {
+    "label": "Excel იმპორტი",
+    "on_click": "() => { setImportModal(true); setImportFile(null); setImportResult('') }",
+    "disabled": false
+   },
+   {
+    "label": "დაამატეთ პირველი საწყობი",
+    "on_click": "openWarehouseCreate",
+    "disabled": false
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setCostProduct(null)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "closeProductModal",
+    "disabled": false
+   },
+   {
+    "label": "განახლება",
+    "on_click": null,
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "closeWarehouseModal",
+    "disabled": false
+   },
+   {
+    "label": "განახლება",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setStockProduct(null)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setTransferModalOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "გადატანა",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => { setImportModal(false); queryClient.invalidateQueries({ queryKey: ['products'] }) }",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setImportModal(false)",
+    "disabled": false
+   },
+   {
+    "label": "იტვირთება...",
+    "on_click": "async () => { if (!importFile) return setImportLoading(true) setImportResult('') try { const res = await importApi.impor",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ search: search || undefined",
+    "client": "productsApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ include_inactive: showArchived ",
+    "client": "warehousesApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ product_id: costProduct!.id",
+    "client": "purchaseCostsApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "payload",
+    "client": "productsApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "payload",
+    "client": "warehousesApi"
+   },
+   {
+    "method": "UPDATE",
+    "path": "id",
+    "client": "warehousesApi"
+   },
+   {
+    "method": "DELETE",
+    "path": "id",
+    "client": "warehousesApi"
+   },
+   {
+    "method": "UPDATE",
+    "path": "id",
+    "client": "productsApi"
+   },
+   {
+    "method": "UPDATE",
+    "path": "editProduct.id",
+    "client": "productsApi"
+   }
+  ]
+ },
+ {
+  "module_code": "InventoryValuation",
+  "file": "frontend/src/pages/InventoryValuationPage.tsx",
+  "lines": 171,
+  "buttons": [
+   {
+    "label": "კორექტირება",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => adjust.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "productsApi"
+   },
+   {
+    "method": "GET",
+    "path": "selectedId!",
+    "client": "inventoryValuationApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Invoices",
+  "file": "frontend/src/pages/InvoicesPage.tsx",
+  "lines": 348,
+  "buttons": [
+   {
+    "label": "შევსება",
+    "on_click": "event => { event.stopPropagation(); void openInvoice(invoice) }",
+    "disabled": false
+   },
+   {
+    "label": "PDF ნახვა",
+    "on_click": "() => void handlePreview(selected)",
+    "disabled": false
+   },
+   {
+    "label": "რედაქტირების გაგრძელება",
+    "on_click": "() => openEditor(selected)",
+    "disabled": false
+   },
+   {
+    "label": "PDF ჩამოტვირთვა",
+    "on_click": "() => void handleExport(selected, 'pdf')",
+    "disabled": false
+   },
+   {
+    "label": "Word ჩამოტვირთვა",
+    "on_click": "() => void handleExport(selected, 'word')",
+    "disabled": false
+   },
+   {
+    "label": "Excel ჩამოტვირთვა",
+    "on_click": "() => void handleExport(selected, 'excel')",
+    "disabled": false
+   },
+   {
+    "label": "დამატება",
+    "on_click": "addItem",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => void saveCurrentDraft()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა და PDF ნახვა",
+    "on_click": "() => void previewCurrentDraft()",
+    "disabled": true
+   },
+   {
+    "label": "დადასტურებაზე გადასვლა",
+    "on_click": "() => setConfirmIssue(true)",
+    "disabled": true
+   },
+   {
+    "label": "მუშავდება...",
+    "on_click": "() => void issueCurrentDraft()",
+    "disabled": true
+   },
+   {
+    "label": "უკან დაბრუნება",
+    "on_click": "() => setConfirmIssue(false)",
+    "disabled": true
+   },
+   {
+    "label": "სრულ ეკრანზე / ბეჭდვა",
+    "on_click": "() => window.open(previewUrl, '_blank')",
+    "disabled": false
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{\n      page",
+    "client": "invoicesApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page: 1",
+    "client": "invoicesApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page: 1",
+    "client": "invoicesApi"
+   },
+   {
+    "method": "GET",
+    "path": "selectedId!",
+    "client": "invoicesApi"
+   },
+   {
+    "method": "GET",
+    "path": "invoice.id",
+    "client": "invoicesApi"
+   }
+  ]
+ },
+ {
+  "module_code": "JournalEntries",
+  "file": "frontend/src/pages/JournalEntriesPage.tsx",
+  "lines": 243,
+  "buttons": [
+   {
+    "label": "ახალი ხელით ჩანაწერი",
+    "on_click": "() => setCreateOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "სტრიქონის დამატება",
+    "on_click": "addLine",
+    "disabled": false
+   },
+   {
+    "label": "ჩაწერა",
+    "on_click": "() => create.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Kitchen",
+  "file": "frontend/src/pages/KitchenPage.tsx",
+  "lines": 81,
+  "buttons": [
+   {
+    "label": "მზადება",
+    "on_click": "() => setStatus.mutate({ id: o.id, status: 'preparing' })",
+    "disabled": false
+   },
+   {
+    "label": "მზადაა",
+    "on_click": "() => setStatus.mutate({ id: o.id, status: 'done' })",
+    "disabled": false
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Login",
+  "file": "frontend/src/pages/LoginPage.tsx",
+  "lines": 160,
+  "buttons": [
+   {
+    "label": "შესვლა",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "დაგავიწყდათ პაროლი?",
+    "on_click": "() => { setForgotOpen(true); setForgotEmail(email); setForgotSent(false); setForgotError('') }",
+    "disabled": false
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setForgotOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setForgotOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "გაგზავნა...",
+    "on_click": null,
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Orders",
+  "file": "frontend/src/pages/OrdersPage.tsx",
+  "lines": 511,
+  "buttons": [
+   {
+    "label": "ახალი გაყიდვის შეკვეთა",
+    "on_click": "openCreate",
+    "disabled": false
+   },
+   {
+    "label": "ყველა",
+    "on_click": "() => setStatusFilter('')",
+    "disabled": false
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => { setClientPanelOpen(!clientPanelOpen); setClientError('') }",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => { setClientPanelOpen(false); setClientError('') }",
+    "disabled": false
+   },
+   {
+    "label": "ემატება...",
+    "on_click": "() => createClientMutation.mutate(clientForm)",
+    "disabled": true
+   },
+   {
+    "label": "+ დამატება",
+    "on_click": "addItem",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setModalOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "იქმნება...",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "ინვოისის გახსნა",
+    "on_click": "() => { setViewOrderId(null) navigate(`/invoices?search=${encodeURIComponent(viewOrder.order_number)}`) }",
+    "disabled": false
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ status: statusFilter || undefined",
+    "client": "ordersApi"
+   },
+   {
+    "method": "GET",
+    "path": "viewOrderId!",
+    "client": "ordersApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "clientsApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "productsApi"
+   },
+   {
+    "method": "LIST",
+    "path": "",
+    "client": "warehousesApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "data",
+    "client": "ordersApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "data",
+    "client": "clientsApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Payments",
+  "file": "frontend/src/pages/PaymentsPage.tsx",
+  "lines": 135,
+  "buttons": [
+   {
+    "label": "ახალი გადახდა",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createPayment.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "stripe",
+      "label": "Stripe"
+     },
+     {
+      "value": "paypal",
+      "label": "PayPal"
+     },
+     {
+      "value": "tbcpay",
+      "label": "TBC Pay"
+     },
+     {
+      "value": "bogpay",
+      "label": "BOG Pay"
+     },
+     {
+      "value": "cash",
+      "label": "Cash"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "GEL",
+      "label": "GEL"
+     },
+     {
+      "value": "USD",
+      "label": "USD"
+     },
+     {
+      "value": "EUR",
+      "label": "EUR"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "",
+    "client": "paymentsApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "{ ...form",
+    "client": "paymentsApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Portal",
+  "file": "frontend/src/pages/PortalPage.tsx",
+  "lines": 193,
+  "buttons": [
+   {
+    "label": "ახალი პორტალის მომხმარებელი",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => create.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "active",
+      "label": ""
+     },
+     {
+      "value": "disabled",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "clientsApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Pos",
+  "file": "frontend/src/pages/PosPage.tsx",
+  "lines": 1328,
+  "buttons": [
+   {
+    "label": "Offline",
+    "on_click": "() => setOfflineMode(!offlineMode)",
+    "disabled": false
+   },
+   {
+    "label": "ფისკალური მოწყობილობები",
+    "on_click": "() => setDeviceOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "სასაჩუქრე ბარათები",
+    "on_click": "() => { setGiftOpen(true); posApi.listGiftCards().then(r => setGiftCards(r.data.data)) }",
+    "disabled": false
+   },
+   {
+    "label": "სალარო",
+    "on_click": "() => { setCashOpen(true); setCashAmount(0); setCashReason('') }",
+    "disabled": false
+   },
+   {
+    "label": "მაგიდები",
+    "on_click": "() => { setTableOpen(true); posApi.listTables().then(r => setTables(r.data.data)) }",
+    "disabled": false
+   },
+   {
+    "label": "ფისკალური ჟურნალი",
+    "on_click": "() => { setFiscalOpen(true); posApi.fiscalJournal().then(r => setFiscalData(r.data.data)) }",
+    "disabled": false
+   },
+   {
+    "label": "ცვლის დახურვა",
+    "on_click": "() => closeSessionMut.mutate(openSession.id)",
+    "disabled": false
+   },
+   {
+    "label": "ცვლის გახსნა",
+    "on_click": "() => setSessionOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "ყველა",
+    "on_click": "() => setActiveCategory('all')",
+    "disabled": false
+   },
+   {
+    "label": "გამოყენება",
+    "on_click": "() => posApi.validateCoupon(couponCode).then(r => { const d = r.data.data setCouponDiscount(d.discount_percent > 0 ? sub",
+    "disabled": true
+   },
+   {
+    "label": "გასუფთავება",
+    "on_click": "() => setSplitPayments([])",
+    "disabled": false
+   },
+   {
+    "label": "დამატება",
+    "on_click": "() => { if (splitAmount <= 0) return setSplitPayments(prev => [...prev, { method: splitMethod, amount: splitAmount, ...(",
+    "disabled": false
+   },
+   {
+    "label": "დეპოზიტის შეტანა",
+    "on_click": "() => setDepositOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "ჩამოჭრა",
+    "on_click": "() => redeemMut.mutate(Number(redeemPoints))",
+    "disabled": false
+   },
+   {
+    "label": "გადახდა და ჩეკი",
+    "on_click": "() => createOrder.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "Cashier",
+    "on_click": "() => setPinModalOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "ტერმინალი",
+    "on_click": "() => setTermModalOpen(true)",
+    "disabled": true
+   },
+   {
+    "label": "QR გადახდა",
+    "on_click": "() => qrPay.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "ბოლო ჩეკის ბეჭდვა",
+    "on_click": "printReceipt",
+    "disabled": false
+   },
+   {
+    "label": "სინქრონიზაცია",
+    "on_click": "() => syncOffline.mutate(q.id)",
+    "disabled": false
+   },
+   {
+    "label": "PIN-ით შესვლა",
+    "on_click": "() => setPinModalOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "გახსნა",
+    "on_click": "() => openSessionMut.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "სრული დაბრუნება",
+    "on_click": "() => refundMut.mutate({ id: refundFor.id, amount: Number(refundFor.total) })",
+    "disabled": true
+   },
+   {
+    "label": "დეაქტივაცია",
+    "on_click": "() => toggleDevice.mutate({ id: d.id, is_active: !d.is_active })",
+    "disabled": false
+   },
+   {
+    "label": "რეგისტრაცია",
+    "on_click": "() => registerDevice.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "ბარათის გაცემა",
+    "on_click": "() => issueGift.mutate(giftAmount)",
+    "disabled": true
+   },
+   {
+    "label": "დაბლოკვა",
+    "on_click": "() => posApi.updateGiftCard(g.id, { status: 'blocked' }).then(() => { posApi.listGiftCards().then(r => setGiftCards(r.da",
+    "disabled": false
+   },
+   {
+    "label": "ბარათის გაუქმება",
+    "on_click": "() => posApi.voidGiftCard(g.id).then(() => { posApi.listGiftCards().then(r => setGiftCards(r.data.data)) })",
+    "disabled": false
+   },
+   {
+    "label": "ბარათის გახსნა",
+    "on_click": "() => posApi.updateGiftCard(g.id, { status: 'active' }).then(() => { posApi.listGiftCards().then(r => setGiftCards(r.dat",
+    "disabled": false
+   },
+   {
+    "label": "შეტანა",
+    "on_click": "() => cashInMut.mutate({ amount: cashAmount, reason: cashReason })",
+    "disabled": true
+   },
+   {
+    "label": "ამოღება",
+    "on_click": "() => cashOutMut.mutate({ amount: cashAmount, reason: cashReason })",
+    "disabled": true
+   },
+   {
+    "label": "X-ანგარიში",
+    "on_click": "() => loadXReport.mutate(openSession.id)",
+    "disabled": true
+   },
+   {
+    "label": "Z-ანგარიში და დახურვა",
+    "on_click": "() => closeWithZ.mutate(xReportData?.expected_cash ?? 0)",
+    "disabled": true
+   },
+   {
+    "label": "დამატება",
+    "on_click": "() => createTableMut.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გათავისუფლება",
+    "on_click": "() => freeMut.mutate(tb.id)",
+    "disabled": false
+   },
+   {
+    "label": "დაკავება",
+    "on_click": "() => occupyMut.mutate(tb.id)",
+    "disabled": false
+   },
+   {
+    "label": "გაგზავნა",
+    "on_click": "() => emailReceiptMut.mutate({ id: emailFor.id, email: emailAddress })",
+    "disabled": true
+   },
+   {
+    "label": "ნაწილის დამატება",
+    "on_click": "() => setSplitParts(prev => [...prev, { items: [] }])",
+    "disabled": false
+   },
+   {
+    "label": "გაყოფა",
+    "on_click": "() => splitBillMut.mutate({ id: splitFor.id, parts: splitParts })",
+    "disabled": true
+   },
+   {
+    "label": "დადასტურება",
+    "on_click": "() => verifyPin.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გადახდა ტერმინალით",
+    "on_click": "() => selectedTerminal && chargeTerm.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "QR გადახდა",
+    "on_click": "() => qrPay.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => depositMut.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "GEL",
+      "label": "GEL"
+     },
+     {
+      "value": "USD",
+      "label": "USD"
+     },
+     {
+      "value": "EUR",
+      "label": "EUR"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "cash",
+      "label": ""
+     },
+     {
+      "value": "card",
+      "label": ""
+     },
+     {
+      "value": "gift_card",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "fiscal_printer",
+      "label": "Fiscal printer"
+     },
+     {
+      "value": "terminal",
+      "label": "Terminal"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [
+   {
+    "placeholder": "%",
+    "type": "number"
+   },
+   {
+    "placeholder": "₾",
+    "type": "number"
+   },
+   {
+    "placeholder": "₾",
+    "type": "number"
+   },
+   {
+    "placeholder": "192.168.1.50",
+    "type": "text"
+   }
+  ],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 200 ",
+    "client": "productsApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 200 ",
+    "client": "clientsApi"
+   }
+  ]
+ },
+ {
+  "module_code": "PriceLists",
+  "file": "frontend/src/pages/PriceListsPage.tsx",
+  "lines": 190,
+  "buttons": [
+   {
+    "label": "ახალი ფასების სია",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "ფასების სიები",
+    "on_click": "() => setTab('pricelists')",
+    "disabled": false
+   },
+   {
+    "label": "გადახდის პირობები",
+    "on_click": "() => setTab('terms')",
+    "disabled": false
+   },
+   {
+    "label": "სტრიქონის დამატება",
+    "on_click": "() => setItems([...items, { product_id: '', price: '' }])",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => tab === 'pricelists' ? createList.mutate() : createTerm.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "productsApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Procurement",
+  "file": "frontend/src/pages/ProcurementPage.tsx",
+  "lines": 788,
+  "buttons": [
+   {
+    "label": "RFQ",
+    "on_click": "() => setTab('rfq')",
+    "disabled": false
+   },
+   {
+    "label": "Vendor ფასები",
+    "on_click": "() => setTab('pricelist')",
+    "disabled": false
+   },
+   {
+    "label": "ჩარჩო შეთანხმებები",
+    "on_click": "() => setTab('blanket')",
+    "disabled": false
+   },
+   {
+    "label": "სკორკარდები",
+    "on_click": "() => setTab('scorecard')",
+    "disabled": false
+   },
+   {
+    "label": "ხელშეკრულებები",
+    "on_click": "() => setTab('contracts')",
+    "disabled": false
+   },
+   {
+    "label": "ტენდერები",
+    "on_click": "() => setTab('tender')",
+    "disabled": false
+   },
+   {
+    "label": "Vendor ანალიტიკა",
+    "on_click": "() => setTab('analytics')",
+    "disabled": false
+   },
+   {
+    "label": "ავტო-შევსება",
+    "on_click": "() => autoReplenish.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "ახალი RFQ",
+    "on_click": "() => { if (tab === 'rfq') setRfqOpen(true) else if (tab === 'pricelist') setPriceOpen(true) else if (tab === 'blanket')",
+    "disabled": false
+   },
+   {
+    "label": "ისტორია",
+    "on_click": "() => setTrendFor(p)",
+    "disabled": false
+   },
+   {
+    "label": "აქტივაცია",
+    "on_click": "() => activateBlanket.mutate(b.id)",
+    "disabled": false
+   },
+   {
+    "label": "ავტომატური გამოთვლა",
+    "on_click": "() => autoCalcScore.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გამოქვეყნება",
+    "on_click": "() => publishTender.mutate(r.id)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createRfq.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => upsertPrice.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createBlanket.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => upsertScore.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => submitResponse.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createContract.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createTender.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => submitTenderBid.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "GEL",
+      "label": "GEL"
+     },
+     {
+      "value": "USD",
+      "label": "USD"
+     },
+     {
+      "value": "EUR",
+      "label": "EUR"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "contractsApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 200 ",
+    "client": "productsApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 200 ",
+    "client": "suppliersApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "{\n      title: contractForm.title",
+    "client": "contractsApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Production",
+  "file": "frontend/src/pages/ProductionPage.tsx",
+  "lines": 148,
+  "buttons": [
+   {
+    "label": "ახალი BOM",
+    "on_click": "() => { setBomForm({ code: '', name: '', product_id: '', quantity: 1, notes: '' }); setShowBomModal(true) }",
+    "disabled": false
+   },
+   {
+    "label": "ახალი წარმოების დავალება",
+    "on_click": "() => { setWoForm({ bom_id: '', product_id: '', planned_quantity: 1, notes: '' }); setShowWoModal(true) }",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "ინახება...",
+    "on_click": null,
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/production/boms"
+   },
+   {
+    "method": "GET",
+    "path": "/production/work-orders"
+   },
+   {
+    "method": "POST",
+    "path": "/production/boms"
+   },
+   {
+    "method": "POST",
+    "path": "/production/work-orders"
+   }
+  ]
+ },
+ {
+  "module_code": "ProfitLoss",
+  "file": "frontend/src/pages/ProfitLossPage.tsx",
+  "lines": 140,
+  "buttons": [],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Projects",
+  "file": "frontend/src/pages/ProjectsPage.tsx",
+  "lines": 331,
+  "buttons": [
+   {
+    "label": "შაბლონები",
+    "on_click": "() => { setTemplateOpen(true); projectsApi.listTemplates().then(r => setTemplates(r.data.data)) }",
+    "disabled": false
+   },
+   {
+    "label": "ახალი პროექტი",
+    "on_click": "() => { setForm({ code: '', name: '', description: '', manager_id: '', start_date: '', end_date: '', budget_amount: 0, n",
+    "disabled": false
+   },
+   {
+    "label": "დეტალები",
+    "on_click": "() => setDetailFor(p)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "ახალი milestone",
+    "on_click": "() => completeMilestone.mutate(m)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createTemplateMut.mutate(templateForm)",
+    "disabled": true
+   },
+   {
+    "label": "პროექტის შექმნა",
+    "on_click": "() => { setInstantiateFor(tmpl); setInstantiateForm({ name: tmpl.name, code: '', budget_amount: tmpl.default_budget }) }",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => instantiateMut.mutate({ templateId: instantiateFor.id, data: instantiateForm })",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/projects/"
+   },
+   {
+    "method": "POST",
+    "path": "/projects/"
+   }
+  ]
+ },
+ {
+  "module_code": "Purchases",
+  "file": "frontend/src/pages/PurchasesPage.tsx",
+  "lines": 448,
+  "buttons": [
+   {
+    "label": "ახალი შესყიდვის შეკვეთა",
+    "on_click": "openCreate",
+    "disabled": false
+   },
+   {
+    "label": "ხაზის დამატება",
+    "on_click": "() => setForm({ ...form, items: [...form.items, emptyLine()] })",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setCreateOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "იქმნება...",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "ხარისხის შემოწმება",
+    "on_click": "() => { setQualityFor(receipt); setQualityStatus(receipt.quality_status || 'passed'); setQualityNotes(receipt.quality_no",
+    "disabled": false
+   },
+   {
+    "label": "სამმხრივი შეჯერება",
+    "on_click": "() => purchaseOrdersApi.threeWayMatch(selected.id).then(r => setThreeWay(r.data.data))",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setAction('cancelled')",
+    "disabled": false
+   },
+   {
+    "label": "დამტკიცება",
+    "on_click": "() => setAction('approved')",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setAction('cancelled')",
+    "disabled": false
+   },
+   {
+    "label": "საქონლის მიღება",
+    "on_click": "openReceipt",
+    "disabled": false
+   },
+   {
+    "label": "მიღების გაგრძელება",
+    "on_click": "openReceipt",
+    "disabled": false
+   },
+   {
+    "label": "მომწოდებლის ინვოისი",
+    "on_click": "() => navigate(`/supplier-finance?purchase_order_id=${selected.id}`)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setReceiptOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "მიღება მუშავდება...",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => selected && purchaseOrdersApi.qualityCheck(selected.id, qualityFor.id, { status: qualityStatus, notes: qualityNote",
+    "disabled": false
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "passed",
+      "label": ""
+     },
+     {
+      "value": "failed",
+      "label": ""
+     },
+     {
+      "value": "partial",
+      "label": ""
+     },
+     {
+      "value": "pending",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ search: search || undefined",
+    "client": "purchaseOrdersApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "suppliersApi"
+   },
+   {
+    "method": "LIST",
+    "path": "",
+    "client": "warehousesApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "productsApi"
+   },
+   {
+    "method": "GET",
+    "path": "selectedId!",
+    "client": "purchaseOrdersApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "payload",
+    "client": "purchaseOrdersApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Quotations",
+  "file": "frontend/src/pages/QuotationsPage.tsx",
+  "lines": 251,
+  "buttons": [
+   {
+    "label": "ახალი შემოთავაზება",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "სტრიქონის დამატება",
+    "on_click": "() => setLines([...lines, { product_id: '', description: '', quantity: '1', unit_price: '' }])",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => create.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "clientsApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "productsApi"
+   }
+  ]
+ },
+ {
+  "module_code": "RecurringEntries",
+  "file": "frontend/src/pages/RecurringEntriesPage.tsx",
+  "lines": 166,
+  "buttons": [
+   {
+    "label": "გაუშვი დაგვიანებული",
+    "on_click": "() => run.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "ახალი შაბლონი",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => create.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "daily",
+      "label": "ყოველდღე"
+     },
+     {
+      "value": "weekly",
+      "label": "ყოველკვირა"
+     },
+     {
+      "value": "monthly",
+      "label": "ყოველთვე"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Register",
+  "file": "frontend/src/pages/RegisterPage.tsx",
+  "lines": 77,
+  "buttons": [
+   {
+    "label": "რეგისტრაცია...",
+    "on_click": null,
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Reports",
+  "file": "frontend/src/pages/ReportsPage.tsx",
+  "lines": 387,
+  "buttons": [
+   {
+    "label": "Excel ექსპორტი",
+    "on_click": "currentTab.exportFn",
+    "disabled": false
+   },
+   {
+    "label": "ექსპორტი",
+    "on_click": "() => downloadBlob(exportsApi.orders(), 'orders.xlsx')",
+    "disabled": false
+   },
+   {
+    "label": "Excel",
+    "on_click": "() => downloadBlob(exportsApi.orders(), 'orders.xlsx')",
+    "disabled": false
+   },
+   {
+    "label": "Excel",
+    "on_click": "() => downloadBlob(exportsApi.products(), 'products.xlsx')",
+    "disabled": false
+   },
+   {
+    "label": "Excel",
+    "on_click": "() => downloadBlob(exportsApi.clients(), 'clients.xlsx')",
+    "disabled": false
+   },
+   {
+    "label": "Excel",
+    "on_click": "() => downloadBlob(exportsApi.tasks(), 'tasks.xlsx')",
+    "disabled": false
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "revenue",
+      "label": ""
+     },
+     {
+      "value": "expenses",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "month",
+      "label": ""
+     },
+     {
+      "value": "branch",
+      "label": ""
+     },
+     {
+      "value": "product",
+      "label": ""
+     },
+     {
+      "value": "manager",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "ordersApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "productsApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "clientsApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "tasksApi"
+   }
+  ]
+ },
+ {
+  "module_code": "SalesTeams",
+  "file": "frontend/src/pages/SalesTeamsPage.tsx",
+  "lines": 259,
+  "buttons": [
+   {
+    "label": "გადახდა",
+    "on_click": "() => markPaid.mutate(a.id)",
+    "disabled": false
+   },
+   {
+    "label": "ახალი გუნდი",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => tab === 'teams' ? createTeam.mutate() : tab === 'targets' ? createTarget.mutate() : createRule.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "usersApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Security",
+  "file": "frontend/src/pages/SecurityPage.tsx",
+  "lines": 311,
+  "buttons": [
+   {
+    "label": "გამორთვა",
+    "on_click": "() => disable2fa.mutate()",
+    "disabled": false
+   },
+   {
+    "label": "ჩართვა",
+    "on_click": "() => setup2fa.mutate()",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => securityApi.revokeSession(s.id).then(() => qc.invalidateQueries({ queryKey: ['sec-sessions'] }))",
+    "disabled": false
+   },
+   {
+    "label": "ახალი წესი",
+    "on_click": "() => setFieldOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createFieldRule.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "clients",
+      "label": "clients"
+     },
+     {
+      "value": "orders",
+      "label": "orders"
+     },
+     {
+      "value": "invoices",
+      "label": "invoices"
+     },
+     {
+      "value": "inventory",
+      "label": "inventory"
+     },
+     {
+      "value": "hr",
+      "label": "hr"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "admin",
+      "label": "admin"
+     },
+     {
+      "value": "manager",
+      "label": "manager"
+     },
+     {
+      "value": "employee",
+      "label": "employee"
+     },
+     {
+      "value": "accountant",
+      "label": "accountant"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "",
+    "client": "fieldAccessApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "fieldForm",
+    "client": "fieldAccessApi"
+   },
+   {
+    "method": "REMOVE",
+    "path": "id",
+    "client": "fieldAccessApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Settings",
+  "file": "frontend/src/pages/SettingsPage.tsx",
+  "lines": 378,
+  "buttons": [
+   {
+    "label": "ინახება...",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "ინახება...",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "ინახება...",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "მოწმდება...",
+    "on_click": "() => refetchRsStatus()",
+    "disabled": true
+   },
+   {
+    "label": "იძებნება...",
+    "on_click": "() => waybillMutation.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "მოწვევა",
+    "on_click": "() => setInviteModal(true)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setInviteModal(false)",
+    "disabled": false
+   },
+   {
+    "label": "მოწვევა",
+    "on_click": null,
+    "disabled": false
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/integrations/rs/status"
+   },
+   {
+    "method": "GET",
+    "path": "/integrations/rs/waybills/${encodeURIComponent(waybillNumber)}"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "usersApi"
+   },
+   {
+    "method": "GET",
+    "path": "",
+    "client": "purchaseApprovalApi"
+   },
+   {
+    "method": "UPDATE",
+    "path": "managerApprovalLimit",
+    "client": "purchaseApprovalApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Srs",
+  "file": "frontend/src/pages/SrsPage.tsx",
+  "lines": 674,
+  "buttons": [
+   {
+    "label": "იგზავნება...",
+    "on_click": "() => submitVat.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "ექსპორტი",
+    "on_click": "() => exportDecl.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გაგზავნა",
+    "on_click": "() => submitInv.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გაგზავნა",
+    "on_click": "() => submitWb.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": []
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "vat",
+      "label": "VAT"
+     },
+     {
+      "value": "income",
+      "label": "Income tax"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "GET",
+    "path": "/srs/vat-declaration"
+   },
+   {
+    "method": "GET",
+    "path": "/tax-reports/vat"
+   },
+   {
+    "method": "GET",
+    "path": "/tax-reports/vat/register/sales"
+   },
+   {
+    "method": "GET",
+    "path": "/tax-reports/vat/register/purchases"
+   },
+   {
+    "method": "POST",
+    "path": "/srs/vat-declaration/submit"
+   },
+   {
+    "method": "GET",
+    "path": "/srs/income-tax"
+   },
+   {
+    "method": "GET",
+    "path": "/srs/balance-form"
+   }
+  ]
+ },
+ {
+  "module_code": "Subscriptions",
+  "file": "frontend/src/pages/SubscriptionsPage.tsx",
+  "lines": 143,
+  "buttons": [
+   {
+    "label": "ახალი გამოწერა",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => create.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "monthly",
+      "label": "თვიური"
+     },
+     {
+      "value": "yearly",
+      "label": "წლიური"
+     },
+     {
+      "value": "one_time",
+      "label": "ერთჯერადი"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "clientsApi"
+   }
+  ]
+ },
+ {
+  "module_code": "SupplierFinance",
+  "file": "frontend/src/pages/SupplierFinancePage.tsx",
+  "lines": 481,
+  "buttons": [
+   {
+    "label": "გადახდა",
+    "on_click": "(event) => { event.stopPropagation(); openPayment(payable) }",
+    "disabled": false
+   },
+   {
+    "label": "ახალი მომწოდებლის ინვოისი",
+    "on_click": "() => { setForm(emptyInvoiceForm()); setError(''); setCreateOpen(true) }",
+    "disabled": false
+   },
+   {
+    "label": "მომწოდებლის ინვოისები",
+    "on_click": "() => { setTab('invoices'); setStatus('') }",
+    "disabled": false
+   },
+   {
+    "label": "დავალიანებები",
+    "on_click": "() => { setTab('payables'); setStatus('') }",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setCreateOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "იქმნება...",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setInvoiceAction('cancelled')",
+    "disabled": false
+   },
+   {
+    "label": "დამტკიცება და payable-ის შექმნა",
+    "on_click": "() => setInvoiceAction('approved')",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => openReversal(item)",
+    "disabled": false
+   },
+   {
+    "label": "საკრედიტო ჩანაწერი",
+    "on_click": "() => openCreditNote(selectedPayable)",
+    "disabled": false
+   },
+   {
+    "label": "გადახდის დაფიქსირება",
+    "on_click": "() => openPayment(selectedPayable)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setPaymentOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setCreditOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setReversalPayment(null)",
+    "disabled": false
+   },
+   {
+    "label": "უქმდება...",
+    "on_click": null,
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "purchaseOrdersApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "suppliersApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Suppliers",
+  "file": "frontend/src/pages/SuppliersPage.tsx",
+  "lines": 209,
+  "buttons": [
+   {
+    "label": "ახალი მომწოდებელი",
+    "on_click": "openCreate",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "closeModal",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": null,
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ search: search || undefined",
+    "client": "suppliersApi"
+   },
+   {
+    "method": "UPDATE",
+    "path": "editing.id",
+    "client": "suppliersApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "form",
+    "client": "suppliersApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Tasks",
+  "file": "frontend/src/pages/TasksPage.tsx",
+  "lines": 466,
+  "buttons": [
+   {
+    "label": "/> : t.status === 'in_progress' ? : }",
+    "on_click": "() => handleStatusChange(t, t.status === 'todo' ? 'in_progress' : t.status === 'in_progress' ? 'done' : 'todo')",
+    "disabled": false
+   },
+   {
+    "label": "სია",
+    "on_click": "() => setView('list')",
+    "disabled": false
+   },
+   {
+    "label": "დოსკა",
+    "on_click": "() => setView('kanban')",
+    "disabled": false
+   },
+   {
+    "label": "კალენდარი",
+    "on_click": "() => setView('calendar')",
+    "disabled": false
+   },
+   {
+    "label": "Gantt",
+    "on_click": "() => setView('gantt')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი დავალება",
+    "on_click": "openCreate",
+    "disabled": false
+   },
+   {
+    "label": "ყველა",
+    "on_click": "() => setStatusFilter('')",
+    "disabled": false
+   },
+   {
+    "label": "პრიორიტეტი",
+    "on_click": "() => setPriorityFilter('')",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "closeModal",
+    "disabled": false
+   },
+   {
+    "label": "განახლება",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "გაგზავნა",
+    "on_click": "handleAddComment",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{\n      search: search || undefined",
+    "client": "tasksApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "usersApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "clientsApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "data",
+    "client": "tasksApi"
+   },
+   {
+    "method": "UPDATE",
+    "path": "id",
+    "client": "tasksApi"
+   }
+  ]
+ },
+ {
+  "module_code": "TrialBalance",
+  "file": "frontend/src/pages/TrialBalancePage.tsx",
+  "lines": 115,
+  "buttons": [],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "VendorDashboard",
+  "file": "frontend/src/pages/VendorDashboardPage.tsx",
+  "lines": 165,
+  "buttons": [
+   {
+    "label": "გასვლა",
+    "on_click": "logout",
+    "disabled": false
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "VendorLogin",
+  "file": "frontend/src/pages/VendorLoginPage.tsx",
+  "lines": 112,
+  "buttons": [
+   {
+    "label": "შესვლა",
+    "on_click": null,
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "VendorPortal",
+  "file": "frontend/src/pages/VendorPortalPage.tsx",
+  "lines": 230,
+  "buttons": [
+   {
+    "label": "ახალი პორტალის მომხმარებელი",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => create.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "active",
+      "label": ""
+     },
+     {
+      "value": "disabled",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "vendorPortalApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "suppliersApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "{\n      supplier_id: form.supplier_id",
+    "client": "vendorPortalApi"
+   },
+   {
+    "method": "REMOVE",
+    "path": "id",
+    "client": "vendorPortalApi"
+   }
+  ]
+ },
+ {
+  "module_code": "VerifyEmail",
+  "file": "frontend/src/pages/VerifyEmailPage.tsx",
+  "lines": 69,
+  "buttons": [],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Wms",
+  "file": "frontend/src/pages/WmsPage.tsx",
+  "lines": 872,
+  "buttons": [
+   {
+    "label": "პარტიები",
+    "on_click": "() => setTab('batches')",
+    "disabled": false
+   },
+   {
+    "label": "სერიული ნომრები",
+    "on_click": "() => setTab('serials')",
+    "disabled": false
+   },
+   {
+    "label": "პიკინგი",
+    "on_click": "() => setTab('picking')",
+    "disabled": false
+   },
+   {
+    "label": "შევსება",
+    "on_click": "() => setTab('replenishment')",
+    "disabled": false
+   },
+   {
+    "label": "ლენდედ ქოსთი",
+    "on_click": "() => setTab('landed')",
+    "disabled": false
+   },
+   {
+    "label": "ლოკაციები",
+    "on_click": "() => setTab('zones')",
+    "disabled": false
+   },
+   {
+    "label": "ინვენტარიზაცია",
+    "on_click": "() => setTab('counts')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი პარტია",
+    "on_click": "() => { if (tab === 'batches') setOpen(true) else if (tab === 'serials') setSerialOpen(true) else if (tab === 'picking')",
+    "disabled": false
+   },
+   {
+    "label": "FIFO/FEFO",
+    "on_click": "() => { setAllocResult(null); setAllocOpen(true) }",
+    "disabled": false
+   },
+   {
+    "label": "ძიება",
+    "on_click": "() => { setBarcodeResult(null); searchBarcode.mutate(barcode.trim()) }",
+    "disabled": false
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => { setCameraOpen(false); stopCamera() }",
+    "disabled": false
+   },
+   {
+    "label": "დასრულება",
+    "on_click": "() => completePick.mutate(pl.id)",
+    "disabled": false
+   },
+   {
+    "label": "შეფუთვა",
+    "on_click": "() => wmsOpsApi.createPackingSlip({ pick_list_id: pl.id }).then(() => qc.invalidateQueries({ queryKey: ['wms-pick-lists'",
+    "disabled": false
+   },
+   {
+    "label": "პიკინგი",
+    "on_click": "() => { const q = prompt(t('რაოდენობა')); if (q && Number(q) > 0) pickItem.mutate({ pickListId: pl.id, itemId: it.id, qt",
+    "disabled": false
+   },
+   {
+    "label": "განაწილება",
+    "on_click": "() => { const b = prompt(t('პარტიის ID')); const a = prompt(t('თანხა')); if (b && a && Number(a) > 0) allocateLanded.mut",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createBatch.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => registerSerial.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createPickList.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createReplenish.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createLanded.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გამოთვლა",
+    "on_click": "() => runAllocation.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "GEL",
+      "label": "GEL"
+     },
+     {
+      "value": "USD",
+      "label": "USD"
+     },
+     {
+      "value": "EUR",
+      "label": "EUR"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "fefo",
+      "label": "FEFO ( )"
+     },
+     {
+      "value": "fifo",
+      "label": "FIFO ( )"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "productsApi"
+   },
+   {
+    "method": "LIST",
+    "path": "",
+    "client": "warehousesApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ barcode: code",
+    "client": "productsApi"
+   }
+  ]
+ }
+]
