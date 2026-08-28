@@ -2,7 +2,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { 
   LayoutDashboard, Users, ShoppingCart, Package, 
-  CheckSquare, Bot, Settings, X, ReceiptText, Building2, WalletCards, Landmark, BookOpen, FileText, TrendingUp, Scale, Car, ChevronDown, ChevronRight, DollarSign, Banknote, HandCoins, Wrench, BarChart3, Target, Coins, Network, CalendarClock, CalendarRange, Loader2, Star
+  CheckSquare, Bot, Settings, X, ReceiptText, Building2, WalletCards, Landmark, BookOpen, FileText, TrendingUp, Scale, Car, ChevronDown, ChevronRight, DollarSign, Banknote, HandCoins, Wrench, BarChart3, Target, Coins, Network, CalendarClock, CalendarRange, Loader2, Star, Factory, FolderKanban, ChefHat
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -18,6 +18,7 @@ const iconMap: Record<string, any> = {
   Landmark, BookOpen, FileText, TrendingUp, Scale, Car,
   DollarSign, Banknote, HandCoins, Wrench, BarChart3, Target,
   Coins, Network, CalendarClock, CalendarRange,
+  Factory, FolderKanban, ChefHat,
 }
 
 // ── Category groups (static structure, filtered by enabled modules) ──
