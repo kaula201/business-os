@@ -81,6 +81,7 @@ from app.models.production import (
     ProductionReservation, FinishedGoodsReceipt,
 )
 from app.models.projects import Project, ProjectMember, ProjectMilestone, ProjectTimesheet
+from app.models.studio import StudioApp, StudioField, StudioForm, StudioRecord
 from app.models.report import ReportPreference
 from app.models.helpdesk import HelpdeskTicket
 from app.models.pos import POSSession, POSOrder, POSOrderItem
