@@ -51,9 +51,9 @@ API_CALL_RE = re.compile(
 API_CLIENT_RE = re.compile(
     r"\b(?P<client>\w+Api)\.(?P<method>get|post|patch|put|delete|list|create|update|remove|toggle|export|import)\s*\(\s*(?:[`'\"]?(?P<path>[^`'\"),}]+))?",
 )
-# FastAPI route decorators
+# FastAPI route decorators (path may be empty string "")
 ROUTE_RE = re.compile(
-    r"@router\.(get|post|patch|put|delete)\s*\(\s*[\"'](?P<path>[^\"']+)[\"']",
+    r"@router\.(get|post|patch|put|delete)\s*\(\s*[\"'](?P<path>[^\"']*)[\"']",
 )
 DOCSTRING_RE = re.compile(r'"""(?P<doc>.*?)"""', re.S)
 # router prefix

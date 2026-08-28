@@ -73,6 +73,15 @@
 | 55 | reports | რეპორტები | other | /reports | [აღწერა](modules/reports.md) |
 | 56 | ai | AI ასისტენტი | other | /ai | [აღწერა](modules/ai.md) |
 | 57 | settings | პარამეტრები | other | /settings | [აღწერა](modules/settings.md) |
+| 58 | ecommerce | ელექტრონული კომერცია | sales | /ecommerce | [აღწერა](modules/ecommerce.md) |
+| 59 | plm | პროდუქტის სასიცოცხლო ციკლი | operations | /plm | [აღწერა](modules/plm.md) |
+| 60 | notifications | შეტყობინებები | operations | /notifications | [აღწერა](modules/notifications.md) |
+| 61 | live-chat | ცოცხალი ჩატი | operations | /live-chat | [აღწერა](modules/live-chat.md) |
+| 62 | maintenance | მოვლა-შეკეთება | operations | /maintenance | [აღწერა](modules/maintenance.md) |
+| 63 | bank-batch | ბანკის პარტიული დამუშავება | finance | /banking | [აღწერა](modules/bank-batch.md) |
+| 64 | financial-automation | ფინანსური ავტომატიზაცია | accounting | /gl/automation | [აღწერა](modules/financial-automation.md) |
+| 65 | data-exchange | მონაცემთა ექსპორტი/იმპორტი | operations | /exports | [აღწერა](modules/data-exchange.md) |
+| 66 | studio | აპლიკაციების სტუდია | other | /studio | [აღწერა](modules/studio.md) |
 
 ## დამატებითი გვერდები (არა მოდულები)
 
@@ -130,4 +139,4 @@ frontend/
 | თარიღი | ცვლილება |
 |--------|----------|
 | 2026-08-28 | დოკუმენტის შექმნა — 53 მოდულის ინდექსი |
-| 2026-08-28 | ყველა 57 მოდულის დეტალური აღწერა (4500+ სტრიქონი) + ავტო-განახლება (post-commit hook + cron) |
+| 2026-08-28 | ყველა 66 მოდულის დეტალური აღწერა (5000+ სტრიქონი) + ავტო-განახლება (post-commit hook + cron) |

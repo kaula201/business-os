@@ -58,6 +58,14 @@
   "prefix": "/accounting-periods",
   "routes": [
    {
+    "method": "GET",
+    "path": "",
+    "full_path": "/accounting-periods",
+    "function": "list_periods",
+    "doc": "",
+    "auth": false
+   },
+   {
     "method": "POST",
     "path": "/{year}/{month}/close",
     "full_path": "/accounting-periods/{year}/{month}/close",
@@ -999,6 +1007,14 @@
     "full_path": "/gl/consolidated/balance-sheet",
     "function": "consolidated_bs",
     "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/intercompany-balances",
+    "full_path": "/gl/consolidated/intercompany-balances",
+    "function": "consolidated_intercompany",
+    "doc": "Per-account balances across group companies — intercompany reconciliation.",
     "auth": false
    }
   ]
@@ -6036,7 +6052,16 @@
  {
   "file": "backend/app/api/v1/endpoints/search.py",
   "prefix": "/search",
-  "routes": []
+  "routes": [
+   {
+    "method": "GET",
+    "path": "",
+    "full_path": "/search",
+    "function": "global_search",
+    "doc": "Search clients, products, orders, invoices and suppliers by name/number. Handles Georgian and Latin input: typing 'iveria' finds 'შპს ივერია' and vice versa via transliteration.",
+    "auth": false
+   }
+  ]
  },
  {
   "file": "backend/app/api/v1/endpoints/settings_enhanced.py",
@@ -6746,6 +6771,22 @@
   "routes": [
    {
     "method": "POST",
+    "path": "",
+    "full_path": "/procurement/tenders",
+    "function": "create_tender",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "",
+    "full_path": "/procurement/tenders",
+    "function": "list_tenders",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
     "path": "/{tender_id}/publish",
     "full_path": "/procurement/tenders/{tender_id}/publish",
     "function": "publish_tender",
@@ -6843,7 +6884,16 @@
  {
   "file": "backend/app/api/v1/endpoints/vendor_analytics.py",
   "prefix": "/procurement/vendor-analytics",
-  "routes": []
+  "routes": [
+   {
+    "method": "GET",
+    "path": "",
+    "full_path": "/procurement/vendor-analytics",
+    "function": "vendor_analytics",
+    "doc": "Aggregate per-supplier spend, on-time delivery, quality and price trend.",
+    "auth": false
+   }
+  ]
  },
  {
   "file": "backend/app/api/v1/endpoints/vendor_auth.py",

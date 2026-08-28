@@ -89,6 +89,12 @@
 |--------|------|---------|
 | POST | `/procurement/auto-replenish` | `auto_replenish` |
 
+### Vendor ანალიტიკა (`vendor_analytics.py`)
+
+| მეთოდი | Path | ფუნქცია | აღწერა |
+|--------|------|---------|--------|
+| GET | `/procurement/vendor-analytics` | `vendor_analytics` | აგრეგირებული ანალიტიკა მომწოდებლების მიხედვით: ხარჯი, დროული მიწოდება, ხარისხი, ფასის ტენდენცია (ფილტრები: `date_from`, `date_to`) |
+
 ### ტენდერები (`tenders.py`)
 
 | მეთოდი | Path | ფუნქცია |
