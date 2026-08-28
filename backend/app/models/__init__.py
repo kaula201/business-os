@@ -113,7 +113,13 @@ from app.models.purchase import (
 )
 from app.models.recruitment import JobPosting
 from app.models.email_marketing import EmailCampaign
-from app.models.quality_control import QualityCheck
+from app.models.quality_control import (
+    QualityAlert,
+    QualityCheck,
+    QualityControlPoint,
+    QualityTest,
+    QualityTestResult,
+)
 from app.models.live_chat import ChatMessage
 from app.models.embedding import Embedding
 
@@ -164,7 +170,7 @@ __all__ = [
     "EmailCampaign",
     "PortalUser",
     "VendorPortalUser",
-    "QualityCheck",
+    "QualityCheck", "QualityControlPoint", "QualityTest", "QualityTestResult", "QualityAlert",
     "ChatMessage", "Embedding",
 ]
 

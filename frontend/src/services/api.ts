@@ -324,6 +324,20 @@ export const emailMarketingApi = {
   stats: (id: string) => api.get(`/email-campaigns/${id}/stats`),
 }
 
+// eCommerce storefront API
+export const ecommerceApi = {
+  categories: () => api.get('/ecommerce/storefront/categories'),
+  products: (params?: Record<string, unknown>) => api.get('/ecommerce/storefront/products', { params }),
+  adminProducts: (params?: Record<string, unknown>) => api.get('/ecommerce/products', { params }),
+  createProduct: (data: Record<string, unknown>) => api.post('/ecommerce/products', data),
+  createCategory: (data: Record<string, unknown>) => api.post('/ecommerce/categories', data),
+  createCart: () => api.post('/ecommerce/cart', {}),
+  addItem: (cartId: string, data: Record<string, unknown>) => api.post(`/ecommerce/cart/${cartId}/items`, data),
+  getCart: (cartId: string) => api.get(`/ecommerce/cart/${cartId}`),
+  checkout: (cartId: string, data: Record<string, unknown>) => api.post(`/ecommerce/cart/${cartId}/checkout`, data),
+  orders: () => api.get('/ecommerce/orders'),
+}
+
 // E-signature API
 export const signatureApi = {
   list: (params?: Record<string, unknown>) => api.get('/signature-requests/', { params }),
@@ -380,6 +394,43 @@ export const fieldServiceApi = {
 // Consolidated intercompany API
 export const consolidatedApi = {
   intercompany: (params?: Record<string, unknown>) => api.get('/gl/consolidated/intercompany-balances', { params }),
+}
+
+// Maintenance & Repairs API
+export const maintenanceApi = {
+  plans: () => api.get('/maintenance/plans'),
+  createPlan: (data: Record<string, unknown>) => api.post('/maintenance/plans', data),
+  orders: (status?: string) => api.get('/maintenance/orders', { params: status ? { status } : {} }),
+  createOrder: (data: Record<string, unknown>) => api.post('/maintenance/orders', data),
+  updateOrder: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/orders/${id}`, data),
+  repairs: (status?: string) => api.get('/maintenance/repairs', { params: status ? { status } : {} }),
+  createRepair: (data: Record<string, unknown>) => api.post('/maintenance/repairs', data),
+  updateRepair: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/repairs/${id}`, data),
+}
+
+// PLM API
+export const plmApi = {
+  versions: (productId: string) => api.get(`/plm/products/${productId}/versions`),
+  createVersion: (productId: string, data: Record<string, unknown>) => api.post(`/plm/products/${productId}/versions`, data),
+  lifecycle: (productId: string) => api.get(`/plm/products/${productId}/lifecycle`),
+  setLifecycle: (productId: string, data: Record<string, unknown>) => api.put(`/plm/products/${productId}/lifecycle`, data),
+  engineeringChanges: (status?: string) => api.get('/plm/engineering-changes', { params: status ? { status } : {} }),
+  createEco: (data: Record<string, unknown>) => api.post('/plm/engineering-changes', data),
+  updateEco: (id: string, data: Record<string, unknown>) => api.patch(`/plm/engineering-changes/${id}`, data),
+}
+
+// Quality Control API
+export const qualityApi = {
+  checks: (params?: Record<string, unknown>) => api.get('/quality-control/', { params }),
+  createCheck: (data: Record<string, unknown>) => api.post('/quality-control/', data),
+  controlPoints: () => api.get('/quality-control/control-points'),
+  createControlPoint: (data: Record<string, unknown>) => api.post('/quality-control/control-points', data),
+  tests: (cpId: string) => api.get(`/quality-control/control-points/${cpId}/tests`),
+  createTest: (cpId: string, data: Record<string, unknown>) => api.post(`/quality-control/control-points/${cpId}/tests`, data),
+  recordResult: (checkId: string, data: Record<string, unknown>) => api.post(`/quality-control/checks/${checkId}/results`, data),
+  alerts: (status?: string) => api.get('/quality-control/alerts', { params: status ? { status } : {} }),
+  createAlert: (data: Record<string, unknown>) => api.post('/quality-control/alerts', data),
+  resolveAlert: (id: string, data: Record<string, unknown>) => api.post(`/quality-control/alerts/${id}/resolve`, data),
 }
 
 // Accounting controls API

@@ -68,9 +68,14 @@ const DocumentsPage = lazy(() => import('./pages/DocumentsPage'))
 const ProductionPage = lazy(() => import('./pages/ProductionPage'))
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
 const EcommercePage = lazy(() => import('./pages/EcommercePage'))
+const StorefrontPage = lazy(() => import('./pages/StorefrontPage'))
 const StudioPage = lazy(() => import('./pages/StudioPage'))
 const MarketplacePage = lazy(() => import('./pages/MarketplacePage'))
 const FieldServicePage = lazy(() => import('./pages/FieldServicePage'))
+const MaintenancePage = lazy(() => import('./pages/MaintenancePage'))
+const PlmPage = lazy(() => import('./pages/PlmPage'))
+const QualityPage = lazy(() => import('./pages/QualityPage'))
+const SignPage = lazy(() => import('./pages/SignPage'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -105,9 +110,14 @@ function App() {
                   <Route path="/production" element={<ProductionPage />} />
                   <Route path="/projects" element={<ProjectsPage />} />
                   <Route path="/ecommerce" element={<EcommercePage />} />
+                  <Route path="/storefront" element={<StorefrontPage />} />
                   <Route path="/studio" element={<StudioPage />} />
                   <Route path="/marketplace" element={<MarketplacePage />} />
                   <Route path="/field-service" element={<FieldServicePage />} />
+                  <Route path="/maintenance" element={<MaintenancePage />} />
+                  <Route path="/plm" element={<PlmPage />} />
+                  <Route path="/quality" element={<QualityPage />} />
+                  <Route path="/sign" element={<SignPage />} />
                   <Route path="/orders" element={<OrdersPage />} />
                   <Route path="/orders/:id" element={<OrdersPage />} />
                   <Route path="/invoices" element={<InvoicesPage />} />

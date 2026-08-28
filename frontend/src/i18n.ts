@@ -1814,6 +1814,47 @@ const en: Record<string, string> = {
   'შესრულებული სამუშაოს აღწერა': 'Work summary',
   'კლიენტის ხელმოწერა (სახელი)': 'Client signature (name)',
   'შენიშვნები': 'Notes',
+  // Maintenance & Repairs
+  'მოვლა და შეკეთება': 'Maintenance & Repairs',
+  'გეგმები, მოვლის დავალებები, სარემონტო სამუშაოები': 'Plans, maintenance orders, repair jobs',
+  'გეგმები': 'Plans',
+  'მოვლის დავალებები': 'Maintenance orders',
+  'შეკეთება': 'Repairs',
+  'ინტერვალი (დღე)': 'Interval (days)',
+  'შემდეგი ვადა': 'Next due',
+  'აღჭურვილობა': 'Equipment',
+  'სარემონტო სამუშაოები არ არის': 'No repair jobs',
+  // PLM
+  'PLM — პროდუქტის სასიცოცხლო ციკლი': 'PLM — product lifecycle',
+  'ვერსიები, ინჟინერული ცვლილებები (ECO), ეტაპები': 'Versions, engineering changes (ECO), stages',
+  'ვერსიები': 'Versions',
+  'ECO ცვლილებები': 'ECO changes',
+  'რევიზია': 'Revision',
+  'ეტაპი': 'Stage',
+  'ECO არ არის': 'No ECOs',
+  // Quality
+  'ხარისხის კონტროლი': 'Quality control',
+  'კონტროლის წერტილები, ტესტები, გაფრთხილებები': 'Control points, tests, alerts',
+  'კონტროლის წერტილები': 'Control points',
+  'კონტროლის წერტილები არ არის': 'No control points',
+  // Storefront
+  'ონლაინ მაღაზია': 'Online store',
+  'Storefront, კალათა, checkout, შეკვეთები': 'Storefront, cart, checkout, orders',
+  'მაღაზია': 'Store',
+  'კალათა': 'Cart',
+  'მართვა': 'Manage',
+  'ყველა კატეგორია': 'All categories',
+  'კალათაში': 'Add to cart',
+  'გამოქვეყნებული': 'Published',
+  // E-signature
+  'ელექტრონული ხელმოწერა': 'E-signature',
+  'მოწვევა, ხელმოწერა, სტატუსი': 'Invite, sign, status',
+  'ახალი მოწვევა': 'New invitation',
+  'მოწვევები არ არის': 'No invitations',
+  'ხელმომწერი': 'Signer',
+  'ხელმოწერილია': 'Signed at',
+  'ხელახლა გაგზავნა': 'Resend',
+  'მოწვევის გაგზავნა ელფოსტაზე': 'Send invitation by email',
 }
 
 i18n.use(initReactI18next).init({
