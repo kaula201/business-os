@@ -47,7 +47,7 @@ def parse_md(path: Path) -> dict:
             title = pm.group(1).strip()
 
     purpose = ""
-    m = re.search(r"^## მიზანი\s*\n\n(.*?)(?=\n## |\Z)", text, re.S)
+    m = re.search(r"^## მიზანი\s*\n\s*(.*?)(?=\n## |\Z)", text, re.S | re.M)
     if m:
         purpose = " ".join(m.group(1).split())
 
@@ -64,7 +64,7 @@ def parse_md(path: Path) -> dict:
                 buttons.append((cells[0], cells[1]))
 
     logic = ""
-    m = re.search(r"^## ბიზნეს ლოგიკა\s*\n\n(.*?)(?=\n## |\Z)", text, re.S)
+    m = re.search(r"^## ბიზნეს ლოგიკა\s*\n\s*(.*?)(?=\n## |\Z)", text, re.S | re.M)
     if m:
         logic = " ".join(m.group(1).split())
 
@@ -155,13 +155,13 @@ def main() -> int:
 
     # ── Module index table ────────────────────────────────────────────────
     add_heading(doc, "სისტემის ნაწილები (მოდულები)", 1)
-    add_para(doc, "სისტემა შედგება შემდეგი ნაწილებისგან:")
+    add_para(doc, "სისტემა შედგება შემდეგი ნაწილებისგან — თითოეულის დანიშნულება და რას მოიცავს:")
 
     files = sorted(MODULES_DIR.glob("*.md"))
-    table = doc.add_table(rows=1, cols=3)
+    table = doc.add_table(rows=1, cols=4)
     table.style = "Light Grid Accent 1"
     hdr = table.rows[0].cells
-    for i, h in enumerate(["#", "ნაწილი", "რას აკეთებს"]):
+    for i, h in enumerate(["#", "ნაწილი", "რისთვის არის", "რას მოიცავს"]):
         hdr[i].text = h
         for p in hdr[i].paragraphs:
             for run in p.runs:
@@ -174,7 +174,22 @@ def main() -> int:
         row[0].text = str(idx)
         row[1].text = data["title"]
         purpose = data["purpose"]
-        row[2].text = purpose[:160] + ("…" if len(purpose) > 160 else "")
+        row[2].text = purpose[:140] + ("…" if len(purpose) > 140 else "")
+
+        # "რას მოიცავს" — key buttons from the module doc's button table
+        btn_labels = [b[0] for b in data["buttons"]]
+        # dedupe, drop generic labels, cap at 7
+        seen = set()
+        key_btns = []
+        for lbl in btn_labels:
+            if lbl in seen or lbl in ("გაუქმება", "დახურვა", "შენახვა", "ინახება...", "იქმნება...", "მუშავდება...", "იტვირთება..."):
+                continue
+            seen.add(lbl)
+            key_btns.append(lbl)
+            if len(key_btns) >= 7:
+                break
+        row[3].text = ", ".join(key_btns) if key_btns else "—"
+
         for c in row:
             for p in c.paragraphs:
                 for run in p.runs:
