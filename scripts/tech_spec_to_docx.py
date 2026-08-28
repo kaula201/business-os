@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 
 from docx import Document
@@ -23,6 +24,7 @@ from docx.shared import Mm, Pt, RGBColor
 
 ROOT = Path(__file__).resolve().parent.parent
 MODULES_DIR = ROOT / "docs" / "tech-spec" / "modules"
+BUTTONS_DIR = ROOT / "docs" / "tech-spec" / "buttons"
 SCAN_DIR = ROOT / "docs" / "tech-spec" / "_scan"
 
 BRAND = RGBColor(0x10, 0x5F, 0x7D)   # brand teal
@@ -217,6 +219,46 @@ def main() -> int:
                     for p in c.paragraphs:
                         for run in p.runs:
                             run.font.size = Pt(9)
+
+        # ── Detailed button descriptions (client language) ────────────────
+        # Look for a buttons/<module-code>.json file with full per-button
+        # descriptions: usage / when / action / result.
+        btn_file = BUTTONS_DIR / f"{f.stem}.json"
+        if btn_file.exists():
+            try:
+                btn_data = json.loads(btn_file.read_text(encoding="utf-8"))
+                # structure: {"invoices": {"module": ..., "buttons": {...}}}
+                btns = {}
+                for v in btn_data.values():
+                    if isinstance(v, dict) and "buttons" in v:
+                        btns = v["buttons"]
+                        break
+                if not btns and isinstance(btn_data, dict) and "buttons" in btn_data:
+                    btns = btn_data["buttons"]
+                if btns:
+                    add_para(doc, "თითოეული ღილაკის დეტალური აღწერა:", bold=True, size=10)
+                    for label, info in btns.items():
+                        p = doc.add_paragraph()
+                        r = p.add_run(f"▸ {label}")
+                        r.font.bold = True
+                        r.font.size = Pt(10)
+                        r.font.color.rgb = BRAND
+                        for field, field_label in (
+                            ("usage", "რისთვის გამოიყენება"),
+                            ("when", "როდის ჩნდება"),
+                            ("action", "რას აკეთებს დაჭერისას"),
+                            ("result", "რა ხდება შემდეგ"),
+                        ):
+                            if info.get(field):
+                                fp = doc.add_paragraph()
+                                fp.paragraph_format.left_indent = Mm(8)
+                                fr = fp.add_run(f"{field_label}: ")
+                                fr.font.bold = True
+                                fr.font.size = Pt(9.5)
+                                fr2 = fp.add_run(info[field])
+                                fr2.font.size = Pt(9.5)
+            except Exception as e:  # noqa: BLE001
+                print(f"⚠ buttons file {btn_file.name}: {e}", file=sys.stderr)
 
         if data["logic"]:
             add_para(doc, "როგორ მუშაობს:", bold=True, size=10)
