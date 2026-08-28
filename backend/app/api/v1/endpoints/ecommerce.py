@@ -1,5 +1,6 @@
 """eCommerce API: categories, products, storefront."""
 import json
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.models.user import User
-from app.models.ecommerce import EcomCategory, EcomProduct
+from app.models.ecommerce import EcomCart, EcomCartItem, EcomCategory, EcomOrder, EcomProduct
 from app.models.product import Product
 from app.schemas.common import ResponseBase, PaginatedResponse
 from app.schemas.ecommerce import (
@@ -291,3 +292,127 @@ async def public_products(
         items=items, total=total, page=page, page_size=page_size,
         total_pages=(total + page_size - 1) // page_size,
     ))
+
+
+# ── Cart & checkout ──────────────────────────────────────────────────
+
+
+@router.post("/cart", response_model=ResponseBase[dict], status_code=201)
+async def create_cart(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    cart = EcomCart(
+        company_id=current_user.company_id,
+        client_id=data.get("client_id"),
+        session_token=data.get("session_token"),
+    )
+    db.add(cart)
+    await db.flush()
+    return ResponseBase(data={"id": str(cart.id)}, message="კალათა შეიქმნა")
+
+
+@router.post("/cart/{cart_id}/items", response_model=ResponseBase[dict], status_code=201)
+async def add_cart_item(
+    cart_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    cart = (await db.execute(
+        select(EcomCart).where(EcomCart.id == cart_id, EcomCart.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not cart:
+        raise HTTPException(status_code=404, detail="კალათა არ მოიძებნა")
+    product = (await db.execute(
+        select(EcomProduct).where(EcomProduct.id == data.get("ecom_product_id"), EcomProduct.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="პროდუქტი არ მოიძებნა")
+    item = EcomCartItem(
+        cart_id=cart.id,
+        ecom_product_id=product.id,
+        quantity=int(data.get("quantity", 1)),
+        unit_price=product.price,
+    )
+    db.add(item)
+    await db.flush()
+    return ResponseBase(data={"id": str(item.id), "unit_price": float(item.unit_price)}, message="პროდუქტი დაემატა")
+
+
+@router.get("/cart/{cart_id}", response_model=ResponseBase[dict])
+async def get_cart(
+    cart_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    cart = (await db.execute(
+        select(EcomCart).where(EcomCart.id == cart_id, EcomCart.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not cart:
+        raise HTTPException(status_code=404, detail="კალათა არ მოიძებნა")
+    items = (await db.execute(
+        select(EcomCartItem).where(EcomCartItem.cart_id == cart.id)
+    )).scalars().all()
+    subtotal = sum(i.unit_price * i.quantity for i in items)
+    return ResponseBase(data={
+        "id": str(cart.id), "status": cart.status,
+        "items": [{"id": str(i.id), "ecom_product_id": str(i.ecom_product_id), "quantity": i.quantity, "unit_price": float(i.unit_price)} for i in items],
+        "subtotal": float(subtotal),
+    })
+
+
+@router.post("/cart/{cart_id}/checkout", response_model=ResponseBase[dict])
+async def checkout(
+    cart_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Convert cart to an e-commerce order."""
+    cart = (await db.execute(
+        select(EcomCart).where(EcomCart.id == cart_id, EcomCart.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not cart:
+        raise HTTPException(status_code=404, detail="კალათა არ მოიძებნა")
+    items = (await db.execute(
+        select(EcomCartItem).where(EcomCartItem.cart_id == cart.id)
+    )).scalars().all()
+    if not items:
+        raise HTTPException(status_code=422, detail="კალათა ცარიელია")
+    subtotal = sum(i.unit_price * i.quantity for i in items)
+    shipping = Decimal(str(data.get("shipping_fee", 0)))
+    from app.api.v1.endpoints.purchase_orders import allocate_document_number
+    number = await allocate_document_number(db, current_user.company_id, "ecom_order", "ECOMM")
+    order = EcomOrder(
+        company_id=current_user.company_id,
+        cart_id=cart.id,
+        client_id=cart.client_id or data.get("client_id"),
+        order_number=number,
+        status="pending",
+        subtotal=subtotal,
+        shipping_fee=shipping,
+        total=subtotal + shipping,
+        shipping_address=data.get("shipping_address"),
+        payment_method=data.get("payment_method", "card"),
+    )
+    db.add(order)
+    cart.status = "converted"
+    await db.flush()
+    return ResponseBase(data={"id": str(order.id), "order_number": order.order_number, "total": float(order.total)}, message="შეკვეთა შეიქმნა")
+
+
+@router.get("/orders", response_model=ResponseBase[list[dict]])
+async def list_orders(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(EcomOrder).where(EcomOrder.company_id == current_user.company_id).order_by(EcomOrder.created_at.desc()).limit(50)
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(o.id), "order_number": o.order_number, "status": o.status,
+        "subtotal": float(o.subtotal), "shipping_fee": float(o.shipping_fee), "total": float(o.total),
+        "payment_method": o.payment_method, "created_at": o.created_at.isoformat(),
+    } for o in rows])
