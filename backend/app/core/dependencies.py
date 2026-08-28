@@ -45,6 +45,23 @@ async def get_current_user(
     return user
 
 
+def _ip_allowed(client_ip: str | None, allowed: list) -> bool:
+    """Check client IP against exact IPs and CIDR ranges."""
+    if not client_ip:
+        return False
+    import ipaddress
+    for entry in allowed:
+        try:
+            if "/" in str(entry):
+                if ipaddress.ip_address(client_ip) in ipaddress.ip_network(str(entry), strict=False):
+                    return True
+            elif client_ip == str(entry):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 async def get_current_user_or_api_key(
     request: Request,
     db: AsyncSession = Depends(get_db),
@@ -61,10 +78,28 @@ async def get_current_user_or_api_key(
             raise HTTPException(status_code=401, detail="არასწორი ან გაუქმებული API გასაღები")
         if key.expires_at and key.expires_at < datetime.utcnow():
             raise HTTPException(status_code=401, detail="API გასაღების ვადა გასულია")
+        # API P1.8: allowed IPs (exact or CIDR)
+        client_ip = request.client.host if request.client else None
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            client_ip = forwarded.split(",")[0].strip()
+        if key.allowed_ips:
+            allowed = _ip_allowed(client_ip, key.allowed_ips)
+            if not allowed:
+                raise HTTPException(status_code=403, detail="IP არ არის დაშვებული ამ API გასაღებისთვის")
+        # API P1.8: rate limit (sliding window per minute)
+        now = datetime.utcnow()
+        if key.rate_window_start and (now - key.rate_window_start).total_seconds() < 60:
+            if key.rate_window_count >= key.rate_limit_per_minute:
+                raise HTTPException(status_code=429, detail="Rate limit გადაჭარბებულია")
+            key.rate_window_count += 1
+        else:
+            key.rate_window_start = now
+            key.rate_window_count = 1
         user = (await db.execute(select(User).where(User.id == key.user_id))).scalar_one_or_none()
         if not user or not user.is_active:
             raise HTTPException(status_code=401, detail="მომხმარებელი არ მოიძებნა ან დეაქტივირებულია")
-        key.last_used_at = datetime.utcnow()
+        key.last_used_at = now
         await db.flush()
         await db.execute(
             text("SELECT set_config('app.current_company_id', :cid, true)"),
@@ -73,6 +108,8 @@ async def get_current_user_or_api_key(
         current_company_id.set(user.company_id)
         # Expose the key's scopes for require_module enforcement (Odoo access rights)
         request.state.api_key_scopes = [s.strip() for s in key.scopes.split(",") if s.strip()]
+        request.state.api_key_branch_id = key.branch_id
+        request.state.api_key_resource_ids = key.resource_ids or []
         return user
     return await get_current_user(request, db)
 
@@ -104,10 +141,19 @@ def require_module(module_code: str, permission: str = "can_access"):
         db: AsyncSession = Depends(get_db),
         current_user: User = Depends(get_current_user_or_api_key),
     ) -> User:
-        # API key scope enforcement (Odoo access rights): the module must be in the key's scopes
+        # API key scope enforcement (Odoo access rights): module[.action] must be in scopes
         scopes = getattr(request.state, "api_key_scopes", None)
-        if scopes is not None and "*" not in scopes and module_code not in scopes:
-            raise HTTPException(status_code=403, detail=f"API გასაღებს არ აქვს წვდომა მოდულზე: {module_code}")
+        if scopes is not None and "*" not in scopes:
+            # map permission → action for granular scope matching (sales.read, inventory.write)
+            action_map = {"can_access": "read", "can_view": "read", "can_create": "write", "can_edit": "write", "can_delete": "admin"}
+            action = action_map.get(permission, "read")
+            module_ok = module_code in scopes
+            granular_ok = any(
+                s == f"{module_code}.{action}" or s == f"{module_code}.read" and action == "read"
+                for s in scopes
+            )
+            if not (module_ok or granular_ok):
+                raise HTTPException(status_code=403, detail=f"API გასაღებს არ აქვს წვდომა მოდულზე: {module_code}.{action}")
 
         # Admin always has full access
         if current_user.role == User.Role.ADMIN:

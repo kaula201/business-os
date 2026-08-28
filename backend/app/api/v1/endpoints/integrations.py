@@ -131,7 +131,15 @@ async def list_api_keys(
     result = await db.execute(
         select(ApiKey).where(ApiKey.company_id == current_user.company_id).order_by(ApiKey.created_at.desc())
     )
-    return ResponseBase(data=[{"id": str(k.id), "name": k.name, "key_prefix": k.key_prefix, "scopes": k.scopes, "is_active": k.is_active, "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None} for k in result.scalars().all()])
+    return ResponseBase(data=[{
+        "id": str(k.id), "name": k.name, "key_prefix": k.key_prefix, "scopes": k.scopes,
+        "is_active": k.is_active, "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
+        "expires_at": k.expires_at.isoformat() if k.expires_at else None,
+        "branch_id": str(k.branch_id) if k.branch_id else None,
+        "resource_ids": k.resource_ids or [],
+        "allowed_ips": k.allowed_ips or [],
+        "rate_limit_per_minute": k.rate_limit_per_minute,
+    } for k in result.scalars().all()])
 
 
 @router.post("/api-keys", response_model=ResponseBase[dict], status_code=201)
@@ -144,10 +152,16 @@ async def create_api_key(
     prefix = raw[:12]
     k = ApiKey(
         company_id=current_user.company_id,
+        user_id=current_user.id,
         name=data.get("name", "API Key"),
         key_prefix=prefix,
         key_hash=hashlib.sha256(raw.encode()).hexdigest(),
         scopes=data.get("scopes", "read"),
+        expires_at=data.get("expires_at"),
+        branch_id=data.get("branch_id"),
+        resource_ids=data.get("resource_ids"),
+        allowed_ips=data.get("allowed_ips"),
+        rate_limit_per_minute=int(data.get("rate_limit_per_minute", 120)),
     )
     db.add(k)
     await db.commit()
@@ -195,6 +209,8 @@ async def create_webhook(
         url=data.get("url", ""),
         events=data.get("events", "invoice.created"),
         secret=secrets.token_hex(16),
+        retry_max=int(data.get("retry_max", 3)),
+        retry_backoff_seconds=int(data.get("retry_backoff_seconds", 60)),
     )
     db.add(w)
     await db.commit()
@@ -227,7 +243,27 @@ async def list_webhook_events(
     result = await db.execute(
         select(WebhookEvent).where(WebhookEvent.company_id == current_user.company_id).order_by(WebhookEvent.created_at.desc()).limit(50)
     )
-    return ResponseBase(data=[{"id": str(e.id), "event_type": e.event_type, "status": e.status, "attempts": e.attempts, "created_at": e.created_at.isoformat()} for e in result.scalars().all()])
+    return ResponseBase(data=[{
+        "id": str(e.id), "event_type": e.event_type, "status": e.status, "attempts": e.attempts,
+        "last_response_code": e.last_response_code, "last_error": e.last_error,
+        "idempotency_key": e.idempotency_key,
+        "next_retry_at": e.next_retry_at.isoformat() if e.next_retry_at else None,
+        "created_at": e.created_at.isoformat(),
+    } for e in result.scalars().all()])
+
+
+# ── Retry queue (dead-letter processing) ───────────────────────────────────────
+
+
+@router.post("/webhook-events/retry", response_model=ResponseBase[dict])
+async def retry_failed_events(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("integrations", "can_edit")),
+):
+    from app.services.webhook_delivery import process_retry_queue
+    delivered = await process_retry_queue(db, current_user.company_id)
+    await db.commit()
+    return ResponseBase(data={"retried": delivered}, message="განმეორებითი გაგზავნა დასრულდა")
 
 
 # ── Public API (API key auth) ─────────────────────────────────────────────────
