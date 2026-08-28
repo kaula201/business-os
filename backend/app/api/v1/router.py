@@ -36,6 +36,7 @@ from app.api.v1.endpoints import (
     pos_restaurant,
     pos_hardware,
     maintenance,
+    plm,
     automations,
     accounting_controls,
     consolidation_eliminations,
@@ -124,6 +125,7 @@ api_router.include_router(orders_enhanced.router)
 api_router.include_router(pos.router)
 api_router.include_router(pos_hardware.router)
 api_router.include_router(maintenance.router)
+api_router.include_router(plm.router)
 api_router.include_router(products.router)
 api_router.include_router(tasks_enhanced.router)
 api_router.include_router(tasks.router)
