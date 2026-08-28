@@ -3920,6 +3920,68 @@
   ]
  },
  {
+  "file": "backend/app/api/v1/endpoints/marketplace.py",
+  "prefix": "/marketplace",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/apps",
+    "full_path": "/marketplace/apps",
+    "function": "list_marketplace_apps",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/apps/{app_id}",
+    "full_path": "/marketplace/apps/{app_id}",
+    "function": "get_marketplace_app",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/apps",
+    "full_path": "/marketplace/apps",
+    "function": "create_marketplace_app",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/apps/{app_id}/install",
+    "full_path": "/marketplace/apps/{app_id}/install",
+    "function": "install_marketplace_app",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/apps/{app_id}/uninstall",
+    "full_path": "/marketplace/apps/{app_id}/uninstall",
+    "function": "uninstall_marketplace_app",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/apps/{app_id}/config",
+    "full_path": "/marketplace/apps/{app_id}/config",
+    "function": "update_app_config",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/my-apps",
+    "full_path": "/marketplace/my-apps",
+    "function": "my_installed_apps",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
   "file": "backend/app/api/v1/endpoints/modules.py",
   "prefix": "/modules",
   "routes": [

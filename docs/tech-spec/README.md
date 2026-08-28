@@ -82,6 +82,7 @@
 | 64 | financial-automation | ფინანსური ავტომატიზაცია | accounting | /gl/automation | [აღწერა](modules/financial-automation.md) |
 | 65 | data-exchange | მონაცემთა ექსპორტი/იმპორტი | operations | /exports | [აღწერა](modules/data-exchange.md) |
 | 66 | studio | აპლიკაციების სტუდია | other | /studio | [აღწერა](modules/studio.md) |
+| 67 | marketplace | აპლიკაციების მარკეტი | other | /marketplace | [აღწერა](modules/marketplace.md) |
 
 ## დამატებითი გვერდები (არა მოდულები)
 
@@ -139,4 +140,4 @@ frontend/
 | თარიღი | ცვლილება |
 |--------|----------|
 | 2026-08-28 | დოკუმენტის შექმნა — 53 მოდულის ინდექსი |
-| 2026-08-28 | ყველა 66 მოდულის დეტალური აღწერა (5000+ სტრიქონი) + ავტო-განახლება (post-commit hook + cron) |
+| 2026-08-28 | ყველა 67 მოდულის დეტალური აღწერა (5000+ სტრიქონი) + ავტო-განახლება (post-commit hook + cron) |
