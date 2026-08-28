@@ -311,6 +311,75 @@ export const automationsApi = {
   create: (data: Record<string, unknown>) => api.post('/automations/', data),
   update: (id: string, data: Record<string, unknown>) => api.patch(`/automations/${id}`, data),
   remove: (id: string) => api.delete(`/automations/${id}`),
+  trigger: (trigger: string, data: Record<string, unknown> = {}) => api.post(`/automations/trigger/${trigger}`, data),
+}
+
+// Email marketing API
+export const emailMarketingApi = {
+  list: (params?: Record<string, unknown>) => api.get('/email-campaigns/', { params }),
+  create: (data: Record<string, unknown>) => api.post('/email-campaigns/', data),
+  update: (id: string, data: Record<string, unknown>) => api.patch(`/email-campaigns/${id}`, data),
+  remove: (id: string) => api.delete(`/email-campaigns/${id}`),
+  send: (id: string) => api.post(`/email-campaigns/${id}/send`),
+  stats: (id: string) => api.get(`/email-campaigns/${id}/stats`),
+}
+
+// E-signature API
+export const signatureApi = {
+  list: (params?: Record<string, unknown>) => api.get('/signature-requests/', { params }),
+  create: (data: Record<string, unknown>) => api.post('/signature-requests/', data),
+  resend: (id: string) => api.post(`/signature-requests/${id}/resend`),
+}
+
+// No-code Studio API
+export const studioApi = {
+  apps: () => api.get('/studio/apps'),
+  createApp: (data: Record<string, unknown>) => api.post('/studio/apps', data),
+  updateApp: (id: string, data: Record<string, unknown>) => api.patch(`/studio/apps/${id}`, data),
+  removeApp: (id: string) => api.delete(`/studio/apps/${id}`),
+  forms: (appId: string) => api.get(`/studio/apps/${appId}/forms`),
+  createForm: (appId: string, data: Record<string, unknown>) => api.post(`/studio/apps/${appId}/forms`, data),
+  removeForm: (id: string) => api.delete(`/studio/forms/${id}`),
+  records: (formId: string, params?: Record<string, unknown>) => api.get(`/studio/forms/${formId}/records`, { params }),
+  createRecord: (formId: string, data: Record<string, unknown>) => api.post(`/studio/forms/${formId}/records`, data),
+  removeRecord: (id: string) => api.delete(`/studio/records/${id}`),
+}
+
+// Marketplace API
+export const marketplaceApi = {
+  apps: (params?: Record<string, unknown>) => api.get('/marketplace/apps', { params }),
+  get: (id: string) => api.get(`/marketplace/apps/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/marketplace/apps', data),
+  install: (id: string, data?: Record<string, unknown>) => api.post(`/marketplace/apps/${id}/install`, data || {}),
+  uninstall: (id: string) => api.post(`/marketplace/apps/${id}/uninstall`),
+  updateConfig: (id: string, data: Record<string, unknown>) => api.patch(`/marketplace/apps/${id}/config`, data),
+  myApps: () => api.get('/marketplace/my-apps'),
+}
+
+// Project resources API
+export const projectResourcesApi = {
+  members: (projectId: string) => api.get(`/projects/${projectId}/members`),
+  addMember: (projectId: string, data: Record<string, unknown>) => api.post(`/projects/${projectId}/members`, data),
+  updateMember: (id: string, data: Record<string, unknown>) => api.patch(`/projects/members/${id}`, data),
+  removeMember: (id: string) => api.delete(`/projects/members/${id}`),
+  timesheets: (projectId: string) => api.get(`/projects/${projectId}/timesheets`),
+  addTimesheet: (projectId: string, data: Record<string, unknown>) => api.post(`/projects/${projectId}/timesheets`, data),
+  removeTimesheet: (id: string) => api.delete(`/projects/timesheets/${id}`),
+  utilization: () => api.get('/projects/resources/utilization'),
+}
+
+// Field service API
+export const fieldServiceApi = {
+  list: (params?: Record<string, unknown>) => api.get('/helpdesk/field-service', { params }),
+  create: (data: Record<string, unknown>) => api.post('/helpdesk/field-service', data),
+  myJobs: () => api.get('/helpdesk/field-service/my-jobs'),
+  start: (id: string) => api.post(`/helpdesk/field-service/${id}/start`),
+  complete: (id: string, data: Record<string, unknown>) => api.post(`/helpdesk/field-service/${id}/complete`, data),
+}
+
+// Consolidated intercompany API
+export const consolidatedApi = {
+  intercompany: (params?: Record<string, unknown>) => api.get('/gl/consolidated/intercompany-balances', { params }),
 }
 
 // Accounting controls API

@@ -67,6 +67,10 @@ const HRPage = lazy(() => import('./pages/HRPage'))
 const DocumentsPage = lazy(() => import('./pages/DocumentsPage'))
 const ProductionPage = lazy(() => import('./pages/ProductionPage'))
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
+const EcommercePage = lazy(() => import('./pages/EcommercePage'))
+const StudioPage = lazy(() => import('./pages/StudioPage'))
+const MarketplacePage = lazy(() => import('./pages/MarketplacePage'))
+const FieldServicePage = lazy(() => import('./pages/FieldServicePage'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -100,6 +104,10 @@ function App() {
                   <Route path="/documents" element={<DocumentsPage />} />
                   <Route path="/production" element={<ProductionPage />} />
                   <Route path="/projects" element={<ProjectsPage />} />
+                  <Route path="/ecommerce" element={<EcommercePage />} />
+                  <Route path="/studio" element={<StudioPage />} />
+                  <Route path="/marketplace" element={<MarketplacePage />} />
+                  <Route path="/field-service" element={<FieldServicePage />} />
                   <Route path="/orders" element={<OrdersPage />} />
                   <Route path="/orders/:id" element={<OrdersPage />} />
                   <Route path="/invoices" element={<InvoicesPage />} />
