@@ -803,6 +803,47 @@ async def post_goods_receipt(
     return ResponseBase(data=build_receipt_response(receipt))
 
 
+# ── Quality check ───────────────────────────────────────────────────
+
+
+@router.post(
+    "/{purchase_order_id}/receipts/{receipt_id}/quality-check",
+    response_model=ResponseBase[dict],
+)
+async def quality_check_receipt(
+    purchase_order_id: UUID,
+    receipt_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Record the quality check result for a goods receipt (P1.9)."""
+    receipt = (
+        await db.execute(
+            select(GoodsReceipt).where(
+                GoodsReceipt.id == receipt_id,
+                GoodsReceipt.purchase_order_id == purchase_order_id,
+                GoodsReceipt.company_id == current_user.company_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not receipt:
+        raise HTTPException(status_code=404, detail="მიღება არ მოიძებნა")
+    status = data.get("status", "passed")
+    if status not in ("pending", "passed", "failed", "partial"):
+        raise HTTPException(status_code=422, detail="არასწორი ხარისხის სტატუსი")
+    receipt.quality_status = status
+    receipt.quality_notes = data.get("notes")
+    receipt.quality_checked_by = current_user.id
+    receipt.quality_checked_at = datetime.utcnow()
+    await db.flush()
+    return ResponseBase(data={
+        "receipt_id": str(receipt.id),
+        "quality_status": receipt.quality_status,
+        "quality_notes": receipt.quality_notes,
+    }, message="ხარისხის შემოწმება შენახულია")
+
+
 # ── Three-Way Matching ──────────────────────────────────────────────
 
 

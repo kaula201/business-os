@@ -235,6 +235,11 @@ class GoodsReceipt(Base):
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     received_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    # P1.9: quality check on receipt
+    quality_status: Mapped[str | None] = mapped_column(String(20), nullable=True)  # pending, passed, failed, partial
+    quality_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quality_checked_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    quality_checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     purchase_order = relationship("PurchaseOrder", back_populates="receipts")
