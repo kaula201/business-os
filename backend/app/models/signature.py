@@ -14,13 +14,15 @@ class SignatureRequest(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    document_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("documents.id"), nullable=True, index=True)
     document_name: Mapped[str] = mapped_column(String(255), nullable=False)
     document_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     signer_name: Mapped[str] = mapped_column(String(255), nullable=False)
     signer_email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False, index=True)
-    # pending | signed | declined
+    # pending | signed | declined | expired
     signing_token: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     signed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     signed_by_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)

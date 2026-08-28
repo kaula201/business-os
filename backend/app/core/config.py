@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     
     # CORS
     CORS_ORIGINS: str = "*"
+    FRONTEND_URL: str = "http://localhost:5173"
     
     # SMTP (real email sending; falls back to sandbox when unset)
     SMTP_HOST: str = ""

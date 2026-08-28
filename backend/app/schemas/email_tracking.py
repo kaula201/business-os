@@ -36,9 +36,12 @@ class CampaignStatsResponse(BaseModel):
 class SignatureRequestCreate(BaseModel):
     document_name: str = Field(min_length=1, max_length=255)
     document_url: str | None = None
+    document_id: UUID | None = None
     signer_name: str = Field(min_length=1, max_length=255)
     signer_email: str = Field(min_length=3, max_length=255)
     message: str | None = None
+    expires_at: datetime | None = None
+    send_email: bool = False
 
 
 class SignatureSignRequest(BaseModel):
@@ -50,11 +53,13 @@ class SignatureSignRequest(BaseModel):
 class SignatureRequestResponse(BaseModel):
     id: UUID
     company_id: UUID
+    document_id: UUID | None
     document_name: str
     document_url: str | None
     signer_name: str
     signer_email: str
     status: str
+    expires_at: datetime | None
     signed_at: datetime | None
     signed_by_email: str | None
     message: str | None

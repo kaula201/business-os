@@ -8,9 +8,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.endpoints.purchase_orders import add_audit
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.time import utc_now
+from app.models.email_calendar import EmailMessage
 from app.models.email_marketing import EmailCampaign
 from app.models.email_tracking import EmailEvent
 from app.models.signature import SignatureRequest
@@ -24,6 +26,7 @@ from app.schemas.email_tracking import (
     SignatureRequestResponse,
     SignatureSignRequest,
 )
+from app.services.email_service import send_email_smtp, smtp_configured
 
 router = APIRouter(tags=["კომუნიკაცია"])
 
@@ -121,9 +124,10 @@ async def list_email_events(
 
 def _sig_response(r: SignatureRequest) -> SignatureRequestResponse:
     return SignatureRequestResponse(
-        id=r.id, company_id=r.company_id, document_name=r.document_name,
-        document_url=r.document_url, signer_name=r.signer_name, signer_email=r.signer_email,
-        status=r.status, signed_at=r.signed_at, signed_by_email=r.signed_by_email,
+        id=r.id, company_id=r.company_id, document_id=r.document_id,
+        document_name=r.document_name, document_url=r.document_url, signer_name=r.signer_name,
+        signer_email=r.signer_email, status=r.status, expires_at=r.expires_at,
+        signed_at=r.signed_at, signed_by_email=r.signed_by_email,
         message=r.message, created_at=r.created_at, updated_at=r.updated_at,
     )
 
@@ -157,19 +161,88 @@ async def create_signature_request(
     current_user: User = Depends(get_current_user),
 ):
     token = secrets.token_urlsafe(24)
+    if data.document_id:
+        from app.models.documents import Document
+
+        doc = (await db.execute(select(Document).where(
+            Document.id == data.document_id,
+            Document.company_id == current_user.company_id,
+        ))).scalar_one_or_none()
+        if not doc:
+            raise HTTPException(status_code=404, detail="დოკუმენტი ვერ მოიძებნა")
     req = SignatureRequest(
-        company_id=current_user.company_id, document_name=data.document_name,
-        document_url=data.document_url, signer_name=data.signer_name,
-        signer_email=data.signer_email, signing_token=token, message=data.message,
+        company_id=current_user.company_id, document_id=data.document_id,
+        document_name=data.document_name, document_url=data.document_url,
+        signer_name=data.signer_name, signer_email=data.signer_email,
+        signing_token=token, message=data.message, expires_at=data.expires_at,
         created_by=current_user.id,
     )
     db.add(req)
     await db.flush()
     add_audit(db, current_user, "signature_request.created", "signature_request", req.id,
               {"document": req.document_name, "signer": req.signer_email})
+
+    if data.send_email:
+        link = f"{settings.FRONTEND_URL}/sign/{token}"
+        body = (
+            f"გამარჯობა {req.signer_name},\n\n"
+            f"გთხოვთ მოაწეროთ ხელი დოკუმენტს: {req.document_name}\n"
+            f"{('შეტყობინება: ' + req.message) if req.message else ''}\n\n"
+            f"ხელმოწერის ბმული: {link}\n"
+            f"ვადა: {req.expires_at.isoformat() if req.expires_at else 'უვადოდ'}"
+        )
+        if smtp_configured():
+            try:
+                send_email_smtp(req.signer_email, f"ხელმოწერა: {req.document_name}", body)
+            except Exception:
+                pass
+        else:
+            db.add(EmailMessage(
+                company_id=current_user.company_id, to_email=req.signer_email,
+                subject=f"ხელმოწერა: {req.document_name}", body=body, status="sent",
+            ))
+
     await db.commit()
     await db.refresh(req)
     return ResponseBase(data=_sig_response(req))
+
+
+@router.post("/signature-requests/{req_id}/resend", response_model=ResponseBase[dict])
+async def resend_signature_request(
+    req_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-send the signing invitation email (new token)."""
+    req = (await db.execute(select(SignatureRequest).where(
+        SignatureRequest.id == req_id,
+        SignatureRequest.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not req:
+        raise HTTPException(status_code=404, detail="მოთხოვნა ვერ მოიძებნა")
+    if req.status != "pending":
+        raise HTTPException(status_code=400, detail="მხოლოდ pending მოთხოვნის ხელახლა გაგზავნა შეიძლება")
+
+    req.signing_token = secrets.token_urlsafe(24)
+    link = f"{settings.FRONTEND_URL}/sign/{req.signing_token}"
+    body = (
+        f"გამარჯობა {req.signer_name},\n\n"
+        f"გთხოვთ მოაწეროთ ხელი დოკუმენტს: {req.document_name}\n\n"
+        f"ხელმოწერის ბმული: {link}\n"
+        f"ვადა: {req.expires_at.isoformat() if req.expires_at else 'უვადოდ'}"
+    )
+    if smtp_configured():
+        try:
+            send_email_smtp(req.signer_email, f"ხელმოწერა: {req.document_name}", body)
+        except Exception:
+            pass
+    else:
+        db.add(EmailMessage(
+            company_id=current_user.company_id, to_email=req.signer_email,
+            subject=f"ხელმოწერა: {req.document_name}", body=body, status="sent",
+        ))
+    await db.commit()
+    return ResponseBase(data={"id": str(req.id), "resend": True}, message="მოწვევა ხელახლა გაიგზავნა")
 
 
 @router.post("/signature-requests/sign", response_model=ResponseBase[SignatureRequestResponse])

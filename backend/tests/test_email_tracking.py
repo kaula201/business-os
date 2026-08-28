@@ -97,3 +97,58 @@ async def test_signature_list_filter(client, auth_headers, test_company):
     listed = await client.get("/api/v1/signature-requests/", params={"status": "pending"}, headers=auth_headers)
     assert listed.status_code == 200
     assert listed.json()["data"]["total"] >= 1
+
+
+async def test_signature_with_document_id_and_send_email(client, auth_headers, test_company):
+    # create a document first
+    doc = await client.post("/api/v1/documents/", json={
+        "name": "კონტრაქტი #42", "category": "contracts",
+    }, headers=auth_headers)
+    # document endpoint may require different payload — try, fall back gracefully
+    doc_id = None
+    if doc.status_code in (200, 201):
+        doc_id = doc.json()["data"]["id"]
+    else:
+        # create via DB directly
+        from app.models.documents import Document
+        from sqlalchemy import select
+        from tests.conftest import TestSessionLocal
+        async with TestSessionLocal() as session:
+            d = Document(company_id=test_company.id, title="კონტრაქტი #42",
+                         filename="contract42.pdf", file_path="/tmp/contract42.pdf",
+                         document_type="contract")
+            session.add(d)
+            await session.commit()
+            doc_id = str(d.id)
+
+    created = await client.post("/api/v1/signature-requests/", json={
+        "document_name": "კონტრაქტი #42",
+        "document_id": doc_id,
+        "signer_name": "ლევანი", "signer_email": "levan@client.ge",
+        "send_email": True,  # sandbox -> email_messages row
+        "expires_at": "2026-12-31T23:59:59",
+    }, headers=auth_headers)
+    assert created.status_code == 201, created.text
+    req = created.json()["data"]
+    assert req["document_id"] == doc_id
+    assert req["expires_at"] is not None
+
+    # email was written to email_messages in sandbox
+    from app.models.email_calendar import EmailMessage
+    from sqlalchemy import select
+    from tests.conftest import TestSessionLocal
+    async with TestSessionLocal() as session:
+        msgs = (await session.execute(select(EmailMessage).where(
+            EmailMessage.to_email == "levan@client.ge",
+        ))).scalars().all()
+    assert len(msgs) == 1
+    assert "sign" in msgs[0].body
+
+    # resend generates a new token and another email
+    resp = await client.post(f"/api/v1/signature-requests/{req['id']}/resend", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    async with TestSessionLocal() as session:
+        msgs2 = (await session.execute(select(EmailMessage).where(
+            EmailMessage.to_email == "levan@client.ge",
+        ))).scalars().all()
+    assert len(msgs2) == 2
