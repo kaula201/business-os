@@ -9,7 +9,12 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.common import ResponseBase
-from app.services.consolidated import consolidated_balance_sheet, consolidated_profit_loss, get_group_companies
+from app.services.consolidated import (
+    consolidated_balance_sheet,
+    consolidated_profit_loss,
+    get_group_companies,
+    intercompany_balances,
+)
 
 router = APIRouter(prefix="/gl/consolidated", tags=["მთავარი წიგნი — კონსოლიდირებული"])
 
@@ -82,6 +87,31 @@ async def consolidated_bs(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     data["companies"] = [{"id": str(c.id), "name": c.name} for c in companies]
     add_audit(db, current_user, "consolidated.bs_viewed", "gl", company_ids[0], {
+        "company_ids": [str(c) for c in company_ids],
+        "as_of_date": str(target_date),
+    })
+    await db.commit()
+    return ResponseBase(data=data)
+
+
+@router.get("/intercompany-balances")
+async def consolidated_intercompany(
+    as_of_date: date | None = None,
+    presentation_currency: str | None = Query(None, min_length=3, max_length=3),
+    fx_method: str = Query("closing", pattern="^(average|closing|historical)$"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Per-account balances across group companies — intercompany reconciliation."""
+    require_gl_role(current_user)
+    company_ids, companies = await _group_ids(db, current_user)
+    target_date = as_of_date or date.today()
+    try:
+        data = await intercompany_balances(db, company_ids, target_date, presentation_currency, fx_method)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    data["companies"] = [{"id": str(c.id), "name": c.name} for c in companies]
+    add_audit(db, current_user, "consolidated.intercompany_viewed", "gl", company_ids[0], {
         "company_ids": [str(c) for c in company_ids],
         "as_of_date": str(target_date),
     })

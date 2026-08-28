@@ -215,3 +215,57 @@ async def test_consolidation_translates_foreign_currency_with_persisted_rate(cli
     assert data["total_income"] == 1000.0
     assert data["total_expenses"] == 200.0
     assert data["net_income"] == 800.0
+
+
+async def test_intercompany_balances_reconciliation(client, auth_headers, test_company, db_session):
+    """Two group companies post to the same account code — the report shows
+    per-company balances so A's receivable mirrors B's payable."""
+    group = uuid.uuid4()
+    async with TestSessionLocal() as session:
+        co_a = await _setup_grouped_company(session, "Alpha", "CONS-IC-A", group)
+        co_b = await _setup_grouped_company(session, "Beta", "CONS-IC-B", group)
+        tc = (await session.execute(select(Company).where(Company.id == test_company.id))).scalar_one()
+        tc.company_group_id = group
+        await session.commit()
+
+        # A: receivable 300 on 1100 (asset, Dr); B: payable 300 on 2100 (liability, Cr)
+        for company, code, amount, on_date in [
+            (co_a, "1100", Decimal("300"), date(2026, 8, 10)),
+            (co_b, "2100", Decimal("300"), date(2026, 8, 10)),
+        ]:
+            accounts = (await session.execute(
+                select(GLAccount).where(GLAccount.company_id == company.id)
+            )).scalars().all()
+            acc = {a.code: a.id for a in accounts}
+            entry = JournalEntry(
+                company_id=company.id,
+                entry_number=f"IC-{company.identification_code}-{uuid.uuid4().hex[:6]}",
+                entry_date=on_date, description="intercompany test",
+                reference_type="manual", reference_id=uuid.uuid4(),
+            )
+            session.add(entry)
+            await session.flush()
+            is_liability = code == "2100"
+            session.add(JournalEntryLine(journal_entry_id=entry.id, gl_account_id=acc[code], line_number=1,
+                                         debit_amount=0 if is_liability else amount,
+                                         credit_amount=amount if is_liability else 0, description="ic"))
+            session.add(JournalEntryLine(journal_entry_id=entry.id, gl_account_id=acc["1410"], line_number=2,
+                                         debit_amount=amount if is_liability else 0,
+                                         credit_amount=0 if is_liability else amount, description="bank"))
+        await session.commit()
+
+    resp = await client.get("/api/v1/gl/consolidated/intercompany-balances", params={
+        "as_of_date": "2026-08-31",
+    }, headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert len(data["companies"]) == 3
+    codes = {a["account_code"] for a in data["accounts"]}
+    assert "1100" in codes
+    assert "2100" in codes
+    # Alpha's 1100 balance is +300 (asset)
+    for acc in data["accounts"]:
+        if acc["account_code"] == "1100":
+            assert any(b["balance"] == 300.0 for b in acc["balances"].values())
+        if acc["account_code"] == "2100":
+            assert any(b["balance"] == 300.0 for b in acc["balances"].values())

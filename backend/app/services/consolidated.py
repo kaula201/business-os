@@ -180,3 +180,59 @@ async def consolidated_balance_sheet(
             "liability_accounts": liability_accounts, "equity_accounts": equity_accounts,
             "net_income_included": net_income, "total_assets": round(total_assets, 2),
             "total_liabilities": round(total_liabilities, 2), "total_equity": round(total_equity, 2)}
+
+
+async def intercompany_balances(
+    db: AsyncSession, company_ids: list[UUID], as_of_date: date,
+    presentation_currency: str | None = None, fx_method: str = "closing",
+) -> dict:
+    """Per-company balances on the same account code — the intercompany
+    reconciliation view (A's receivable should mirror B's payable)."""
+    mapping, rates, target = await _consolidation_context(
+        db, company_ids, as_of_date, presentation_currency, fx_method,
+    )
+    await db.execute(text("SET LOCAL app.current_company_id = ''"))
+    rows = (await db.execute(
+        select(
+            GLAccount.company_id, GLAccount.code, GLAccount.name, GLAccount.account_type,
+            func.coalesce(func.sum(JournalEntryLine.debit_amount), 0).label("total_debit"),
+            func.coalesce(func.sum(JournalEntryLine.credit_amount), 0).label("total_credit"),
+        )
+        .select_from(GLAccount)
+        .outerjoin(JournalEntryLine, JournalEntryLine.gl_account_id == GLAccount.id)
+        .outerjoin(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
+        .where(
+            GLAccount.company_id.in_(company_ids),
+            JournalEntry.entry_date <= as_of_date,
+        )
+        .group_by(GLAccount.company_id, GLAccount.code, GLAccount.name, GLAccount.account_type)
+    )).all()
+
+    companies = {str(c.id): c.name for c in (await db.execute(
+        select(Company).where(Company.id.in_(company_ids))
+    )).scalars().all()}
+
+    by_code: dict[str, dict] = {}
+    for company_id, code, name, account_type, debit, credit in rows:
+        rate = float(rates[company_id])
+        balance = _balance(account_type, float(debit) * rate, float(credit) * rate)
+        row = by_code.setdefault(code, {
+            "account_code": code, "account_name": name, "account_type": account_type,
+            "balances": {}, "total": 0.0,
+        })
+        row["balances"][str(company_id)] = {
+            "company_id": str(company_id), "company_name": companies.get(str(company_id), "?"),
+            "balance": round(balance, 2),
+        }
+        row["total"] += balance
+
+    items = []
+    for code, row in sorted(by_code.items()):
+        row["total"] = round(row["total"], 2)
+        items.append(row)
+    return {
+        "as_of_date": as_of_date, "presentation_currency": target,
+        "fx_method": fx_method if target else None,
+        "companies": [{"id": str(c), "name": n} for c, n in companies.items()],
+        "accounts": items,
+    }
