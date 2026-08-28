@@ -57,6 +57,36 @@ async def test_audit_log_entries(client, auth_headers):
     assert isinstance(al.json()["data"], list)
 
 
+async def test_audit_records_field_changes(client, auth_headers, test_company):
+    """Editing a product records who/what/old/new in the audit log."""
+    from sqlalchemy import select as sa_select
+    from app.models.product import Product
+
+    # create a product for this test
+    p = await client.post("/api/v1/products/", json={
+        "name": f"AuditTest-{uuid.uuid4().hex[:6]}", "sku": f"AU-{uuid.uuid4().hex[:6]}",
+        "sale_price": 10, "purchase_price": 5, "min_stock": 3,
+    }, headers=auth_headers)
+    assert p.status_code in (200, 201), p.text
+    pid = p.json()["data"]["id"]
+    old_min = 3
+
+    # change min_stock
+    r = await client.patch(f"/api/v1/products/{pid}", json={"min_stock": 42}, headers=auth_headers)
+    assert r.status_code == 200, r.text
+
+    logs = await client.get(f"/api/v1/auth/audit-logs?entity_type=product", headers=auth_headers)
+    assert logs.status_code == 200
+    entries = logs.json()["data"]
+    change = next((e for e in entries if e["entity_id"] == pid and e["field_name"] == "min_stock"), None)
+    assert change is not None, "expected audit row for min_stock change"
+    assert float(change["old_value"]) == float(old_min)
+    assert float(change["new_value"]) == 42.0
+
+    # cleanup
+    await client.delete(f"/api/v1/products/{pid}", headers=auth_headers)
+
+
 async def test_ua_parser():
     from app.services.ua_parser import parse_user_agent
     d = parse_user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")

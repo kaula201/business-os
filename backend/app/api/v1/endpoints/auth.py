@@ -468,6 +468,7 @@ async def list_audit_logs(
         "user_name": a.user_name,
         "action": a.action,
         "entity_type": a.entity_type,
+        "entity_id": str(a.entity_id) if a.entity_id else None,
         "entity_label": a.entity_label,
         "field_name": a.field_name,
         "old_value": a.old_value,

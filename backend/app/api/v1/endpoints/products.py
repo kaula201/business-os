@@ -483,8 +483,30 @@ async def update_product(
             status_code=400,
             detail="ნაშთი შეცვალეთ საწყობის ოპერაციით",
         )
+
+    # Audit: capture old values before mutation (P1.7)
+    audit_fields = ["name", "sku", "sale_price", "purchase_price", "vat_rate", "is_active", "category_id", "min_stock"]
+    before = {f: getattr(product, f, None) for f in audit_fields}
+
     for field, value in update_data.items():
         setattr(product, field, value)
+
+    # Audit: record what changed (old vs new)
+    from app.services.audit_service import audit_changes
+    after = {f: getattr(product, f, None) for f in audit_fields}
+    await audit_changes(
+        db,
+        company_id=current_user.company_id,
+        user_id=current_user.id,
+        user_name=current_user.full_name,
+        action="update",
+        entity_type="product",
+        entity_id=product.id,
+        entity_label=product.name,
+        before=before,
+        after=after,
+        fields=audit_fields,
+    )
 
     await db.flush()
 

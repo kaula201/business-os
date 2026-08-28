@@ -262,6 +262,11 @@ async def update_client(
     if "fiscal_position_id" in update_data:
         await validate_fiscal_position(db, update_data["fiscal_position_id"], current_user.company_id)
 
+    # Audit: capture old values before mutation (P1.7)
+    audit_fields = ["name", "email", "phone", "client_type", "vat_status", "credit_limit", "balance", "status"]
+    before = {f: getattr(client, f, None) for f in audit_fields}
+    from app.services.audit_service import audit_changes
+
     if vat_status is not None:
         client.vat_status = vat_status
     for field, value in update_data.items():
@@ -281,6 +286,28 @@ async def update_client(
             primary.phone = phone
         if email_supplied:
             primary.email = str(email) if email else None
+
+    # Audit: record what changed (old vs new)
+    after = {f: getattr(client, f, None) for f in audit_fields}
+    if phone_supplied:
+        before["phone"] = None
+        after["phone"] = phone
+    if email_supplied:
+        before["email"] = None
+        after["email"] = str(email) if email else None
+    await audit_changes(
+        db,
+        company_id=current_user.company_id,
+        user_id=current_user.id,
+        user_name=current_user.full_name,
+        action="update",
+        entity_type="client",
+        entity_id=client.id,
+        entity_label=client.name,
+        before=before,
+        after=after,
+        fields=audit_fields,
+    )
 
     await db.flush()
     await db.refresh(client, attribute_names=["updated_at"])
