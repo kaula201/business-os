@@ -23,6 +23,7 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     role: Optional[str] = None
     is_active: Optional[bool] = None
+    custom_role_id: Optional[UUID] = None
 
 
 class UserResponse(BaseModel):
@@ -31,6 +32,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: str
     role: str
+    custom_role_id: Optional[UUID] = None
     is_active: bool
     last_login: Optional[datetime]
     created_at: datetime
@@ -49,3 +51,4 @@ class UserInvite(BaseModel):
     email: EmailStr
     role: str = Field(default="employee")
     full_name: str = Field(..., min_length=2)
+    custom_role_id: Optional[UUID] = None

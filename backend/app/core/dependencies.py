@@ -188,6 +188,24 @@ def require_module(module_code: str, permission: str = "can_access"):
         )
         perm = perm_result.scalar_one_or_none()
 
+        # Custom role (Odoo-style) overrides the built-in role permission:
+        # if the user is bound to a custom role, its matrix decides access.
+        if current_user.custom_role_id:
+            from app.models.platform import CustomRole
+            custom = (await db.execute(
+                select(CustomRole).where(
+                    CustomRole.id == current_user.custom_role_id,
+                    CustomRole.company_id == current_user.company_id,
+                )
+            )).scalar_one_or_none()
+            if custom:
+                perms = (custom.permissions or {}).get(module_code)
+                if perms is None:
+                    raise HTTPException(status_code=403, detail=f"როლი „{custom.name}“ არ იძლევა წვდომას მოდულზე: {module_code}")
+                if not perms.get(permission, False):
+                    raise HTTPException(status_code=403, detail=f"როლი „{custom.name}“ არ იძლევა უფლებას: {permission}")
+                return current_user
+
         if perm:
             allowed = getattr(perm, permission, False)
             if not allowed:

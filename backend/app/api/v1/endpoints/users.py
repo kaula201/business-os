@@ -151,6 +151,7 @@ async def invite_user(
         hashed_password=hash_password(temp_password),
         full_name=data.full_name.strip(),
         role=data.role,
+        custom_role_id=data.custom_role_id,
         is_active=True,
     )
     db.add(user)

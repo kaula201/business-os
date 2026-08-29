@@ -58,8 +58,15 @@ def generate_invoice_pdf(
     total: float,
     created_at: date | datetime,
     due_date: date | datetime | None = None,
+    title: str = "ინვოისი",
+    accent_color: str = "#2563eb",
+    footer_text: str = "გმადლობთ თანამშრომლობისთვის! | ფასები მოცემულია ლარში (₾)",
 ) -> bytes:
-    """Generate a Georgian-format invoice PDF and return bytes."""
+    """Generate a Georgian-format invoice PDF and return bytes.
+
+    title / accent_color / footer_text come from the PDF template layout so
+    the designer's choices actually render.
+    """
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
@@ -78,7 +85,7 @@ def generate_invoice_pdf(
 
     # === Header ===
     header_data = [
-        [Paragraph(f"<b>ინვოისი</b>", style_title),
+        [Paragraph(f"<b>{title}</b>", style_title),
          Paragraph(f"<b>№ {invoice_number}</b>", ParagraphStyle("Right", parent=style_bold, alignment=2))],
         [Paragraph(f"თარიღი: {created_at.strftime('%d.%m.%Y')}", style_normal),
          Paragraph(f"შეკვეთა: {order_number}", ParagraphStyle("Right", parent=style_normal, alignment=2))],
@@ -91,7 +98,7 @@ def generate_invoice_pdf(
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
     ]))
     elements.append(t)
-    elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#2563eb")))
+    elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor(accent_color)))
     elements.append(Spacer(1, 20))
 
     # === Seller (Company) ===
@@ -161,13 +168,13 @@ def generate_invoice_pdf(
         ("FONTNAME", (0, 0), (-1, -1), FONT_NAME),
         ("FONTNAME", (0, 0), (-1, 0), FONT_BOLD),
         ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563eb")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(accent_color)),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("GRID", (0, 0), (-1, -4), 0.5, colors.grey),
         ("LINEBELOW", (0, -3), (-1, -3), 0.5, colors.grey),
-        ("LINEBELOW", (0, -1), (-1, -1), 1, colors.HexColor("#2563eb")),
+        ("LINEBELOW", (0, -1), (-1, -1), 1, colors.HexColor(accent_color)),
         ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eff6ff")),
         ("FONTNAME", (0, -1), (-1, -1), FONT_BOLD),
         ("FONTSIZE", (0, -1), (-1, -1), 11),
@@ -178,12 +185,9 @@ def generate_invoice_pdf(
     elements.append(Spacer(1, 30))
 
     # === Footer ===
-    elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.grey))
+    elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor(accent_color)))
     elements.append(Spacer(1, 8))
-    elements.append(Paragraph(
-        "გმადლობთ თანამშრომლობისთვის! | ფასები მოცემულია ლარში (₾)",
-        style_small
-    ))
+    elements.append(Paragraph(footer_text, style_small))
 
     doc.build(elements)
     pdf_bytes = buffer.getvalue()

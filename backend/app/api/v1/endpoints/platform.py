@@ -483,9 +483,9 @@ async def render_pdf_template(
         raise HTTPException(status_code=404, detail="შაბლონი არ მოიძებნა")
 
     layout = t.layout
-    title = layout.get("title", "დოკუმენტი")
+    title = layout.get("title", "ინვოისი")
     color = layout.get("color", "#2563eb")
-    footer = layout.get("footer", "გმადლობთ თანამშრომლობისთვის!")
+    footer = layout.get("footer", "გმადლობთ თანამშრომლობისთვის! | ფასები მოცემულია ლარში (₾)")
 
     from app.utils.pdf import FONT_NAME, FONT_BOLD, generate_invoice_pdf
 
@@ -526,6 +526,9 @@ async def render_pdf_template(
             total=float(data.get("total", 0)),
             created_at=created_dt,
             due_date=due_dt,
+            title=title,
+            accent_color=color,
+            footer_text=footer,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"PDF გენერაცია ვერ მოხერხდა: {exc}") from exc
