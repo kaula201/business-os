@@ -53,6 +53,7 @@ class ProjectCreate(BaseModel):
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     description: Optional[str] = None
+    client_id: Optional[UUID] = None
     manager_id: Optional[UUID] = None
     owner_id: Optional[UUID] = None
     start_date: Optional[date] = None
@@ -68,6 +69,7 @@ class ProjectUpdate(BaseModel):
     code: Optional[str] = Field(None, max_length=50)
     name: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
+    client_id: Optional[UUID] = None
     manager_id: Optional[UUID] = None
     owner_id: Optional[UUID] = None
     status: Optional[str] = Field(None, max_length=20)

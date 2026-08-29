@@ -85,3 +85,31 @@ async def test_non_billable_timesheet_no_revenue(client, auth_headers, test_comp
 
     pr = await client.get(f"/api/v1/projects/{pid}/profitability", headers=auth_headers)
     assert float(pr.json()["data"]["revenue_amount"]) == 0.0
+
+
+async def test_customer_portal_shows_project_progress(client, auth_headers, test_company):
+    """Customer portal summary includes the client's projects with progress."""
+    from app.models.client import Client
+    from app.models.projects import Project
+    from tests.conftest import TestSessionLocal
+
+    async with TestSessionLocal() as session:
+        cl = Client(company_id=test_company.id, name="Portal Client", client_type="legal",
+                    identification_code="PORT-1")
+        session.add(cl)
+        await session.flush()
+        proj = Project(company_id=test_company.id, client_id=cl.id, code="PORT-P1",
+                       name="Portal Project", budget_amount=1000, revenue_amount=200,
+                       spent_amount=50, completion_percent=25)
+        session.add(proj)
+        await session.commit()
+        cid = str(cl.id)
+
+    resp = await client.get(f"/api/v1/customer-portal/clients/{cid}/summary", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert data["total_projects"] == 1
+    assert data["projects"][0]["name"] == "Portal Project"
+    assert float(data["projects"][0]["completion_percent"]) == 25.0
+    assert float(data["projects"][0]["revenue_amount"]) == 200.0
+    assert data["projects"][0]["milestones_total"] == 0

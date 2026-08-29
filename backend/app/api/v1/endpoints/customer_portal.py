@@ -165,6 +165,37 @@ async def client_portal_summary(
     )).scalars().all()
     outstanding = float(sum(r.outstanding_amount for r in rec_rows))
 
+    # projects for this client (customer portal — progress visibility)
+    from app.models.projects import Project, ProjectMilestone
+    proj_rows = (await db.execute(
+        select(Project).where(
+            Project.company_id == current_user.company_id,
+            Project.client_id == client_id,
+        ).order_by(Project.created_at.desc()).limit(50)
+    )).scalars().all()
+    projects = []
+    for p in proj_rows:
+        done_milestones = (await db.execute(
+            select(ProjectMilestone).where(
+                ProjectMilestone.project_id == p.id,
+                ProjectMilestone.status.in_(["completed"]),
+            )
+        )).scalars().all()
+        all_milestones = (await db.execute(
+            select(ProjectMilestone).where(ProjectMilestone.project_id == p.id)
+        )).scalars().all()
+        projects.append({
+            "id": str(p.id), "code": p.code, "name": p.name,
+            "status": p.status, "start_date": str(p.start_date) if p.start_date else None,
+            "end_date": str(p.end_date) if p.end_date else None,
+            "completion_percent": float(p.completion_percent or 0),
+            "budget_amount": float(p.budget_amount or 0),
+            "spent_amount": float(p.spent_amount or 0),
+            "revenue_amount": float(p.revenue_amount or 0),
+            "milestones_done": len(done_milestones),
+            "milestones_total": len(all_milestones),
+        })
+
     return ResponseBase(data={
         "client_id": str(client_id),
         "outstanding_balance": round(outstanding, 2),
@@ -172,6 +203,8 @@ async def client_portal_summary(
         "total_orders": len(orders),
         "invoices": invoices,
         "orders": orders,
+        "projects": projects,
+        "total_projects": len(projects),
     })
 
 @router.delete("/{portal_user_id}", response_model=ResponseBase[dict])
