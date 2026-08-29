@@ -6,6 +6,7 @@ import { ShieldCheck, History, GitBranch, KeyRound, Copy, Eye, Plus, Trash2 } fr
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
 import { securityApi, fieldAccessApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const tabs = [
   { id: '2fa', label: '2FA', icon: ShieldCheck },
@@ -120,7 +121,7 @@ export default function SecurityPage() {
                         {h.success ? t('წარმატებული') : t('წარუმატებელი')}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(h.created_at).toLocaleString('ka-GE')}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{fmtDateTime(new Date(h.created_at))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -148,7 +149,7 @@ export default function SecurityPage() {
                   <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{s.device_name || '—'}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-700 dark:text-gray-300">{s.ip_address || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{s.last_seen_at ? new Date(s.last_seen_at).toLocaleString('ka-GE') : '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{s.last_seen_at ? fmtDateTime(new Date(s.last_seen_at)) : '—'}</td>
                     <td className="px-4 py-3 text-right">
                       <button onClick={() => securityApi.revokeSession(s.id).then(() => qc.invalidateQueries({ queryKey: ['sec-sessions'] }))}
                         className="text-xs font-medium text-red-500 hover:text-red-700">{t('გაუქმება')}</button>
@@ -188,7 +189,7 @@ export default function SecurityPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{a.old_value || '—'}</td>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{a.new_value || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(a.created_at).toLocaleString('ka-GE')}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{fmtDateTime(new Date(a.created_at))}</td>
                   </tr>
                 ))}
               </tbody>

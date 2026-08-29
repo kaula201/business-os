@@ -100,7 +100,7 @@ export default function PlmPage() {
                   <th className="px-4 py-3">{t('ვერსია')}</th>
                   <th className="px-4 py-3">{t('რევიზია')}</th>
                   <th className="px-4 py-3">{t('შენიშვნები')}</th>
-                  <th className="px-4 py-3">{t('მიმდინარე')}</th>
+                  <th className="px-4 py-3">{t('მიმდინარე ვერსია')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -111,7 +111,7 @@ export default function PlmPage() {
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{v.version}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{v.revision}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{v.notes || '—'}</td>
-                    <td className="px-4 py-3">{v.is_current ? <span className="badge badge-success">{t('მიმდინარე')}</span> : '—'}</td>
+                    <td className="px-4 py-3">{v.is_current ? <span className="badge badge-success">{t('მიმდინარე ვერსია')}</span> : '—'}</td>
                   </tr>
                 ))}
               </tbody>

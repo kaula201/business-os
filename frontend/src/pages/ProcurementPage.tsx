@@ -6,6 +6,7 @@ import { Plus, Scale, Award, Zap, FileText, Gavel, BarChart3, Send } from 'lucid
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import { productsApi, procurementApi, suppliersApi, contractsApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const inputCls = 'w-full rounded-lg border border-brandgray-200 bg-white px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200'
 
@@ -238,7 +239,7 @@ export default function ProcurementPage() {
     { key: 'rfq_number', label: t('ნომერი'), priority: true, render: (r: any) => <span className="font-semibold text-gray-900 dark:text-gray-100 font-mono">{r.rfq_number}</span> },
     { key: 'title', label: t('სათაური'), render: (r: any) => <span className="text-sm">{r.title}</span> },
     { key: 'status', label: t('სტატუსი'), render: (r: any) => statusBadge(r.status) },
-    { key: 'required_date', label: t('საჭიროა'), render: (r: any) => r.required_date ? <span className="font-mono text-sm">{new Date(r.required_date).toLocaleDateString('ka-GE')}</span> : '—' },
+    { key: 'required_date', label: t('საჭიროა'), render: (r: any) => r.required_date ? <span className="font-mono text-sm">{fmtDate(new Date(r.required_date))}</span> : '—' },
     { key: 'responses_count', label: t('შეთავაზებები'), render: (r: any) => <span className="font-mono">{r.responses_count}</span> },
     { key: 'actions', label: '', render: (r: any) => (
       <div className="flex gap-1">
@@ -341,7 +342,7 @@ export default function ProcurementPage() {
             { key: 'supplier_name', label: t('მომწოდებელი'), priority: true, render: (p: any) => <span className="font-semibold text-gray-900 dark:text-gray-100">{p.supplier_name}</span> },
             { key: 'product_name', label: t('პროდუქტი'), render: (p: any) => <span className="text-sm">{p.product_name}</span> },
             { key: 'price', label: t('ფასი'), render: (p: any) => <span className="font-mono font-semibold">{p.price} {p.currency}</span> },
-            { key: 'valid_to', label: t('მოქმედებს'), render: (p: any) => p.valid_to ? <span className="font-mono text-sm">{new Date(p.valid_to).toLocaleDateString('ka-GE')}</span> : '—' },
+            { key: 'valid_to', label: t('მოქმედებს'), render: (p: any) => p.valid_to ? <span className="font-mono text-sm">{fmtDate(new Date(p.valid_to))}</span> : '—' },
             { key: 'is_active', label: t('სტატუსი'), render: (p: any) => p.is_active ? statusBadge('active') : statusBadge('cancelled') },
             { key: 'actions', label: '', render: (p: any) => (
               <button onClick={() => setTrendFor(p)} className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700">
@@ -359,7 +360,7 @@ export default function ProcurementPage() {
             { key: 'title', label: t('სათაური'), render: (b: any) => <span className="text-sm">{b.title}</span> },
             { key: 'supplier_name', label: t('მომწოდებელი'), render: (b: any) => <span className="text-sm">{b.supplier_name}</span> },
             { key: 'status', label: t('სტატუსი'), render: (b: any) => statusBadge(b.status) },
-            { key: 'end_date', label: t('ვადა'), render: (b: any) => b.end_date ? <span className="font-mono text-sm">{new Date(b.end_date).toLocaleDateString('ka-GE')}</span> : '—' },
+            { key: 'end_date', label: t('ვადა'), render: (b: any) => b.end_date ? <span className="font-mono text-sm">{fmtDate(new Date(b.end_date))}</span> : '—' },
             { key: 'actions', label: '', render: (b: any) => b.status === 'draft' && (
               <button onClick={() => activateBlanket.mutate(b.id)} className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700">
                 {t('აქტივაცია')}
@@ -395,8 +396,8 @@ export default function ProcurementPage() {
           columns={[
             { key: 'title', label: t('სათაური'), priority: true, render: (c: any) => <span className="font-semibold text-gray-900 dark:text-gray-100">{c.title}</span> },
             { key: 'counterparty', label: t('კონტრაგენტი'), render: (c: any) => <span className="text-sm">{c.counterparty}</span> },
-            { key: 'start_date', label: t('დაწყება'), render: (c: any) => c.start_date ? <span className="font-mono text-sm">{new Date(c.start_date).toLocaleDateString('ka-GE')}</span> : '—' },
-            { key: 'end_date', label: t('დასრულება'), render: (c: any) => c.end_date ? <span className="font-mono text-sm">{new Date(c.end_date).toLocaleDateString('ka-GE')}</span> : '—' },
+            { key: 'start_date', label: t('დაწყება'), render: (c: any) => c.start_date ? <span className="font-mono text-sm">{fmtDate(new Date(c.start_date))}</span> : '—' },
+            { key: 'end_date', label: t('დასრულება'), render: (c: any) => c.end_date ? <span className="font-mono text-sm">{fmtDate(new Date(c.end_date))}</span> : '—' },
             { key: 'value', label: t('თანხა'), render: (c: any) => c.value ? <span className="font-mono font-semibold">{c.value} ₾</span> : '—' },
             { key: 'status', label: t('სტატუსი'), render: (c: any) => statusBadge(c.status) },
           ]}
@@ -774,7 +775,7 @@ export default function ProcurementPage() {
               <div key={i} className="flex items-center justify-between rounded-lg px-4 py-3 text-sm bg-brandgray-50 dark:bg-dark-100">
                 <div>
                   <span className="font-medium text-gray-900 dark:text-gray-100">{row.product_name}</span>
-                  <span className="ml-2 text-xs text-brandgray-500">{new Date(row.changed_at).toLocaleDateString('ka-GE')}</span>
+                  <span className="ml-2 text-xs text-brandgray-500">{fmtDate(new Date(row.changed_at))}</span>
                 </div>
                 <span className="font-mono font-semibold">{row.price} {row.currency}</span>
               </div>

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChefHat, CheckCircle2, Flame } from 'lucide-react'
 
 import { posApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 export default function KitchenPage() {
   const { t } = useTranslation()
@@ -44,7 +45,7 @@ export default function KitchenPage() {
                   {o.kitchen_status === 'preparing' ? t('მზადდება') : t('ახალი')}
                 </span>
               </div>
-              <div className="text-xs text-brandgray-500 mb-3">{new Date(o.created_at).toLocaleTimeString('ka-GE')}</div>
+              <div className="text-xs text-brandgray-500 mb-3">{fmtTime(new Date(o.created_at))}</div>
               <div className="space-y-1 mb-3">
                 {o.items.map((it: any, i: number) => (
                   <div key={i} className="flex justify-between text-sm">

@@ -6,6 +6,7 @@ import { Plus, RefreshCw, Trash2 } from 'lucide-react'
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import { clientsApi, commApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 interface Subscription {
   id: string
@@ -68,7 +69,7 @@ export default function SubscriptionsPage() {
     { key: 'amount', label: 'თანხა', render: (s: Subscription) => <span className="font-mono font-semibold">{money(s.amount)}</span> },
     { key: 'frequency', label: 'სიხშირე', render: (s: Subscription) => t(freqLabels[s.frequency] || s.frequency) },
     { key: 'next_billing_date', label: 'შემდეგი გადახდა', render: (s: Subscription) => s.next_billing_date
-      ? <span className="font-mono text-sm">{new Date(s.next_billing_date).toLocaleDateString('ka-GE')}</span> : '—' },
+      ? <span className="font-mono text-sm">{fmtDate(new Date(s.next_billing_date))}</span> : '—' },
     { key: 'status', label: 'სტატუსი', render: (s: Subscription) => s.status === 'active'
       ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">{t('აქტიური')}</span>
       : <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-dark-100 dark:text-gray-400">{t(s.status)}</span> },

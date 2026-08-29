@@ -6,6 +6,7 @@ import { CalendarClock, Plus, Play, Trash2 } from 'lucide-react'
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import { glApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 interface RecurringEntry {
   id: string
@@ -78,7 +79,7 @@ export default function RecurringEntriesPage() {
     { key: 'name', label: 'დასახელება', priority: true, render: (r: RecurringEntry) => (
       <span className="font-semibold text-gray-900 dark:text-gray-100">{r.name}</span>) },
     { key: 'frequency', label: 'სიხშირე', render: (r: RecurringEntry) => freqLabels[r.frequency] || r.frequency },
-    { key: 'next_run_date', label: 'შემდეგი გაშვება', render: (r: RecurringEntry) => new Date(r.next_run_date).toLocaleDateString('ka-GE') },
+    { key: 'next_run_date', label: 'შემდეგი გაშვება', render: (r: RecurringEntry) => fmtDate(new Date(r.next_run_date)) },
     { key: 'total_posted', label: 'გაშვებულია', render: (r: RecurringEntry) => `${r.total_posted} ×` },
     { key: 'is_active', label: 'სტატუსი', render: (r: RecurringEntry) => r.is_active
       ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">{t('აქტიური')}</span>

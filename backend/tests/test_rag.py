@@ -98,8 +98,38 @@ async def test_chat_uses_local_rag_without_openai(
     monkeypatch.setattr(
         "app.api.v1.endpoints.ai.settings.OPENAI_API_KEY", None
     )
-    query = "რომელია უნიკალური RAG პროდუქტი?"
-    marker = "უნიკალური RAG პროდუქტი: საწყობის სპეციალური სკანერი"
+    query = "რომელია უნიკალური RAG კლიენტი?"
+    marker = "უნიკალური RAG კლიენტი: საწყობის სპეციალური პარტნიორი"
+    db_session.add(Embedding(
+        company_id=test_company.id,
+        content_type="client",
+        content_id=uuid.uuid4(),
+        content_text=marker,
+        embedding=_local_embedding(query),
+    ))
+    await db_session.commit()
+
+    response = await client.post(
+        "/api/v1/ai/chat",
+        json={"message": query},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    assert marker in response.json()["data"]["message"]
+
+
+@pytest.mark.asyncio
+async def test_chat_excludes_product_rag_embeddings(
+    client, auth_headers, test_company, db_session, monkeypatch
+):
+    """Product embeddings are excluded from RAG — stock levels change
+    constantly and the live low-stock list in the context is authoritative."""
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.ai.settings.OPENAI_API_KEY", None
+    )
+    query = "რომელია ძველი RAG პროდუქტი?"
+    marker = "მოძველებული პროდუქტი: A4 ქაღალდი 200/50"
     db_session.add(Embedding(
         company_id=test_company.id,
         content_type="product",
@@ -116,4 +146,4 @@ async def test_chat_uses_local_rag_without_openai(
     )
 
     assert response.status_code == 200, response.text
-    assert marker in response.json()["data"]["message"]
+    assert marker not in response.json()["data"]["message"]

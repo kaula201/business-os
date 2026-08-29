@@ -10,6 +10,7 @@ import FormField, { Select } from '../components/ui/FormField'
 import { api } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import type { CurrencyConversion, CurrencyRate, CurrencyRateCreate } from '../types'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const currencies = ['GEL', 'USD', 'EUR', 'GBP', 'TRY']
 const today = new Date().toISOString().slice(0, 10)
@@ -199,7 +200,7 @@ export default function CurrencyPage() {
         </div>
         {nbgStatus?.last_run_at && (
           <div className="mt-4 grid gap-3 border-t border-gray-100 pt-4 text-sm sm:grid-cols-3 dark:border-dark-50">
-            <div><span className="text-gray-500 dark:text-gray-400">{t('ბოლო გაშვება')}</span><p className="mt-1 font-medium text-gray-900 dark:text-gray-200">{new Date(nbgStatus.last_run_at).toLocaleString('ka-GE')}</p></div>
+            <div><span className="text-gray-500 dark:text-gray-400">{t('ბოლო გაშვება')}</span><p className="mt-1 font-medium text-gray-900 dark:text-gray-200">{fmtDateTime(new Date(nbgStatus.last_run_at))}</p></div>
             <div><span className="text-gray-500 dark:text-gray-400">{t('ტიპი')}</span><p className="mt-1 font-medium text-gray-900 dark:text-gray-200">{nbgStatus.trigger === 'scheduled' ? t('ავტომატური') : t('ხელით')}</p></div>
             <div><span className="text-gray-500 dark:text-gray-400">{t('შედეგი')}</span><p className={`mt-1 font-medium ${nbgStatus.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>{nbgStatus.status === 'success' ? `წარმატებული · ${nbgStatus.effective_date}` : nbgStatus.error_message || t('შეცდომა')}</p></div>
           </div>

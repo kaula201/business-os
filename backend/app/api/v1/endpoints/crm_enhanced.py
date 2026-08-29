@@ -139,7 +139,37 @@ async def pipeline_value_by_stage(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("crm", "can_access")),
 ):
-    """Return pipeline value aggregated by stage, excluding won/lost."""
+    """Return pipeline value aggregated by stage, excluding won/lost.
+    Backfills: any qualified lead without an opportunity gets one auto-created,
+    so the pipeline forecast is never empty for qualified leads."""
+    # Backfill — qualified leads must have an opportunity
+    qualified_leads = (await db.execute(
+        select(CRMLead).where(
+            CRMLead.company_id == current_user.company_id,
+            CRMLead.status == "qualified",
+            CRMLead.converted_client_id.is_(None),
+        )
+    )).scalars().all()
+    for lead in qualified_leads:
+        existing = (await db.execute(
+            select(CRMOpportunity.id).where(
+                CRMOpportunity.company_id == current_user.company_id,
+                CRMOpportunity.lead_id == lead.id,
+            )
+        )).scalar_one_or_none()
+        if not existing:
+            db.add(CRMOpportunity(
+                company_id=current_user.company_id,
+                lead_id=lead.id,
+                name=lead.company_name or lead.contact_name or lead.email or "უსახელო შესაძლებლობა",
+                stage="qualification",
+                amount=lead.estimated_value if lead.estimated_value is not None else 0,
+                expected_close_date=lead.next_action_date,
+                owner_id=lead.owner_id,
+            ))
+    if qualified_leads:
+        await db.flush()
+
     stage_labels = {
         "qualification": "კვალიფიკაცია", "discovery": "საჭიროებების კვლევა",
         "proposal": "შეთავაზება", "negotiation": "მოლაპარაკება",

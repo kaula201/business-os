@@ -6,6 +6,7 @@ import { Wrench, CalendarClock, Hammer, Plus, CheckCircle2 } from 'lucide-react'
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
 import { maintenanceApi } from '../services/api'
+import { fmtDate } from '../lib/format'
 
 const statusBadge = (s: string) => {
   const map: Record<string, string> = {
@@ -136,7 +137,7 @@ export default function MaintenancePage() {
                 <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                   <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{p.name}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.interval_days} {t('დღე')}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.next_due_at ? new Date(p.next_due_at).toLocaleDateString() : '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.next_due_at ? fmtDate(new Date(p.next_due_at)) : '—'}</td>
                   <td className="px-4 py-3">{p.is_active ? <span className="badge badge-success">{t('აქტიური')}</span> : <span className="badge">{t('გაჩერებული')}</span>}</td>
                 </tr>
               ))}
@@ -167,7 +168,7 @@ export default function MaintenancePage() {
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{o.asset_name || '—'}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{o.maintenance_type}</td>
                   <td className="px-4 py-3"><span className={`badge ${statusBadge(o.status)}`}>{o.status}</span></td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{o.scheduled_date ? new Date(o.scheduled_date).toLocaleDateString() : '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{o.scheduled_date ? fmtDate(new Date(o.scheduled_date)) : '—'}</td>
                   <td className="px-4 py-3">
                     {o.status !== 'completed' && (
                       <button onClick={() => updateOrder.mutate({ id: o.id, data: { status: 'completed' } })} className="btn btn-sm btn-success flex items-center gap-1">

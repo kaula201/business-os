@@ -6,6 +6,7 @@ import { Mail, Calendar, Plus, Trash2 } from 'lucide-react'
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
 import { emailCalendarApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const tabs = [
   { id: 'emails', label: 'ელ.ფოსტა', icon: Mail },
@@ -83,7 +84,7 @@ export default function EmailCalendarPage() {
                     <td className="px-4 py-3 font-mono text-xs text-gray-700 dark:text-gray-300">{m.to_email}</td>
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{m.subject}</td>
                     <td className="px-4 py-3"><span className="rounded-full bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2.5 py-1 text-xs font-medium">{m.status}</span></td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(m.created_at).toLocaleDateString('ka-GE')}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{fmtDate(new Date(m.created_at))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -111,7 +112,7 @@ export default function EmailCalendarPage() {
                   <tr key={e.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{e.title}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{e.event_type}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(e.event_date).toLocaleDateString('ka-GE')}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{fmtDate(new Date(e.event_date))}</td>
                     <td className="px-4 py-3 text-right">
                       <button onClick={() => removeEvent.mutate(e.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
                     </td>

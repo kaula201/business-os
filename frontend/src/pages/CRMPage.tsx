@@ -256,7 +256,7 @@ export default function CRMPage() {
   const overviewCards: { label: string; value: string | number; Icon: LucideIcon; hint: string }[] = [
     { label: t('ახალი ლიდები'), value: kpis.newLeads, Icon: Users, hint: t('ჯერ არ დამუშავებულა') },
     { label: t('კვალიფიცირებული ლიდები'), value: kpis.qualified, Icon: CheckCircle2, hint: t('მზადაა კლიენტად გადასაყვანად') },
-    { label: t('აქტიური pipeline'), value: money(kpis.openPipeline), Icon: CircleDollarSign, hint: t('ღია შესაძლებლობების ღირებულება') },
+    { label: t('აქტიური pipeline'), value: money(kpis.openPipeline), Icon: CircleDollarSign, hint: t('ღია შესაძლებლობების ღირებულება — კვალიფიცირებული ლიდი ავტომატურად ხვდება pipeline-ში') },
     { label: t('დაგეგმილი მოქმედებები'), value: kpis.planned, Icon: CalendarClock, hint: t('ზარები, შეხვედრები და დავალებები') },
   ]
 

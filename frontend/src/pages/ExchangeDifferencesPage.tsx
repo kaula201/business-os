@@ -5,6 +5,7 @@ import { RefreshCw, TrendingDown, TrendingUp } from 'lucide-react'
 
 import DataTable from '../components/ui/DataTable'
 import { glApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 interface ExchangeDiff {
   id: string
@@ -56,7 +57,7 @@ export default function ExchangeDifferencesPage() {
       <span className="rounded-full bg-brandgray-100 dark:bg-dark-100 px-2 py-0.5 text-xs font-medium text-brandgray-600 dark:text-gray-400">{kindLabel(d, t)}</span>) },
     { key: 'currency', label: 'ვალუტა', render: (d: ExchangeDiff) => (
       <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{d.currency}</span>) },
-    { key: 'revaluation_date', label: 'თარიღი', render: (d: ExchangeDiff) => new Date(d.revaluation_date).toLocaleDateString('ka-GE') },
+    { key: 'revaluation_date', label: 'თარიღი', render: (d: ExchangeDiff) => fmtDate(new Date(d.revaluation_date)) },
     { key: 'outstanding_amount', label: 'ნაშთი', render: (d: ExchangeDiff) => money(d.outstanding_amount) },
     { key: 'rate', label: 'კურსი', render: (d: ExchangeDiff) => money(d.rate) },
     { key: 'gel_equivalent', label: 'GEL ეკვივალენტი', render: (d: ExchangeDiff) => money(d.gel_equivalent) },

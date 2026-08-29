@@ -58,15 +58,17 @@ async def _get_business_context(db: AsyncSession, user: User) -> str:
     lines.append(f"ჯამური შემოსავალი (დადასტურებული ინვოისებიდან): {float(revenue):.2f} ₾")
 
     # Low stock products — only when a reorder threshold is actually set (min_stock > 0)
-    low_stock = (await db.execute(
-        select(func.count()).where(
+    low_stock_rows = (await db.execute(
+        select(Product).where(
             Product.company_id == company_id,
             Product.current_stock <= Product.min_stock,
             Product.min_stock > 0,
             Product.is_active == True
-        )
-    )).scalar()
-    lines.append(f"დაბალი ნაშთის მქონე პროდუქტები: {low_stock}")
+        ).order_by(Product.current_stock.asc())
+    )).scalars().all()
+    lines.append(f"დაბალი ნაშთის მქონე პროდუქტები: {len(low_stock_rows)}")
+    for p in low_stock_rows:
+        lines.append(f"  დაბალი ნაშთი: {p.name} — {float(p.current_stock)} / მინიმუმი {float(p.min_stock)}")
 
     # Overdue tasks
     overdue = (await db.execute(
@@ -96,12 +98,18 @@ def _build_source_links(context: str) -> list[dict]:
     import re
     for match in re.finditer(r'ბოლო: (\S+)', context):
         links.append({"label": f"შეკვეთა {match.group(1)}", "url": "/orders"})
+    # Order status counts — every status fact links to the orders list
+    for status in ("draft", "confirmed", "cancelled", "pending", "paid", "shipped", "delivered"):
+        if re.search(rf"^\s*{status}: \d+", context, re.M):
+            links.append({"label": f"შეკვეთები — {status}", "url": "/orders"})
     # Client references
     for match in re.finditer(r'(აქტიური|პოტენციური|არააქტიური) კლიენტები', context):
         links.append({"label": "კლიენტების რეესტრი", "url": "/clients"})
-    # Low stock
-    if "დაბალი ნაშთი" in context:
-        links.append({"label": "დაბალი ნაშთის პროდუქტები", "url": "/warehouses"})
+    # Low stock — every named product gets a link to the inventory page
+    for match in re.finditer(r'დაბალი ნაშთი: ([^—]+) —', context):
+        links.append({"label": f"მარაგი: {match.group(1).strip()}", "url": "/inventory"})
+    if "დაბალი ნაშთის მქონე პროდუქტები" in context:
+        links.append({"label": "დაბალი ნაშთის პროდუქტები", "url": "/inventory"})
     # Overdue tasks
     if "დაგვიანებული" in context:
         links.append({"label": "დაგვიანებული დავალებები", "url": "/tasks"})
@@ -124,9 +132,12 @@ async def chat(
     context = await _get_business_context(db, current_user)
 
     # RAG: search for similar content using OpenAI or the local fallback.
+    # Product embeddings are excluded — stock levels change constantly and the
+    # live low-stock list in the context is always authoritative.
     rag_results = await search_similar(
-        db, current_user.company_id, data.message, limit=3
+        db, current_user.company_id, data.message, limit=5
     )
+    rag_results = [r for r in rag_results if r["type"] != "product"]
 
     rag_context = ""
     if rag_results:

@@ -5,6 +5,7 @@ import { LogOut, FileText, ShoppingCart, ReceiptText, Tag } from 'lucide-react'
 
 import { useVendorAuthStore } from '../store/vendorAuthStore'
 import { vendorAuthApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 function money(v: number) {
   return new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL' }).format(v)
@@ -132,7 +133,7 @@ export default function VendorDashboardPage() {
                     {d.invoices.map((inv: any) => (
                       <div key={inv.id} className="flex items-center justify-between rounded-lg border border-brandgray-100 dark:border-dark-50 px-3 py-2 text-sm">
                         <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{inv.supplier_invoice_number}</span>
-                        <span className="text-brandgray-500 dark:text-gray-400">{new Date(inv.invoice_date).toLocaleDateString('ka-GE')}</span>
+                        <span className="text-brandgray-500 dark:text-gray-400">{fmtDate(new Date(inv.invoice_date))}</span>
                         <span className="font-mono font-semibold">{money(inv.total)}</span>
                       </div>
                     ))}

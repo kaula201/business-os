@@ -7,6 +7,7 @@ import { useRef } from 'react'
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import { productsApi, warehousesApi, wmsApi, wmsOpsApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 interface Batch {
   id: string
@@ -306,7 +307,7 @@ export default function WmsPage() {
     { key: 'warehouse_id', label: t('საწყობი'), render: (b: Batch) => <span className="text-sm">{warehouseName(b.warehouse_id)}</span> },
     { key: 'quantity', label: t('რაოდენობა'), render: (b: Batch) => <span className="font-mono font-semibold">{b.quantity}</span> },
     { key: 'expiry_date', label: t('ვადა'), render: (b: Batch) => b.expiry_date
-      ? <span className={`font-mono text-sm ${new Date(b.expiry_date) < new Date() ? 'text-red-600 dark:text-red-400' : ''}`}>{new Date(b.expiry_date).toLocaleDateString('ka-GE')}</span> : '—' },
+      ? <span className={`font-mono text-sm ${new Date(b.expiry_date) < new Date() ? 'text-red-600 dark:text-red-400' : ''}`}>{fmtDate(new Date(b.expiry_date))}</span> : '—' },
     { key: 'unit_cost', label: t('ღირებულება'), render: (b: Batch) => b.unit_cost ? <span className="font-mono text-sm">{b.unit_cost}</span> : '—' },
     { key: 'actions', label: '', render: (b: Batch) => (
       <div className="flex gap-1">
@@ -463,7 +464,7 @@ export default function WmsPage() {
                   <div key={b.id} className="flex items-center justify-between text-sm rounded-md bg-white dark:bg-dark-100 px-3 py-2">
                     <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{b.batch_number}</span>
                     <span className="text-brandgray-500 dark:text-gray-400">{b.quantity} {t('ცალი')}</span>
-                    <span className="text-xs text-brandgray-500 dark:text-gray-400">{b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('ka-GE') : '—'}</span>
+                    <span className="text-xs text-brandgray-500 dark:text-gray-400">{b.expiry_date ? fmtDate(new Date(b.expiry_date)) : '—'}</span>
                   </div>
                 ))}
               </div>
@@ -587,7 +588,7 @@ export default function WmsPage() {
             { key: 'warehouse_id', label: t('საწყობი'), render: (c: any) => <span className="text-sm">{warehouseName(c.warehouse_id)}</span> },
             { key: 'count_type', label: t('ტიპი'), render: (c: any) => <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400">{c.count_type}</span> },
             { key: 'status', label: t('სტატუსი'), render: (c: any) => <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">{c.status}</span> },
-            { key: 'created_at', label: t('თარიღი'), render: (c: any) => <span className="font-mono text-sm">{new Date(c.created_at).toLocaleDateString('ka-GE')}</span> },
+            { key: 'created_at', label: t('თარიღი'), render: (c: any) => <span className="font-mono text-sm">{fmtDate(new Date(c.created_at))}</span> },
           ]}
           data={counts} isLoading={countsLoading} emptyMessage={t('ინვენტარიზაციები არ არის')} />
       )}
@@ -810,7 +811,7 @@ export default function WmsPage() {
                       {ev.quantity != null && <span className="font-mono mr-2">{ev.quantity}</span>}
                       {ev.reference && <span className="text-brandgray-400 dark:text-gray-500">{ev.reference}</span>}
                     </div>
-                    <div className="text-xs text-brandgray-400 dark:text-gray-500">{new Date(ev.created_at).toLocaleString('ka-GE')}</div>
+                    <div className="text-xs text-brandgray-400 dark:text-gray-500">{fmtDateTime(new Date(ev.created_at))}</div>
                   </div>
                 </div>
               ))
@@ -854,7 +855,7 @@ export default function WmsPage() {
                   <div key={i} className="flex items-center justify-between rounded-lg border border-brandgray-100 dark:border-dark-50 px-3 py-2 text-sm">
                     <span className="font-medium">{a.batch_number}</span>
                     <span className="font-mono font-semibold">{a.quantity}</span>
-                    {a.expiry_date && <span className="text-xs text-brandgray-400 dark:text-gray-500">{new Date(a.expiry_date).toLocaleDateString('ka-GE')}</span>}
+                    {a.expiry_date && <span className="text-xs text-brandgray-400 dark:text-gray-500">{fmtDate(new Date(a.expiry_date))}</span>}
                   </div>
                 ))
               )}

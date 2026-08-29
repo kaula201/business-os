@@ -6,6 +6,7 @@ import { ArrowRight, Check, FileText, Plus, X } from 'lucide-react'
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import { clientsApi, productsApi, salesToolsApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 interface Quotation {
   id: string
@@ -100,7 +101,7 @@ export default function QuotationsPage() {
     { key: 'quotation_number', label: 'ნომერი', priority: true, render: (q: Quotation) => (
       <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{q.quotation_number}</span>) },
     { key: 'client_name', label: 'კლიენტი', render: (q: Quotation) => q.client_name || '—' },
-    { key: 'quotation_date', label: 'თარიღი', render: (q: Quotation) => new Date(q.quotation_date).toLocaleDateString('ka-GE') },
+    { key: 'quotation_date', label: 'თარიღი', render: (q: Quotation) => fmtDate(new Date(q.quotation_date)) },
     { key: 'total', label: 'ჯამი', render: (q: Quotation) => <span className="font-semibold">{money(q.total)}</span> },
     { key: 'status', label: 'სტატუსი', render: (q: Quotation) => (
       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[q.status] || statusColors.draft}`}>
@@ -209,7 +210,7 @@ export default function QuotationsPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[detail.status]}`}>{t(statusLabels[detail.status] || detail.status)}</span>
-              <span className="text-sm text-brandgray-500 dark:text-gray-400">{new Date(detail.quotation_date).toLocaleDateString('ka-GE')}</span>
+              <span className="text-sm text-brandgray-500 dark:text-gray-400">{fmtDate(new Date(detail.quotation_date))}</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

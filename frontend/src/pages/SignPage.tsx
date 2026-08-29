@@ -6,6 +6,7 @@ import { PenLine, Plus, Send, CheckCircle2, XCircle } from 'lucide-react'
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
 import { signatureApi } from '../services/api'
+import { fmtDate } from '../lib/format'
 
 const statusBadge = (s: string) => {
   const map: Record<string, string> = {
@@ -69,7 +70,7 @@ export default function SignPage() {
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.signer_email}</td>
                   <td className="px-4 py-3"><span className={`badge ${statusBadge(r.status)}`}>{r.status}</span></td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                    {r.signed_at ? new Date(r.signed_at).toLocaleDateString() : '—'}
+                    {r.signed_at ? fmtDate(new Date(r.signed_at)) : '—'}
                   </td>
                   <td className="px-4 py-3">
                     {r.status === 'pending' && (

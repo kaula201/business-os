@@ -5,6 +5,7 @@ import { Briefcase, Plus, Search, Calendar, User, DollarSign, ChevronDown, Chevr
 
 import Modal from '../components/ui/Modal'
 import { api, projectsApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 interface Project {
   id: string; code: string; name: string; description: string | null
@@ -243,7 +244,7 @@ export default function ProjectsPage() {
                         className={`w-4 h-4 rounded-full border-2 ${m.status === 'completed' ? 'bg-green-500 border-green-500' : 'border-gray-300 dark:border-gray-500'}`} />
                       <span className={`text-sm ${m.status === 'completed' ? 'line-through text-gray-400' : 'text-brandgray-900 dark:text-gray-100'}`}>{m.name}</span>
                     </div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{m.due_date ? new Date(m.due_date).toLocaleDateString('ka-GE') : '—'}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{m.due_date ? fmtDate(new Date(m.due_date)) : '—'}</span>
                   </div>
                 ))}
               </div>

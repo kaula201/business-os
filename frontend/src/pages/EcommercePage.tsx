@@ -6,6 +6,7 @@ import { ShoppingCart, Plus, Send, Trash2, Package } from 'lucide-react'
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
 import { emailMarketingApi } from '../services/api'
+import { fmtDate } from '../lib/format'
 
 export default function EcommercePage() {
   const { t } = useTranslation()
@@ -72,7 +73,7 @@ export default function EcommercePage() {
                   <td className="px-4 py-3">
                     <span className={`badge ${c.status === 'sent' ? 'badge-success' : 'badge-warning'}`}>{t(c.status === 'sent' ? 'გაგზავნილი' : 'მონახაზი')}</span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.sent_at ? new Date(c.sent_at).toLocaleDateString() : '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.sent_at ? fmtDate(new Date(c.sent_at)) : '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       {c.status !== 'sent' && (

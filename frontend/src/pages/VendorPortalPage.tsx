@@ -6,6 +6,7 @@ import { Plus, Trash2, Eye, X } from 'lucide-react'
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import { suppliersApi, vendorPortalApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 interface VendorPortalUser {
   id: string
@@ -75,7 +76,7 @@ export default function VendorPortalPage() {
       ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">{t('აქტიური')}</span>
       : <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-dark-100 dark:text-gray-400">{t('გათიშული')}</span> },
     { key: 'last_login_at', label: t('ბოლო შესვლა'), render: (u: VendorPortalUser) => u.last_login_at
-      ? <span className="font-mono text-sm">{new Date(u.last_login_at).toLocaleDateString('ka-GE')}</span> : '—' },
+      ? <span className="font-mono text-sm">{fmtDate(new Date(u.last_login_at))}</span> : '—' },
     { key: 'actions', label: '', render: (u: VendorPortalUser) => (
       <div className="flex gap-1">
         <button onClick={() => showSummary.mutate(u.supplier_id)} className="p-1.5 rounded-md text-gray-400 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-900/30" title={t('მომწოდებლის მიმოხილვა')}>
@@ -198,7 +199,7 @@ export default function VendorPortalPage() {
                   {summaryFor.invoices.map(inv => (
                     <div key={inv.id} className="flex items-center justify-between rounded-lg border border-brandgray-100 dark:border-dark-50 px-3 py-2 text-sm">
                       <span className="font-medium font-mono">{inv.supplier_invoice_number}</span>
-                      <span className="text-brandgray-500 dark:text-gray-400">{new Date(inv.invoice_date).toLocaleDateString('ka-GE')}</span>
+                      <span className="text-brandgray-500 dark:text-gray-400">{fmtDate(new Date(inv.invoice_date))}</span>
                       <span className="font-mono font-semibold">{money(inv.total)}</span>
                     </div>
                   ))}

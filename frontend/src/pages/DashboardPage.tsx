@@ -196,6 +196,19 @@ export default function DashboardPage() {
     return raw
   }
 
+  // Translate alert descriptions: backend sends Georgian prefixes, the
+  // entity name (product/task title) is business data — keep it as-is.
+  const alertDescription = (alert: any) => {
+    const raw: string = alert.description || ''
+    if (alert.type === 'low_stock') {
+      return raw.replace(/^მიმდინარე ნაშთი:\s*/i, `${t('მიმდინარე ნაშთი')}: `)
+    }
+    if (alert.type === 'overdue_task') {
+      return raw.replace(/^ვადაგადაცილება:\s*/i, `${t('ვადაგადაცილება')}: `)
+    }
+    return raw
+  }
+
   const target =
     alert.type === 'low_stock' ? `/inventory?highlight=${alert.entity_id}`
                 : alert.type === 'overdue_task' ? `/tasks?highlight=${alert.entity_id}`
@@ -206,7 +219,7 @@ export default function DashboardPage() {
                   <AlertTriangle size={18} className="shrink-0" />
                   <div className="min-w-0">
                     <p className="font-medium text-sm">{alertTitle(alert)}</p>
-                    <p className="text-xs opacity-75">{alert.description}</p>
+                    <p className="text-xs opacity-75">{alertDescription(alert)}</p>
                   </div>
                 </>
               )

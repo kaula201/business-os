@@ -10,6 +10,7 @@ import Modal from '../components/ui/Modal'
 import FormField, { Select } from '../components/ui/FormField'
 import { StatusBadge, orderStatusMap } from '../components/ui/Badges'
 import type { Client, ClientCreate, InventoryReservation, Order, OrderCreate, OrderStatus, OrderStatusHistory, OrderSummary, Warehouse } from '../types'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 // Unified currency format: "590 ₾"
 const money = (v: number | string | null | undefined) =>
   new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL' }).format(Number(v || 0))
@@ -195,7 +196,7 @@ export default function OrdersPage() {
     { key: 'client_name', label: i18n.t('კლიენტი'), render: (o: OrderSummary) => o.client_name || '—', hideOnMobile: true },
     { key: 'status', label: i18n.t('სტატუსი'), render: (o: OrderSummary) => <StatusBadge status={o.status} map={orderStatusMap} /> },
     { key: 'total', label: i18n.t('თანხა'), render: (o: OrderSummary) => `${money(o.total)}`, className: 'font-medium' },
-    { key: 'created_at', label: i18n.t('თარიღი'), render: (o: OrderSummary) => new Date(o.created_at).toLocaleDateString('ka-GE'), hideOnMobile: true },
+    { key: 'created_at', label: i18n.t('თარიღი'), render: (o: OrderSummary) => fmtDate(new Date(o.created_at)), hideOnMobile: true },
     {
       key: 'actions', label: '',
       render: (o: OrderSummary) => (
@@ -384,7 +385,7 @@ export default function OrdersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200 font-mono">{viewOrder.order_number}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{viewOrder.client_name} • {new Date(viewOrder.created_at).toLocaleDateString('ka-GE')}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{viewOrder.client_name} • {fmtDate(new Date(viewOrder.created_at))}</p>
               </div>
               <StatusBadge status={viewOrder.status} map={orderStatusMap} />
             </div>
@@ -467,7 +468,7 @@ export default function OrdersPage() {
                       <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary-500" />
                       <div>
                         <StatusBadge status={entry.status} map={orderStatusMap} />
-                        <span className="ml-2 text-gray-400 dark:text-gray-500">{new Date(entry.created_at).toLocaleString('ka-GE')}</span>
+                        <span className="ml-2 text-gray-400 dark:text-gray-500">{fmtDateTime(new Date(entry.created_at))}</span>
                         {entry.notes && <p className="mt-1 text-gray-600 dark:text-gray-400 dark:text-gray-500">{entry.notes}</p>}
                       </div>
                     </div>

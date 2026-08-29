@@ -6,6 +6,7 @@ import { Mail, PenLine, Plus, Trash2 } from 'lucide-react'
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import { commApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 interface EmailEvent {
   id: string
@@ -65,7 +66,7 @@ export default function EmailTrackingPage() {
       }
       return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors[e.event_type]}`}>{t(map[e.event_type] || e.event_type)}</span>
     } },
-    { key: 'occurred_at', label: 'დრო', render: (e: EmailEvent) => new Date(e.occurred_at).toLocaleString('ka-GE') },
+    { key: 'occurred_at', label: 'დრო', render: (e: EmailEvent) => fmtDateTime(new Date(e.occurred_at)) },
   ]
 
   const sigColumns = [

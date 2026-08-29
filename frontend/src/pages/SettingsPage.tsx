@@ -7,6 +7,7 @@ import { Settings, Shield, UserPlus, Mail, User, Clock, SlidersHorizontal, Plug,
 import Modal from '../components/ui/Modal'
 import FormField, { Select } from '../components/ui/FormField'
 import type { User as UserType } from '../types'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 export default function SettingsPage() {
   const { t } = useTranslation()
@@ -342,7 +343,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-3">
                   <span className="badge badge-blue text-xs">{u.role}</span>
                   {!u.is_active && <span className="badge badge-red text-xs">{t('დეაქტივირებული')}</span>}
-                  <span className="text-xs text-gray-400 flex items-center gap-1 dark:text-gray-500"><Clock size={11} /> {new Date(u.created_at).toLocaleDateString('ka-GE')}</span>
+                  <span className="text-xs text-gray-400 flex items-center gap-1 dark:text-gray-500"><Clock size={11} /> {fmtDate(new Date(u.created_at))}</span>
                 </div>
               </div>
             ))}

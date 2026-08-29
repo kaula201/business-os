@@ -6,6 +6,7 @@ import { Banknote, CreditCard, FileMinus2, RotateCcw, Search, X } from 'lucide-r
 import Modal from '../components/ui/Modal'
 import { bankingApi, customerFinanceApi } from '../services/api'
 import type { BankTransaction, CustomerBankReconciliation, CustomerCreditNoteCreate, CustomerPaymentCreate, CustomerReceivable } from '../types'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const today = () => new Date().toISOString().slice(0, 10)
 const key = (prefix: string) => `${prefix}-${Date.now()}-${crypto.randomUUID()}`
@@ -208,7 +209,7 @@ export default function CustomerFinancePage() {
         </div>)}</div>
         <h3 className="mt-6 font-semibold dark:text-gray-100">{t('Credit Note-ები')}</h3><div className="mt-2 space-y-2">{selected.credit_notes.length === 0 ? <p className="text-sm text-gray-500 dark:text-gray-400">{t('Credit Note არ არის')}</p> : selected.credit_notes.map((c) => <div key={c.id} className="rounded-lg border p-3 text-sm dark:border-dark-50"><p className="font-medium dark:text-gray-200">{c.credit_note_number} · {money(c.amount, selected.currency)}</p><p className="text-xs text-gray-500 dark:text-gray-400">{c.credit_date} · {c.reason}</p></div>)}</div>
         <h3 className="mt-6 font-semibold dark:text-gray-100">{t('საბანკო შეჯერებები')}</h3><div className="mt-2 space-y-2">{bankReconciliations.length === 0 ? <p className="text-sm text-gray-500 dark:text-gray-400">{t('საბანკო შეჯერება არ არის')}</p> : bankReconciliations.map((row) => <div key={row.id} className="flex items-center justify-between rounded-lg border p-3 text-sm dark:border-dark-50">
-          <div><p className={row.status === 'reversed' ? 'line-through text-gray-400' : 'font-medium dark:text-gray-200'}>{money(row.amount, selected.currency)}</p><p className="text-xs text-gray-500 dark:text-gray-400">{new Date(row.created_at).toLocaleDateString('ka-GE')}{row.reversal_reason ? ` · ${row.reversal_reason}` : ''}</p></div>
+          <div><p className={row.status === 'reversed' ? 'line-through text-gray-400' : 'font-medium dark:text-gray-200'}>{money(row.amount, selected.currency)}</p><p className="text-xs text-gray-500 dark:text-gray-400">{fmtDate(new Date(row.created_at))}{row.reversal_reason ? ` · ${row.reversal_reason}` : ''}</p></div>
           {row.status === 'active' && <button aria-label={t('საბანკო შეჯერების გაუქმება')} onClick={() => window.confirm(t('ნამდვილად გსურთ საბანკო შეჯერების გაუქმება?')) && bankReversalMutation.mutate(row.id)} className="rounded p-2 text-red-600 hover:bg-red-50" title={t('შეჯერების გაუქმება')}><RotateCcw size={17} /></button>}
         </div>)}</div>
         {error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-400">{error}</p>}

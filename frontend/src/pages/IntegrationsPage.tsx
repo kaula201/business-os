@@ -6,6 +6,7 @@ import { Key, Webhook as WebhookIcon, Globe, Plus, Trash2, Copy, RefreshCw } fro
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
 import { apiKeysApi, integrationsApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const tabs = [
   { id: 'keys', label: 'API Keys', icon: Key },
@@ -97,7 +98,7 @@ export default function IntegrationsPage() {
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{k.name}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">{k.key_prefix}...</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{k.scopes}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{k.expires_at ? new Date(k.expires_at).toLocaleDateString('ka-GE') : '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{k.expires_at ? fmtDate(new Date(k.expires_at)) : '—'}</td>
                     <td className="px-4 py-3">{k.is_active ? '✓' : '—'}</td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <button onClick={() => apiKeysApi.rotate(k.id).then(r => {

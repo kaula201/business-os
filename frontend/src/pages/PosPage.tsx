@@ -6,6 +6,7 @@ import { Plus, Minus, Trash2, ScanBarcode, Undo2, Gift, WifiOff, Printer, X, Ban
 import Modal from '../components/ui/Modal'
 import { clientsApi, posApi, productsApi } from '../services/api'
 import { saveOfflineOrder, listOfflineOrders, removeOfflineOrder, cacheCatalog, getCachedCatalog } from '../services/offlineStore'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const inputCls = 'w-full rounded-lg border border-brandgray-200 bg-white px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200'
 
@@ -254,7 +255,7 @@ export default function PosPage() {
     if (!w) return
     w.document.write(`<html><head><title>${lastReceipt.order_number}</title><style>body{font-family:monospace;font-size:12px;padding:16px}hr{border:none;border-top:1px dashed #000}</style></head><body>
       <h3 style="text-align:center">Business OS</h3>
-      <p style="text-align:center">${new Date().toLocaleString('ka-GE')}</p>
+      <p style="text-align:center">${fmtDateTime(new Date())}</p>
       <hr/>
       <p><b>${lastReceipt.order_number}</b></p>
       ${(lastReceipt.items || []).map((i: any) => `<p>${i.product_name} × ${i.quantity}<br/>${Number(i.line_total).toFixed(2)} ₾</p>`).join('')}
@@ -770,7 +771,7 @@ export default function PosPage() {
                 <div key={o.id} className="flex items-center justify-between rounded-lg border border-brandgray-100 dark:border-dark-50 px-3 py-2 text-sm">
                   <div>
                     <div className="font-medium text-gray-900 dark:text-gray-100">{o.order_number}</div>
-                    <div className="text-xs text-brandgray-500">{o.payment_method} · {new Date(o.created_at).toLocaleTimeString('ka-GE')}</div>
+                    <div className="text-xs text-brandgray-500">{o.payment_method} · {fmtTime(new Date(o.created_at))}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-semibold">{money(Number(o.total))}</span>
@@ -1239,7 +1240,7 @@ export default function PosPage() {
                       </div>
                       <div className="text-right">
                         <div className="font-mono font-semibold">{money(r.total)}</div>
-                        <div className="text-[10px] text-brandgray-400">{r.currency} · {new Date(r.created_at).toLocaleString('ka-GE')}</div>
+                        <div className="text-[10px] text-brandgray-400">{r.currency} · {fmtDateTime(new Date(r.created_at))}</div>
                       </div>
                     </div>
                   ))

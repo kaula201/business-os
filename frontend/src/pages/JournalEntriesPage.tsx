@@ -7,6 +7,7 @@ import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import { glApi } from '../services/api'
 import type { JournalEntry, JournalEntryLine, JournalEntrySummary } from '../types'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 function money(value: number) {
   return new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL' }).format(value)
@@ -118,7 +119,7 @@ export default function JournalEntriesPage() {
 
   const columns = [
     { key: 'entry_number', label: 'ნომერი', render: (e: JournalEntrySummary) => <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{e.entry_number}</span> },
-    { key: 'entry_date', label: 'თარიღი', render: (e: JournalEntrySummary) => new Date(e.entry_date).toLocaleDateString('ka-GE') },
+    { key: 'entry_date', label: 'თარიღი', render: (e: JournalEntrySummary) => fmtDate(new Date(e.entry_date)) },
     { key: 'description', label: 'აღწერა', render: (e: JournalEntrySummary) => <span className="text-gray-900 dark:text-gray-100">{e.description}</span> },
     { key: 'reference_type', label: 'წყარო', render: (e: JournalEntrySummary) => (
       <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">{t(refTypes[e.reference_type] || e.reference_type)}</span>
@@ -156,7 +157,7 @@ export default function JournalEntriesPage() {
         {detailLoading ? <p className="text-gray-500 dark:text-gray-400">{t('იტვირთება...')}</p> : selected && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><span className="text-gray-500 dark:text-gray-400">{t('თარიღი:')}</span> <span className="font-medium">{new Date(selected.entry_date).toLocaleDateString('ka-GE')}</span></div>
+              <div><span className="text-gray-500 dark:text-gray-400">{t('თარიღი:')}</span> <span className="font-medium">{fmtDate(new Date(selected.entry_date))}</span></div>
               <div><span className="text-gray-500 dark:text-gray-400">{t('წყარო:')}</span> <span className="font-medium">{t(refTypes[selected.reference_type] || selected.reference_type)}</span></div>
               <div className="col-span-2"><span className="text-gray-500 dark:text-gray-400">{t('აღწერა:')}</span> <span className="font-medium">{selected.description}</span></div>
               {selected.is_reversal && <div className="col-span-2"><span className="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">{t('გაუქმების ჩანაწერი')}</span></div>}

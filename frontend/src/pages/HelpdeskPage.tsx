@@ -6,6 +6,7 @@ import { Plus, Ticket, Inbox, Timer, Layers, TrendingUp, MessageSquare, BookOpen
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
 import { clientsApi, helpdeskApi, usersApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const tabs = [
   { id: 'tickets', label: 'ტიკეტები', icon: Ticket },
@@ -214,7 +215,7 @@ export default function HelpdeskPage() {
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[tk.status] || ''}`}>{tk.status}</span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(tk.created_at).toLocaleDateString('ka-GE')}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{fmtDate(new Date(tk.created_at))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -328,7 +329,7 @@ export default function HelpdeskPage() {
                     <td className="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">{e.ticket_id?.slice(0, 8)}</td>
                     <td className="px-4 py-3"><span className="rounded-full bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-2.5 py-1 text-xs font-medium">L{e.level}</span></td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{e.reason || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(e.created_at).toLocaleDateString('ka-GE')}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{fmtDate(new Date(e.created_at))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -381,7 +382,7 @@ export default function HelpdeskPage() {
                 ) : (fieldJobs || []).map((f: any) => (
                   <tr key={f.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3"><span className="rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 px-2.5 py-1 text-xs font-medium">{f.status}</span></td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{f.scheduled_date ? new Date(f.scheduled_date).toLocaleDateString('ka-GE') : '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{f.scheduled_date ? fmtDate(new Date(f.scheduled_date)) : '—'}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{f.address || '—'}</td>
                   </tr>
                 ))}
@@ -717,7 +718,7 @@ export default function HelpdeskPage() {
               {detailTicket.source_channel && <span className="rounded-full bg-brandgray-100 px-2 py-1 dark:bg-dark-100">{t('წყარო')}: {detailTicket.source_channel}</span>}
               {detailTicket.resolution_deadline && (
                 <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                  SLA: {new Date(detailTicket.resolution_deadline).toLocaleString('ka-GE')}
+                  SLA: {fmtDateTime(new Date(detailTicket.resolution_deadline))}
                 </span>
               )}
               {detailTicket.time_spent_minutes > 0 && (
@@ -742,7 +743,7 @@ export default function HelpdeskPage() {
                   <div key={m.id} className={`rounded-lg px-3 py-2 text-sm ${m.direction === 'inbound' ? 'bg-gray-50 dark:bg-dark-100' : 'bg-primary-50 dark:bg-primary-900/20'}`}>
                     <div className="flex justify-between text-xs text-gray-500">
                       <span>{m.author_name || '—'} · {m.channel}</span>
-                      <span>{new Date(m.created_at).toLocaleString('ka-GE')}</span>
+                      <span>{fmtDateTime(new Date(m.created_at))}</span>
                     </div>
                     <p className="mt-1 text-gray-800 dark:text-gray-200">{m.body}</p>
                   </div>

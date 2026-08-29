@@ -36,6 +36,7 @@ import type {
   WarehouseUpdate,
   WarehouseStockAdjustment,
 } from '../types'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const emptyProduct: ProductCreate = {
   sku: '',
@@ -617,7 +618,7 @@ export default function InventoryPage() {
                     <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-dark-100 dark:bg-dark-100">
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-900 dark:text-gray-100">{entry.receipt_number}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{entry.purchase_order_number} · {new Date(entry.created_at).toLocaleDateString('ka-GE')}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{entry.purchase_order_number} · {fmtDate(new Date(entry.created_at))}</p>
                       </td>
                       <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{entry.supplier_name}</td>
                       <td className="px-4 py-3 text-right font-medium">+{entry.quantity.toLocaleString('ka-GE')}</td>

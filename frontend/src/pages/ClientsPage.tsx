@@ -9,6 +9,7 @@ import FormField, { Select } from '../components/ui/FormField'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { StatusBadge, clientStatusMap } from '../components/ui/Badges'
 import type { Client, ClientCreate } from '../types'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const CLIENTS_PAGE_SIZE = 20
 
@@ -221,7 +222,7 @@ export default function ClientsPage() {
               <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('კოდი:')}</span> <span className="font-medium">{viewClient.identification_code}</span></div>
               <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('ტიპი:')}</span> <span className="font-medium">{viewClient.client_type === 'legal' ? t('იურ. პირი') : t('ფიზ. პირი')}</span></div>
               <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('დღგ:')}</span> <span className="font-medium">{viewClient.is_vat_payer ? t('გადამხდელი') : t('არ არის')}</span></div>
-              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('შექმნილი:')}</span> <span className="font-medium">{new Date(viewClient.created_at).toLocaleDateString('ka-GE')}</span></div>
+              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('შექმნილი:')}</span> <span className="font-medium">{fmtDate(new Date(viewClient.created_at))}</span></div>
               {viewClient.phone && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-1"><Phone size={14} className="inline mr-1" />{viewClient.phone}</div>}
               {viewClient.email && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-1"><Mail size={14} className="inline mr-1" />{viewClient.email}</div>}
               {viewClient.address && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-2"><MapPin size={14} className="inline mr-1" />{viewClient.address}</div>}

@@ -6,6 +6,7 @@ import { Store, Plus, Download, Trash2, CheckCircle2 } from 'lucide-react'
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
 import { marketplaceApi } from '../services/api'
+import { fmtDate } from '../lib/format'
 
 export default function MarketplacePage() {
   const { t } = useTranslation()
@@ -113,7 +114,7 @@ export default function MarketplacePage() {
                 <Store size={18} className="text-primary-600" />
                 <div>
                   <p className="font-medium text-brandgray-900 dark:text-gray-100">{a.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('დაყენებულია')}: {new Date(a.installed_at).toLocaleDateString()}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('დაყენებულია')}: {fmtDate(new Date(a.installed_at))}</p>
                 </div>
               </div>
               <button onClick={() => uninstall.mutate(a.id)} className="text-gray-400 hover:text-red-500">

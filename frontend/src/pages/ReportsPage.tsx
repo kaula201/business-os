@@ -5,6 +5,7 @@ import { ordersApi, productsApi, dashboardApi, clientsApi, tasksApi, exportsApi,
 import { BarChart2, Download, FileText, Users, ShoppingCart, Package, Bot, Bookmark, Clock, Layers } from 'lucide-react'
 import { downloadBlob } from '../services/download'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 // Unified currency format: "590 ₾"
 const money = (v: number | string | null | undefined) =>
   new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL' }).format(Number(v || 0))
@@ -332,7 +333,7 @@ export default function ReportsPage() {
                     <div className="font-medium text-gray-900 dark:text-gray-100">{r.name}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">{r.report_type}</div>
                   </div>
-                  <span className="text-xs text-gray-400">{new Date(r.created_at).toLocaleDateString('ka-GE')}</span>
+                  <span className="text-xs text-gray-400">{fmtDate(new Date(r.created_at))}</span>
                 </div>
               ))}
             </div>

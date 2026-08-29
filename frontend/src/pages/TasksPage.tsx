@@ -9,6 +9,7 @@ import Modal from '../components/ui/Modal'
 import FormField, { Select } from '../components/ui/FormField'
 import { StatusBadge, priorityMap, taskStatusMap } from '../components/ui/Badges'
 import type { Task, TaskCreate, TaskComment, TaskStatus } from '../types'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const statusColumns: { status: TaskStatus; label: string }[] = [
   { status: 'todo', label: i18n.t('საჭიროებს') },
@@ -148,7 +149,7 @@ export default function TasksPage() {
         if (!t.due_date) return <span className="text-gray-400 dark:text-gray-500">—</span>
         const d = new Date(t.due_date)
         const isOverdue = d < new Date() && t.status !== 'done' && t.status !== 'cancelled'
-        return <span className={isOverdue ? 'text-red-600 font-medium' : ''}>{d.toLocaleDateString('ka-GE')}</span>
+        return <span className={isOverdue ? 'text-red-600 font-medium' : ''}>{fmtDate(d)}</span>
       },
     },
     {
@@ -238,7 +239,7 @@ export default function TasksPage() {
                         {task.due_date && (
                           <span className="flex items-center gap-1">
                             <Clock size={12} />
-                            {new Date(task.due_date).toLocaleDateString('ka-GE')}
+                            {fmtDate(new Date(task.due_date))}
                           </span>
                         )}
                         {task.assigned_to_name && (
@@ -277,7 +278,7 @@ export default function TasksPage() {
                   <tr><td colSpan={5} className="p-8 text-center text-gray-500 dark:text-gray-400">{t('კალენდარში დავალებები არ არის')}</td></tr>
                 ) : calendarData.map((ev: any) => (
                   <tr key={ev.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
-                    <td className="px-4 py-3 font-mono text-gray-600 dark:text-gray-400">{ev.start ? new Date(ev.start).toLocaleDateString('ka-GE') : '—'}</td>
+                    <td className="px-4 py-3 font-mono text-gray-600 dark:text-gray-400">{ev.start ? fmtDate(new Date(ev.start)) : '—'}</td>
                     <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{ev.title}</td>
                     <td className="px-4 py-3"><StatusBadge status={ev.status} map={taskStatusMap} /></td>
                     <td className="px-4 py-3"><StatusBadge status={ev.priority} map={priorityMap} /></td>
@@ -400,11 +401,11 @@ export default function TasksPage() {
 
             <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
               {viewTask.assigned_to_name && <div className="flex items-center gap-2"><UserIcon size={14} /> {viewTask.assigned_to_name}</div>}
-              {viewTask.due_date && <div className="flex items-center gap-2"><Calendar size={14} /> ვადა: {new Date(viewTask.due_date).toLocaleDateString('ka-GE')}</div>}
+              {viewTask.due_date && <div className="flex items-center gap-2"><Calendar size={14} /> ვადა: {fmtDate(new Date(viewTask.due_date))}</div>}
               {viewTask.client_name && <div>კლიენტი: {viewTask.client_name}</div>}
               {viewTask.order_number && <div>შეკვეთა: {viewTask.order_number}</div>}
               {viewTask.project_name && <div>პროექტი: {viewTask.project_name}</div>}
-              {viewTask.recurrence && <div className="flex items-center gap-2"><RotateCcw size={14} /> {t('გამეორება')}: {viewTask.recurrence}{viewTask.recurrence_end ? ` → ${new Date(viewTask.recurrence_end).toLocaleDateString('ka-GE')}` : ''}</div>}
+              {viewTask.recurrence && <div className="flex items-center gap-2"><RotateCcw size={14} /> {t('გამეორება')}: {viewTask.recurrence}{viewTask.recurrence_end ? ` → ${fmtDate(new Date(viewTask.recurrence_end))}` : ''}</div>}
             </div>
 
             {/* Subtasks */}

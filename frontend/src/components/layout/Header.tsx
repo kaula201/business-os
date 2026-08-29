@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import LanguageSwitcher from '../LanguageSwitcher'
 import GlobalSearch from './GlobalSearch'
 import { notificationsApi } from '../../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../../lib/format'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -18,6 +19,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
   const [notifOpen, setNotifOpen] = useState(false)
+
+  const roleLabels: Record<string, string> = {
+    admin: t('ადმინისტრატორი'),
+    manager: t('მენეჯერი'),
+    accountant: t('ბუღალტერი'),
+    employee: t('თანამშრომელი'),
+  }
   const qc = useQueryClient()
 
   const { data: notifData } = useQuery({
@@ -126,7 +134,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                           <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{n.title}</p>
                           {n.message && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{n.message}</p>}
                           <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                            {n.created_at ? new Date(n.created_at).toLocaleString('ka-GE') : ''}
+                            {n.created_at ? fmtDateTime(new Date(n.created_at)) : ''}
                           </p>
                         </div>
                       </div>
@@ -159,7 +167,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 <div className="px-4 py-2 border-b border-gray-100 dark:border-dark-50">
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user?.full_name}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
-                  <span className="badge badge-blue mt-1">{user?.role}</span>
+                  <span className="badge badge-blue mt-1">{user?.role ? roleLabels[user.role] || user.role : ''}</span>
                 </div>
                 <button
                   onClick={() => { logout(); setDropdownOpen(false) }}

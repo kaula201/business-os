@@ -8,6 +8,7 @@ import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
 import { api } from '../services/api'
 import type { ApiResponse, PaginatedResponse } from '../types'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -374,7 +375,7 @@ export default function HRPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                        {emp.hire_date ? new Date(emp.hire_date).toLocaleDateString('ka-GE') : '—'}
+                        {emp.hire_date ? fmtDate(new Date(emp.hire_date)) : '—'}
                       </td>
                       <td className="px-4 py-3 text-right font-medium dark:text-gray-100">{money(emp.base_salary, emp.salary_currency)}</td>
                       <td className="px-4 py-3">
@@ -498,7 +499,7 @@ export default function HRPage() {
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">
                       {employees.find(e => e.id === ts.employee_id)?.full_name || '—'}
                     </td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{new Date(ts.work_date).toLocaleDateString('ka-GE')}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{fmtDate(new Date(ts.work_date))}</td>
                     <td className="px-4 py-3 text-right font-mono dark:text-gray-100">{ts.hours_worked}</td>
                     <td className="px-4 py-3 text-right font-mono text-amber-600 dark:text-amber-400">{ts.overtime_hours || 0}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{ts.description || '—'}</td>
@@ -690,8 +691,8 @@ export default function HRPage() {
                         {a.status === 'present' ? t('დასწრება') : a.status === 'absent' ? t('არყოფნა') : a.status === 'late' ? t('დაგვიანება') : a.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 dark:text-gray-300">{a.clock_in ? new Date(a.clock_in).toLocaleTimeString('ka-GE') : '—'}</td>
-                    <td className="px-4 py-3 dark:text-gray-300">{a.clock_out ? new Date(a.clock_out).toLocaleTimeString('ka-GE') : '—'}</td>
+                    <td className="px-4 py-3 dark:text-gray-300">{a.clock_in ? fmtTime(new Date(a.clock_in)) : '—'}</td>
+                    <td className="px-4 py-3 dark:text-gray-300">{a.clock_out ? fmtTime(new Date(a.clock_out)) : '—'}</td>
                     <td className="px-4 py-3 text-right dark:text-gray-200">{a.hours_worked ?? '—'}</td>
                   </tr>
                 ))}

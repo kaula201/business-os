@@ -6,6 +6,7 @@ import { CreditCard, Plus, CheckCircle2, RotateCcw } from 'lucide-react'
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
 import { paymentsApi } from '../services/api'
+import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const statusColors: Record<string, string> = {
   pending: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -78,7 +79,7 @@ export default function PaymentsPage() {
                     <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[p.status] || ''}`}>{p.status}</span>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">{p.provider_ref || '—'}</td>
-                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(p.created_at).toLocaleDateString('ka-GE')}</td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{fmtDate(new Date(p.created_at))}</td>
                   <td className="px-4 py-3 text-right">
                     {p.status === 'pending' && (
                       <button onClick={() => confirmPayment.mutate(p.id)} className="text-green-600 hover:text-green-700 mr-2" title={t('დადასტურება')}>
