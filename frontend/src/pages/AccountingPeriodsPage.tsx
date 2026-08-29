@@ -88,6 +88,17 @@ export default function AccountingPeriodsPage() {
   })
   const [automationResult, setAutomationResult] = useState<Record<string, unknown> | null>(null)
 
+  const closeYearMutation = useMutation({
+    mutationFn: () => api.post(`/accounting-periods/${year}/close-year`).then((r) => r.data.data),
+    onSuccess: (data) => {
+      setYearResult(data)
+      setError('')
+      queryClient.invalidateQueries({ queryKey: ['accounting-periods', year] })
+    },
+    onError: (mutationError) => setError(errorText(mutationError)),
+  })
+  const [yearResult, setYearResult] = useState<Record<string, unknown> | null>(null)
+
   const openAction = (type: 'close' | 'reopen', month: number) => {
     setAction({ type, month })
     setReason('')
@@ -113,6 +124,14 @@ export default function AccountingPeriodsPage() {
         <div className="flex items-center gap-2">
           <button
             className="btn-secondary flex items-center gap-1.5"
+            onClick={() => { if (confirm(t('წლის დახურვა — P&L გადავა გაუნაწილებელ მოგებაში. გაგრძელება?'))) closeYearMutation.mutate() }}
+            disabled={closeYearMutation.isPending}
+          >
+            <LockKeyhole size={15} />
+            {closeYearMutation.isPending ? t('მუშავდება...') : t('წლის დახურვა')}
+          </button>
+          <button
+            className="btn-secondary flex items-center gap-1.5"
             onClick={() => { if (confirm(t('თვის დახურვის ავტომატური გაშვება (ამორტიზაცია, კურსი, დეფერირებული)?'))) runAutomation.mutate() }}
             disabled={runAutomation.isPending}
           >
@@ -132,6 +151,16 @@ export default function AccountingPeriodsPage() {
           <p className="font-medium">{t('თვის დახურვა დასრულდა')}</p>
           <p className="mt-1">
             {t('ამორტიზაცია')}: {String(automationResult.depreciation_posted ?? 0)} · {t('ვალუტის სხვაობა')}: {String(automationResult.fx_revaluated ?? 0)} · {t('დეფერირებული')}: {String(automationResult.deferred_recognized ?? 0)}
+          </p>
+        </div>
+      )}
+
+      {yearResult && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/10 dark:text-emerald-300">
+          <p className="font-medium">{t('წლის დახურვა დასრულდა')}</p>
+          <p className="mt-1">
+            {t('ჩანაწერი')}: {String(yearResult.entry_number ?? '—')} · {t('წმინდა მოგება')}: {String(yearResult.net_income ?? 0)} ₾
+            {yearResult.already_closed ? ` · ${t('წელი უკვე დახურულია')}` : ''}
           </p>
         </div>
       )}

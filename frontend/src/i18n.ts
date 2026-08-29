@@ -1871,6 +1871,11 @@ const en: Record<string, string> = {
   'ყიდვა': 'Buy',
   'ტრიალი': 'Trial',
   'ხელმოწერა (დახაზეთ მაუსით/თითით)': 'Signature (draw with mouse/finger)',
+  // Year closing (Odoo-depth accounting)
+  'წლის დახურვა': 'Close year',
+  'წლის დახურვა — P&L გადავა გაუნაწილებელ მოგებაში. გაგრძელება?': 'Close year — P&L moves to retained earnings. Continue?',
+  'წლის დახურვა დასრულდა': 'Year closed',
+  'წელი უკვე დახურულია': 'Year already closed',
 }
 
 i18n.use(initReactI18next).init({

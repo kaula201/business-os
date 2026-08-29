@@ -187,3 +187,78 @@ async def gl_reconciliation(
         ))
 
     return ResponseBase(data=result)
+
+
+# ═══════════════════════ AR/AP subledger reconciliation (Odoo) ════════════════
+
+@router.get("/ar-ap-reconciliation", response_model=ResponseBase[dict])
+async def ar_ap_reconciliation(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Compare GL control accounts (1300 AR / 2100 AP) with subledger totals.
+
+    AR subledger = sum of client balances (receivables).
+    AP subledger = sum of supplier payable outstanding amounts.
+    A healthy ledger shows GL == subledger for both sides.
+    """
+    from app.models.client import Client
+    from app.models.purchase import SupplierPayable
+    from app.models.gl import GLAccount, JournalEntry, JournalEntryLine
+
+    company_id = current_user.company_id
+
+    async def gl_balance(code: str):
+        acc = (await db.execute(select(GLAccount).where(
+            GLAccount.company_id == company_id, GLAccount.code == code,
+        ))).scalar_one_or_none()
+        if not acc:
+            return 0.0
+        bal = (await db.execute(
+            select(func.coalesce(func.sum(JournalEntryLine.debit_amount - JournalEntryLine.credit_amount), 0))
+            .select_from(JournalEntryLine)
+            .join(JournalEntry)
+            .where(
+                JournalEntry.company_id == company_id,
+                JournalEntryLine.gl_account_id == acc.id,
+            )
+        )).scalar()
+        value = float(bal or 0)
+        # liability accounts carry credit balances — report as positive
+        if acc.account_type == "liability":
+            value = -value
+        return value
+
+    # AR subledger: sum of client balances
+    ar_subledger = (await db.execute(
+        select(func.coalesce(func.sum(Client.balance), 0)).where(
+            Client.company_id == company_id, Client.deleted_at.is_(None),
+        )
+    )).scalar()
+    ar_subledger = float(ar_subledger or 0)
+
+    # AP subledger: sum of outstanding payables
+    ap_subledger = (await db.execute(
+        select(func.coalesce(func.sum(SupplierPayable.outstanding_amount), 0)).where(
+            SupplierPayable.company_id == company_id,
+        )
+    )).scalar()
+    ap_subledger = float(ap_subledger or 0)
+
+    ar_gl = await gl_balance("1300")
+    ap_gl = await gl_balance("2100")
+
+    return ResponseBase(data={
+        "ar": {
+            "gl_balance": round(ar_gl, 2),
+            "subledger_total": round(ar_subledger, 2),
+            "difference": round(ar_gl - ar_subledger, 2),
+            "in_balance": abs(ar_gl - ar_subledger) < 0.01,
+        },
+        "ap": {
+            "gl_balance": round(ap_gl, 2),
+            "subledger_total": round(ap_subledger, 2),
+            "difference": round(ap_gl - ap_subledger, 2),
+            "in_balance": abs(ap_gl - ap_subledger) < 0.01,
+        },
+    })

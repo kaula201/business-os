@@ -563,6 +563,9 @@ export const inventoryValuationApi = {
   adjust: (data: { product_id: string; quantity: number; unit_cost: number; note?: string }) =>
     api.post('/inventory/valuation/adjust', data),
   summary: () => api.get('/inventory/valuation/summary'),
+  methods: () => api.get('/inventory/valuation/methods'),
+  setMethod: (data: { product_id: string; method: 'standard' | 'avco' | 'fifo'; standard_cost?: number }) =>
+    api.post('/inventory/valuation/methods', data),
 }
 
 export const customerFinanceApi = {

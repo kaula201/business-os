@@ -2,6 +2,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.endpoints.purchase_orders import add_audit
@@ -117,3 +118,70 @@ async def consolidated_intercompany(
     })
     await db.commit()
     return ResponseBase(data=data)
+
+
+@router.get("/checks", response_model=ResponseBase[dict])
+async def consolidated_checks(
+    as_of_date: date = Query(default_factory=date.today),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Consolidation health checks (Odoo-depth):
+    1. Each company's balance sheet is balanced (assets == liabilities + equity)
+    2. Intercompany balances match across companies (A's receivable == B's payable)
+    3. Elimination entries exist for matched intercompany pairs
+    """
+    require_gl_role(current_user)
+    company_ids, companies = await _group_ids(db, current_user)
+
+    checks = []
+    # 1. per-company BS balance
+    for c in companies:
+        bs = await consolidated_balance_sheet(db, [c.id], as_of_date)
+        assets = float(bs.get("total_assets", 0) or 0)
+        liabilities = float(bs.get("total_liabilities", 0) or 0)
+        equity = float(bs.get("total_equity", 0) or 0)
+        checks.append({
+            "company_id": str(c.id), "company_name": c.name,
+            "check": "balance_sheet_balanced",
+            "ok": abs(assets - (liabilities + equity)) < 0.01,
+            "assets": round(assets, 2), "liabilities": round(liabilities, 2),
+            "equity": round(equity, 2),
+            "difference": round(assets - (liabilities + equity), 2),
+        })
+
+    # 2. intercompany match
+    ic = await intercompany_balances(db, company_ids, as_of_date)
+    for acc in ic.get("accounts", []):
+        balances = [float(b["balance"]) for b in acc.get("balances", {}).values() if b is not None]
+        total = sum(balances)
+        checks.append({
+            "account_code": acc.get("account_code"), "account_name": acc.get("account_name"),
+            "check": "intercompany_matches",
+            "ok": abs(total) < 0.01,
+            "total": round(total, 2),
+        })
+
+    # 3. eliminations present
+    from app.models.consolidation_elimination import ConsolidationElimination
+    elim_count = (await db.execute(
+        select(func.count()).select_from(ConsolidationElimination).where(
+            ConsolidationElimination.company_id.in_(company_ids),
+        )
+    )).scalar()
+    checks.append({
+        "check": "eliminations_recorded",
+        "ok": (elim_count or 0) > 0,
+        "elimination_count": elim_count or 0,
+    })
+
+    add_audit(db, current_user, "consolidated.checks_viewed", "gl", company_ids[0], {
+        "as_of_date": as_of_date.isoformat(), "checks": len(checks),
+    })
+    await db.commit()
+
+    return ResponseBase(data={
+        "as_of_date": as_of_date.isoformat(),
+        "checks": checks,
+        "all_ok": all(c["ok"] for c in checks),
+    })

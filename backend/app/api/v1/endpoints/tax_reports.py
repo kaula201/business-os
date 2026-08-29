@@ -12,6 +12,7 @@ from app.models.invoice import Invoice
 from app.models.purchase import SupplierInvoice
 from app.models.user import User
 from app.schemas.common import ResponseBase
+from app.api.v1.endpoints.purchase_orders import add_audit
 
 router = APIRouter(prefix="/tax-reports", tags=["საგადასახადო ანგარიშები"])
 
@@ -56,6 +57,13 @@ async def vat_return(
     purchases_total = sum(i.total for i in purchases)
 
     net_vat = sales_vat - purchases_vat
+
+    # audit trail — who viewed the VAT return and when
+    add_audit(db, current_user, "tax.vat_return_viewed", "srs", company_id, {
+        "year": year, "month": month, "net_vat": float(net_vat),
+        "sales_vat": float(sales_vat), "purchases_vat": float(purchases_vat),
+    })
+    await db.commit()
 
     return ResponseBase(data={
         "period": f"{year}-{month:02d}",

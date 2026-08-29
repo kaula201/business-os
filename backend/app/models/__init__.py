@@ -178,7 +178,11 @@ __all__ = [
 from app.models.recurring import RecurringJournalEntry  # noqa: F401
 from app.models.exchange_difference import ExchangeDifference  # noqa: F401
 from app.models.bank_rule import BankReconciliationRule  # noqa: F401
-from app.models.cost_layer import ProductCostLayer  # noqa: F401
+from app.models.cost_layer import (  # noqa: F401
+    FifoCostLot,
+    ProductCostLayer,
+    ProductValuationConfig,
+)
 from app.models.pricing import PriceList, PriceListItem  # noqa: F401
 from app.models.quotation import Quotation, QuotationItem  # noqa: F401
 from app.models.payment_term import PaymentTerm  # noqa: F401

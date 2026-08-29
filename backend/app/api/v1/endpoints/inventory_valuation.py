@@ -1,4 +1,4 @@
-"""Inventory valuation API — weighted-average cost layers."""
+"""Inventory valuation API — Odoo-depth: AVCO/FIFO/Standard methods."""
 import uuid
 from decimal import Decimal
 
@@ -7,8 +7,11 @@ from pydantic import BaseModel, Field
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.models.cost_layer import ProductValuationConfig
 from app.models.user import User
-from app.services.inventory_valuation import apply_incoming_movement, get_valuation
+from app.services.inventory_valuation import apply_incoming_movement, get_valuation, get_valuation_method
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/inventory/valuation", tags=["საწყობი — შეფასება"])
 
@@ -153,3 +156,58 @@ async def adjust_valuation(
         if str(e) == "product_not_found":
             raise HTTPException(status_code=404, detail="პროდუქტი ვერ მოიძებნა")
         raise
+
+
+# ═══════════════════════ Valuation method config (Odoo) ═══════════════════════
+
+@router.get("/methods", response_model=dict)
+async def list_valuation_methods(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Per-product valuation method: standard | avco | fifo."""
+    rows = (await db.execute(
+        select(ProductValuationConfig).where(
+            ProductValuationConfig.company_id == current_user.company_id,
+        )
+    )).scalars().all()
+    return {
+        "data": [{
+            "product_id": str(c.product_id),
+            "method": c.method,
+            "standard_cost": float(c.standard_cost),
+        } for c in rows],
+        "message": None,
+    }
+
+
+@router.post("/methods", response_model=dict)
+async def set_valuation_method(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Set a product's valuation method (standard/avco/fifo) + standard cost."""
+    require_stock_role(current_user)
+    method = data.get("method", "avco")
+    if method not in ("standard", "avco", "fifo"):
+        raise HTTPException(status_code=422, detail="მეთოდი უნდა იყოს standard, avco ან fifo")
+
+    cfg = (await db.execute(select(ProductValuationConfig).where(
+        ProductValuationConfig.company_id == current_user.company_id,
+        ProductValuationConfig.product_id == data["product_id"],
+    ))).scalar_one_or_none()
+    if cfg:
+        cfg.method = method
+        if data.get("standard_cost") is not None:
+            cfg.standard_cost = Decimal(str(data["standard_cost"]))
+    else:
+        cfg = ProductValuationConfig(
+            company_id=current_user.company_id,
+            product_id=data["product_id"],
+            method=method,
+            standard_cost=Decimal(str(data.get("standard_cost", 0))),
+        )
+        db.add(cfg)
+    await db.commit()
+    return {"data": {"product_id": str(cfg.product_id), "method": cfg.method}, "message": "მეთოდი დაყენდა"}
