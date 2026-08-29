@@ -118,7 +118,7 @@ async def valuation_summary(
         status=status,
         source_count=len(product_ids),
     )
-@router.get("/{product_id}", response_model=ValuationResult)
+@router.get("/{product_id:uuid}", response_model=ValuationResult)
 async def get_product_valuation(
     product_id: uuid.UUID,
     db=Depends(get_db),
