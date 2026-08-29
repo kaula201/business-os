@@ -162,6 +162,17 @@ async def _collect_receivables(db: AsyncSession, company_id) -> list[dict]:
     return items
 
 
+async def _collect_georgian_legal(db: AsyncSession, company_id) -> list[dict]:
+    """Georgian tax/payroll/pension legal reference — indexed so the AI can
+    answer regulatory questions (rates, deadlines, penalties) with context."""
+    from app.api.v1.endpoints.ai import _get_georgian_legal_context
+    return [{
+        "id": company_id,
+        "text": _get_georgian_legal_context(),
+        "type": "georgian_legal",
+    }]
+
+
 # ── Indexing ──────────────────────────────────────────────────────────────────
 
 
@@ -177,6 +188,7 @@ async def index_company_data(db: AsyncSession, company_id) -> int:
     collectors = [
         _collect_clients, _collect_products, _collect_orders,
         _collect_tasks, _collect_invoices, _collect_receivables,
+        _collect_georgian_legal,
     ]
 
     all_items = []
