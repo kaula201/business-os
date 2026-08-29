@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: str = "*"
     FRONTEND_URL: str = "http://localhost:5173"
+    # Payment gateway (Stripe). When STRIPE_SECRET_KEY is set, real charges are
+    # attempted; otherwise the checkout falls back to sandbox (demo) mode.
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
     
     # SMTP (real email sending; falls back to sandbox when unset)
     SMTP_HOST: str = ""

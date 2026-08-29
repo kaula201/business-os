@@ -128,6 +128,7 @@ def _sig_response(r: SignatureRequest) -> SignatureRequestResponse:
         document_name=r.document_name, document_url=r.document_url, signer_name=r.signer_name,
         signer_email=r.signer_email, status=r.status, expires_at=r.expires_at,
         signed_at=r.signed_at, signed_by_email=r.signed_by_email,
+        signature_data=r.signature_data,
         message=r.message, created_at=r.created_at, updated_at=r.updated_at,
     )
 
@@ -265,6 +266,8 @@ async def sign_request(
     req.status = "signed" if data.decision == "sign" else "declined"
     req.signed_by_email = data.signer_email
     req.signed_at = utc_now()
+    if data.signature_data:
+        req.signature_data = data.signature_data
     await db.commit()
     await db.refresh(req)
     return ResponseBase(data=_sig_response(req))

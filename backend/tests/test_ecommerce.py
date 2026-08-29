@@ -66,7 +66,8 @@ async def test_checkout_creates_order(client, auth_headers):
     orders = await client.get("/api/v1/ecommerce/orders", headers=auth_headers)
     assert orders.status_code == 200, orders.text
     assert len(orders.json()["data"]) == 1
-    assert orders.json()["data"][0]["status"] == "pending"
+    assert orders.json()["data"][0]["status"] == "paid"  # sandbox gateway marks paid
+    assert orders.json()["data"][0]["payment_status"] == "paid"
 
 
 async def test_checkout_empty_cart_rejected(client, auth_headers):

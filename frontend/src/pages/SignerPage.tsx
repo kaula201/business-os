@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation } from '@tanstack/react-query'
-import { PenLine, CheckCircle2, XCircle } from 'lucide-react'
+import { PenLine, CheckCircle2, XCircle, Eraser } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 
 import { api } from '../services/api'
@@ -12,10 +12,64 @@ export default function SignerPage() {
   const [email, setEmail] = useState('')
   const [result, setResult] = useState<{ status: string; message: string } | null>(null)
   const [error, setError] = useState('')
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const drawing = useRef(false)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.lineWidth = 2.5
+    ctx.lineCap = 'round'
+    ctx.strokeStyle = '#1e293b'
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }, [])
+
+  const getPos = (e: React.PointerEvent) => {
+    const canvas = canvasRef.current!
+    const rect = canvas.getBoundingClientRect()
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  }
+
+  const onDown = (e: React.PointerEvent) => {
+    drawing.current = true
+    const canvas = canvasRef.current!
+    const ctx = canvas.getContext('2d')!
+    const { x, y } = getPos(e)
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+  }
+  const onMove = (e: React.PointerEvent) => {
+    if (!drawing.current) return
+    const canvas = canvasRef.current!
+    const ctx = canvas.getContext('2d')!
+    const { x, y } = getPos(e)
+    ctx.lineTo(x, y)
+    ctx.stroke()
+  }
+  const onUp = () => { drawing.current = false }
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
+
+  const getSignatureData = () => {
+    const canvas = canvasRef.current
+    return canvas ? canvas.toDataURL('image/png') : null
+  }
 
   const sign = useMutation({
     mutationFn: (decision: 'sign' | 'decline') =>
-      api.post('/signature-requests/sign', { token, signer_email: email, decision }),
+      api.post('/signature-requests/sign', {
+        token, signer_email: email, decision,
+        signature_data: decision === 'sign' ? getSignatureData() : null,
+      }),
     onSuccess: (r) => {
       setResult({ status: r.data.data.status, message: r.data.data.status === 'signed' ? t('დოკუმენტი ხელმოწერილია') : t('მოთხოვნა უარყოფილია') })
     },
@@ -56,6 +110,24 @@ export default function SignerPage() {
               value={email}
               onChange={e => setEmail(e.target.value)}
             />
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-sm text-gray-500 dark:text-gray-400">{t('ხელმოწერა (დახაზეთ მაუსით/თითით)')}</span>
+                <button onClick={clearCanvas} className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500">
+                  <Eraser size={14} /> {t('გასუფთავება')}
+                </button>
+              </div>
+              <canvas
+                ref={canvasRef}
+                width={380}
+                height={140}
+                className="w-full rounded-lg border border-gray-200 bg-white dark:border-dark-50"
+                onPointerDown={onDown}
+                onPointerMove={onMove}
+                onPointerUp={onUp}
+                onPointerLeave={onUp}
+              />
+            </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex gap-2 pt-2">
               <button

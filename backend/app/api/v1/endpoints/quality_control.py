@@ -350,3 +350,47 @@ async def resolve_quality_alert(
     alert.resolved_at = func.now()
     await db.commit()
     return ResponseBase(data={"id": str(alert_id), "status": "done"}, message="გაფრთხილება დახურულია")
+
+
+# ═══════════════════════ Barcode scanning ═════════════════════════════════════
+
+@router.post("/scan", response_model=ResponseBase[dict])
+async def scan_barcode(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("quality", "can_create")),
+):
+    """Odoo-style barcode scan: find the product by barcode/SKU/GTIN and
+    auto-create a pending quality check for it."""
+    from app.models.product import Product
+
+    code = (data.get("barcode") or "").strip()
+    if not code:
+        raise HTTPException(status_code=422, detail="ბარკოდი არ არის მითითებული")
+
+    product = (await db.execute(select(Product).where(
+        Product.company_id == current_user.company_id,
+        (Product.barcode == code) | (Product.sku == code) | (Product.gtin == code),
+    ))).scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail=f"პროდუქტი ბარკოდით '{code}' არ მოიძებნა")
+
+    # auto-create a pending check for the scanned product
+    check = QualityCheck(
+        company_id=current_user.company_id,
+        product_id=product.id,
+        barcode=code,
+        checked_by=current_user.id,
+        status=QualityCheck.Status.PENDING,
+    )
+    db.add(check)
+    await db.commit()
+    await db.refresh(check)
+    return ResponseBase(data={
+        "check_id": str(check.id),
+        "product_id": str(product.id),
+        "product_name": product.name,
+        "sku": product.sku,
+        "barcode": code,
+        "status": check.status,
+    }, message="პროდუქტი დასკანერდა — შემოწმება შეიქმნა")

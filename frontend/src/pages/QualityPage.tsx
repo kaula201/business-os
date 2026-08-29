@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BadgeCheck, Plus, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { BadgeCheck, Plus, CheckCircle2, AlertTriangle, ScanLine } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
@@ -13,6 +13,8 @@ export default function QualityPage() {
   const [tab, setTab] = useState<'points' | 'alerts'>('points')
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<Record<string, any>>({})
+  const [barcode, setBarcode] = useState('')
+  const [scanResult, setScanResult] = useState<string | null>(null)
 
   const { data: points } = useQuery({ queryKey: ['quality-points'], queryFn: () => qualityApi.controlPoints().then(r => r.data.data) })
   const { data: alerts } = useQuery({ queryKey: ['quality-alerts'], queryFn: () => qualityApi.alerts().then(r => r.data.data) })
@@ -30,6 +32,15 @@ export default function QualityPage() {
     mutationFn: (id: string) => qualityApi.resolveAlert(id, { resolution: 'დახურულია' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['quality-alerts'] }),
   })
+  const scanBarcode = useMutation({
+    mutationFn: () => qualityApi.scan(barcode),
+    onSuccess: (r) => {
+      setScanResult(`✅ ${r.data.data.product_name} — ${t('შემოწმება შეიქმნა')}`)
+      setBarcode('')
+      qc.invalidateQueries({ queryKey: ['quality-checks'] })
+    },
+    onError: (e: any) => setScanResult(`❌ ${e?.response?.data?.detail || t('შეცდომა')}`),
+  })
 
   const submit = () => (tab === 'points' ? createPoint : createAlert).mutate()
 
@@ -43,6 +54,24 @@ export default function QualityPage() {
         <button onClick={() => setOpen(true)} className="btn btn-primary flex items-center gap-2">
           <Plus size={18} /> {t('ახალი')}
         </button>
+      </div>
+
+      {/* Barcode scanner */}
+      <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <ScanLine size={20} className="text-primary-600" />
+          <input
+            className="input flex-1"
+            placeholder={t('ბარკოდის სკანირება (ან SKU/GTIN)')}
+            value={barcode}
+            onChange={e => setBarcode(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && barcode) scanBarcode.mutate() }}
+          />
+          <button onClick={() => scanBarcode.mutate()} disabled={!barcode || scanBarcode.isPending} className="btn btn-primary">
+            {t('სკანირება')}
+          </button>
+        </div>
+        {scanResult && <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{scanResult}</p>}
       </div>
 
       <div className="flex gap-2 border-b dark:border-dark-50">

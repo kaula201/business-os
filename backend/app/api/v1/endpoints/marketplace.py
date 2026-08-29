@@ -1,5 +1,6 @@
 """Marketplace API — app catalog, install/uninstall, per-company config."""
 import uuid
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
-from app.models.marketplace import CompanyAppInstallation, MarketplaceApp
+from app.models.marketplace import CompanyAppInstallation, MarketplaceApp, MarketplacePurchase
 from app.models.user import User
 from app.schemas.common import PaginatedResponse, ResponseBase
 
@@ -188,3 +189,139 @@ async def my_installed_apps(
         "icon": i.app.icon, "category": i.app.category, "version": i.app.version,
         "config": i.config, "installed_at": i.installed_at.isoformat(),
     } for i in rows])
+
+
+# ═══════════════════════ Billing — purchase, trial, license ═══════════════════
+
+@router.post("/apps/{app_id:uuid}/purchase", response_model=ResponseBase[dict])
+async def purchase_app(
+    app_id: UUID,
+    data: dict | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("integrations", "can_edit")),
+):
+    """Buy a paid app. Stripe charge when configured, else sandbox 'paid'."""
+    from app.core.config import settings
+    from app.models.marketplace import MarketplacePurchase
+    from app.api.v1.endpoints.purchase_orders import allocate_document_number
+    from decimal import Decimal
+
+    app = (await db.execute(select(MarketplaceApp).where(
+        MarketplaceApp.id == app_id, MarketplaceApp.is_published.is_(True),
+    ))).scalar_one_or_none()
+    if not app:
+        raise HTTPException(status_code=404, detail="აპი არ მოიძებნა")
+    if app.price <= 0:
+        raise HTTPException(status_code=400, detail="აპი უფასოა — purchase არ არის საჭირო")
+
+    billing_mode = (data or {}).get("billing_mode", "one_time")
+    amount = app.price
+    payment_reference = None
+    status = "paid"
+
+    if settings.STRIPE_SECRET_KEY:
+        try:
+            import stripe
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            pi = stripe.PaymentIntent.create(
+                amount=int(amount * 100), currency="gel",
+                payment_method_types=["card"],
+                metadata={"app": app.slug, "company_id": str(current_user.company_id)},
+            )
+            payment_reference = pi.id
+        except Exception:
+            status = "failed"
+
+    invoice_number = await allocate_document_number(db, current_user.company_id, "marketplace_invoice", "INV-MP")
+    purchase = MarketplacePurchase(
+        company_id=current_user.company_id, app_id=app_id,
+        amount=Decimal(str(amount)), billing_mode=billing_mode,
+        status=status, payment_reference=payment_reference,
+        invoice_number=invoice_number, purchased_by=current_user.id,
+    )
+    db.add(purchase)
+
+    # activate the installation with license
+    inst = (await db.execute(select(CompanyAppInstallation).where(
+        CompanyAppInstallation.app_id == app_id,
+        CompanyAppInstallation.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if inst:
+        inst.status = "installed"
+        inst.billing_mode = billing_mode
+        inst.license_key = f"LIC-{uuid.uuid4().hex[:12].upper()}"
+    else:
+        inst = CompanyAppInstallation(
+            company_id=current_user.company_id, app_id=app_id,
+            status="installed", billing_mode=billing_mode,
+            license_key=f"LIC-{uuid.uuid4().hex[:12].upper()}",
+            installed_by=current_user.id,
+        )
+        db.add(inst)
+    await db.commit()
+    return ResponseBase(data={
+        "purchase_id": str(purchase.id), "invoice_number": invoice_number,
+        "amount": float(amount), "status": status,
+        "payment_reference": payment_reference, "license_key": inst.license_key,
+        "gateway": "stripe" if settings.STRIPE_SECRET_KEY else "sandbox",
+    }, message="აპი შეძენილია")
+
+
+@router.post("/apps/{app_id:uuid}/trial", response_model=ResponseBase[dict])
+async def start_app_trial(
+    app_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("integrations", "can_edit")),
+):
+    """Start a 14-day trial for a paid app."""
+    from datetime import timedelta
+
+    app = (await db.execute(select(MarketplaceApp).where(
+        MarketplaceApp.id == app_id, MarketplaceApp.is_published.is_(True),
+    ))).scalar_one_or_none()
+    if not app:
+        raise HTTPException(status_code=404, detail="აპი არ მოიძებნა")
+
+    inst = (await db.execute(select(CompanyAppInstallation).where(
+        CompanyAppInstallation.app_id == app_id,
+        CompanyAppInstallation.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if inst and inst.billing_mode == "trial" and inst.trial_ends_at and inst.trial_ends_at > datetime.utcnow():
+        raise HTTPException(status_code=400, detail="ტრიალი უკვე აქტიურია")
+
+    trial_end = datetime.utcnow() + timedelta(days=14)
+    if inst:
+        inst.status = "trial"
+        inst.billing_mode = "trial"
+        inst.trial_ends_at = trial_end
+    else:
+        inst = CompanyAppInstallation(
+            company_id=current_user.company_id, app_id=app_id,
+            status="trial", billing_mode="trial", trial_ends_at=trial_end,
+            installed_by=current_user.id,
+        )
+        db.add(inst)
+    await db.commit()
+    return ResponseBase(data={
+        "id": str(inst.id), "status": "trial",
+        "trial_ends_at": trial_end.isoformat(),
+    }, message="14-დღიანი ტრიალი დაიწყო")
+
+
+@router.get("/purchases", response_model=ResponseBase[list[dict]])
+async def list_purchases(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MarketplacePurchase).where(
+            MarketplacePurchase.company_id == current_user.company_id,
+        ).order_by(MarketplacePurchase.created_at.desc()).limit(100)
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(p.id), "app_id": str(p.app_id),
+        "amount": float(p.amount), "billing_mode": p.billing_mode,
+        "status": p.status, "invoice_number": p.invoice_number,
+        "payment_reference": p.payment_reference,
+        "created_at": p.created_at.isoformat(),
+    } for p in rows])

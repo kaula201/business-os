@@ -32,6 +32,7 @@ class QualityCheck(Base):
     control_point_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("quality_control_points.id"), nullable=True, index=True
     )
+    barcode: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     checked_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )

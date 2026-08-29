@@ -48,6 +48,7 @@ class SignatureSignRequest(BaseModel):
     token: str = Field(min_length=8)
     signer_email: str = Field(min_length=3, max_length=255)
     decision: str = Field(pattern="^(sign|decline)$")
+    signature_data: str | None = None  # canvas drawing (PNG data URL)
 
 
 class SignatureRequestResponse(BaseModel):
@@ -62,6 +63,7 @@ class SignatureRequestResponse(BaseModel):
     expires_at: datetime | None
     signed_at: datetime | None
     signed_by_email: str | None
+    signature_data: str | None
     message: str | None
     created_at: datetime
     updated_at: datetime

@@ -1862,6 +1862,13 @@ const en: Record<string, string> = {
   'მოთხოვნა უარყოფილია': 'Request declined',
   'შეცდომა ხელმოწერისას': 'Error while signing',
   'ხელმოწერა': 'Sign',
+  // Odoo-depth extras
+  'ბარკოდის სკანირება (ან SKU/GTIN)': 'Scan barcode (or SKU/GTIN)',
+  'სკანირება': 'Scan',
+  'შემოწმება შეიქმნა': 'check created',
+  'ყიდვა': 'Buy',
+  'ტრიალი': 'Trial',
+  'ხელმოწერა (დახაზეთ მაუსით/თითით)': 'Signature (draw with mouse/finger)',
 }
 
 i18n.use(initReactI18next).init({

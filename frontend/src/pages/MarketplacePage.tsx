@@ -21,6 +21,10 @@ export default function MarketplacePage() {
     queryKey: ['marketplace-my'],
     queryFn: () => marketplaceApi.myApps().then(r => r.data.data),
   })
+  const { data: purchases } = useQuery({
+    queryKey: ['marketplace-purchases'],
+    queryFn: () => marketplaceApi.purchases().then(r => r.data.data),
+  })
 
   const createApp = useMutation({
     mutationFn: () => marketplaceApi.create(form),
@@ -32,6 +36,14 @@ export default function MarketplacePage() {
   })
   const uninstall = useMutation({
     mutationFn: (id: string) => marketplaceApi.uninstall(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['marketplace'] }); qc.invalidateQueries({ queryKey: ['marketplace-my'] }) },
+  })
+  const purchase = useMutation({
+    mutationFn: (id: string) => marketplaceApi.purchase(id, { billing_mode: 'one_time' }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['marketplace'] }); qc.invalidateQueries({ queryKey: ['marketplace-my'] }); qc.invalidateQueries({ queryKey: ['marketplace-purchases'] }) },
+  })
+  const trial = useMutation({
+    mutationFn: (id: string) => marketplaceApi.trial(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['marketplace'] }); qc.invalidateQueries({ queryKey: ['marketplace-my'] }) },
   })
 
@@ -68,6 +80,15 @@ export default function MarketplacePage() {
                 <button onClick={() => uninstall.mutate(a.id)} className="btn btn-sm btn-outline w-full">
                   {t('მოხსნა')}
                 </button>
+              ) : a.price > 0 ? (
+                <div className="flex gap-2">
+                  <button onClick={() => purchase.mutate(a.id)} className="btn btn-sm btn-primary flex-1">
+                    {t('ყიდვა')} — {a.price} ₾
+                  </button>
+                  <button onClick={() => trial.mutate(a.id)} className="btn btn-sm btn-outline flex-1">
+                    {t('ტრიალი')}
+                  </button>
+                </div>
               ) : (
                 <button onClick={() => install.mutate(a.id)} className="btn btn-sm btn-primary w-full flex items-center justify-center gap-1">
                   <Download size={14} /> {t('დაყენება')}

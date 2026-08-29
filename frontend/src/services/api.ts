@@ -368,6 +368,9 @@ export const marketplaceApi = {
   uninstall: (id: string) => api.post(`/marketplace/apps/${id}/uninstall`),
   updateConfig: (id: string, data: Record<string, unknown>) => api.patch(`/marketplace/apps/${id}/config`, data),
   myApps: () => api.get('/marketplace/my-apps'),
+  purchase: (id: string, data?: Record<string, unknown>) => api.post(`/marketplace/apps/${id}/purchase`, data || {}),
+  trial: (id: string) => api.post(`/marketplace/apps/${id}/trial`),
+  purchases: () => api.get('/marketplace/purchases'),
 }
 
 // Project resources API
@@ -431,6 +434,7 @@ export const qualityApi = {
   alerts: (status?: string) => api.get('/quality-control/alerts', { params: status ? { status } : {} }),
   createAlert: (data: Record<string, unknown>) => api.post('/quality-control/alerts', data),
   resolveAlert: (id: string, data: Record<string, unknown>) => api.post(`/quality-control/alerts/${id}/resolve`, data),
+  scan: (barcode: string) => api.post('/quality-control/scan', { barcode }),
 }
 
 // Accounting controls API

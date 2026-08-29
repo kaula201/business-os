@@ -25,6 +25,7 @@ class SignatureRequest(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     signed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     signed_by_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    signature_data: Mapped[str | None] = mapped_column(Text, nullable=True)  # canvas drawing (PNG data URL)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

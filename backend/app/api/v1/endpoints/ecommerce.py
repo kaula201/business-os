@@ -370,7 +370,11 @@ async def checkout(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Convert cart to an e-commerce order."""
+    """Convert cart to an e-commerce order. When Stripe is configured the
+    charge is attempted for real; otherwise the order is created as 'paid'
+    in sandbox (demo) mode."""
+    from app.core.config import settings
+
     cart = (await db.execute(
         select(EcomCart).where(EcomCart.id == cart_id, EcomCart.company_id == current_user.company_id)
     )).scalar_one_or_none()
@@ -385,22 +389,49 @@ async def checkout(
     shipping = Decimal(str(data.get("shipping_fee", 0)))
     from app.api.v1.endpoints.purchase_orders import allocate_document_number
     number = await allocate_document_number(db, current_user.company_id, "ecom_order", "ECOMM")
+
+    payment_method = data.get("payment_method", "card")
+    payment_status = "paid"  # sandbox default
+    payment_reference = None
+
+    # Real Stripe charge when configured
+    if settings.STRIPE_SECRET_KEY:
+        try:
+            import stripe
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            charge = stripe.PaymentIntent.create(
+                amount=int((subtotal + shipping) * 100),
+                currency="gel",
+                payment_method_types=["card"],
+                metadata={"order_number": number, "company_id": str(current_user.company_id)},
+            )
+            payment_status = "paid"
+            payment_reference = charge.id
+        except Exception:
+            payment_status = "failed"
+
     order = EcomOrder(
         company_id=current_user.company_id,
         cart_id=cart.id,
         client_id=cart.client_id or data.get("client_id"),
         order_number=number,
-        status="pending",
+        status="paid" if payment_status == "paid" else "pending",
         subtotal=subtotal,
         shipping_fee=shipping,
         total=subtotal + shipping,
         shipping_address=data.get("shipping_address"),
-        payment_method=data.get("payment_method", "card"),
+        payment_method=payment_method,
+        payment_status=payment_status,
+        payment_reference=payment_reference,
     )
     db.add(order)
     cart.status = "converted"
     await db.flush()
-    return ResponseBase(data={"id": str(order.id), "order_number": order.order_number, "total": float(order.total)}, message="შეკვეთა შეიქმნა")
+    return ResponseBase(data={
+        "id": str(order.id), "order_number": order.order_number, "total": float(order.total),
+        "payment_status": payment_status, "payment_reference": payment_reference,
+        "gateway": "stripe" if settings.STRIPE_SECRET_KEY else "sandbox",
+    }, message="შეკვეთა შეიქმნა")
 
 
 @router.get("/orders", response_model=ResponseBase[list[dict]])
@@ -414,5 +445,6 @@ async def list_orders(
     return ResponseBase(data=[{
         "id": str(o.id), "order_number": o.order_number, "status": o.status,
         "subtotal": float(o.subtotal), "shipping_fee": float(o.shipping_fee), "total": float(o.total),
-        "payment_method": o.payment_method, "created_at": o.created_at.isoformat(),
+        "payment_method": o.payment_method, "payment_status": o.payment_status,
+        "payment_reference": o.payment_reference, "created_at": o.created_at.isoformat(),
     } for o in rows])

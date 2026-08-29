@@ -94,4 +94,6 @@ class EcomOrder(Base):
     total: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
     shipping_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     payment_method: Mapped[str] = mapped_column(String(30), default="card", nullable=False)
+    payment_status: Mapped[str] = mapped_column(String(20), default="paid", nullable=False)  # paid, failed, refunded
+    payment_reference: Mapped[str | None] = mapped_column(String(100), nullable=True)  # Stripe PaymentIntent id
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
