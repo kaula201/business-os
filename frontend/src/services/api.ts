@@ -251,6 +251,31 @@ export const integrationsApi = {
   counterpartyChecks: (params?: { identification_code?: string }) => api.get('/integrations/counterparties/checks', { params }),
 }
 
+// Configurable platform (Studio-style)
+export const platformApi = {
+  customFields: () => api.get('/platform/custom-fields'),
+  createCustomField: (data: Record<string, unknown>) => api.post('/platform/custom-fields', data),
+  deleteCustomField: (id: string) => api.delete(`/platform/custom-fields/${id}`),
+  customValues: (params: { entity_type: string; entity_id: string }) => api.get('/platform/custom-values', { params }),
+  setCustomValues: (entityType: string, entityId: string, data: Record<string, unknown>) => api.put(`/platform/custom-values/${entityType}/${entityId}`, data),
+  workflows: () => api.get('/platform/workflows'),
+  createWorkflow: (data: Record<string, unknown>) => api.post('/platform/workflows', data),
+  deleteWorkflow: (id: string) => api.delete(`/platform/workflows/${id}`),
+  reports: () => api.get('/platform/reports'),
+  createReport: (data: Record<string, unknown>) => api.post('/platform/reports', data),
+  pdfTemplates: () => api.get('/platform/pdf-templates'),
+  createPdfTemplate: (data: Record<string, unknown>) => api.post('/platform/pdf-templates', data),
+  renderPdfTemplate: (id: string, data: Record<string, unknown>) => api.post(`/platform/pdf-templates/${id}/render`, data),
+  deletePdfTemplate: (id: string) => api.delete(`/platform/pdf-templates/${id}`),
+  customRoles: () => api.get('/platform/custom-roles'),
+  createCustomRole: (data: Record<string, unknown>) => api.post('/platform/custom-roles', data),
+  deleteCustomRole: (id: string) => api.delete(`/platform/custom-roles/${id}`),
+  importMappings: () => api.get('/platform/import-mappings'),
+  createImportMapping: (data: Record<string, unknown>) => api.post('/platform/import-mappings', data),
+  deleteImportMapping: (id: string) => api.delete(`/platform/import-mappings/${id}`),
+  industryTemplates: () => api.get('/platform/industry-templates'),
+}
+
 // API Keys API (Odoo JSON-2 API style)
 export const apiKeysApi = {
   list: () => api.get('/api-keys/'),

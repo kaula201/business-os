@@ -70,6 +70,7 @@ const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
 const EcommercePage = lazy(() => import('./pages/EcommercePage'))
 const StorefrontPage = lazy(() => import('./pages/StorefrontPage'))
 const StudioPage = lazy(() => import('./pages/StudioPage'))
+const PlatformStudioPage = lazy(() => import('./pages/PlatformStudioPage'))
 const MarketplacePage = lazy(() => import('./pages/MarketplacePage'))
 const FieldServicePage = lazy(() => import('./pages/FieldServicePage'))
 const MaintenancePage = lazy(() => import('./pages/MaintenancePage'))
@@ -115,6 +116,7 @@ function App() {
                   <Route path="/ecommerce" element={<EcommercePage />} />
                   <Route path="/storefront" element={<StorefrontPage />} />
                   <Route path="/studio" element={<StudioPage />} />
+                  <Route path="/platform-studio" element={<PlatformStudioPage />} />
                   <Route path="/marketplace" element={<MarketplacePage />} />
                   <Route path="/field-service" element={<FieldServicePage />} />
                   <Route path="/maintenance" element={<MaintenancePage />} />
