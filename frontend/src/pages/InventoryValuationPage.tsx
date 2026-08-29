@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Calculator } from 'lucide-react'
+import { Calculator, Layers } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import { productsApi, inventoryValuationApi } from '../services/api'
@@ -63,6 +63,24 @@ export default function InventoryValuationPage() {
     queryFn: () => inventoryValuationApi.summary().then(r => r.data),
   })
 
+  const { data: methods } = useQuery({
+    queryKey: ['inventory-valuation-methods'],
+    queryFn: () => inventoryValuationApi.methods().then(r => r.data.data),
+  })
+  const [methodForm, setMethodForm] = useState({ product_id: '', method: 'avco', standard_cost: '' })
+  const [methodOpen, setMethodOpen] = useState(false)
+  const setMethod = useMutation({
+    mutationFn: () => inventoryValuationApi.setMethod({
+      product_id: methodForm.product_id,
+      method: methodForm.method as 'standard' | 'avco' | 'fifo',
+      ...(methodForm.method === 'standard' && methodForm.standard_cost ? { standard_cost: Number(methodForm.standard_cost) } : {}),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['inventory-valuation-methods'] })
+      setMethodOpen(false)
+    },
+  })
+
   const adjust = useMutation({
     mutationFn: () => inventoryValuationApi.adjust({
       product_id: form.product_id, quantity: Number(form.quantity), unit_cost: Number(form.unit_cost),
@@ -116,7 +134,30 @@ export default function InventoryValuationPage() {
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-brandgray-800 text-white hover:bg-brandgray-900 dark:bg-gray-100 dark:text-gray-900">
           <Calculator size={15} /> {t('კორექტირება')}
         </button>
+        <button onClick={() => setMethodOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-brandgray-200 text-brandgray-700 hover:bg-brandgray-50 dark:border-dark-50 dark:text-gray-300 dark:hover:bg-dark-100">
+          <Layers size={15} /> {t('შეფასების მეთოდი')}
+        </button>
       </div>
+
+      {(methods || []).length > 0 && (
+        <div className="rounded-xl bg-white border border-brandgray-100 shadow-sm dark:bg-dark-200 dark:border-dark-50">
+          <div className="px-5 py-3.5 border-b border-brandgray-100 dark:border-dark-50">
+            <h2 className="font-semibold text-brandgray-800 dark:text-gray-100">{t('შეფასების მეთოდები')}</h2>
+          </div>
+          <div className="p-5 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {(methods || []).map((m: any) => (
+              <div key={m.product_id} className="rounded-lg border border-brandgray-100 p-3 text-sm dark:border-dark-50">
+                <div className="font-medium text-brandgray-800 dark:text-gray-100">{m.product_name || m.product_id.slice(0, 8)}</div>
+                <div className="mt-1 text-xs uppercase tracking-wide text-brandgray-400 dark:text-gray-500">
+                  {m.method === 'fifo' ? 'FIFO' : m.method === 'standard' ? 'Standard' : 'AVCO'}
+                  {m.standard_cost != null ? ` · ${money(m.standard_cost)}` : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {selectedId && (
         <div className="rounded-xl bg-white border border-brandgray-100 shadow-sm dark:bg-dark-200 dark:border-dark-50">
@@ -160,6 +201,35 @@ export default function InventoryValuationPage() {
             </div>
           </div>
           <button onClick={() => adjust.mutate()} disabled={adjust.isPending || !form.product_id || !form.quantity || !form.unit_cost}
+            className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+      <Modal open={methodOpen} onClose={() => setMethodOpen(false)} title={t('შეფასების მეთოდი')}>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('პროდუქტი')}</label>
+            <select className={inputCls} value={methodForm.product_id} onChange={(e) => setMethodForm({ ...methodForm, product_id: e.target.value })}>
+              <option value="">—</option>
+              {(products || []).map((p: any) => <option key={p.id} value={p.id}>{p.sku || p.code} — {p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('მეთოდი')}</label>
+            <select className={inputCls} value={methodForm.method} onChange={(e) => setMethodForm({ ...methodForm, method: e.target.value })}>
+              <option value="avco">AVCO — {t('საშუალო შეწონილი')}</option>
+              <option value="fifo">FIFO — {t('პირველი შესული, პირველი გასული')}</option>
+              <option value="standard">Standard — {t('ფიქსირებული ღირებულება')}</option>
+            </select>
+          </div>
+          {methodForm.method === 'standard' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('სტანდარტული ღირებულება')}</label>
+              <input type="number" step="0.01" className={inputCls} value={methodForm.standard_cost} onChange={(e) => setMethodForm({ ...methodForm, standard_cost: e.target.value })} />
+            </div>
+          )}
+          <button onClick={() => setMethod.mutate()} disabled={setMethod.isPending || !methodForm.product_id}
             className="w-full px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
             {t('შენახვა')}
           </button>

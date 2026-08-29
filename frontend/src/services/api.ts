@@ -622,6 +622,7 @@ export const glApi = {
     api.get('/gl/exchange-differences/', { params }),
   // Consolidated reports
   consolidatedCompanies: () => api.get('/gl/consolidated/companies'),
+  consolidatedChecks: (params?: { as_of_date?: string }) => api.get('/gl/consolidated/checks', { params }),
   consolidatedProfitLoss: (params?: { date_from?: string; date_to?: string }) =>
     api.get('/gl/consolidated/profit-loss', { params }),
   consolidatedBalanceSheet: (params?: { as_of_date?: string }) =>

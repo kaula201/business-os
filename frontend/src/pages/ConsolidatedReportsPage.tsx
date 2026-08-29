@@ -55,6 +55,10 @@ export default function ConsolidatedReportsPage() {
     queryKey: ['consolidation-eliminations'],
     queryFn: () => glApi.consolidationEliminations().then(r => r.data.data),
   })
+  const { data: checks } = useQuery({
+    queryKey: ['gl-consolidated-checks', today],
+    queryFn: () => glApi.consolidatedChecks({ as_of_date: today }).then(r => r.data.data),
+  })
   const approve = useMutation({ mutationFn: (id: string) => glApi.approveConsolidationElimination(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['consolidation-eliminations'] }) })
   const reverse = useMutation({ mutationFn: (id: string) => glApi.reverseConsolidationElimination(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['consolidation-eliminations'] }) })
   const autoDetect = useMutation({
@@ -144,6 +148,40 @@ export default function ConsolidatedReportsPage() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl bg-white border border-brandgray-100 shadow-sm dark:bg-dark-200 dark:border-dark-50">
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-brandgray-100 dark:border-dark-50">
+          <CheckCircle2 size={16} className="text-primary-600 dark:text-primary-400" />
+          <h2 className="font-semibold text-brandgray-800 dark:text-gray-100">{t('კონსოლიდაციის შემოწმებები')}</h2>
+          {checks && (
+            <span className={`badge ${checks.all_ok ? 'badge-green' : 'badge-red'}`}>
+              {checks.all_ok ? t('ყველა შემოწმება გავიდა') : t('სხვაობებია')}
+            </span>
+          )}
+        </div>
+        <div className="divide-y divide-brandgray-100 dark:divide-dark-50">
+          {(checks?.checks || []).map((c: any, i: number) => (
+            <div key={i} className="flex items-center justify-between gap-3 p-4 text-sm">
+              <div className="flex items-center gap-2">
+                {c.ok
+                  ? <CheckCircle2 size={16} className="text-emerald-500" />
+                  : <span className="text-red-500">✕</span>}
+                <span className="font-medium text-brandgray-700 dark:text-gray-300">
+                  {c.check === 'balance_sheet_balanced' ? `${c.company_name} — ${t('ბალანსი დაბალანსებულია')}` : c.check}
+                </span>
+              </div>
+              <div className="text-brandgray-500 dark:text-gray-400">
+                {c.check === 'balance_sheet_balanced'
+                  ? `${money(c.assets)} = ${money(c.liabilities)} + ${money(c.equity)}`
+                  : c.check === 'intercompany_matches'
+                    ? `${t('ჯამი')}: ${money(c.total)}`
+                    : `${t('რაოდენობა')}: ${c.elimination_count ?? 0}`}
+              </div>
+            </div>
+          ))}
+          {!checks && <p className="p-5 text-sm text-brandgray-400">{t('მონაცემები არ არის')}</p>}
         </div>
       </div>
 

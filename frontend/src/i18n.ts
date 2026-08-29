@@ -1876,6 +1876,23 @@ const en: Record<string, string> = {
   'წლის დახურვა — P&L გადავა გაუნაწილებელ მოგებაში. გაგრძელება?': 'Close year — P&L moves to retained earnings. Continue?',
   'წლის დახურვა დასრულდა': 'Year closed',
   'წელი უკვე დახურულია': 'Year already closed',
+  // Valuation methods (Odoo-depth)
+  'შეფასების მეთოდი': 'Valuation method',
+  'შეფასების მეთოდები': 'Valuation methods',
+  'საშუალო შეწონილი': 'Weighted average',
+  'პირველი შესული, პირველი გასული': 'First in, first out',
+  'ფიქსირებული ღირებულება': 'Fixed cost',
+  'სტანდარტული ღირებულება': 'Standard cost',
+  // AR/AP reconciliation + consolidation checks (Odoo-depth)
+  'GL ბალანსი': 'GL balance',
+  'სხვაობებია': 'Differences found',
+  'Subledger': 'Subledger',
+  'AR/AP subledger შეჯერება': 'AR/AP subledger reconciliation',
+  'მოთხოვნები (AR) — 1300': 'Receivables (AR) — 1300',
+  'ვალდებულებები (AP) — 2100': 'Payables (AP) — 2100',
+  'ბალანსი დაბალანსებულია': 'balance sheet balanced',
+  'ყველა შემოწმება გავიდა': 'All checks passed',
+  'კონსოლიდაციის შემოწმებები': 'Consolidation checks',
 }
 
 i18n.use(initReactI18next).init({
