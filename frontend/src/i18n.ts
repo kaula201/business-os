@@ -1893,6 +1893,19 @@ const en: Record<string, string> = {
   'ბალანსი დაბალანსებულია': 'balance sheet balanced',
   'ყველა შემოწმება გავიდა': 'All checks passed',
   'კონსოლიდაციის შემოწმებები': 'Consolidation checks',
+  // Counterparty verification (Georgia)
+  'კონტრაგენტები': 'Counterparties',
+  'კონტრაგენტის გადამოწმება': 'Counterparty verification',
+  'შეამოწმეთ კონტრაგენტი SRS ღია მონაცემებით — VAT გადამხდელია თუ არა, აქტიური სტატუსი. ყოველი შემოწმება ინახება ისტორიაში.': 'Verify a counterparty against SRS open data — VAT payer status, active status. Every check is stored in history.',
+  'შემოწმება': 'Verify',
+  'შემოწმების ისტორია': 'Verification history',
+  'VAT გადამხდელი': 'VAT payer',
+  'დადასტურდა': 'Verified',
+  'ვერ მოიძებნა': 'Not found',
+  'შემოწმებები არ არის': 'No checks yet',
+  'SRS ღია მონაცემები მიუწვდომელია': 'SRS open data unreachable',
+  'კონტრაგენტი დადასტურდა': 'Counterparty verified',
+  'კონტრაგენტი ვერ მოიძებნა': 'Counterparty not found',
 }
 
 i18n.use(initReactI18next).init({

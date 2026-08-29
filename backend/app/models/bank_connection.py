@@ -13,7 +13,7 @@ class BankConnection(Base):
     __tablename__ = "bank_connections"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
-    bank: Mapped[str] = mapped_column(String(20), nullable=False)  # tbc|bog
+    bank: Mapped[str] = mapped_column(String(20), nullable=False)  # tbc|bog|liberty
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     account_number: Mapped[str] = mapped_column(String(50), nullable=False)
     client_id: Mapped[str | None] = mapped_column(String(100), nullable=True)

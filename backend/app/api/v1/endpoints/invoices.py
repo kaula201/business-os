@@ -519,6 +519,22 @@ async def issue_invoice(
         await db.commit()
     except Exception:
         await db.rollback()
+    # Auto-submit to RS.ge (Georgia) — non-blocking: a failure here never
+    # aborts the invoice. Only when RS credentials are configured.
+    try:
+        from app.core.config import settings as _settings
+        if _settings.RS_SERVICE_USER and _settings.RS_SERVICE_PASSWORD:
+            from app.services.rs_ge import RSGeClient
+            rs = RSGeClient(_settings.RS_WAYBILL_URL, _settings.RS_SERVICE_USER, _settings.RS_SERVICE_PASSWORD)
+            await rs.submit_invoice(
+                invoice_number=invoice.invoice_number,
+                buyer_id=invoice.client_identification_code,
+                issue_date=invoice.invoice_date.isoformat(),
+                total=str(invoice.total),
+                vat=str(invoice.vat_amount),
+            )
+    except Exception:
+        pass  # RS.ge submission is best-effort; invoice stays issued
     return ResponseBase(data=invoice_response(issued), message="Invoice დადასტურებულია")
 
 

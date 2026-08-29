@@ -711,9 +711,12 @@ async def create_connection(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    bank = data.get("bank", "tbc")
+    if bank not in {"tbc", "bog", "liberty"}:
+        raise HTTPException(status_code=422, detail="მხარდაჭერილი ბანკები: tbc, bog, liberty")
     c = BankConnection(
         company_id=current_user.company_id,
-        bank=data.get("bank", "tbc"),
+        bank=bank,
         name=data.get("name", ""),
         account_number=data.get("account_number", ""),
         client_id=data.get("client_id"),

@@ -183,6 +183,7 @@ from app.models.cost_layer import (  # noqa: F401
     ProductCostLayer,
     ProductValuationConfig,
 )
+from app.models.counterparty import CounterpartyCheck  # noqa: F401
 from app.models.pricing import PriceList, PriceListItem  # noqa: F401
 from app.models.quotation import Quotation, QuotationItem  # noqa: F401
 from app.models.payment_term import PaymentTerm  # noqa: F401

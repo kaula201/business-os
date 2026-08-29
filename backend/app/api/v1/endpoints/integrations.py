@@ -11,10 +11,12 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.models.integration import ApiKey, Webhook, WebhookEvent
+from app.models.counterparty import CounterpartyCheck
 from app.models.user import User
 from app.schemas.common import ResponseBase
 from app.schemas.integrations import RSGeStatusResponse, RSWaybillResponse
 from app.services.rs_ge import RSGeClient, RSGeError
+from app.services.srs_open_data import CounterpartyUnreachable, SrsOpenDataClient
 
 router = APIRouter(prefix="/integrations", tags=["ინტეგრაციები"])
 
@@ -119,6 +121,98 @@ async def export_declaration(
     except RSGeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return ResponseBase(data=result, message="დეკლარაცია ექსპორტირებულია")
+
+
+# ── Counterparty verification (Georgia) ────────────────────────────────────────
+
+@router.post("/counterparties/verify", response_model=ResponseBase[dict])
+async def verify_counterparty(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Verify a counterparty (client/supplier) against SRS open data.
+
+    Every check is stored in counterparty_checks so the verification
+    history is auditable. When the open-data portal is unreachable the
+    check is recorded as 'unreachable' — never a fabricated result.
+    """
+    require_finance_role(current_user)
+    identification_code = str(data.get("identification_code", "")).strip()
+    if not identification_code or len(identification_code) < 7:
+        raise HTTPException(status_code=422, detail="საიდენტიფიკაციო კოდი არასწორია")
+
+    client = SrsOpenDataClient()
+    try:
+        result = await client.check_vat_payer(identification_code)
+        status = "verified" if result["found"] else "not_found"
+        check = CounterpartyCheck(
+            company_id=current_user.company_id,
+            identification_code=identification_code,
+            entity_name=result.get("name"),
+            source="srs",
+            status=status,
+            is_vat_payer=result.get("is_vat_payer"),
+            is_active_taxpayer=result.get("found"),
+            registration_date=result.get("registration_date"),
+            raw_response=str(result.get("raw")) if result.get("raw") else None,
+            checked_by=current_user.id,
+        )
+    except CounterpartyUnreachable as exc:
+        status = "unreachable"
+        check = CounterpartyCheck(
+            company_id=current_user.company_id,
+            identification_code=identification_code,
+            source="srs",
+            status=status,
+            raw_response=str(exc),
+            checked_by=current_user.id,
+        )
+        result = {"found": False, "is_vat_payer": None, "name": None, "registration_date": None}
+
+    db.add(check)
+    await db.commit()
+    await db.refresh(check)
+
+    return ResponseBase(data={
+        "check_id": str(check.id),
+        "identification_code": identification_code,
+        "status": status,
+        "is_vat_payer": result.get("is_vat_payer"),
+        "entity_name": result.get("name"),
+        "registration_date": result.get("registration_date"),
+        "checked_at": check.created_at.isoformat(),
+    }, message={
+        "verified": "კონტრაგენტი დადასტურდა",
+        "not_found": "კონტრაგენტი ვერ მოიძებნა",
+        "unreachable": "SRS ღია მონაცემები მიუწვდომელია — შემოწმება ჩაიწერა ისტორიაში",
+    }.get(status, "შემოწმება დასრულდა"))
+
+
+@router.get("/counterparties/checks", response_model=ResponseBase[list[dict]])
+async def list_counterparty_checks(
+    identification_code: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Verification history for counterparties."""
+    require_finance_role(current_user)
+    query = select(CounterpartyCheck).where(CounterpartyCheck.company_id == current_user.company_id)
+    if identification_code:
+        query = query.where(CounterpartyCheck.identification_code == identification_code)
+    query = query.order_by(CounterpartyCheck.created_at.desc()).limit(100)
+    result = await db.execute(query)
+    return ResponseBase(data=[{
+        "id": str(c.id),
+        "identification_code": c.identification_code,
+        "entity_name": c.entity_name,
+        "source": c.source,
+        "status": c.status,
+        "is_vat_payer": c.is_vat_payer,
+        "is_active_taxpayer": c.is_active_taxpayer,
+        "registration_date": c.registration_date.isoformat() if c.registration_date else None,
+        "checked_at": c.created_at.isoformat(),
+    } for c in result.scalars().all()])
 
 
 # ── API keys ───────────────────────────────────────────────────────────────────

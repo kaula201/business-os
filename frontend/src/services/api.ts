@@ -247,6 +247,8 @@ export const integrationsApi = {
   submitInvoice: (data: Record<string, unknown>) => api.post('/integrations/rs/invoices/submit', data),
   submitWaybill: (data: Record<string, unknown>) => api.post('/integrations/rs/waybills/submit', data),
   exportDeclaration: (data: Record<string, unknown>) => api.post('/integrations/rs/declarations/export', data),
+  verifyCounterparty: (data: Record<string, unknown>) => api.post('/integrations/counterparties/verify', data),
+  counterpartyChecks: (params?: { identification_code?: string }) => api.get('/integrations/counterparties/checks', { params }),
 }
 
 // API Keys API (Odoo JSON-2 API style)
