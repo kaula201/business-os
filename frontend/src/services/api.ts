@@ -410,6 +410,8 @@ export const projectResourcesApi = {
   timesheets: (projectId: string) => api.get(`/projects/${projectId}/timesheets`),
   addTimesheet: (projectId: string, data: Record<string, unknown>) => api.post(`/projects/${projectId}/timesheets`, data),
   removeTimesheet: (id: string) => api.delete(`/projects/timesheets/${id}`),
+  billingSummary: (projectId: string) => api.get(`/projects/${projectId}/billing-summary`).then((r: any) => r.data.data),
+  markBilled: (projectId: string, entryId: string) => api.post(`/projects/${projectId}/timesheets/${entryId}/mark-billed`),
   utilization: () => api.get('/projects/resources/utilization'),
 }
 

@@ -231,7 +231,7 @@ async def get_project(
             selectinload(Project.manager),
             selectinload(Project.owner),
             selectinload(Project.budget_plan),
-            selectinload(Project.milestones).selectinload(ProjectMilestone.owner),
+            selectinload(Project.milestones),
             selectinload(Project.tasks),
         )
     )
@@ -329,7 +329,6 @@ async def list_milestones(
     result = await db.execute(
         select(ProjectMilestone)
         .where(ProjectMilestone.project_id == project_id)
-        .options(selectinload(ProjectMilestone.owner))
         .order_by(ProjectMilestone.sort_order, ProjectMilestone.created_at)
     )
     milestones = result.scalars().all()

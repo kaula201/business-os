@@ -1930,6 +1930,16 @@ const en: Record<string, string> = {
   'მიმწოდებლის ინვოისი მიღებულია': 'Supplier invoice received',
   'სტატუსის ცვლილება': 'Update status',
   'წესები: ტრიგერი → პირობა → მოქმედება': 'Rules: trigger → condition → action',
+  // Project timesheet billing (Odoo-depth)
+  'Timesheet Billing': 'Timesheet Billing',
+  'დაბილინგებული': 'Billed',
+  'სულ საათები': 'Total hours',
+  'ბილინგის საათები': 'Billable hours',
+  'დროის ჩანაწერები არ არის': 'No time entries yet',
+  '₾/სთ': '₾/h',
+  'ბილინგადი': 'Billable',
+  'დროის დამატება': 'Add time',
+  'ბილინგი': 'Bill',
 }
 
 i18n.use(initReactI18next).init({

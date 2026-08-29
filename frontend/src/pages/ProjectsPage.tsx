@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Briefcase, Plus, Search, Calendar, User, DollarSign, ChevronDown, ChevronRight, Flag, TrendingUp, X, LayoutTemplate } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
-import { api, projectsApi } from '../services/api'
+import { api, projectsApi, projectResourcesApi } from '../services/api'
 import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 interface Project {
@@ -69,6 +69,40 @@ export default function ProjectsPage() {
     queryKey: ['project-profit', detailFor?.id],
     queryFn: () => detailFor ? projectsApi.profitability(detailFor.id).then(r => r.data.data) : null,
     enabled: !!detailFor,
+  })
+
+  const { data: billingData } = useQuery({
+    queryKey: ['project-billing', detailFor?.id],
+    queryFn: () => detailFor ? projectResourcesApi.billingSummary(detailFor.id) : null,
+    enabled: !!detailFor,
+  })
+
+  const { data: timesheetsData } = useQuery({
+    queryKey: ['project-timesheets', detailFor?.id],
+    queryFn: () => detailFor ? projectResourcesApi.timesheets(detailFor.id).then((r: any) => r.data.data?.items || r.data.data || []) : [],
+    enabled: !!detailFor,
+  })
+  const [tsForm, setTsForm] = useState({ work_date: new Date().toISOString().slice(0, 10), hours: '', hourly_rate: '', billable: true })
+  const addTimesheet = useMutation({
+    mutationFn: () => detailFor ? projectResourcesApi.addTimesheet(detailFor.id, {
+      work_date: tsForm.work_date, hours: Number(tsForm.hours),
+      hourly_rate: Number(tsForm.hourly_rate) || undefined, billable: tsForm.billable,
+    }) : Promise.reject(),
+    onSuccess: () => {
+      setTsForm({ work_date: new Date().toISOString().slice(0, 10), hours: '', hourly_rate: '', billable: true })
+      queryClient.invalidateQueries({ queryKey: ['project-billing'] })
+      queryClient.invalidateQueries({ queryKey: ['project-timesheets'] })
+      queryClient.invalidateQueries({ queryKey: ['project-profit'] })
+    },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+  const markBilled = useMutation({
+    mutationFn: (entryId: string) => detailFor ? projectResourcesApi.markBilled(detailFor.id, entryId) : Promise.reject(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-billing'] })
+      queryClient.invalidateQueries({ queryKey: ['project-timesheets'] })
+    },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
 
   const createMilestone = useMutation({
@@ -223,6 +257,64 @@ export default function ProjectsPage() {
                   {money(profitData?.profitability ?? 0)}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{profitData?.profitability_percent ?? 0}%</p>
+              </div>
+            </div>
+
+            {/* Timesheet Billing */}
+            <div className="rounded-lg border border-brandgray-100 dark:border-dark-50 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-brandgray-900 dark:text-gray-100">{t('Timesheet Billing')}</h3>
+                {billingData && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {t('გადასახდელი')}: <b className="text-emerald-600 dark:text-emerald-400">{money(billingData.unbilled_value)}</b> · {t('დაბილინგებული')}: {money(billingData.billed_value)}
+                  </span>
+                )}
+              </div>
+              <div className="grid gap-4 md:grid-cols-4 mb-3">
+                <div><p className="text-xs text-gray-500">{t('სულ საათები')}</p><p className="font-semibold">{billingData?.total_hours ?? 0}</p></div>
+                <div><p className="text-xs text-gray-500">{t('ბილინგის საათები')}</p><p className="font-semibold">{billingData?.billable_hours ?? 0}</p></div>
+                <div><p className="text-xs text-gray-500">{t('შემოსავალი')}</p><p className="font-semibold">{money(billingData?.project_revenue ?? 0)}</p></div>
+                <div><p className="text-xs text-gray-500">{t('ხარჯი')}</p><p className="font-semibold">{money(billingData?.project_spent ?? 0)}</p></div>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto mb-3">
+                {(timesheetsData || []).length === 0 ? (
+                  <p className="text-sm text-gray-400">{t('დროის ჩანაწერები არ არის')}</p>
+                ) : (timesheetsData || []).map((e: any) => (
+                  <div key={e.id} className="flex items-center justify-between rounded border border-brandgray-100 dark:border-dark-50 px-3 py-1.5 text-sm">
+                    <div>
+                      <span className="text-gray-700 dark:text-gray-300">{e.work_date}</span>
+                      <span className="ml-2 text-gray-500">{e.hours}h</span>
+                      {e.description && <span className="ml-2 text-xs text-gray-400">{e.description}</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">{money(e.billed_amount)}</span>
+                      {e.billable && !e.billed && (
+                        <button onClick={() => markBilled.mutate(e.id)} className="text-xs text-primary-600 hover:text-primary-800">
+                          {t('ბილინგი')}
+                        </button>
+                      )}
+                      {e.billed && <span className="badge badge-green">{t('დაბილინგებული')}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <input type="date" value={tsForm.work_date} onChange={e => setTsForm({ ...tsForm, work_date: e.target.value })}
+                  className="rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+                <input type="number" placeholder={t('საათები')} min="0.25" step="0.25" value={tsForm.hours}
+                  onChange={e => setTsForm({ ...tsForm, hours: e.target.value })}
+                  className="w-20 rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+                <input type="number" placeholder={t('₾/სთ')} min="0" step="0.01" value={tsForm.hourly_rate}
+                  onChange={e => setTsForm({ ...tsForm, hourly_rate: e.target.value })}
+                  className="w-24 rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+                <label className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+                  <input type="checkbox" checked={tsForm.billable} onChange={e => setTsForm({ ...tsForm, billable: e.target.checked })} />
+                  {t('ბილინგადი')}
+                </label>
+                <button onClick={() => addTimesheet.mutate()} disabled={!tsForm.hours || addTimesheet.isPending}
+                  className="rounded-lg bg-primary-600 px-3 py-2 text-sm text-white disabled:opacity-50">
+                  <Plus size={15} /> {t('დროის დამატება')}
+                </button>
               </div>
             </div>
 
