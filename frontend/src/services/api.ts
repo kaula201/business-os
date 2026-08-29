@@ -552,6 +552,15 @@ export const bankingApi = {
   updateRule: (id: string, data: Record<string, unknown>) => api.patch(`/banking/reconciliation-rules/${id}`, data),
   deleteRule: (id: string) => api.delete(`/banking/reconciliation-rules/${id}`),
   applyRules: (on_date?: string) => api.post('/banking/reconciliation-rules/apply', null, { params: on_date ? { on_date } : {} }),
+  // Bank connections (TBC/BOG/Liberty) + file import
+  connections: () => api.get('/connections'),
+  createConnection: (data: { bank: string; name: string; account_number: string; client_id?: string; client_secret?: string }) =>
+    api.post('/connections', data),
+  importFile: (connectionId: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post(`/connections/${connectionId}/import-file`, form)
+  },
   // Reconciliation suggestions (Odoo-style matching with confidence)
   suggestions: (params?: { bank_account_id?: string; limit?: number }) =>
     api.get('/reconciliation-suggestions', { params }),

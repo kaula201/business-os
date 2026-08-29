@@ -1906,6 +1906,18 @@ const en: Record<string, string> = {
   'SRS ღია მონაცემები მიუწვდომელია': 'SRS open data unreachable',
   'კონტრაგენტი დადასტურდა': 'Counterparty verified',
   'კონტრაგენტი ვერ მოიძებნა': 'Counterparty not found',
+  // Bank connections UI (Georgia)
+  'ბანკის კავშირი': 'Bank connection',
+  'ბანკის კავშირები': 'Bank connections',
+  'ფაილის იმპორტი': 'File import',
+  'ბანკის ფაილის იმპორტი': 'Bank file import',
+  'აირჩიეთ კავშირი და CSV ფაილი': 'Select a connection and a CSV file',
+  'სინქრონიზებულია': 'Last synced',
+  'გამოტოვებული': 'skipped',
+  'დუბლიკატი': 'duplicate',
+  'IBAN / ანგარიშის ნომერი': 'IBAN / account number',
+  'ატვირთეთ ბანკის ამონაწერი (CSV). სვეტები:': 'Upload a bank statement (CSV). Columns:',
+  '. თანხა დადებითი = შემოსავალი, უარყოფითი = გასავალი. დუბლიკატი ფაილი არ დაიმპორტირდება.': '. Positive amount = income, negative = expense. Duplicate files are blocked.',
 }
 
 i18n.use(initReactI18next).init({

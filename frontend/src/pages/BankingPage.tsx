@@ -61,6 +61,13 @@ export default function BankingPage() {
   const [statementFile, setStatementFile] = useState<File | null>(null)
   const [reconcileForm, setReconcileForm] = useState({ payable_id: '', amount: 0, notes: '' })
   const [reversalReason, setReversalReason] = useState('')
+  // Bank connections (TBC/BOG/Liberty) + CSV file import
+  const [connOpen, setConnOpen] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
+  const [connForm, setConnForm] = useState({ bank: 'tbc', name: '', account_number: '' })
+  const [uploadConnId, setUploadConnId] = useState('')
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [importResult, setImportResult] = useState<Record<string, unknown> | null>(null)
 
   const { data: accounts = [], isLoading: accountsLoading } = useQuery<BankAccount[]>({
     queryKey: ['bank-accounts'],
@@ -86,6 +93,34 @@ export default function BankingPage() {
   const { data: suggestions = [] } = useQuery({
     queryKey: ['bank-reconciliation-suggestions', accountFilter],
     queryFn: () => bankingApi.suggestions({ bank_account_id: accountFilter || undefined, limit: 50 }).then((response) => response.data.data),
+  })
+  const { data: connections = [] } = useQuery({
+    queryKey: ['bank-connections'],
+    queryFn: () => bankingApi.connections().then((response) => response.data.data),
+  })
+  const createConnection = useMutation({
+    mutationFn: () => bankingApi.createConnection(connForm),
+    onSuccess: async () => {
+      setConnOpen(false)
+      setConnForm({ bank: 'tbc', name: '', account_number: '' })
+      setError('')
+      await queryClient.invalidateQueries({ queryKey: ['bank-connections'] })
+    },
+    onError: (err) => setError(errorText(err)),
+  })
+  const uploadStatement = useMutation({
+    mutationFn: () => {
+      if (!uploadFile || !uploadConnId) throw new Error(t('აირჩიეთ კავშირი და CSV ფაილი'))
+      return bankingApi.importFile(uploadConnId, uploadFile)
+    },
+    onSuccess: async (res: any) => {
+      setUploadOpen(false)
+      setUploadFile(null)
+      setUploadConnId('')
+      setImportResult(res.data.data)
+      await refresh()
+    },
+    onError: (err) => setError(errorText(err)),
   })
   const batchApprove = useMutation({
     mutationFn: (items: Array<{ transaction_id: string; kind: string; candidate_id: string; amount: number }>) => bankingApi.batchApprove(items),
@@ -196,9 +231,15 @@ export default function BankingPage() {
           <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('საბანკო ოპერაციები')}</h1>
           <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('ამონაწერის იმპორტი და მომწოდებლის payable-ებთან შეჯერება')}</p>
         </div>
-        {canManage && <div className="flex gap-2">
+        {canManage && <div className="flex flex-wrap gap-2">
           <button className="btn-secondary flex items-center gap-2" onClick={() => { setError(''); setAccountOpen(true) }}>
             <Plus size={17} /> {t('ანგარიშის დამატება')}
+          </button>
+          <button className="btn-secondary flex items-center gap-2" onClick={() => { setError(''); setConnOpen(true) }}>
+            <Link2 size={17} /> {t('ბანკის კავშირი')}
+          </button>
+          <button className="btn-secondary flex items-center gap-2" onClick={() => { setError(''); setUploadConnId(connections[0]?.id || ''); setUploadOpen(true) }} disabled={!connections.length}>
+            <FileUp size={17} /> {t('ფაილის იმპორტი')}
           </button>
           <button className="btn-primary flex items-center gap-2" onClick={() => { setError(''); setImportAccountId(accounts[0]?.id || ''); setImportOpen(true) }} disabled={!accounts.length}>
             <FileUp size={17} /> {t('CSV იმპორტი')}
@@ -211,6 +252,44 @@ export default function BankingPage() {
         <div className="card p-5"><div className="flex items-center gap-3"><Link2 className="text-accent-600" /><div><div className="text-sm text-brandgray-500 dark:text-gray-400">{t('შეჯერებები')}</div><div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{reconciliations.filter((row) => row.status === 'active').length}</div></div></div></div>
         <div className="card p-5"><div className="flex items-center gap-3"><ArrowUpRight className="text-amber-600" /><div><div className="text-sm text-brandgray-500 dark:text-gray-400">{t('დარჩენილი თანხა')}</div><div className="text-2xl font-semibold text-brandgray-900 dark:text-gray-100">{money(totalUnmatched)}</div></div></div></div>
       </div>
+
+      {(connections.length > 0 || importResult) && (
+        <section className="card overflow-hidden">
+          <div className="border-b border-brandgray-100 dark:border-dark-50 p-4 flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold text-brandgray-800 dark:text-gray-100">{t('ბანკის კავშირები')}</h2>
+              <p className="text-xs text-brandgray-500 dark:text-gray-400">TBC · BOG · Liberty</p>
+            </div>
+          </div>
+          <div className="divide-y divide-brandgray-100 dark:divide-dark-50">
+            {(connections || []).map((c: any) => (
+              <div key={c.id} className="p-4 flex items-center justify-between gap-3 text-sm">
+                <div className="flex items-center gap-3">
+                  <Building2 size={16} className="text-primary-600" />
+                  <div>
+                    <div className="font-medium text-brandgray-900 dark:text-gray-100">
+                      {c.bank === 'tbc' ? 'TBC' : c.bank === 'bog' ? 'BOG' : 'Liberty'} — {c.name}
+                    </div>
+                    <div className="text-xs text-brandgray-500 dark:text-gray-400 font-mono">{c.account_number}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`badge ${c.is_active ? 'badge-green' : 'badge-gray'}`}>
+                    {c.is_active ? t('აქტიური') : t('არააქტიური')}
+                  </span>
+                  {c.last_sync_at && <span className="text-xs text-brandgray-400">{t('სინქრონიზებულია')}: {c.last_sync_at}</span>}
+                </div>
+              </div>
+            ))}
+            {importResult && (
+              <div className="p-4 text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20">
+                {t('იმპორტი დასრულდა')}: {String((importResult as any).created ?? 0)} {t('შექმნილი')}, {String((importResult as any).skipped ?? 0)} {t('გამოტოვებული')}
+                {(importResult as any).duplicate ? ` · ${t('დუბლიკატი')}` : ''}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="card overflow-hidden">
         <div className="border-b border-brandgray-100 dark:border-dark-50 p-4 flex items-center justify-between">
@@ -319,6 +398,29 @@ export default function BankingPage() {
           <FormField label={t('CSV ფაილი')} required><input className={inputClass} type="file" accept=".csv,text/csv" onChange={(e) => setStatementFile(e.target.files?.[0] || null)} /></FormField>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setImportOpen(false)}>{t('დახურვა')}</button><button className="btn-primary" disabled={!statementFile || !importAccountId || importStatement.isPending} onClick={() => importStatement.mutate()}>{importStatement.isPending ? t('იტვირთება...') : t('იმპორტი')}</button></div>
+        </div>
+      </Modal>
+
+      <Modal open={connOpen} onClose={() => setConnOpen(false)} title={t('ბანკის კავშირი')}>
+        <div className="space-y-4">
+          <FormField label={t('ბანკი')} required>
+            <Select value={connForm.bank} onChange={(e) => setConnForm({ ...connForm, bank: e.target.value })}
+              options={[{ value: 'tbc', label: 'TBC' }, { value: 'bog', label: 'BOG' }, { value: 'liberty', label: 'Liberty' }]} />
+          </FormField>
+          <FormField label={t('სახელი')} required><input className={inputClass} value={connForm.name} onChange={(e) => setConnForm({ ...connForm, name: e.target.value })} /></FormField>
+          <FormField label={t('IBAN / ანგარიშის ნომერი')} required><input className={inputClass} value={connForm.account_number} onChange={(e) => setConnForm({ ...connForm, account_number: e.target.value })} /></FormField>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setConnOpen(false)}>{t('დახურვა')}</button><button className="btn-primary" disabled={!connForm.name || !connForm.account_number || createConnection.isPending} onClick={() => createConnection.mutate()}>{createConnection.isPending ? t('ინახება...') : t('შენახვა')}</button></div>
+        </div>
+      </Modal>
+
+      <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title={t('ბანკის ფაილის იმპორტი')}>
+        <div className="space-y-4">
+          <div className="rounded-lg border border-primary-100 bg-primary-50 p-3 text-sm text-primary-900">{t('ატვირთეთ ბანკის ამონაწერი (CSV). სვეტები:')} <code>Date, Reference, Description, Counterparty, Amount</code>{t('. თანხა დადებითი = შემოსავალი, უარყოფითი = გასავალი. დუბლიკატი ფაილი არ დაიმპორტირდება.')}</div>
+          <FormField label={t('კავშირი')} required><Select value={uploadConnId} onChange={(e) => setUploadConnId(e.target.value)} options={(connections || []).map((c: any) => ({ value: c.id, label: `${c.bank.toUpperCase()} — ${c.name} (${c.account_number})` }))} /></FormField>
+          <FormField label={t('CSV ფაილი')} required><input className={inputClass} type="file" accept=".csv,text/csv" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} /></FormField>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setUploadOpen(false)}>{t('დახურვა')}</button><button className="btn-primary" disabled={!uploadFile || !uploadConnId || uploadStatement.isPending} onClick={() => uploadStatement.mutate()}>{uploadStatement.isPending ? t('იტვირთება...') : t('იმპორტი')}</button></div>
         </div>
       </Modal>
 
