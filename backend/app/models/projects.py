@@ -161,6 +161,10 @@ class ProjectTimesheet(Base):
     hours: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0"), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     billable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    hourly_rate: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"), nullable=False)
+    billed_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"), nullable=False)
+    billed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    billed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     project = relationship("Project")

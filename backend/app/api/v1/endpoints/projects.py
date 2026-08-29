@@ -636,27 +636,52 @@ async def add_timesheet_entry(
     ))).scalar_one_or_none()
     if not proj:
         raise HTTPException(status_code=404, detail="პროექტი არ მოიძებნა")
+
+    # resolve hourly rate: explicit > member rate > project member default 0
+    hourly_rate = Decimal(str(data.get("hourly_rate") or 0))
+    if hourly_rate == 0:
+        member_rate = (await db.execute(select(ProjectMember.hourly_rate).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == (data.get("user_id") or current_user.id),
+            ProjectMember.company_id == current_user.company_id,
+        ))).scalar_one_or_none()
+        hourly_rate = Decimal(str(member_rate)) if member_rate else Decimal("0")
+
+    hours = Decimal(str(data.get("hours", 0)))
+    billable = bool(data.get("billable", True))
+    billed_amount = (hours * hourly_rate).quantize(Decimal("0.01")) if billable else Decimal("0")
+
     entry = ProjectTimesheet(
         company_id=current_user.company_id, project_id=project_id,
         task_id=data.get("task_id"),
         user_id=data.get("user_id") or current_user.id,
         work_date=date.fromisoformat(data["work_date"]),
-        hours=Decimal(str(data.get("hours", 0))),
+        hours=hours,
         description=data.get("description"),
-        billable=bool(data.get("billable", True)),
+        billable=billable,
+        hourly_rate=hourly_rate,
+        billed_amount=billed_amount,
     )
     db.add(entry)
+    await db.flush()
+    # roll hours-based cost into project spent_amount (member rate = internal cost)
+    cost_rate = (await db.execute(select(ProjectMember.hourly_rate).where(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == entry.user_id,
+        ProjectMember.company_id == current_user.company_id,
+    ))).scalar() or Decimal("0")
+    proj.spent_amount = (proj.spent_amount or Decimal("0")) + hours * Decimal(str(cost_rate or 0))
+    # billable revenue rolls into project revenue_amount (Odoo: timesheet billing)
+    if billable and billed_amount > 0:
+        proj.revenue_amount = (proj.revenue_amount or Decimal("0")) + billed_amount
     await db.commit()
     await db.refresh(entry)
-    # roll hours into project spent_amount
-    proj.spent_amount = (proj.spent_amount or Decimal("0")) + entry.hours * (
-        (await db.execute(select(ProjectMember.hourly_rate).where(
-            ProjectMember.project_id == project_id,
-            ProjectMember.user_id == entry.user_id,
-            ProjectMember.company_id == current_user.company_id,
-        ))).scalar() or Decimal("0"))
-    await db.commit()
-    return ResponseBase(data={"id": str(entry.id)}, message="დრო დაფიქსირდა")
+    return ResponseBase(data={
+        "id": str(entry.id),
+        "hourly_rate": float(hourly_rate),
+        "billed_amount": float(billed_amount),
+        "billed": entry.billed,
+    }, message="დრო დაფიქსირდა")
 
 
 @router.delete("/timesheets/{entry_id}", response_model=ResponseBase[dict])
@@ -705,3 +730,64 @@ async def resource_utilization(
         **{k: (float(v) if isinstance(v, Decimal) else v) for k, v in u.items() if k != "projects"},
         "projects": u["projects"],
     } for u in by_user.values()])
+
+
+# ═══════════════════════ Timesheet billing (Odoo) ═════════════════════════════
+
+@router.post("/{project_id}/timesheets/{entry_id}/mark-billed", response_model=ResponseBase[dict])
+async def mark_timesheet_billed(
+    project_id: UUID,
+    entry_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_edit")),
+):
+    """Mark a timesheet entry as billed (invoice issued / sent to client)."""
+    entry = (await db.execute(select(ProjectTimesheet).where(
+        ProjectTimesheet.id == entry_id,
+        ProjectTimesheet.project_id == project_id,
+        ProjectTimesheet.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="ჩანაწერი არ მოიძებნა")
+    if entry.billed:
+        raise HTTPException(status_code=409, detail="ჩანაწერი უკვე დაბილინგებულია")
+    entry.billed = True
+    entry.billed_at = datetime.utcnow()
+    await db.commit()
+    return ResponseBase(data={
+        "id": str(entry.id), "billed": True, "billed_amount": float(entry.billed_amount),
+    }, message="ჩანაწერი დაბილინგდა")
+
+
+@router.get("/{project_id}/billing-summary", response_model=ResponseBase[dict])
+async def project_billing_summary(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("projects", "can_access")),
+):
+    """Timesheet billing summary: billable hours, unbilled value, billed value."""
+    proj = (await db.execute(select(Project).where(
+        Project.id == project_id, Project.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not proj:
+        raise HTTPException(status_code=404, detail="პროექტი არ მოიძებნა")
+
+    rows = (await db.execute(select(ProjectTimesheet).where(
+        ProjectTimesheet.project_id == project_id,
+        ProjectTimesheet.company_id == current_user.company_id,
+    ))).scalars().all()
+
+    total_hours = sum(float(r.hours) for r in rows)
+    billable_hours = sum(float(r.hours) for r in rows if r.billable)
+    unbilled_value = sum(float(r.billed_amount) for r in rows if r.billable and not r.billed)
+    billed_value = sum(float(r.billed_amount) for r in rows if r.billed)
+    cost_value = sum(float(r.hours) * float(r.hourly_rate) for r in rows if not r.billable)  # non-billable at rate
+
+    return ResponseBase(data={
+        "total_hours": round(total_hours, 2),
+        "billable_hours": round(billable_hours, 2),
+        "unbilled_value": round(unbilled_value, 2),
+        "billed_value": round(billed_value, 2),
+        "project_revenue": float(proj.revenue_amount or 0),
+        "project_spent": float(proj.spent_amount or 0),
+    })
