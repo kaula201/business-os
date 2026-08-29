@@ -921,6 +921,23 @@ async def change_order_status(
         {"from": old_status, "to": new_status, "notes": data.notes},
     )
     await db.flush()
+    # Auto-submit waybill to RS.ge (Georgia) when order goes to shipping —
+    # non-blocking: a failure here never aborts the status change.
+    if new_status == OrderStatus.SHIPPING.value:
+        try:
+            from app.core.config import settings as _settings
+            if _settings.RS_SERVICE_USER and _settings.RS_SERVICE_PASSWORD:
+                from app.services.rs_ge import RSGeClient
+                _rs = RSGeClient(_settings.RS_WAYBILL_URL, _settings.RS_SERVICE_USER, _settings.RS_SERVICE_PASSWORD)
+                await _rs.submit_waybill(
+                    waybill_number=order.order_number,
+                    sender_id=str(current_user.company_id),
+                    receiver_id=str(order.client_id) if order.client_id else "",
+                    issue_date=order.created_at.strftime("%Y-%m-%d") if order.created_at else "",
+                    total=str(order.total),
+                )
+        except Exception:
+            pass  # RS.ge submission is best-effort; status stays changed
     updated = await _load_order(db, order.id, current_user.company_id)
     return ResponseBase(data=_build_order_response(updated))
 
