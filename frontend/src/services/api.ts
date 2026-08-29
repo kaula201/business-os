@@ -339,6 +339,7 @@ export const automationsApi = {
   update: (id: string, data: Record<string, unknown>) => api.patch(`/automations/${id}`, data),
   remove: (id: string) => api.delete(`/automations/${id}`),
   trigger: (trigger: string, data: Record<string, unknown> = {}) => api.post(`/automations/trigger/${trigger}`, data),
+  meta: () => api.get('/automations/meta').then((r: any) => r.data.data),
 }
 
 // Email marketing API

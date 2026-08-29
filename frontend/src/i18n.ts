@@ -1918,6 +1918,18 @@ const en: Record<string, string> = {
   'IBAN / ანგარიშის ნომერი': 'IBAN / account number',
   'ატვირთეთ ბანკის ამონაწერი (CSV). სვეტები:': 'Upload a bank statement (CSV). Columns:',
   '. თანხა დადებითი = შემოსავალი, უარყოფითი = გასავალი. დუბლიკატი ფაილი არ დაიმპორტირდება.': '. Positive amount = income, negative = expense. Duplicate files are blocked.',
+  // Automation conditions (Odoo-depth)
+  'პირობა (არასავალდებულო)': 'Condition (optional)',
+  'ველი, e.g. amount': 'Field, e.g. amount',
+  'გაშვებები': 'Runs',
+  'ახალი სტატუსი': 'New status',
+  'სათაური (subject)': 'Subject',
+  'ხელით გაშვება': 'Manual run',
+  'შეკვეთა დადასტურდა': 'Order confirmed',
+  'შეკვეთა გადახდილია': 'Order paid',
+  'მიმწოდებლის ინვოისი მიღებულია': 'Supplier invoice received',
+  'სტატუსის ცვლილება': 'Update status',
+  'წესები: ტრიგერი → პირობა → მოქმედება': 'Rules: trigger → condition → action',
 }
 
 i18n.use(initReactI18next).init({
