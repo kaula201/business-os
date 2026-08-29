@@ -184,6 +184,14 @@ from app.models.cost_layer import (  # noqa: F401
     ProductValuationConfig,
 )
 from app.models.counterparty import CounterpartyCheck  # noqa: F401
+from app.models.platform import (  # noqa: F401
+    CustomField,
+    CustomFieldValue,
+    WorkflowTemplate,
+    ReportTemplate,
+    ImportMapping,
+    IndustryTemplate,
+)
 from app.models.pricing import PriceList, PriceListItem  # noqa: F401
 from app.models.quotation import Quotation, QuotationItem  # noqa: F401
 from app.models.payment_term import PaymentTerm  # noqa: F401
