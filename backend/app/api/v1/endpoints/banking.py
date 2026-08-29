@@ -6,7 +6,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -839,3 +839,157 @@ async def sync_connection(
     conn.last_sync_at = utc_now()
     await db.commit()
     return ResponseBase(data={"created": created, "skipped": skipped}, message="სინქრონიზაცია დასრულდა")
+
+
+@router.post("/connections/{connection_id}/import-file", response_model=ResponseBase[dict])
+async def import_bank_file(
+    connection_id: UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Import a bank statement file (CSV/MT940-style) for a connection.
+
+    Column-order flexible parsing (header row detected): date, reference,
+    description, counterparty, debit, credit | amount, direction.
+    Fingerprint dedup prevents double imports.
+    """
+    result = await db.execute(
+        select(BankConnection).where(BankConnection.id == connection_id, BankConnection.company_id == current_user.company_id)
+    )
+    conn = result.scalar_one_or_none()
+    if not conn:
+        raise HTTPException(status_code=404, detail="კავშირი არ მოიძებნა")
+
+    account_result = await db.execute(
+        select(BankAccount).where(
+            BankAccount.company_id == current_user.company_id,
+            BankAccount.iban == conn.account_number,
+        )
+    )
+    account = account_result.scalar_one_or_none()
+    if not account:
+        raise HTTPException(status_code=400, detail="ანგარიში ვერ მოიძებნა — ჯერ შექმენით Bank Account")
+
+    raw = await file.read()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+    content_hash = hashlib.sha256(raw).hexdigest()
+
+    # duplicate file?
+    dup = (await db.execute(
+        select(BankStatementImport.id).where(
+            BankStatementImport.company_id == current_user.company_id,
+            BankStatementImport.bank_account_id == account.id,
+            BankStatementImport.content_hash == content_hash,
+        )
+    )).scalar_one_or_none()
+    if dup:
+        return ResponseBase(data={"created": 0, "skipped": 0, "duplicate": True}, message="ფაილი უკვე იმპორტირებულია")
+
+    rows: list[dict] = []
+    reader = csv.reader(io.StringIO(text), delimiter=",")
+    header: list[str] | None = None
+    for row in reader:
+        if not row or not any(cell.strip() for cell in row):
+            continue
+        cells = [c.strip() for c in row]
+        if header is None and any(k in cells[0].lower() for k in ("date", "თარიღი", "tari")):
+            header = cells
+            continue
+        if header is None and len(cells) > 0 and cells[0].replace("-", "").isdigit() and len(cells[0]) >= 8:
+            header = ["date", None, "description", "counterparty", None, "amount", None][:len(cells)]
+        if header is None and len(cells) >= 5:
+            # heuristic: first col looks like a date
+            if "/" in cells[0] or "-" in cells[0]:
+                header = ["date", "reference", "description", "counterparty", "amount"] + [None] * (len(cells) - 5)
+        try:
+            txn_date = date.fromisoformat((cells[0] or "").strip()[:10]) if "-" in cells[0] else date(*[int(p) for p in cells[0].split("/")][::-1])
+        except (ValueError, IndexError):
+            continue
+        amount = None
+        for cell in cells[3:]:
+            try:
+                parsed = Decimal(cell.replace(",", ".").replace(" ", ""))
+                if parsed != 0:
+                    amount = parsed
+                    break
+            except (ValueError, InvalidOperation):
+                continue
+        if amount is None:
+            continue
+        direction = "credit" if amount > 0 else "debit"
+        rows.append({
+            "date": txn_date.isoformat(),
+            "reference": cells[1] if len(cells) > 1 else "",
+            "description": cells[2] if len(cells) > 2 else file.filename or "",
+            "counterparty": cells[3] if len(cells) > 3 else "",
+            "amount": str(abs(amount)),
+            "direction": direction,
+            "currency": account.currency,
+        })
+
+    if not rows:
+        raise HTTPException(status_code=422, detail="ფაილში ტრანზაქციები ვერ მოიძებნა — შეამოწმეთ ფორმატი (CSV, date, description, amount)")
+
+    statement = BankStatementImport(
+        company_id=current_user.company_id,
+        bank_account_id=account.id,
+        idempotency_key=f"file-{conn.id}-{content_hash[:16]}",
+        filename=file.filename or "import.csv",
+        content_hash=content_hash,
+        transaction_count=len(rows),
+        debit_total=sum(Decimal(r["amount"]) for r in rows if r["direction"] == "debit"),
+        credit_total=sum(Decimal(r["amount"]) for r in rows if r["direction"] == "credit"),
+        imported_by=current_user.id,
+    )
+    db.add(statement)
+    await db.flush()
+
+    created = 0
+    skipped = 0
+    for t in rows:
+        txn_date = date.fromisoformat(t["date"])
+        amount = Decimal(t["amount"])
+        reference = (t.get("reference") or "").strip() or f"FILE-{created + 1}"
+        description = (t.get("description") or "").strip()
+        counterparty = (t.get("counterparty") or "").strip()
+        fingerprint_source = "|".join([
+            str(account.id), txn_date.isoformat(), reference, description,
+            counterparty, str(amount), t["direction"], t["currency"],
+        ])
+        fingerprint = hashlib.sha256(fingerprint_source.encode()).hexdigest()
+
+        existing = (await db.execute(
+            select(BankTransaction.id).where(
+                BankTransaction.company_id == current_user.company_id,
+                BankTransaction.fingerprint == fingerprint,
+            )
+        )).scalar_one_or_none()
+        if existing:
+            skipped += 1
+            continue
+
+        db.add(BankTransaction(
+            company_id=current_user.company_id,
+            bank_account_id=account.id,
+            statement_import_id=statement.id,
+            transaction_date=txn_date,
+            reference=reference,
+            description=description,
+            counterparty=counterparty,
+            amount=amount,
+            matched_amount=Decimal("0"),
+            direction=t["direction"],
+            currency=t["currency"],
+            fingerprint=fingerprint,
+            status="unmatched",
+        ))
+        created += 1
+
+    conn.last_sync_at = utc_now()
+    await db.commit()
+    return ResponseBase(data={"created": created, "skipped": skipped, "duplicate": False},
+                        message=f"იმპორტი დასრულდა — {created} შექმნილი, {skipped} გამოტოვებული")
