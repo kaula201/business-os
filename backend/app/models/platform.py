@@ -98,3 +98,33 @@ class IndustryTemplate(Base):
     modules: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     custom_fields: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class PdfTemplate(Base):
+    """PDF template designer — saved layout rendered with reportlab.
+
+    layout JSON: {"title": "...", "color": "#2563eb", "show_company": true,
+                  "show_client": true, "show_items": true, "footer": "..."}
+    """
+
+    __tablename__ = "pdf_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    doc_type: Mapped[str] = mapped_column(String(30), default="invoice", nullable=False)  # invoice|waybill|report
+    layout: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class CustomRole(Base):
+    """User-defined role: name + set of module permissions (matrix)."""
+
+    __tablename__ = "custom_roles"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    permissions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # permissions: {"module_slug": {"can_access": true, "can_create": true, "can_edit": true, "can_delete": false}}
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

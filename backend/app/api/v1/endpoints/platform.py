@@ -16,6 +16,8 @@ from app.models.platform import (
     IndustryTemplate,
     ReportTemplate,
     WorkflowTemplate,
+    PdfTemplate,
+    CustomRole,
 )
 from app.models.user import User
 from app.schemas.common import ResponseBase
@@ -386,3 +388,221 @@ async def create_industry_template(
     await db.commit()
     await db.refresh(t)
     return ResponseBase(data={"id": str(t.id), "slug": t.slug}, message="ინდუსტრიის შაბლონი შეიქმნა")
+
+
+# ── PDF template designer ─────────────────────────────────────────────────────
+
+@router.get("/pdf-templates", response_model=ResponseBase[list[dict]])
+async def list_pdf_templates(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(select(PdfTemplate).where(
+        PdfTemplate.company_id == current_user.company_id,
+    ))).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(t.id), "name": t.name, "doc_type": t.doc_type, "layout": t.layout,
+    } for t in rows])
+
+
+@router.post("/pdf-templates", response_model=ResponseBase[dict], status_code=201)
+async def create_pdf_template(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    require_admin(current_user)
+    t = PdfTemplate(
+        company_id=current_user.company_id,
+        name=data.get("name", ""),
+        doc_type=data.get("doc_type", "invoice"),
+        layout=data.get("layout", {}),
+    )
+    db.add(t)
+    await db.commit()
+    await db.refresh(t)
+    return ResponseBase(data={"id": str(t.id), "name": t.name}, message="PDF შაბლონი შეიქმნა")
+
+
+@router.patch("/pdf-templates/{template_id}", response_model=ResponseBase[dict])
+async def update_pdf_template(
+    template_id: uuid.UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    require_admin(current_user)
+    t = (await db.execute(select(PdfTemplate).where(
+        PdfTemplate.id == template_id, PdfTemplate.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not t:
+        raise HTTPException(status_code=404, detail="შაბლონი არ მოიძებნა")
+    if "layout" in data:
+        t.layout = data["layout"]
+    if "name" in data:
+        t.name = data["name"]
+    await db.commit()
+    return ResponseBase(data={"id": str(t.id)}, message="შაბლონი განახლდა")
+
+
+@router.delete("/pdf-templates/{template_id}", response_model=ResponseBase[dict])
+async def delete_pdf_template(
+    template_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    require_admin(current_user)
+    t = (await db.execute(select(PdfTemplate).where(
+        PdfTemplate.id == template_id, PdfTemplate.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not t:
+        raise HTTPException(status_code=404, detail="შაბლონი არ მოიძებნა")
+    await db.delete(t)
+    await db.commit()
+    return ResponseBase(data={"id": str(template_id)}, message="შაბლონი წაიშალა")
+
+
+@router.post("/pdf-templates/{template_id}/render", response_model=ResponseBase[dict])
+async def render_pdf_template(
+    template_id: uuid.UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Render a PDF from the template layout with the provided data rows.
+
+    data: {"company_name": ..., "client_name": ..., "items": [{name, qty, price, total}],
+           "subtotal": ..., "vat": ..., "total": ..., "number": ..., "date": ...}
+    Returns base64 PDF bytes (preview) + filename.
+    """
+    import base64
+    t = (await db.execute(select(PdfTemplate).where(
+        PdfTemplate.id == template_id, PdfTemplate.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not t:
+        raise HTTPException(status_code=404, detail="შაბლონი არ მოიძებნა")
+
+    layout = t.layout
+    title = layout.get("title", "დოკუმენტი")
+    color = layout.get("color", "#2563eb")
+    footer = layout.get("footer", "გმადლობთ თანამშრომლობისთვის!")
+
+    from app.utils.pdf import FONT_NAME, FONT_BOLD, generate_invoice_pdf
+
+    from datetime import datetime as _dt
+    try:
+        created_dt = _dt.fromisoformat(str(data.get("date", "2026-01-01"))[:10])
+    except ValueError:
+        created_dt = _dt(2026, 1, 1)
+    due_dt = None
+    if data.get("due_date"):
+        try:
+            due_dt = _dt.fromisoformat(str(data["due_date"])[:10])
+        except ValueError:
+            due_dt = None
+
+    items = data.get("items", [])
+    try:
+        pdf_bytes = generate_invoice_pdf(
+            invoice_number=data.get("number", "—"),
+            order_number=data.get("order_number", ""),
+            company_name=data.get("company_name", layout.get("company_default", "")),
+            company_id_code=data.get("company_id_code", ""),
+            company_address=data.get("company_address", ""),
+            company_phone=data.get("company_phone", ""),
+            client_name=data.get("client_name", ""),
+            client_id_code=data.get("client_id_code", ""),
+            client_address=data.get("client_address", ""),
+            items=[{
+                "product_name": i.get("name", ""),
+                "quantity": float(i.get("qty", 0)),
+                "unit_price": float(i.get("price", 0)),
+                "discount_percent": float(i.get("discount", 0)),
+                "vat_rate": float(i.get("vat", 0)),
+                "total": float(i.get("total", 0)),
+            } for i in items],
+            subtotal=float(data.get("subtotal", 0)),
+            vat_amount=float(data.get("vat", 0)),
+            total=float(data.get("total", 0)),
+            created_at=created_dt,
+            due_date=due_dt,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"PDF გენერაცია ვერ მოხერხდა: {exc}") from exc
+
+    return ResponseBase(data={
+        "filename": f"{title}.pdf",
+        "pdf_base64": base64.b64encode(pdf_bytes).decode(),
+        "bytes": len(pdf_bytes),
+    })
+
+
+# ── Custom roles ──────────────────────────────────────────────────────────────
+
+@router.get("/custom-roles", response_model=ResponseBase[list[dict]])
+async def list_custom_roles(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(select(CustomRole).where(
+        CustomRole.company_id == current_user.company_id,
+    ))).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(r.id), "name": r.name, "permissions": r.permissions,
+    } for r in rows])
+
+
+@router.post("/custom-roles", response_model=ResponseBase[dict], status_code=201)
+async def create_custom_role(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    require_admin(current_user)
+    r = CustomRole(
+        company_id=current_user.company_id,
+        name=data.get("name", ""),
+        permissions=data.get("permissions", {}),
+    )
+    db.add(r)
+    await db.commit()
+    await db.refresh(r)
+    return ResponseBase(data={"id": str(r.id), "name": r.name}, message="როლი შეიქმნა")
+
+
+@router.patch("/custom-roles/{role_id}", response_model=ResponseBase[dict])
+async def update_custom_role(
+    role_id: uuid.UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    require_admin(current_user)
+    r = (await db.execute(select(CustomRole).where(
+        CustomRole.id == role_id, CustomRole.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="როლი არ მოიძებნა")
+    if "name" in data:
+        r.name = data["name"]
+    if "permissions" in data:
+        r.permissions = data["permissions"]
+    await db.commit()
+    return ResponseBase(data={"id": str(r.id)}, message="როლი განახლდა")
+
+
+@router.delete("/custom-roles/{role_id}", response_model=ResponseBase[dict])
+async def delete_custom_role(
+    role_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    require_admin(current_user)
+    r = (await db.execute(select(CustomRole).where(
+        CustomRole.id == role_id, CustomRole.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="როლი არ მოიძებნა")
+    await db.delete(r)
+    await db.commit()
+    return ResponseBase(data={"id": str(role_id)}, message="როლი წაიშალა")

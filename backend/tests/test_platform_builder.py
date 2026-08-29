@@ -118,3 +118,50 @@ async def test_import_mapping_crud(client, auth_headers):
 
     dele = await client.delete(f"/api/v1/platform/import-mappings/{mid}", headers=auth_headers)
     assert dele.status_code == 200
+
+
+async def test_pdf_template_render(client, auth_headers):
+    """PDF template designer: create template, render a real PDF."""
+    import base64
+
+    resp = await client.post("/api/v1/platform/pdf-templates", json={
+        "name": "ინვოისი სტანდარტი", "doc_type": "invoice",
+        "layout": {"title": "ინვოისი", "color": "#2563eb"},
+    }, headers=auth_headers)
+    assert resp.status_code == 201, resp.text
+    tid = resp.json()["data"]["id"]
+
+    render = await client.post(f"/api/v1/platform/pdf-templates/{tid}/render", json={
+        "number": "INV-T1", "company_name": "ტესტ კომპანია", "company_id_code": "T-1",
+        "client_name": "კლიენტი", "items": [{"name": "პროდუქტი", "qty": 1, "price": 100, "total": 100}],
+        "subtotal": 100, "vat": 18, "total": 118, "date": "2026-08-29",
+    }, headers=auth_headers)
+    assert render.status_code == 200, render.text
+    data = render.json()["data"]
+    assert data["filename"] == "ინვოისი.pdf"
+    assert data["bytes"] > 1000
+    pdf = base64.b64decode(data["pdf_base64"])
+    assert pdf[:5] == b"%PDF-"
+
+    dele = await client.delete(f"/api/v1/platform/pdf-templates/{tid}", headers=auth_headers)
+    assert dele.status_code == 200
+
+
+async def test_custom_role_crud(client, auth_headers):
+    resp = await client.post("/api/v1/platform/custom-roles", json={
+        "name": "მაღაზიის მენეჯერი",
+        "permissions": {"pos": {"can_access": True, "can_create": True}, "inventory": {"can_access": True}},
+    }, headers=auth_headers)
+    assert resp.status_code == 201, resp.text
+    rid = resp.json()["data"]["id"]
+
+    upd = await client.patch(f"/api/v1/platform/custom-roles/{rid}", json={
+        "permissions": {"pos": {"can_access": True, "can_create": True, "can_edit": True}},
+    }, headers=auth_headers)
+    assert upd.status_code == 200
+
+    lst = await client.get("/api/v1/platform/custom-roles", headers=auth_headers)
+    assert any(r["id"] == rid for r in lst.json()["data"])
+
+    dele = await client.delete(f"/api/v1/platform/custom-roles/{rid}", headers=auth_headers)
+    assert dele.status_code == 200

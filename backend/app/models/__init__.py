@@ -191,6 +191,8 @@ from app.models.platform import (  # noqa: F401
     ReportTemplate,
     ImportMapping,
     IndustryTemplate,
+    PdfTemplate,
+    CustomRole,
 )
 from app.models.pricing import PriceList, PriceListItem  # noqa: F401
 from app.models.quotation import Quotation, QuotationItem  # noqa: F401
