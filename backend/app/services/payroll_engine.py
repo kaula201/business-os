@@ -24,8 +24,9 @@ from app.models.payroll_engine import RuleParameter, SalaryRule, SalaryStructure
 
 # Georgian legal defaults (overridable via rule_parameters)
 DEFAULT_PARAMS = {
-    "income_tax_rate": 0.15,        # Tax Code Art. 81 (2025+ reduced rate)
-    "pension_employee_rate": 0.02,  # Pension Law Art. 37
+    "income_tax_rate_2025_plus": 0.15,   # Tax Code Art. 81 — reduced flat rate from 2025-01-01
+    "income_tax_rate_legacy": 0.20,      # general rate before 2025-01-01
+    "pension_employee_rate": 0.02,       # Pension Law Art. 37
     "pension_ceiling": 200000.0,
     "overtime_rate": 1.5,
 }
@@ -58,14 +59,32 @@ def _safe_eval(expr: str, namespace: dict) -> float:
     return float(eval(compile(tree, "<rule>", "eval"), {"__builtins__": {}}, safe_ns))
 
 
-async def get_rule_parameters(db: AsyncSession, company_id) -> dict:
-    """Load company rule parameters merged over Georgian legal defaults."""
+async def get_rule_parameters(db: AsyncSession, company_id, **period) -> dict:
+    """Load company rule parameters merged over Georgian legal defaults.
+
+    `income_tax_rate` is period-aware: the reduced 15% flat rate applies to
+    employment income from 2025-01-01 (Tax Code Art. 81 transitional
+    provision); earlier periods use the general 20% rate. This matches
+    payroll_rules.income_tax_rate_for() so all payroll paths agree.
+    """
+    from datetime import date as _date
+
     params = dict(DEFAULT_PARAMS)
     rows = (await db.execute(
         select(RuleParameter).where(RuleParameter.company_id == company_id)
     )).scalars().all()
     for r in rows:
         params[r.key] = float(r.value)
+
+    year = period.get("period_year")
+    month = period.get("period_month")
+    if year and month and "income_tax_rate" not in params:
+        period_date = _date(year, month, 1)
+        # reduced rate from 2025-01-01 (matches payroll_rules income_tax_rate_for)
+        if period_date >= _date(2025, 1, 1):
+            params["income_tax_rate"] = params["income_tax_rate_2025_plus"]
+        else:
+            params["income_tax_rate"] = params["income_tax_rate_legacy"]
     return params
 
 
@@ -142,7 +161,7 @@ async def compute_payroll_with_rules(
     structure_id=None,
 ) -> dict:
     """Run the salary structure rules and return lines + totals."""
-    params = await get_rule_parameters(db, company_id)
+    params = await get_rule_parameters(db, company_id, period_year=period_year, period_month=period_month)
     work = await get_work_entry(db, company_id, employee_id, period_year, period_month)
     adj = await get_adjustments(db, company_id, employee_id, period_year, period_month)
     additions = additions + adj["additions"]

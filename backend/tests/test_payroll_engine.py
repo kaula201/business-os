@@ -128,3 +128,21 @@ async def test_bonus_and_deduction_auto_included(db_session, test_company, payro
     assert len(result["adjustments"]) == 2
     kinds = {a["kind"] for a in result["adjustments"]}
     assert kinds == {"bonus", "fine"}
+
+
+async def test_tax_rate_period_aware(db_session, test_company, payroll_employee):
+    """Income tax rate is period-aware: 15% from 2025-01-01, 20% before."""
+    struct = SalaryStructure(company_id=test_company.id, name="სტრუქტურა", is_active=True)
+    db_session.add(struct)
+    await db_session.flush()
+    db_session.add(SalaryRule(
+        company_id=test_company.id, structure_id=struct.id, code="INCOME_TAX", name="საშემოსავლო",
+        category="tax", amount_type="formula",
+        formula="round(gross * params['income_tax_rate'], 2)", basis="gross", sequence=10,
+    ))
+    await db_session.commit()
+
+    r2026 = await compute_payroll_with_rules(db_session, test_company.id, payroll_employee.id, 2000, 2026, 8, structure_id=struct.id)
+    r2024 = await compute_payroll_with_rules(db_session, test_company.id, payroll_employee.id, 2000, 2024, 8, structure_id=struct.id)
+    assert r2026["income_tax"] == 300.0  # 15% (2025+)
+    assert r2024["income_tax"] == 400.0  # 20% (legacy)

@@ -135,6 +135,7 @@ async def consolidated_checks(
     company_ids, companies = await _group_ids(db, current_user)
 
     checks = []
+    companies_with_ic = 0
     # 1. per-company BS balance
     for c in companies:
         bs = await consolidated_balance_sheet(db, [c.id], as_of_date)
@@ -150,30 +151,54 @@ async def consolidated_checks(
             "difference": round(assets - (liabilities + equity), 2),
         })
 
-    # 2. intercompany match
+    # 2. intercompany match — empty group ⇒ no data, NOT a green result
     ic = await intercompany_balances(db, company_ids, as_of_date)
-    for acc in ic.get("accounts", []):
-        balances = [float(b["balance"]) for b in acc.get("balances", {}).values() if b is not None]
-        total = sum(balances)
+    ic_accounts = ic.get("accounts", [])
+    ic_entries_exist = any(
+        (b is not None and abs(float(b)) > 0.01)
+        for acc in ic_accounts
+        for b in acc.get("balances", {}).values()
+    )
+    companies_with_ic = len(companies)
+    if companies_with_ic <= 1 or not ic_accounts or not ic_entries_exist:
+        # nothing to compare — honest "skipped", must not flip all_ok green
         checks.append({
-            "account_code": acc.get("account_code"), "account_name": acc.get("account_name"),
             "check": "intercompany_matches",
-            "ok": abs(total) < 0.01,
-            "total": round(total, 2),
+            "status": "skipped",
+            "reason": "ჯგუფში მხოლოდ ერთი კომპანიაა ან IC-შედარება შეუძლებელია",
+            "ok": True,
         })
+    else:
+        for acc in ic_accounts:
+            balances = [float(b["balance"]) for b in acc.get("balances", {}).values() if b is not None]
+            total = sum(balances)
+            checks.append({
+                "account_code": acc.get("account_code"), "account_name": acc.get("account_name"),
+                "check": "intercompany_matches",
+                "ok": abs(total) < 0.01,
+                "total": round(total, 2),
+            })
 
-    # 3. eliminations present
+    # 3. eliminations present — only meaningful when intercompany data exists
     from app.models.consolidation_elimination import ConsolidationElimination
     elim_count = (await db.execute(
         select(func.count()).select_from(ConsolidationElimination).where(
             ConsolidationElimination.company_id.in_(company_ids),
         )
     )).scalar()
-    checks.append({
-        "check": "eliminations_recorded",
-        "ok": (elim_count or 0) > 0,
-        "elimination_count": elim_count or 0,
-    })
+    if companies_with_ic <= 1 or not ic_accounts:
+        checks.append({
+            "check": "eliminations_recorded",
+            "status": "skipped",
+            "reason": "ჯგუფში მხოლოდ ერთი კომპანიაა — eliminations არ არის საჭირო",
+            "ok": True,
+        })
+    else:
+        checks.append({
+            "check": "eliminations_recorded",
+            "ok": (elim_count or 0) > 0,
+            "elimination_count": elim_count or 0,
+        })
 
     add_audit(db, current_user, "consolidated.checks_viewed", "gl", company_ids[0], {
         "as_of_date": as_of_date.isoformat(), "checks": len(checks),
