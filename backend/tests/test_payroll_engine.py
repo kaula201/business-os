@@ -5,7 +5,7 @@ import pytest
 from httpx import AsyncClient
 
 from app.models.hr import Employee, PayrollEntry
-from app.models.payroll_engine import PayrollLine, RuleParameter, SalaryRule, SalaryStructure, WorkEntry
+from app.models.payroll_engine import PayrollAdjustment, PayrollLine, RuleParameter, SalaryRule, SalaryStructure, WorkEntry
 from app.services.payroll_engine import _safe_eval, compute_payroll_with_rules
 
 
@@ -108,3 +108,23 @@ async def test_calculate_endpoint_upserts(client, auth_headers, test_company, pa
     lines = (await db_session.execute(select(PayrollLine).where(PayrollLine.payroll_entry_id == entry_id))).scalars().all()
     assert len(lines) == 1
     assert lines[0].code == "PENSION"
+
+
+async def test_bonus_and_deduction_auto_included(db_session, test_company, payroll_employee):
+    """Bonuses/deductions for the period are auto-included in rule-based calculation."""
+    db_session.add(PayrollAdjustment(
+        company_id=test_company.id, employee_id=payroll_employee.id,
+        period_year=2026, period_month=8, kind="bonus", amount=500, reason="პრემია",
+    ))
+    db_session.add(PayrollAdjustment(
+        company_id=test_company.id, employee_id=payroll_employee.id,
+        period_year=2026, period_month=8, kind="fine", amount=100, reason="დაჯარიმება",
+    ))
+    await db_session.commit()
+
+    result = await compute_payroll_with_rules(db_session, test_company.id, payroll_employee.id, 2000, 2026, 8)
+    assert result["gross_pay"] == 2500.0          # 2000 + 500 bonus
+    assert result["deductions"] == 100.0          # fine
+    assert len(result["adjustments"]) == 2
+    kinds = {a["kind"] for a in result["adjustments"]}
+    assert kinds == {"bonus", "fine"}

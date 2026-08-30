@@ -103,6 +103,32 @@ async def get_work_entry(db: AsyncSession, company_id, employee_id, year, month)
     return {"worked_days": days, "worked_hours": hours, "overtime_hours": 0.0}
 
 
+async def get_adjustments(db: AsyncSession, company_id, employee_id, year, month) -> dict:
+    """Bonuses/deductions for the period — auto-included in calculation."""
+    from app.models.payroll_engine import PayrollAdjustment
+    rows = (await db.execute(
+        select(PayrollAdjustment).where(
+            PayrollAdjustment.company_id == company_id,
+            PayrollAdjustment.employee_id == employee_id,
+            PayrollAdjustment.period_year == year,
+            PayrollAdjustment.period_month == month,
+        )
+    )).scalars().all()
+    additions = Decimal("0")
+    deductions = Decimal("0")
+    items = []
+    for a in rows:
+        amt = a.amount
+        if a.kind in ("bonus", "premium", "other"):
+            additions += amt
+        else:  # fine, advance
+            deductions += amt
+        items.append({
+            "id": str(a.id), "kind": a.kind, "amount": float(amt), "reason": a.reason,
+        })
+    return {"additions": additions, "deductions": deductions, "items": items}
+
+
 async def compute_payroll_with_rules(
     db: AsyncSession,
     company_id,
@@ -118,6 +144,9 @@ async def compute_payroll_with_rules(
     """Run the salary structure rules and return lines + totals."""
     params = await get_rule_parameters(db, company_id)
     work = await get_work_entry(db, company_id, employee_id, period_year, period_month)
+    adj = await get_adjustments(db, company_id, employee_id, period_year, period_month)
+    additions = additions + adj["additions"]
+    deductions = deductions + adj["deductions"]
 
     # resolve structure: explicit or first active
     if structure_id is None:
@@ -201,6 +230,7 @@ async def compute_payroll_with_rules(
         "worked_days": work["worked_days"],
         "worked_hours": work["worked_hours"],
         "overtime_hours": work["overtime_hours"],
+        "adjustments": adj["items"],
         "structure_id": str(structure_id) if structure_id else None,
         "params": params,
     }

@@ -185,6 +185,7 @@ from app.models.cost_layer import (  # noqa: F401
 )
 from app.models.counterparty import CounterpartyCheck  # noqa: F401
 from app.models.payroll_engine import (  # noqa: F401
+    PayrollAdjustment,
     PayrollLine,
     RuleParameter,
     SalaryRule,

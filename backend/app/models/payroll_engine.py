@@ -104,3 +104,23 @@ class PayrollLine(Base):
     basis_amount: Mapped[float] = mapped_column(Numeric(14, 2), default=0, nullable=False)
     formula_used: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class PayrollAdjustment(Base):
+    """One-off bonus or deduction attached to an employee for a period (Odoo payslip.input).
+
+    e.g. ბონუსი 500 ₾, პრემია, დაჯარიმება, ავანსი. Auto-included in rule-based
+    calculation for the matching period.
+    """
+
+    __tablename__ = "payroll_adjustments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    employee_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=False, index=True)
+    period_year: Mapped[int] = mapped_column(nullable=False)
+    period_month: Mapped[int] = mapped_column(nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), default="bonus", nullable=False)  # bonus|premium|fine|advance|other
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=0, nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

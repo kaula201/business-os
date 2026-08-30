@@ -1039,4 +1039,7 @@ export const payrollEngineApi = {
   createWorkEntry: (data: Record<string, unknown>) => api.post('/payroll-engine/work-entries', data).then(r => r.data.data),
   calculate: (data: Record<string, unknown>) => api.post('/payroll-engine/calculate', data).then(r => r.data.data),
   entryLines: (entryId: string) => api.get(`/payroll-engine/entries/${entryId}/lines`).then(r => r.data.data),
+  adjustments: (params?: Record<string, unknown>) => api.get('/payroll-engine/adjustments', { params }).then(r => r.data.data),
+  createAdjustment: (data: Record<string, unknown>) => api.post('/payroll-engine/adjustments', data).then(r => r.data.data),
+  deleteAdjustment: (id: string) => api.delete(`/payroll-engine/adjustments/${id}`).then(r => r.data.data),
 }

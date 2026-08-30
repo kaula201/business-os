@@ -94,6 +94,10 @@ export default function HRPage() {
   const [calcModal, setCalcModal] = useState(false)
   const [calcForm, setCalcForm] = useState({ employee_id: '', period_year: new Date().getFullYear(), period_month: new Date().getMonth() + 1, base_salary: 0, structure_id: '', additions: 0, deductions: 0 })
   const [calcResult, setCalcResult] = useState<any>(null)
+  const [adjModal, setAdjModal] = useState(false)
+  const [adjForm, setAdjForm] = useState({ employee_id: '', period_year: new Date().getFullYear(), period_month: new Date().getMonth() + 1, kind: 'bonus', amount: 0, reason: '' })
+  const [weModal, setWeModal] = useState(false)
+  const [weForm, setWeForm] = useState({ employee_id: '', period_year: new Date().getFullYear(), period_month: new Date().getMonth() + 1, worked_days: 0, worked_hours: 0, overtime_hours: 0 })
 
   // ── Queries ──────────────────────────────────────────────────────
 
@@ -131,6 +135,10 @@ export default function HRPage() {
   const { data: workEntriesData } = useQuery({
     queryKey: ['payroll-work-entries'],
     queryFn: () => payrollEngineApi.workEntries(),
+  })
+  const { data: adjustmentsData } = useQuery({
+    queryKey: ['payroll-adjustments'],
+    queryFn: () => payrollEngineApi.adjustments(),
   })
   const { data: leaveData, isLoading: leaveLoading } = useQuery({
     queryKey: ['hr-leave'],
@@ -213,6 +221,20 @@ export default function HRPage() {
   const runCalc = useMutation({
     mutationFn: () => payrollEngineApi.calculate(calcForm),
     onSuccess: (d) => { setCalcResult(d); queryClient.invalidateQueries({ queryKey: ['hr-payroll'] }) },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+  const createAdjustment = useMutation({
+    mutationFn: () => payrollEngineApi.createAdjustment(adjForm),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['payroll-adjustments'] }); setAdjModal(false); setAdjForm({ employee_id: '', period_year: new Date().getFullYear(), period_month: new Date().getMonth() + 1, kind: 'bonus', amount: 0, reason: '' }) },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+  const deleteAdjustment = useMutation({
+    mutationFn: (id: string) => payrollEngineApi.deleteAdjustment(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['payroll-adjustments'] }),
+  })
+  const createWorkEntry = useMutation({
+    mutationFn: () => payrollEngineApi.createWorkEntry(weForm),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['payroll-work-entries'] }); setWeModal(false); setWeForm({ employee_id: '', period_year: new Date().getFullYear(), period_month: new Date().getMonth() + 1, worked_days: 0, worked_hours: 0, overtime_hours: 0 }) },
     onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
 
@@ -318,6 +340,12 @@ export default function HRPage() {
           <div className="flex gap-2">
             <button onClick={() => setStructModal(true)} className="btn btn-primary flex items-center gap-2">
               <Plus size={18} /> {t('ახალი სტრუქტურა')}
+            </button>
+            <button onClick={() => setAdjModal(true)} className="btn btn-outline flex items-center gap-2">
+              <Plus size={16} /> {t('ბონუსი/დაქვითვა')}
+            </button>
+            <button onClick={() => setWeModal(true)} className="btn btn-outline flex items-center gap-2">
+              <Plus size={16} /> {t('სამუშაო ჩანაწერი')}
             </button>
             <button onClick={() => setParamModal(true)} className="btn btn-outline flex items-center gap-2">
               <SlidersHorizontal size={16} /> {t('პარამეტრები')}
@@ -780,6 +808,33 @@ export default function HRPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Bonuses / deductions */}
+          <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <h3 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">{t('ბონუსები და დაქვითვები')}</h3>
+            {!adjustmentsData || adjustmentsData.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('ჩანაწერები არ არის')}</p>
+            ) : (
+              <div className="space-y-2">
+                {adjustmentsData.map((a: any) => (
+                  <div key={a.id} className="flex items-center justify-between rounded-lg border p-3 dark:border-dark-50">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                        <span className={`text-xs px-2 py-0.5 rounded-full mr-2 ${a.kind === 'bonus' || a.kind === 'premium' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
+                          {a.kind}
+                        </span>
+                        {a.amount} ₾ · {a.period_year}-{String(a.period_month).padStart(2, '0')}
+                      </p>
+                      {a.reason && <p className="text-xs text-gray-500 dark:text-gray-400">{a.reason}</p>}
+                    </div>
+                    <button onClick={() => deleteAdjustment.mutate(a.id)} className="text-gray-400 hover:text-red-500">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Calc result */}
@@ -1351,6 +1406,94 @@ export default function HRPage() {
           <button onClick={() => runCalc.mutate()} disabled={runCalc.isPending || !calcForm.employee_id}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
             {runCalc.isPending ? t('მუშავდება...') : t('გამოთვლა')}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={adjModal} onClose={() => setAdjModal(false)} title={t('ბონუსი/დაქვითვა')}>
+        <div className="space-y-4">
+          <FormField label={t('თანამშრომელი')} required>
+            <select value={adjForm.employee_id} onChange={e => setAdjForm({ ...adjForm, employee_id: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+              <option value="">{t('აირჩიეთ')}</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}
+            </select>
+          </FormField>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label={t('წელი')}>
+              <input type="number" value={adjForm.period_year} onChange={e => setAdjForm({ ...adjForm, period_year: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+            <FormField label={t('თვე')}>
+              <input type="number" min={1} max={12} value={adjForm.period_month} onChange={e => setAdjForm({ ...adjForm, period_month: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label={t('ტიპი')}>
+              <select value={adjForm.kind} onChange={e => setAdjForm({ ...adjForm, kind: e.target.value })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+                <option value="bonus">bonus</option>
+                <option value="premium">premium</option>
+                <option value="fine">fine</option>
+                <option value="advance">advance</option>
+                <option value="other">other</option>
+              </select>
+            </FormField>
+            <FormField label={t('თანხა (₾)')} required>
+              <input type="number" value={adjForm.amount} onChange={e => setAdjForm({ ...adjForm, amount: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+          </div>
+          <FormField label={t('მიზეზი')}>
+            <input value={adjForm.reason} onChange={e => setAdjForm({ ...adjForm, reason: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => createAdjustment.mutate()} disabled={createAdjustment.isPending || !adjForm.employee_id || !adjForm.amount}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={weModal} onClose={() => setWeModal(false)} title={t('სამუშაო ჩანაწერი')}>
+        <div className="space-y-4">
+          <FormField label={t('თანამშრომელი')} required>
+            <select value={weForm.employee_id} onChange={e => setWeForm({ ...weForm, employee_id: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+              <option value="">{t('აირჩიეთ')}</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}
+            </select>
+          </FormField>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label={t('წელი')}>
+              <input type="number" value={weForm.period_year} onChange={e => setWeForm({ ...weForm, period_year: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+            <FormField label={t('თვე')}>
+              <input type="number" min={1} max={12} value={weForm.period_month} onChange={e => setWeForm({ ...weForm, period_month: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <FormField label={t('დღეები')}>
+              <input type="number" value={weForm.worked_days} onChange={e => setWeForm({ ...weForm, worked_days: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+            <FormField label={t('საათები')}>
+              <input type="number" value={weForm.worked_hours} onChange={e => setWeForm({ ...weForm, worked_hours: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+            <FormField label={t('ზეგანაკვეთური')}>
+              <input type="number" value={weForm.overtime_hours} onChange={e => setWeForm({ ...weForm, overtime_hours: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+          </div>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => createWorkEntry.mutate()} disabled={createWorkEntry.isPending || !weForm.employee_id}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {t('შენახვა')}
           </button>
         </div>
       </Modal>

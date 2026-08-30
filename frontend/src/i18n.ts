@@ -1971,6 +1971,9 @@ const en: Record<string, string> = {
   'პირველი აქტიური': 'First active',
   'საპენსიო': 'Pension',
   'საშემოსავლო': 'Income tax',
+  'ბონუსი/დაქვითვა': 'Bonus / deduction',
+  'სამუშაო ჩანაწერი': 'Work entry',
+  'ბონუსები და დაქვითვები': 'Bonuses & deductions',
 }
 
 i18n.use(initReactI18next).init({

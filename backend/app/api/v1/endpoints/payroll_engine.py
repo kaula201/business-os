@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.models.hr import PayrollEntry
 from app.models.payroll_engine import (
+    PayrollAdjustment,
     PayrollLine,
     RuleParameter,
     SalaryRule,
@@ -226,6 +227,71 @@ async def list_work_entries(
         "worked_days": float(w.worked_days), "worked_hours": float(w.worked_hours),
         "overtime_hours": float(w.overtime_hours),
     } for w in rows])
+
+
+# ── Bonuses / deductions (Odoo payslip.input) ────────────────────────────────
+
+@router.get("/adjustments", response_model=ResponseBase[list[dict]])
+async def list_adjustments(
+    employee_id: uuid.UUID | None = None,
+    period_year: int | None = None,
+    period_month: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = select(PayrollAdjustment).where(PayrollAdjustment.company_id == current_user.company_id)
+    if employee_id:
+        query = query.where(PayrollAdjustment.employee_id == employee_id)
+    if period_year:
+        query = query.where(PayrollAdjustment.period_year == period_year)
+    if period_month:
+        query = query.where(PayrollAdjustment.period_month == period_month)
+    rows = (await db.execute(query.order_by(PayrollAdjustment.created_at.desc()))).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(a.id), "employee_id": str(a.employee_id),
+        "period_year": a.period_year, "period_month": a.period_month,
+        "kind": a.kind, "amount": float(a.amount), "reason": a.reason,
+    } for a in rows])
+
+
+@router.post("/adjustments", response_model=ResponseBase[dict], status_code=201)
+async def create_adjustment(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    require_hr_admin(current_user)
+    a = PayrollAdjustment(
+        company_id=current_user.company_id,
+        employee_id=uuid.UUID(str(data.get("employee_id"))),
+        period_year=int(data.get("period_year")),
+        period_month=int(data.get("period_month")),
+        kind=data.get("kind", "bonus"),
+        amount=Decimal(str(data.get("amount", 0))),
+        reason=data.get("reason"),
+    )
+    db.add(a)
+    await db.commit()
+    await db.refresh(a)
+    return ResponseBase(data={"id": str(a.id), "kind": a.kind}, message="ბონუსი/დაქვითვა შეინახა")
+
+
+@router.delete("/adjustments/{adjustment_id}", response_model=ResponseBase[dict])
+async def delete_adjustment(
+    adjustment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    require_hr_admin(current_user)
+    a = (await db.execute(select(PayrollAdjustment).where(
+        PayrollAdjustment.id == adjustment_id,
+        PayrollAdjustment.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not a:
+        raise HTTPException(status_code=404, detail="ჩანაწერი არ მოიძებნა")
+    await db.delete(a)
+    await db.commit()
+    return ResponseBase(data={"id": str(adjustment_id)}, message="ჩანაწერი წაიშალა")
 
 
 # ── Engine: calculate with rules ──────────────────────────────────────────────
