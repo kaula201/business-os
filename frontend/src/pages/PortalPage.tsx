@@ -25,6 +25,14 @@ interface PortalSummary {
   total_orders: number
   invoices: { id: string; number: string; date: string; due_date: string; total: number; status: string }[]
   orders: { id: string; number: string; date: string; total: number; status: string }[]
+  total_projects?: number
+  projects?: {
+    id: string; code: string; name: string; status: string
+    start_date: string | null; end_date: string | null
+    completion_percent: number; budget_amount: number
+    spent_amount: number; revenue_amount: number
+    milestones_done: number; milestones_total: number
+  }[]
 }
 
 function money(v: number) {
@@ -180,6 +188,42 @@ export default function PortalPage() {
                       <span className="font-medium">{o.number}</span>
                       <span className="text-brandgray-500 dark:text-gray-400">{fmtDate(new Date(o.date))}</span>
                       <span className="font-mono font-semibold">{money(o.total)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                {t('პროექტები')} {summaryFor.total_projects ? `(${summaryFor.total_projects})` : ''}
+              </h3>
+              {!summaryFor.projects?.length ? (
+                <p className="text-sm text-brandgray-500 dark:text-gray-400">{t('პროექტები არ არის')}</p>
+              ) : (
+                <div className="space-y-2">
+                  {summaryFor.projects.map(p => (
+                    <div key={p.id} className="rounded-lg border border-brandgray-100 dark:border-dark-50 p-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-medium text-gray-900 dark:text-gray-100">{p.name}</span>
+                          <span className="ml-2 text-xs text-brandgray-400 font-mono">{p.code}</span>
+                        </div>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.status === 'active' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : p.status === 'completed' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-gray-100 text-gray-500 dark:bg-dark-100 dark:text-gray-400'}`}>
+                          {p.status === 'active' ? t('აქტიური') : p.status === 'completed' ? t('დასრულებული') : p.status === 'on_hold' ? t('შეჩერებული') : p.status === 'cancelled' ? t('გაუქმებული') : t('მონახაზი')}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-3 text-xs text-brandgray-500 dark:text-gray-400">
+                        <span>{t('პროგრესი')}: {p.completion_percent}%</span>
+                        <span>{t('ეტაპები')}: {p.milestones_done}/{p.milestones_total}</span>
+                        <span>{t('ბიუჯეტი')}: {money(p.budget_amount)}</span>
+                        <span className={p.revenue_amount - p.spent_amount >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
+                          {t('შედეგი')}: {money(p.revenue_amount - p.spent_amount)}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-1 rounded-full bg-brandgray-100 dark:bg-dark-100">
+                        <div className="h-1 rounded-full bg-primary-600" style={{ width: `${p.completion_percent}%` }} />
+                      </div>
                     </div>
                   ))}
                 </div>

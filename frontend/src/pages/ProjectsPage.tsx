@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Briefcase, Plus, Search, Calendar, User, DollarSign, ChevronDown, ChevronRight, Flag, TrendingUp, X, LayoutTemplate } from 'lucide-react'
+import { Briefcase, Plus, Search, Calendar, User, DollarSign, ChevronDown, ChevronRight, Flag, TrendingUp, X, LayoutTemplate, Trash2 } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import { api, projectsApi, projectResourcesApi } from '../services/api'
@@ -103,6 +103,43 @@ export default function ProjectsPage() {
       queryClient.invalidateQueries({ queryKey: ['project-timesheets'] })
     },
     onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+
+  // Resource capacity — members + utilization
+  const { data: membersData } = useQuery({
+    queryKey: ['project-members', detailFor?.id],
+    queryFn: () => detailFor ? projectResourcesApi.members(detailFor.id).then((r: any) => r.data.data) : [],
+    enabled: !!detailFor,
+  })
+  const { data: utilizationData } = useQuery({
+    queryKey: ['project-utilization'],
+    queryFn: () => projectResourcesApi.utilization().then((r: any) => r.data.data),
+  })
+  const [memberForm, setMemberForm] = useState({ user_id: '', role: 'member', allocation_percent: 100, hourly_rate: '' })
+  const addMember = useMutation({
+    mutationFn: () => detailFor ? projectResourcesApi.addMember(detailFor.id, {
+      user_id: memberForm.user_id, role: memberForm.role,
+      allocation_percent: Number(memberForm.allocation_percent) || 100,
+      hourly_rate: Number(memberForm.hourly_rate) || undefined,
+    }) : Promise.reject(),
+    onSuccess: () => {
+      setMemberForm({ user_id: '', role: 'member', allocation_percent: 100, hourly_rate: '' })
+      queryClient.invalidateQueries({ queryKey: ['project-members'] })
+      queryClient.invalidateQueries({ queryKey: ['project-utilization'] })
+    },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+  const removeMember = useMutation({
+    mutationFn: (id: string) => projectResourcesApi.removeMember(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-members'] })
+      queryClient.invalidateQueries({ queryKey: ['project-utilization'] })
+    },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+  const { data: usersData } = useQuery({
+    queryKey: ['users-all'],
+    queryFn: () => api.get('/users/', { params: { page_size: 100 } }).then((r: any) => r.data.data.items),
   })
 
   const createMilestone = useMutation({
@@ -316,6 +353,71 @@ export default function ProjectsPage() {
                   <Plus size={15} /> {t('დროის დამატება')}
                 </button>
               </div>
+            </div>
+
+            {/* Resource Capacity */}
+            <div className="rounded-lg border border-brandgray-100 dark:border-dark-50 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-brandgray-900 dark:text-gray-100">{t('რესურსების სიმძლავრე')}</h3>
+                <span className="text-xs text-gray-500 dark:text-gray-400">{t('წევრები')}: {(membersData || []).length}</span>
+              </div>
+              <div className="space-y-2 mb-3">
+                {(membersData || []).length === 0 ? (
+                  <p className="text-sm text-gray-400">{t('წევრები არ არის')}</p>
+                ) : (membersData || []).map((m: any) => (
+                  <div key={m.id} className="flex items-center justify-between rounded border border-brandgray-100 dark:border-dark-50 px-3 py-1.5 text-sm">
+                    <div>
+                      <span className="text-gray-700 dark:text-gray-300">{m.user_name || m.user_id?.slice(0, 8)}</span>
+                      <span className="ml-2 text-xs text-gray-400">{m.role}</span>
+                      {m.hourly_rate > 0 && <span className="ml-2 text-xs text-gray-500">{money(m.hourly_rate)}/h</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">{m.allocation_percent}%</span>
+                      <button onClick={() => removeMember.mutate(m.id)} className="text-red-500 hover:text-red-700"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <select value={memberForm.user_id} onChange={e => setMemberForm({ ...memberForm, user_id: e.target.value })}
+                  className="rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+                  <option value="">{t('აირჩიეთ მომხმარებელი')}</option>
+                  {(usersData || []).map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+                </select>
+                <select value={memberForm.role} onChange={e => setMemberForm({ ...memberForm, role: e.target.value })}
+                  className="rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+                  <option value="member">member</option>
+                  <option value="lead">lead</option>
+                  <option value="manager">manager</option>
+                  <option value="consultant">consultant</option>
+                </select>
+                <input type="number" placeholder="% " min="1" max="100" value={memberForm.allocation_percent}
+                  onChange={e => setMemberForm({ ...memberForm, allocation_percent: Number(e.target.value) })}
+                  className="w-20 rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+                <input type="number" placeholder="₾/h" min="0" step="0.01" value={memberForm.hourly_rate}
+                  onChange={e => setMemberForm({ ...memberForm, hourly_rate: e.target.value })}
+                  className="w-24 rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+                <button onClick={() => addMember.mutate()} disabled={!memberForm.user_id || addMember.isPending}
+                  className="rounded-lg bg-primary-600 px-3 py-2 text-sm text-white disabled:opacity-50">
+                  <Plus size={15} /> {t('წევრის დამატება')}
+                </button>
+              </div>
+              {utilizationData && utilizationData.length > 0 && (
+                <div className="mt-3 border-t border-brandgray-100 dark:border-dark-50 pt-3">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('დატვირთვა (ყველა პროექტი)')}</p>
+                  <div className="space-y-1.5">
+                    {utilizationData.slice(0, 5).map((u: any) => (
+                      <div key={u.user_id} className="flex items-center gap-2 text-xs">
+                        <span className="w-32 truncate text-gray-600 dark:text-gray-300">{u.user_name}</span>
+                        <div className="flex-1 h-1.5 rounded-full bg-brandgray-100 dark:bg-dark-100">
+                          <div className="h-1.5 rounded-full bg-primary-600" style={{ width: `${Math.min(u.total_allocation, 100)}%` }} />
+                        </div>
+                        <span className="w-16 text-right text-gray-500">{u.total_allocation}% · {u.project_count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Milestones */}

@@ -1940,6 +1940,15 @@ const en: Record<string, string> = {
   'ბილინგადი': 'Billable',
   'დროის დამატება': 'Add time',
   'ბილინგი': 'Bill',
+  // Project resource capacity + portal projects (Odoo-depth)
+  'რესურსების სიმძლავრე': 'Resource capacity',
+  'წევრები': 'Members',
+  'წევრები არ არის': 'No members yet',
+  'აირჩიეთ მომხმარებელი': 'Select user',
+  'წევრის დამატება': 'Add member',
+  'დატვირთვა (ყველა პროექტი)': 'Utilization (all projects)',
+  'პროექტები არ არის': 'No projects yet',
+  'ეტაპები': 'Milestones',
 }
 
 i18n.use(initReactI18next).init({
