@@ -28,6 +28,7 @@ from app.api.v1.endpoints import (
     platform,
     marketplace,
     payments,
+    payroll_engine,
     email_calendar,
     field_access,
     notifications,
@@ -198,6 +199,7 @@ api_router.include_router(modules.router)
 api_router.include_router(settings_enhanced.router)
 api_router.include_router(hr.router)
 api_router.include_router(hr_enhanced.router)
+api_router.include_router(payroll_engine.router)
 api_router.include_router(production.router)
 api_router.include_router(projects.router)
 api_router.include_router(reports.router)

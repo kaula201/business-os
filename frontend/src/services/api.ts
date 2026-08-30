@@ -1025,3 +1025,18 @@ export const projectsApi = {
     api.post(`/projects/templates/${templateId}/instantiate`, data),
   removeTemplate: (templateId: string) => api.delete(`/projects/templates/${templateId}`),
 }
+
+export const payrollEngineApi = {
+  structures: () => api.get('/payroll-engine/structures').then(r => r.data.data),
+  createStructure: (data: Record<string, unknown>) => api.post('/payroll-engine/structures', data).then(r => r.data.data),
+  deleteStructure: (id: string) => api.delete(`/payroll-engine/structures/${id}`).then(r => r.data.data),
+  rules: (structureId: string) => api.get(`/payroll-engine/structures/${structureId}/rules`).then(r => r.data.data),
+  createRule: (structureId: string, data: Record<string, unknown>) => api.post(`/payroll-engine/structures/${structureId}/rules`, data).then(r => r.data.data),
+  deleteRule: (id: string) => api.delete(`/payroll-engine/rules/${id}`).then(r => r.data.data),
+  parameters: () => api.get('/payroll-engine/parameters').then(r => r.data.data),
+  setParameter: (data: Record<string, unknown>) => api.post('/payroll-engine/parameters', data).then(r => r.data.data),
+  workEntries: (params?: Record<string, unknown>) => api.get('/payroll-engine/work-entries', { params }).then(r => r.data.data),
+  createWorkEntry: (data: Record<string, unknown>) => api.post('/payroll-engine/work-entries', data).then(r => r.data.data),
+  calculate: (data: Record<string, unknown>) => api.post('/payroll-engine/calculate', data).then(r => r.data.data),
+  entryLines: (entryId: string) => api.get(`/payroll-engine/entries/${entryId}/lines`).then(r => r.data.data),
+}

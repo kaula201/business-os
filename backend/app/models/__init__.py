@@ -184,6 +184,13 @@ from app.models.cost_layer import (  # noqa: F401
     ProductValuationConfig,
 )
 from app.models.counterparty import CounterpartyCheck  # noqa: F401
+from app.models.payroll_engine import (  # noqa: F401
+    PayrollLine,
+    RuleParameter,
+    SalaryRule,
+    SalaryStructure,
+    WorkEntry,
+)
 from app.models.platform import (  # noqa: F401
     CustomField,
     CustomFieldValue,

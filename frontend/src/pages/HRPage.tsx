@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, Users, DollarSign, Calendar, Clock, Building2, Briefcase, ChevronDown, ChevronRight, FileText, Plane, CheckCircle2, Star, UserPlus } from 'lucide-react'
+import { Plus, Search, Users, DollarSign, Calendar, Clock, Building2, Briefcase, ChevronDown, ChevronRight, FileText, Plane, CheckCircle2, Star, UserPlus, SlidersHorizontal, Trash2, Calculator } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
-import { api } from '../services/api'
+import { api, payrollEngineApi } from '../services/api'
 import type { ApiResponse, PaginatedResponse } from '../types'
 import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
@@ -49,6 +49,7 @@ const tabs = [
   { id: 'employees', label: 'თანამშრომლები', icon: Users },
   { id: 'contracts', label: 'კონტრაქტები', icon: FileText },
   { id: 'payroll', label: 'ხელფასები', icon: DollarSign },
+  { id: 'payroll-rules', label: 'სტრუქტურები და წესები', icon: SlidersHorizontal },
   { id: 'payslips', label: 'Payslips', icon: FileText },
   { id: 'leave', label: 'შვებულება', icon: Plane },
   { id: 'attendance', label: 'დასწრება', icon: Calendar },
@@ -82,6 +83,17 @@ export default function HRPage() {
   const [reviewForm, setReviewForm] = useState({ employee_id: '', review_period: '', overall_rating: 5 })
   const [tsModal, setTsModal] = useState(false)
   const [tsForm, setTsForm] = useState({ employee_id: '', work_date: new Date().toISOString().slice(0, 10), hours_worked: 8, overtime_hours: 0, description: '' })
+  // Payroll engine (Odoo-depth)
+  const [selStructure, setSelStructure] = useState<string | null>(null)
+  const [structModal, setStructModal] = useState(false)
+  const [structForm, setStructForm] = useState({ name: '', description: '' })
+  const [ruleModal, setRuleModal] = useState(false)
+  const [ruleForm, setRuleForm] = useState({ code: '', name: '', category: 'addition', amount_type: 'fixed', amount: 0, formula: '', basis: 'gross', sequence: 10 })
+  const [paramModal, setParamModal] = useState(false)
+  const [paramForm, setParamForm] = useState({ key: '', value: 0, description: '' })
+  const [calcModal, setCalcModal] = useState(false)
+  const [calcForm, setCalcForm] = useState({ employee_id: '', period_year: new Date().getFullYear(), period_month: new Date().getMonth() + 1, base_salary: 0, structure_id: '', additions: 0, deductions: 0 })
+  const [calcResult, setCalcResult] = useState<any>(null)
 
   // ── Queries ──────────────────────────────────────────────────────
 
@@ -102,6 +114,24 @@ export default function HRPage() {
     queryKey: ['hr-payslips', payrollYear, payrollMonth],
     queryFn: () => api.get('/hr/payslips', { params: { year: payrollYear, month: payrollMonth } }).then(r => r.data.data),
   })
+  // Payroll engine (Odoo-depth)
+  const { data: structuresData } = useQuery({
+    queryKey: ['payroll-structures'],
+    queryFn: () => payrollEngineApi.structures(),
+  })
+  const { data: rulesData } = useQuery({
+    queryKey: ['payroll-rules', selStructure],
+    queryFn: () => selStructure ? payrollEngineApi.rules(selStructure) : [],
+    enabled: !!selStructure,
+  })
+  const { data: paramsData } = useQuery({
+    queryKey: ['payroll-params'],
+    queryFn: () => payrollEngineApi.parameters(),
+  })
+  const { data: workEntriesData } = useQuery({
+    queryKey: ['payroll-work-entries'],
+    queryFn: () => payrollEngineApi.workEntries(),
+  })
   const { data: leaveData, isLoading: leaveLoading } = useQuery({
     queryKey: ['hr-leave'],
     queryFn: () => api.get('/hr/leave-requests').then(r => r.data.data),
@@ -116,7 +146,7 @@ export default function HRPage() {
   })
   const { data: jobData, isLoading: jobLoading } = useQuery({
     queryKey: ['hr-jobs'],
-    queryFn: () => api.get('/recruitment/job-postings', { params: { page_size: 100 } }).then(r => r.data.data),
+    queryFn: () => api.get('/recruitment/', { params: { page_size: 100 } }).then(r => r.data.data),
   })
   const { data: tsData, isLoading: tsLoading } = useQuery({
     queryKey: ['hr-timesheets'],
@@ -156,6 +186,36 @@ export default function HRPage() {
     onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
 
+  // Payroll engine mutations (Odoo-depth)
+  const createStructure = useMutation({
+    mutationFn: () => payrollEngineApi.createStructure(structForm),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['payroll-structures'] }); setStructModal(false); setStructForm({ name: '', description: '' }) },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+  const deleteStructure = useMutation({
+    mutationFn: (id: string) => payrollEngineApi.deleteStructure(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['payroll-structures'] }); if (selStructure) setSelStructure(null) },
+  })
+  const createRule = useMutation({
+    mutationFn: () => selStructure ? payrollEngineApi.createRule(selStructure, ruleForm) : Promise.reject(),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['payroll-rules'] }); setRuleModal(false); setRuleForm({ code: '', name: '', category: 'addition', amount_type: 'fixed', amount: 0, formula: '', basis: 'gross', sequence: 10 }) },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+  const deleteRule = useMutation({
+    mutationFn: (id: string) => payrollEngineApi.deleteRule(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['payroll-rules'] }),
+  })
+  const setParameter = useMutation({
+    mutationFn: () => payrollEngineApi.setParameter(paramForm),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['payroll-params'] }); setParamModal(false); setParamForm({ key: '', value: 0, description: '' }) },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+  const runCalc = useMutation({
+    mutationFn: () => payrollEngineApi.calculate(calcForm),
+    onSuccess: (d) => { setCalcResult(d); queryClient.invalidateQueries({ queryKey: ['hr-payroll'] }) },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+
   const approveLeave = useMutation({
     mutationFn: (id: string) => api.post(`/hr/leave-requests/${id}/approve`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr-leave'] }),
@@ -174,7 +234,7 @@ export default function HRPage() {
   })
 
   const createJob = useMutation({
-    mutationFn: () => api.post('/recruitment/job-postings', jobForm),
+    mutationFn: () => api.post('/recruitment/', jobForm),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['hr-jobs'] }); setJobModal(false); setJobForm({ title: '', department: '', status: 'open', deadline: '' }) },
     onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
@@ -253,6 +313,19 @@ export default function HRPage() {
           <button onClick={() => setTsModal(true)} className="btn btn-primary flex items-center gap-2">
             <Plus size={18} /> {t('ახალი ჩანაწერი')}
           </button>
+        )}
+        {tab === 'payroll-rules' && (
+          <div className="flex gap-2">
+            <button onClick={() => setStructModal(true)} className="btn btn-primary flex items-center gap-2">
+              <Plus size={18} /> {t('ახალი სტრუქტურა')}
+            </button>
+            <button onClick={() => setParamModal(true)} className="btn btn-outline flex items-center gap-2">
+              <SlidersHorizontal size={16} /> {t('პარამეტრები')}
+            </button>
+            <button onClick={() => { setCalcResult(null); setCalcModal(true) }} className="btn btn-outline flex items-center gap-2">
+              <Calculator size={16} /> {t('გაანგარიშება წესებით')}
+            </button>
+          </div>
         )}
       </div>
 
@@ -603,6 +676,137 @@ export default function HRPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* ── Payroll Rules Tab (Odoo-depth) ─────────────────────────────── */}
+      {tab === 'payroll-rules' && (
+        <div className="space-y-4">
+          {/* Structures + rules */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+              <h3 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">{t('სახელფასო სტრუქტურები')}</h3>
+              {!structuresData || structuresData.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('სტრუქტურები არ არის')}</p>
+              ) : (
+                <div className="space-y-2">
+                  {structuresData.map((s: any) => (
+                    <div key={s.id} className={`flex items-center justify-between rounded-lg border p-3 cursor-pointer ${selStructure === s.id ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'dark:border-dark-50'}`}
+                      onClick={() => setSelStructure(selStructure === s.id ? null : s.id)}>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{s.name}</p>
+                        {s.description && <p className="text-xs text-gray-500 dark:text-gray-400">{s.description}</p>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${s.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-gray-100 text-gray-500'}`}>
+                          {s.is_active ? t('აქტიური') : t('არააქტიური')}
+                        </span>
+                        <button onClick={(e) => { e.stopPropagation(); deleteStructure.mutate(s.id) }} className="text-gray-400 hover:text-red-500">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('სახელფასო წესები')}</h3>
+                {selStructure && (
+                  <button onClick={() => setRuleModal(true)} className="btn btn-primary btn-sm flex items-center gap-1">
+                    <Plus size={14} /> {t('ახალი წესი')}
+                  </button>
+                )}
+              </div>
+              {!selStructure ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('აირჩიეთ სტრუქტურა')}</p>
+              ) : !rulesData || rulesData.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('წესები არ არის')}</p>
+              ) : (
+                <div className="space-y-2">
+                  {rulesData.map((r: any) => (
+                    <div key={r.id} className="flex items-center justify-between rounded-lg border p-3 dark:border-dark-50">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                          <span className="font-mono text-xs text-primary-600 dark:text-primary-400 mr-2">{r.code}</span>{r.name}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {r.category} · {r.amount_type}
+                          {r.amount_type === 'fixed' && ` · ${r.amount} ₾`}
+                          {r.amount_type === 'percentage' && ` · ${r.amount}% (${r.basis})`}
+                          {r.amount_type === 'formula' && ` · ${r.formula}`}
+                        </p>
+                      </div>
+                      <button onClick={() => deleteRule.mutate(r.id)} className="text-gray-400 hover:text-red-500">
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Parameters + work entries */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+              <h3 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">{t('წესების პარამეტრები')}</h3>
+              {paramsData && (
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(paramsData).filter(([k]) => !['pension_ceiling'].includes(k) || true).map(([k, v]) => (
+                    <div key={k} className="rounded-lg border p-2 dark:border-dark-50">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{k}</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{typeof v === 'number' ? v : String(v)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+              <h3 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">{t('სამუშაო ჩანაწერები (Work Entries)')}</h3>
+              {!workEntriesData || workEntriesData.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('ჩანაწერები არ არის')}</p>
+              ) : (
+                <div className="space-y-2">
+                  {workEntriesData.map((w: any) => (
+                    <div key={w.id} className="flex items-center justify-between rounded-lg border p-3 dark:border-dark-50">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{w.period_year}-{String(w.period_month).padStart(2, '0')}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('დღეები')}: {w.worked_days} · {t('საათები')}: {w.worked_hours} · {t('ზეგანაკვეთური')}: {w.overtime_hours}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Calc result */}
+          {calcResult && (
+            <div className="rounded-xl border border-primary-200 bg-primary-50 p-4 dark:border-primary-900/40 dark:bg-primary-900/20">
+              <h3 className="mb-2 text-sm font-semibold text-primary-800 dark:text-primary-300">{t('გაანგარიშების შედეგი')}</h3>
+              <div className="grid gap-2 md:grid-cols-5">
+                <div><p className="text-xs text-gray-500">{t('მთლიანი დარიცხვა')}</p><p className="font-bold">{calcResult.gross_pay} ₾</p></div>
+                <div><p className="text-xs text-gray-500">{t('დამატებები')}</p><p className="font-bold">{calcResult.additions} ₾</p></div>
+                <div><p className="text-xs text-gray-500">{t('საპენსიო')}</p><p className="font-bold">{calcResult.pension_contribution} ₾</p></div>
+                <div><p className="text-xs text-gray-500">{t('საშემოსავლო')}</p><p className="font-bold">{calcResult.income_tax} ₾</p></div>
+                <div><p className="text-xs text-gray-500">{t('გასაცემი')}</p><p className="font-bold text-green-700 dark:text-green-400">{calcResult.net_pay} ₾</p></div>
+              </div>
+              {calcResult.lines && calcResult.lines.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  {calcResult.lines.map((l: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between rounded bg-white/60 px-3 py-1.5 text-sm dark:bg-dark-200/60">
+                      <span className="font-mono text-xs text-primary-600 dark:text-primary-400 mr-2">{l.code}</span>
+                      <span className="flex-1 text-gray-700 dark:text-gray-300">{l.name}</span>
+                      <span className="font-semibold">{l.amount} ₾</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ── Leave Tab ─────────────────────────────────────────────────── */}
@@ -987,6 +1191,166 @@ export default function HRPage() {
           <button onClick={() => createTimesheet.mutate()} disabled={createTimesheet.isPending || !tsForm.employee_id || !tsForm.work_date}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
             {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+
+      {/* ── Payroll engine modals (Odoo-depth) ─────────────────────────── */}
+      <Modal open={structModal} onClose={() => setStructModal(false)} title={t('ახალი სტრუქტურა')}>
+        <div className="space-y-4">
+          <FormField label={t('სახელი')} required>
+            <input value={structForm.name} onChange={e => setStructForm({ ...structForm, name: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" placeholder="სტანდარტული თვიური" />
+          </FormField>
+          <FormField label={t('აღწერა')}>
+            <textarea value={structForm.description} onChange={e => setStructForm({ ...structForm, description: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" rows={2} />
+          </FormField>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => createStructure.mutate()} disabled={createStructure.isPending || !structForm.name}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={ruleModal} onClose={() => setRuleModal(false)} title={t('ახალი წესი')}>
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label={t('კოდი')} required>
+              <input value={ruleForm.code} onChange={e => setRuleForm({ ...ruleForm, code: e.target.value })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" placeholder="PENSION" />
+            </FormField>
+            <FormField label={t('სახელი')} required>
+              <input value={ruleForm.name} onChange={e => setRuleForm({ ...ruleForm, name: e.target.value })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label={t('კატეგორია')}>
+              <select value={ruleForm.category} onChange={e => setRuleForm({ ...ruleForm, category: e.target.value })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+                <option value="addition">addition</option>
+                <option value="deduction">deduction</option>
+                <option value="tax">tax</option>
+                <option value="pension">pension</option>
+              </select>
+            </FormField>
+            <FormField label={t('ტიპი')}>
+              <select value={ruleForm.amount_type} onChange={e => setRuleForm({ ...ruleForm, amount_type: e.target.value })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+                <option value="fixed">fixed</option>
+                <option value="percentage">percentage</option>
+                <option value="formula">formula</option>
+              </select>
+            </FormField>
+          </div>
+          {ruleForm.amount_type === 'fixed' && (
+            <FormField label={t('თანხა (₾)')}>
+              <input type="number" value={ruleForm.amount} onChange={e => setRuleForm({ ...ruleForm, amount: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+          )}
+          {ruleForm.amount_type === 'percentage' && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField label={t('პროცენტი (%)')}>
+                <input type="number" value={ruleForm.amount} onChange={e => setRuleForm({ ...ruleForm, amount: Number(e.target.value) })}
+                  className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+              </FormField>
+              <FormField label={t('ბაზა')}>
+                <select value={ruleForm.basis} onChange={e => setRuleForm({ ...ruleForm, basis: e.target.value })}
+                  className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+                  <option value="gross">gross</option>
+                  <option value="base">base</option>
+                  <option value="net">net</option>
+                </select>
+              </FormField>
+            </div>
+          )}
+          {ruleForm.amount_type === 'formula' && (
+            <FormField label={t('ფორმულა')}>
+              <textarea value={ruleForm.formula} onChange={e => setRuleForm({ ...ruleForm, formula: e.target.value })}
+                className="w-full rounded-lg border p-2 text-sm font-mono dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" rows={3}
+                placeholder="round(gross * params['income_tax_rate'], 2)" />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">gross, base_salary, worked_days, worked_hours, params['key']</p>
+            </FormField>
+          )}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => createRule.mutate()} disabled={createRule.isPending || !ruleForm.code || !ruleForm.name}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={paramModal} onClose={() => setParamModal(false)} title={t('პარამეტრი')}>
+        <div className="space-y-4">
+          <FormField label={t('გასაღები')} required>
+            <input value={paramForm.key} onChange={e => setParamForm({ ...paramForm, key: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" placeholder="income_tax_rate" />
+          </FormField>
+          <FormField label={t('მნიშვნელობა')} required>
+            <input type="number" step="0.0001" value={paramForm.value} onChange={e => setParamForm({ ...paramForm, value: Number(e.target.value) })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          <FormField label={t('აღწერა')}>
+            <input value={paramForm.description} onChange={e => setParamForm({ ...paramForm, description: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+          </FormField>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => setParameter.mutate()} disabled={setParameter.isPending || !paramForm.key}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {t('შენახვა')}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={calcModal} onClose={() => setCalcModal(false)} title={t('გაანგარიშება წესებით')}>
+        <div className="space-y-4">
+          <FormField label={t('თანამშრომელი')} required>
+            <select value={calcForm.employee_id} onChange={e => setCalcForm({ ...calcForm, employee_id: e.target.value })}
+              className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+              <option value="">{t('აირჩიეთ')}</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}
+            </select>
+          </FormField>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label={t('წელი')}>
+              <input type="number" value={calcForm.period_year} onChange={e => setCalcForm({ ...calcForm, period_year: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+            <FormField label={t('თვე')}>
+              <input type="number" min={1} max={12} value={calcForm.period_month} onChange={e => setCalcForm({ ...calcForm, period_month: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label={t('საბაზო ხელფასი')}>
+              <input type="number" value={calcForm.base_salary} onChange={e => setCalcForm({ ...calcForm, base_salary: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+            <FormField label={t('სტრუქტურა')}>
+              <select value={calcForm.structure_id} onChange={e => setCalcForm({ ...calcForm, structure_id: e.target.value })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200">
+                <option value="">{t('პირველი აქტიური')}</option>
+                {structuresData?.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </FormField>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label={t('დამატებები')}>
+              <input type="number" value={calcForm.additions} onChange={e => setCalcForm({ ...calcForm, additions: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+            <FormField label={t('დაქვითვები')}>
+              <input type="number" value={calcForm.deductions} onChange={e => setCalcForm({ ...calcForm, deductions: Number(e.target.value) })}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+            </FormField>
+          </div>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => runCalc.mutate()} disabled={runCalc.isPending || !calcForm.employee_id}
+            className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
+            {runCalc.isPending ? t('მუშავდება...') : t('გამოთვლა')}
           </button>
         </div>
       </Modal>

@@ -1950,6 +1950,27 @@ const en: Record<string, string> = {
   'პროექტები არ არის': 'No projects yet',
   'ეტაპები': 'Milestones',
   'ინსტრუმენტები': 'Tools',
+  // Payroll engine (Odoo-depth)
+  'სტრუქტურები და წესები': 'Structures & rules',
+  'ახალი სტრუქტურა': 'New structure',
+  'სახელფასო სტრუქტურები': 'Salary structures',
+  'სახელფასო წესები': 'Salary rules',
+  'წესების პარამეტრები': 'Rule parameters',
+  'სამუშაო ჩანაწერები (Work Entries)': 'Work entries',
+  'გაანგარიშება წესებით': 'Calculate with rules',
+  'გასაღები': 'Key',
+  'ფორმულა': 'Formula',
+  'ბაზა': 'Basis',
+  'პროცენტი (%)': 'Percent (%)',
+  'თანხა (₾)': 'Amount (₾)',
+  'საბაზო ხელფასი': 'Base salary',
+  'დაქვითვები': 'Deductions',
+  'გაანგარიშების შედეგი': 'Calculation result',
+  'სტრუქტურები არ არის': 'No structures yet',
+  'აირჩიეთ სტრუქტურა': 'Select a structure',
+  'პირველი აქტიური': 'First active',
+  'საპენსიო': 'Pension',
+  'საშემოსავლო': 'Income tax',
 }
 
 i18n.use(initReactI18next).init({
