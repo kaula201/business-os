@@ -35,6 +35,7 @@ const categoryGroups: NavGroup[] = [
   { id: 'crm', label: 'CRM — გაყიდვების მართვა', icon: Target, category: 'sales', items: [] },
   { id: 'sales', label: 'გაყიდვები', icon: ShoppingCart, category: 'sales', items: [] },
   { id: 'operations', label: 'ოპერაციები', icon: Package, category: 'operations', items: [] },
+  { id: 'tools', label: 'ინსტრუმენტები', icon: Wrench, category: 'tools', items: [] },
   { id: 'purchases', label: 'შესყიდვები', icon: Building2, category: 'purchases', items: [] },
   { id: 'finance', label: 'ფინანსები', icon: DollarSign, category: 'finance', items: [] },
   { id: 'accounting', label: 'ბუღალტერია', icon: BookOpen, category: 'accounting', items: [] },
@@ -381,6 +382,22 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
               {getNavItems('operations').map((item) => (
                 <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
               ))}
+
+              {/* Tools group — ინსტრუმენტები */}
+              {getNavItems('tools').length > 0 && (
+                <div className="pt-1">
+                  <CollapsibleGroup
+                    icon={Wrench}
+                    label={t('ინსტრუმენტები')}
+                    open={openGroups.has('tools')}
+                    onToggle={() => toggleGroup('tools')}
+                  >
+                    {getNavItems('tools').map((item) => (
+                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
+                    ))}
+                  </CollapsibleGroup>
+                </div>
+              )}
 
               {/* Purchases group */}
               {getNavItems('purchases').length > 0 && (

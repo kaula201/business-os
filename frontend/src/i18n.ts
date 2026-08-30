@@ -1949,6 +1949,7 @@ const en: Record<string, string> = {
   'დატვირთვა (ყველა პროექტი)': 'Utilization (all projects)',
   'პროექტები არ არის': 'No projects yet',
   'ეტაპები': 'Milestones',
+  'ინსტრუმენტები': 'Tools',
 }
 
 i18n.use(initReactI18next).init({
