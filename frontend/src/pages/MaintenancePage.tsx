@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -41,6 +41,14 @@ export default function MaintenancePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get('tab')
   const [tab, setTab] = useState<string>(requestedTab && TABS.some((x) => x.key === requestedTab) ? requestedTab : 'requests')
+
+  // Keep tab in sync with the URL (?tab=) — sidebar sub-item clicks change the URL.
+  useEffect(() => {
+    const current = searchParams.get('tab')
+    if (current && TABS.some((x) => x.key === current) && current !== tab) {
+      setTab(current)
+    }
+  }, [searchParams, tab])
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<Record<string, any>>({})
 
