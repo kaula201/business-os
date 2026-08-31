@@ -766,3 +766,77 @@ class MaintenanceAnalyticsSummary(BaseModel):
     low_stock_parts: int = 0
     open_incidents: int = 0
     budget_utilization: Decimal = Decimal("0")
+
+
+# ── Phase 6: Configuration ────────────────────────────────────────────────────
+
+class MaintenanceWorkTypeCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    code: str | None = None
+    is_active: bool = True
+
+
+class MaintenanceWorkTypeResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    name: str
+    code: str | None
+    is_active: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenancePriorityCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+    level: int = Field(default=1, ge=1)
+    color: str | None = None
+    is_active: bool = True
+
+
+class MaintenancePriorityResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    name: str
+    level: int
+    color: str | None
+    is_active: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceStatusConfigCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+    code: str = Field(min_length=1, max_length=30)
+    is_closed: bool = False
+    is_active: bool = True
+
+
+class MaintenanceStatusConfigResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    name: str
+    code: str
+    is_closed: bool
+    is_active: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceNumberingConfigCreate(BaseModel):
+    entity: str = Field(min_length=1, max_length=50)
+    prefix: str = Field(min_length=1, max_length=20)
+    next_number: int = Field(default=1, ge=1)
+
+
+class MaintenanceNumberingConfigResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    entity: str
+    prefix: str
+    next_number: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

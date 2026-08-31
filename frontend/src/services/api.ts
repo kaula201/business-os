@@ -515,6 +515,15 @@ export const maintenanceApi = {
   reliabilityMetrics: (params?: Record<string, unknown>) => api.get('/maintenance/reliability-metrics', { params }),
   createReliabilityMetric: (data: Record<string, unknown>) => api.post('/maintenance/reliability-metrics', data),
   analyticsSummary: () => api.get('/maintenance/analytics/summary'),
+  // Phase 6: configuration
+  workTypes: () => api.get('/maintenance/config/work-types'),
+  createWorkType: (data: Record<string, unknown>) => api.post('/maintenance/config/work-types', data),
+  priorities: () => api.get('/maintenance/config/priorities'),
+  createPriority: (data: Record<string, unknown>) => api.post('/maintenance/config/priorities', data),
+  statusConfigs: () => api.get('/maintenance/config/statuses'),
+  createStatusConfig: (data: Record<string, unknown>) => api.post('/maintenance/config/statuses', data),
+  numberingConfigs: () => api.get('/maintenance/config/numbering'),
+  createNumberingConfig: (data: Record<string, unknown>) => api.post('/maintenance/config/numbering', data),
 }
 
 // PLM API

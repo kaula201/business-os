@@ -532,3 +532,60 @@ class MaintenanceReliabilityMetric(Base):
     mtbf_hours: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0"), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+# ── Phase 6: Configuration ────────────────────────────────────────────────────
+
+class MaintenanceWorkType(Base):
+    """Work order types (configurable)."""
+
+    __tablename__ = "maintenance_work_types"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    code: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class MaintenancePriority(Base):
+    """Priority levels (configurable)."""
+
+    __tablename__ = "maintenance_priorities"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    level: Mapped[int] = mapped_column(default=1, nullable=False)
+    color: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class MaintenanceStatusConfig(Base):
+    """Order statuses (configurable)."""
+
+    __tablename__ = "maintenance_status_configs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    code: Mapped[str] = mapped_column(String(30), nullable=False)
+    is_closed: Mapped[bool] = mapped_column(default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class MaintenanceNumberingConfig(Base):
+    """Document numbering prefixes per entity."""
+
+    __tablename__ = "maintenance_numbering_configs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    entity: Mapped[str] = mapped_column(String(50), nullable=False)
+    # order | request | permit | incident | repair
+    prefix: Mapped[str] = mapped_column(String(20), default="WO", nullable=False)
+    next_number: Mapped[int] = mapped_column(default=1, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

@@ -2179,6 +2179,17 @@ const en: Record<string, string> = {
   'დეფიციტური ნაწილები': 'Low stock parts',
   'ბიუჯეტის ათვისება': 'Budget utilization',
   'დაზიანებები': 'Failures',
+  'ახალი ტიპი': 'New type',
+  'ახალი პრიორიტეტი': 'New priority',
+  'ახალი ნომერაცია': 'New numbering',
+  'ტიპები არ არის': 'No types',
+  'პრიორიტეტები არ არის': 'No priorities',
+  'სტატუსები არ არის': 'No statuses',
+  'ნომერაციები არ არის': 'No numbering configs',
+  'დონე': 'Level',
+  'დახურული სტატუსი': 'Closed status',
+  'შემდეგი ნომერი': 'Next number',
+  'არა': 'No',
 }
 
 i18n.use(initReactI18next).init({

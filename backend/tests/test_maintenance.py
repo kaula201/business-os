@@ -470,3 +470,62 @@ async def test_reliability_metric(client, auth_headers):
     # filter by asset
     r3 = await client.get(f"/api/v1/maintenance/reliability-metrics?asset_id={asset['id']}", headers=auth_headers)
     assert len(r3.json()["data"]) == 1
+
+
+
+# ── CMMS Phase 6: configuration ───────────────────────────────────────────────
+
+async def test_work_type_and_priority_config(client, auth_headers):
+    # work type
+    r = await client.post("/api/v1/maintenance/config/work-types", headers=auth_headers, json={
+        "name": "პრევენციული მოვლა", "code": "PM",
+    })
+    assert r.status_code == 201, r.text
+    assert r.json()["data"]["code"] == "PM"
+
+    # duplicate rejected
+    r2 = await client.post("/api/v1/maintenance/config/work-types", headers=auth_headers, json={
+        "name": "პრევენციული მოვლა",
+    })
+    assert r2.status_code == 409
+
+    # priority
+    r3 = await client.post("/api/v1/maintenance/config/priorities", headers=auth_headers, json={
+        "name": "მაღალი", "level": 1, "color": "red",
+    })
+    assert r3.status_code == 201, r3.text
+    assert r3.json()["data"]["level"] == 1
+
+    r4 = await client.get("/api/v1/maintenance/config/priorities", headers=auth_headers)
+    assert len(r4.json()["data"]) == 1
+
+
+async def test_status_and_numbering_config(client, auth_headers):
+    # status config
+    r = await client.post("/api/v1/maintenance/config/statuses", headers=auth_headers, json={
+        "name": "დასრულებული", "code": "completed", "is_closed": True,
+    })
+    assert r.status_code == 201, r.text
+    assert r.json()["data"]["is_closed"] is True
+
+    # duplicate code rejected
+    r2 = await client.post("/api/v1/maintenance/config/statuses", headers=auth_headers, json={
+        "name": "დასრულებული 2", "code": "completed",
+    })
+    assert r2.status_code == 409
+
+    # numbering
+    r3 = await client.post("/api/v1/maintenance/config/numbering", headers=auth_headers, json={
+        "entity": "order", "prefix": "WO", "next_number": 100,
+    })
+    assert r3.status_code == 201, r3.text
+    assert r3.json()["data"]["next_number"] == 100
+
+    # duplicate entity rejected
+    r4 = await client.post("/api/v1/maintenance/config/numbering", headers=auth_headers, json={
+        "entity": "order", "prefix": "WO2",
+    })
+    assert r4.status_code == 409
+
+    r5 = await client.get("/api/v1/maintenance/config/numbering", headers=auth_headers)
+    assert len(r5.json()["data"]) == 1

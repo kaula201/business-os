@@ -22,20 +22,24 @@ from app.models.maintenance import (
     MaintenanceIncident,
     MaintenanceLocation,
     MaintenanceMeter,
+    MaintenanceNumberingConfig,
     MaintenanceOrder,
     MaintenancePart,
     MaintenancePartRequest,
     MaintenancePlan,
+    MaintenancePriority,
     MaintenanceReliabilityMetric,
     MaintenanceRequest,
     MaintenanceSafetyInstruction,
     MaintenanceSLA,
+    MaintenanceStatusConfig,
     MaintenanceTeam,
     MaintenanceTeamMember,
     MaintenanceTechnician,
     MaintenanceTool,
     MaintenanceToolIssue,
     MaintenanceWorkPermit,
+    MaintenanceWorkType,
     RepairOrder,
 )
 from app.models.user import User
@@ -86,6 +90,10 @@ from app.schemas.maintenance import (
     MaintenanceIncidentCreate,
     MaintenanceIncidentResponse,
     MaintenanceIncidentUpdate,
+    MaintenanceNumberingConfigCreate,
+    MaintenanceNumberingConfigResponse,
+    MaintenancePriorityCreate,
+    MaintenancePriorityResponse,
     MaintenanceReliabilityMetricCreate,
     MaintenanceReliabilityMetricResponse,
     MaintenanceSLACreate,
@@ -1335,3 +1343,115 @@ async def analytics_summary(
         open_orders=open_orders, completed_orders=completed_orders, total_assets=total_assets,
         low_stock_parts=low_stock, open_incidents=open_incidents, budget_utilization=utilization,
     ))
+
+
+# ── Phase 6: Configuration ────────────────────────────────────────────────────
+
+@router.get("/config/work-types", response_model=ResponseBase[list[MaintenanceWorkTypeResponse]])
+async def list_work_types(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenanceWorkType).where(MaintenanceWorkType.company_id == current_user.company_id).order_by(MaintenanceWorkType.name)
+    )).scalars().all()
+    return ResponseBase(data=[MaintenanceWorkTypeResponse.model_validate(w) for w in rows])
+
+
+@router.post("/config/work-types", response_model=ResponseBase[MaintenanceWorkTypeResponse], status_code=201)
+async def create_work_type(
+    data: MaintenanceWorkTypeCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    dup = (await db.execute(select(MaintenanceWorkType.id).where(
+        MaintenanceWorkType.company_id == current_user.company_id,
+        MaintenanceWorkType.name == data.name.strip(),
+    ))).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail="ამ სახელით ტიპი უკვე არსებობს")
+    w = MaintenanceWorkType(company_id=current_user.company_id, **data.model_dump())
+    db.add(w)
+    await db.flush()
+    return ResponseBase(data=MaintenanceWorkTypeResponse.model_validate(w), message="ტიპი დაემატა")
+
+
+@router.get("/config/priorities", response_model=ResponseBase[list[MaintenancePriorityResponse]])
+async def list_priorities(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenancePriority).where(MaintenancePriority.company_id == current_user.company_id).order_by(MaintenancePriority.level)
+    )).scalars().all()
+    return ResponseBase(data=[MaintenancePriorityResponse.model_validate(p) for p in rows])
+
+
+@router.post("/config/priorities", response_model=ResponseBase[MaintenancePriorityResponse], status_code=201)
+async def create_priority(
+    data: MaintenancePriorityCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    p = MaintenancePriority(company_id=current_user.company_id, **data.model_dump())
+    db.add(p)
+    await db.flush()
+    return ResponseBase(data=MaintenancePriorityResponse.model_validate(p), message="პრიორიტეტი დაემატა")
+
+
+@router.get("/config/statuses", response_model=ResponseBase[list[MaintenanceStatusConfigResponse]])
+async def list_status_configs(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenanceStatusConfig).where(MaintenanceStatusConfig.company_id == current_user.company_id).order_by(MaintenanceStatusConfig.name)
+    )).scalars().all()
+    return ResponseBase(data=[MaintenanceStatusConfigResponse.model_validate(s) for s in rows])
+
+
+@router.post("/config/statuses", response_model=ResponseBase[MaintenanceStatusConfigResponse], status_code=201)
+async def create_status_config(
+    data: MaintenanceStatusConfigCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    dup = (await db.execute(select(MaintenanceStatusConfig.id).where(
+        MaintenanceStatusConfig.company_id == current_user.company_id,
+        MaintenanceStatusConfig.code == data.code.strip(),
+    ))).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail="ამ კოდით სტატუსი უკვე არსებობს")
+    s = MaintenanceStatusConfig(company_id=current_user.company_id, **data.model_dump())
+    db.add(s)
+    await db.flush()
+    return ResponseBase(data=MaintenanceStatusConfigResponse.model_validate(s), message="სტატუსი დაემატა")
+
+
+@router.get("/config/numbering", response_model=ResponseBase[list[MaintenanceNumberingConfigResponse]])
+async def list_numbering_configs(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenanceNumberingConfig).where(MaintenanceNumberingConfig.company_id == current_user.company_id).order_by(MaintenanceNumberingConfig.entity)
+    )).scalars().all()
+    return ResponseBase(data=[MaintenanceNumberingConfigResponse.model_validate(n) for n in rows])
+
+
+@router.post("/config/numbering", response_model=ResponseBase[MaintenanceNumberingConfigResponse], status_code=201)
+async def create_numbering_config(
+    data: MaintenanceNumberingConfigCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    dup = (await db.execute(select(MaintenanceNumberingConfig.id).where(
+        MaintenanceNumberingConfig.company_id == current_user.company_id,
+        MaintenanceNumberingConfig.entity == data.entity.strip(),
+    ))).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail="ამ ერთეულისთვის ნომერაცია უკვე არსებობს")
+    n = MaintenanceNumberingConfig(company_id=current_user.company_id, **data.model_dump())
+    db.add(n)
+    await db.flush()
+    return ResponseBase(data=MaintenanceNumberingConfigResponse.model_validate(n), message="ნომერაცია დაემატა")

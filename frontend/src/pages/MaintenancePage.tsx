@@ -74,6 +74,10 @@ export default function MaintenancePage() {
   const { data: budgets } = useQuery({ queryKey: ['maint-budgets'], queryFn: () => maintenanceApi.budgets().then(r => r.data.data) })
   const { data: reliabilityMetrics } = useQuery({ queryKey: ['maint-reliability'], queryFn: () => maintenanceApi.reliabilityMetrics().then(r => r.data.data) })
   const { data: analytics } = useQuery({ queryKey: ['maint-analytics'], queryFn: () => maintenanceApi.analyticsSummary().then(r => r.data.data) })
+  const { data: workTypes } = useQuery({ queryKey: ['maint-work-types'], queryFn: () => maintenanceApi.workTypes().then(r => r.data.data) })
+  const { data: priorities } = useQuery({ queryKey: ['maint-priorities'], queryFn: () => maintenanceApi.priorities().then(r => r.data.data) })
+  const { data: statusConfigs } = useQuery({ queryKey: ['maint-status-configs'], queryFn: () => maintenanceApi.statusConfigs().then(r => r.data.data) })
+  const { data: numberingConfigs } = useQuery({ queryKey: ['maint-numbering'], queryFn: () => maintenanceApi.numberingConfigs().then(r => r.data.data) })
 
   const createPlan = useMutation({
     mutationFn: () => maintenanceApi.createPlan(form),
@@ -198,6 +202,22 @@ export default function MaintenancePage() {
   const createReliabilityMetric = useMutation({
     mutationFn: () => maintenanceApi.createReliabilityMetric(form),
     onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-reliability'] }) },
+  })
+  const createWorkType = useMutation({
+    mutationFn: () => maintenanceApi.createWorkType(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-work-types'] }) },
+  })
+  const createPriority = useMutation({
+    mutationFn: () => maintenanceApi.createPriority(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-priorities'] }) },
+  })
+  const createStatusConfig = useMutation({
+    mutationFn: () => maintenanceApi.createStatusConfig(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-status-configs'] }) },
+  })
+  const createNumberingConfig = useMutation({
+    mutationFn: () => maintenanceApi.createNumberingConfig(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-numbering'] }) },
   })
 
   const openCreate = (kind: string) => {
@@ -494,6 +514,44 @@ export default function MaintenancePage() {
         <FormField label={t('MTBF (სთ)')}><input type="number" className="input" value={form.mtbf_hours || 0} onChange={e => setForm({ ...form, mtbf_hours: e.target.value })} /></FormField>
       </>
     )
+    if (kind === 'work-type') return (
+      <>
+        <FormField label={t('სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
+        <FormField label={t('კოდი')}><input className="input" value={form.code || ''} onChange={e => setForm({ ...form, code: e.target.value })} /></FormField>
+      </>
+    )
+    if (kind === 'priority') return (
+      <>
+        <FormField label={t('სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
+        <FormField label={t('დონე')}><input type="number" className="input" value={form.level || 1} onChange={e => setForm({ ...form, level: e.target.value })} /></FormField>
+        <FormField label={t('ფერი')}><input className="input" value={form.color || ''} onChange={e => setForm({ ...form, color: e.target.value })} /></FormField>
+      </>
+    )
+    if (kind === 'status-config') return (
+      <>
+        <FormField label={t('სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
+        <FormField label={t('კოდი')} required><input required className="input" value={form.code || ''} onChange={e => setForm({ ...form, code: e.target.value })} /></FormField>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={!!form.is_closed} onChange={e => setForm({ ...form, is_closed: e.target.checked })} />
+          {t('დახურული სტატუსი')}
+        </label>
+      </>
+    )
+    if (kind === 'numbering') return (
+      <>
+        <FormField label={t('ერთეული')} required>
+          <select required className="input" value={form.entity || 'order'} onChange={e => setForm({ ...form, entity: e.target.value })}>
+            <option value="order">order</option>
+            <option value="request">request</option>
+            <option value="permit">permit</option>
+            <option value="incident">incident</option>
+            <option value="repair">repair</option>
+          </select>
+        </FormField>
+        <FormField label={t('პრეფიქსი')} required><input required className="input" value={form.prefix || 'WO'} onChange={e => setForm({ ...form, prefix: e.target.value })} /></FormField>
+        <FormField label={t('შემდეგი ნომერი')}><input type="number" className="input" value={form.next_number || 1} onChange={e => setForm({ ...form, next_number: e.target.value })} /></FormField>
+      </>
+    )
     return (
       <>
         <FormField label={t('აღჭურვილობა')}><input className="input" value={form.equipment_name || ''} onChange={e => setForm({ ...form, equipment_name: e.target.value })} /></FormField>
@@ -533,6 +591,10 @@ export default function MaintenancePage() {
     else if (form.kind === 'cost') createCostRecord.mutate()
     else if (form.kind === 'budget') createBudget.mutate()
     else if (form.kind === 'reliability') createReliabilityMetric.mutate()
+    else if (form.kind === 'work-type') createWorkType.mutate()
+    else if (form.kind === 'priority') createPriority.mutate()
+    else if (form.kind === 'status-config') createStatusConfig.mutate()
+    else if (form.kind === 'numbering') createNumberingConfig.mutate()
     else createRepair.mutate()
   }
 
@@ -1270,7 +1332,117 @@ export default function MaintenancePage() {
         </div>
       )}
 
-      {['calendar', 'config'].includes(tab) && (
+      {tab === 'config' && (
+        <div className="space-y-6">
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('work-type')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი ტიპი')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('სახელი')}</th>
+                  <th className="px-4 py-3">{t('კოდი')}</th>
+                  <th className="px-4 py-3">{t('სტატუსი')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(workTypes || []).length === 0 ? (
+                  <tr><td colSpan={3} className="p-8 text-center text-gray-500">{t('ტიპები არ არის')}</td></tr>
+                ) : (workTypes || []).map((w: any) => (
+                  <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{w.name}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{w.code || '—'}</td>
+                    <td className="px-4 py-3">{w.is_active ? <span className="badge badge-success">{t('აქტიური')}</span> : <span className="badge">{t('გაჩერებული')}</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('priority')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი პრიორიტეტი')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('სახელი')}</th>
+                  <th className="px-4 py-3">{t('დონე')}</th>
+                  <th className="px-4 py-3">{t('ფერი')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(priorities || []).length === 0 ? (
+                  <tr><td colSpan={3} className="p-8 text-center text-gray-500">{t('პრიორიტეტები არ არის')}</td></tr>
+                ) : (priorities || []).map((p: any) => (
+                  <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{p.name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.level}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: p.color || '#ccc' }} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('status-config')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი სტატუსი')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('სახელი')}</th>
+                  <th className="px-4 py-3">{t('კოდი')}</th>
+                  <th className="px-4 py-3">{t('დახურული')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(statusConfigs || []).length === 0 ? (
+                  <tr><td colSpan={3} className="p-8 text-center text-gray-500">{t('სტატუსები არ არის')}</td></tr>
+                ) : (statusConfigs || []).map((s: any) => (
+                  <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{s.name}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{s.code}</td>
+                    <td className="px-4 py-3">{s.is_closed ? <span className="badge badge-success">{t('დიახ')}</span> : <span className="badge">{t('არა')}</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('numbering')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი ნომერაცია')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('ერთეული')}</th>
+                  <th className="px-4 py-3">{t('პრეფიქსი')}</th>
+                  <th className="px-4 py-3">{t('შემდეგი ნომერი')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(numberingConfigs || []).length === 0 ? (
+                  <tr><td colSpan={3} className="p-8 text-center text-gray-500">{t('ნომერაციები არ არის')}</td></tr>
+                ) : (numberingConfigs || []).map((n: any) => (
+                  <tr key={n.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{n.entity}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{n.prefix}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{n.next_number}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'calendar' && (
         <EmptyState text={t('ეს განყოფილება მალე დაემატება — მონაცემები ინახება აქტივებისა და სამუშაო დავალებების მიხედვით.')} />
       )}
 
