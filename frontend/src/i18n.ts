@@ -2190,6 +2190,7 @@ const en: Record<string, string> = {
   'დახურული სტატუსი': 'Closed status',
   'შემდეგი ნომერი': 'Next number',
   'არა': 'No',
+  'დღეს': 'Today',
 }
 
 i18n.use(initReactI18next).init({

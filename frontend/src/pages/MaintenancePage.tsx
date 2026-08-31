@@ -1451,7 +1451,7 @@ export default function MaintenancePage() {
       )}
 
       {tab === 'calendar' && (
-        <EmptyState text={t('ეს განყოფილება მალე დაემატება — მონაცემები ინახება აქტივებისა და სამუშაო დავალებების მიხედვით.')} />
+        <MaintenanceCalendar orders={orders || []} plans={plans || []} t={t} />
       )}
 
       <Modal open={open} onClose={() => setOpen(false)} title={t('ახალი ჩანაწერი')}>
@@ -1463,6 +1463,97 @@ export default function MaintenancePage() {
           </div>
         </div>
       </Modal>
+    </div>
+  )
+}
+
+// ── Maintenance calendar: work orders + plans grouped by date ──────────────
+
+function MaintenanceCalendar({ orders, plans, t }: { orders: any[]; plans: any[]; t: (k: string) => string }) {
+  const [monthOffset, setMonthOffset] = useState(0)
+  const now = new Date()
+  const view = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+  const year = view.getFullYear()
+  const month = view.getMonth()
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const firstWeekday = new Date(year, month, 1).getDay() // 0=Sun
+  const weekdays = ['კვ', 'ორ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ']
+
+  // Collect events: orders by scheduled_date, plans by next_due_at
+  const eventsByDay: Record<number, { orders: any[]; plans: any[] }> = {}
+  for (const o of orders) {
+    if (!o.scheduled_date) continue
+    const d = new Date(o.scheduled_date)
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      const day = d.getDate()
+      if (!eventsByDay[day]) eventsByDay[day] = { orders: [], plans: [] }
+      eventsByDay[day].orders.push(o)
+    }
+  }
+  for (const p of plans) {
+    if (!p.next_due_at) continue
+    const d = new Date(p.next_due_at)
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      const day = d.getDate()
+      if (!eventsByDay[day]) eventsByDay[day] = { orders: [], plans: [] }
+      eventsByDay[day].plans.push(p)
+    }
+  }
+
+  const cells: (number | null)[] = []
+  for (let i = 0; i < firstWeekday; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+
+  const monthLabel = view.toLocaleDateString('ka-GE', { month: 'long', year: 'numeric' })
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-brandgray-900 dark:text-gray-100">{monthLabel}</h3>
+        <div className="flex gap-2">
+          <button className="btn btn-sm" onClick={() => setMonthOffset(monthOffset - 1)}>←</button>
+          <button className="btn btn-sm" onClick={() => setMonthOffset(0)}>{t('დღეს')}</button>
+          <button className="btn btn-sm" onClick={() => setMonthOffset(monthOffset + 1)}>→</button>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+        <div className="grid grid-cols-7 border-b bg-gray-50 text-center text-xs font-medium text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+          {weekdays.map((w) => <div key={w} className="px-2 py-2">{w}</div>)}
+        </div>
+        <div className="grid grid-cols-7">
+          {cells.map((day, idx) => {
+            if (day === null) return <div key={`e${idx}`} className="min-h-20 border-b border-r border-gray-100 dark:border-dark-50" />
+            const ev = eventsByDay[day]
+            const isToday = day === now.getDate() && monthOffset === 0
+            return (
+              <div key={day} className={`min-h-20 border-b border-r border-gray-100 p-1 dark:border-dark-50 ${isToday ? 'bg-primary-50/50 dark:bg-primary-900/20' : ''}`}>
+                <span className={`text-xs font-semibold ${isToday ? 'text-primary-700 dark:text-primary-300' : 'text-gray-500'}`}>{day}</span>
+                {ev && (
+                  <div className="mt-1 space-y-1">
+                    {ev.orders.map((o: any) => (
+                      <div key={o.id} className="truncate rounded bg-blue-50 px-1 py-0.5 text-[10px] text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" title={o.order_number}>
+                        {o.order_number}
+                      </div>
+                    ))}
+                    {ev.plans.map((p: any) => (
+                      <div key={p.id} className="truncate rounded bg-amber-50 px-1 py-0.5 text-[10px] text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" title={p.name}>
+                        {p.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-blue-500" /> {t('სამუშაო დავალებები')}</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-amber-500" /> {t('მოვლის გეგმები')}</span>
+      </div>
     </div>
   )
 }
