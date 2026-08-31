@@ -56,6 +56,11 @@ export default function MaintenancePage() {
   const { data: meters } = useQuery({ queryKey: ['maint-meters'], queryFn: () => maintenanceApi.meters().then(r => r.data.data) })
   const { data: locations } = useQuery({ queryKey: ['maint-locations'], queryFn: () => maintenanceApi.locations().then(r => r.data.data) })
   const { data: categories } = useQuery({ queryKey: ['maint-categories'], queryFn: () => maintenanceApi.assetCategories().then(r => r.data.data) })
+  const { data: technicians } = useQuery({ queryKey: ['maint-technicians'], queryFn: () => maintenanceApi.technicians().then(r => r.data.data) })
+  const { data: teams } = useQuery({ queryKey: ['maint-teams'], queryFn: () => maintenanceApi.teams().then(r => r.data.data) })
+  const { data: contractors } = useQuery({ queryKey: ['maint-contractors'], queryFn: () => maintenanceApi.contractors().then(r => r.data.data) })
+  const { data: slas } = useQuery({ queryKey: ['maint-slas'], queryFn: () => maintenanceApi.slas().then(r => r.data.data) })
+  const { data: certificates } = useQuery({ queryKey: ['maint-certificates'], queryFn: () => maintenanceApi.certificates().then(r => r.data.data) })
 
   const createPlan = useMutation({
     mutationFn: () => maintenanceApi.createPlan(form),
@@ -104,6 +109,26 @@ export default function MaintenancePage() {
   const deleteAsset = useMutation({
     mutationFn: (id: string) => maintenanceApi.deleteAsset(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['maint-assets'] }),
+  })
+  const createTechnician = useMutation({
+    mutationFn: () => maintenanceApi.createTechnician(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-technicians'] }) },
+  })
+  const createTeam = useMutation({
+    mutationFn: () => maintenanceApi.createTeam(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-teams'] }) },
+  })
+  const createContractor = useMutation({
+    mutationFn: () => maintenanceApi.createContractor(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-contractors'] }) },
+  })
+  const createSla = useMutation({
+    mutationFn: () => maintenanceApi.createSla(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-slas'] }) },
+  })
+  const createCertificate = useMutation({
+    mutationFn: () => maintenanceApi.createCertificate(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-certificates'] }) },
   })
 
   const openCreate = (kind: string) => {
@@ -199,6 +224,64 @@ export default function MaintenancePage() {
         <FormField label={t('აღწერა')}><textarea className="input min-h-[80px]" value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} /></FormField>
       </>
     )
+    if (kind === 'technician') return (
+      <>
+        <FormField label={t('სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
+        <FormField label={t('სპეციალიზაცია')}><input className="input" value={form.specialization || ''} onChange={e => setForm({ ...form, specialization: e.target.value })} /></FormField>
+        <FormField label={t('ტელეფონი')}><input className="input" value={form.phone || ''} onChange={e => setForm({ ...form, phone: e.target.value })} /></FormField>
+        <FormField label={t('საათობრივი ტარიფი')}><input type="number" className="input" value={form.hourly_rate || 0} onChange={e => setForm({ ...form, hourly_rate: Number(e.target.value) })} /></FormField>
+      </>
+    )
+    if (kind === 'team') return (
+      <>
+        <FormField label={t('სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
+        <FormField label={t('ლიდერი')}>
+          <select className="input" value={form.leader_id || ''} onChange={e => setForm({ ...form, leader_id: e.target.value || null })}>
+            <option value="">—</option>
+            {(technicians || []).map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </FormField>
+        <FormField label={t('აღწერა')}><textarea className="input min-h-[80px]" value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} /></FormField>
+      </>
+    )
+    if (kind === 'contractor') return (
+      <>
+        <FormField label={t('სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
+        <FormField label={t('საკონტაქტო პირი')}><input className="input" value={form.contact_person || ''} onChange={e => setForm({ ...form, contact_person: e.target.value })} /></FormField>
+        <FormField label={t('სპეციალიზაცია')}><input className="input" value={form.specialization || ''} onChange={e => setForm({ ...form, specialization: e.target.value })} /></FormField>
+        <FormField label={t('საათობრივი ტარიფი')}><input type="number" className="input" value={form.hourly_rate || 0} onChange={e => setForm({ ...form, hourly_rate: Number(e.target.value) })} /></FormField>
+      </>
+    )
+    if (kind === 'sla') return (
+      <>
+        <FormField label={t('სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
+        <FormField label={t('პრიორიტეტი')}>
+          <select className="input" value={form.priority || 'medium'} onChange={e => setForm({ ...form, priority: e.target.value })}>
+            <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="urgent">Urgent</option>
+          </select>
+        </FormField>
+        <FormField label={t('რეაგირების დრო (სთ)')}><input type="number" className="input" value={form.response_hours || 4} onChange={e => setForm({ ...form, response_hours: Number(e.target.value) })} /></FormField>
+        <FormField label={t('მოგვარების დრო (სთ)')}><input type="number" className="input" value={form.resolution_hours || 24} onChange={e => setForm({ ...form, resolution_hours: Number(e.target.value) })} /></FormField>
+        <FormField label={t('კონტრაქტორი')}>
+          <select className="input" value={form.contractor_id || ''} onChange={e => setForm({ ...form, contractor_id: e.target.value || null })}>
+            <option value="">—</option>
+            {(contractors || []).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </FormField>
+      </>
+    )
+    if (kind === 'certificate') return (
+      <>
+        <FormField label={t('ტექნიკოსი')} required>
+          <select required className="input" value={form.technician_id || ''} onChange={e => setForm({ ...form, technician_id: e.target.value })}>
+            <option value="">—</option>
+            {(technicians || []).map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </FormField>
+        <FormField label={t('სერტიფიკატის სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
+        <FormField label={t('ვადის გასვლა')}><input type="date" className="input" value={form.expiry_date || ''} onChange={e => setForm({ ...form, expiry_date: e.target.value })} /></FormField>
+      </>
+    )
     return (
       <>
         <FormField label={t('აღჭურვილობა')}><input className="input" value={form.equipment_name || ''} onChange={e => setForm({ ...form, equipment_name: e.target.value })} /></FormField>
@@ -219,6 +302,11 @@ export default function MaintenancePage() {
     else if (form.kind === 'request') createRequest.mutate()
     else if (form.kind === 'meter') createMeter.mutate()
     else if (form.kind === 'location') createLocation.mutate()
+    else if (form.kind === 'technician') createTechnician.mutate()
+    else if (form.kind === 'team') createTeam.mutate()
+    else if (form.kind === 'contractor') createContractor.mutate()
+    else if (form.kind === 'sla') createSla.mutate()
+    else if (form.kind === 'certificate') createCertificate.mutate()
     else createRepair.mutate()
   }
 
@@ -491,7 +579,169 @@ export default function MaintenancePage() {
         </div>
       )}
 
-      {['calendar', 'technicians', 'contractors', 'parts', 'costs', 'analytics', 'config'].includes(tab) && (
+      {tab === 'technicians' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('technician')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი ტექნიკოსი')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('სახელი')}</th>
+                  <th className="px-4 py-3">{t('სპეციალიზაცია')}</th>
+                  <th className="px-4 py-3">{t('ტელეფონი')}</th>
+                  <th className="px-4 py-3">{t('საათობრივი ტარიფი')}</th>
+                  <th className="px-4 py-3">{t('სტატუსი')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(technicians || []).length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('ტექნიკოსები არ არის')}</td></tr>
+                ) : (technicians || []).map((t: any) => (
+                  <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{t.name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{t.specialization || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{t.phone || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{t.hourly_rate} ₾</td>
+                    <td className="px-4 py-3">{t.is_active ? <span className="badge badge-success">{t('აქტიური')}</span> : <span className="badge">{t('გაჩერებული')}</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'contractors' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('contractor')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი კონტრაქტორი')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('სახელი')}</th>
+                  <th className="px-4 py-3">{t('საკონტაქტო პირი')}</th>
+                  <th className="px-4 py-3">{t('სპეციალიზაცია')}</th>
+                  <th className="px-4 py-3">{t('საათობრივი ტარიფი')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(contractors || []).length === 0 ? (
+                  <tr><td colSpan={4} className="p-8 text-center text-gray-500">{t('კონტრაქტორები არ არის')}</td></tr>
+                ) : (contractors || []).map((c: any) => (
+                  <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{c.name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.contact_person || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.specialization || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.hourly_rate} ₾</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'parts' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('team')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი გუნდი')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('სახელი')}</th>
+                  <th className="px-4 py-3">{t('ლიდერი')}</th>
+                  <th className="px-4 py-3">{t('წევრები')}</th>
+                  <th className="px-4 py-3">{t('აღწერა')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(teams || []).length === 0 ? (
+                  <tr><td colSpan={4} className="p-8 text-center text-gray-500">{t('გუნდები არ არის')}</td></tr>
+                ) : (teams || []).map((tm: any) => (
+                  <tr key={tm.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{tm.name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tm.leader_id ? '✓' : '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tm.member_count}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tm.description || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'costs' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('sla')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი SLA')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('სახელი')}</th>
+                  <th className="px-4 py-3">{t('პრიორიტეტი')}</th>
+                  <th className="px-4 py-3">{t('რეაგირება (სთ)')}</th>
+                  <th className="px-4 py-3">{t('მოგვარება (სთ)')}</th>
+                  <th className="px-4 py-3">{t('კონტრაქტორი')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(slas || []).length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('SLA არ არის')}</td></tr>
+                ) : (slas || []).map((s: any) => (
+                  <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{s.name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{s.priority}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{s.response_hours}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{s.resolution_hours}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{s.contractor_name || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'analytics' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('certificate')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი სერტიფიკატი')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('სერტიფიკატი')}</th>
+                  <th className="px-4 py-3">{t('ტექნიკოსი')}</th>
+                  <th className="px-4 py-3">{t('ვადის გასვლა')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(certificates || []).length === 0 ? (
+                  <tr><td colSpan={3} className="p-8 text-center text-gray-500">{t('სერტიფიკატები არ არის')}</td></tr>
+                ) : (certificates || []).map((c: any) => (
+                  <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{c.name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.technician_name || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.expiry_date ? fmtDate(new Date(c.expiry_date)) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {['calendar', 'config'].includes(tab) && (
         <EmptyState text={t('ეს განყოფილება მალე დაემატება — მონაცემები ინახება აქტივებისა და სამუშაო დავალებების მიხედვით.')} />
       )}
 

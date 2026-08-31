@@ -286,3 +286,158 @@ class MaintenanceOrderResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Phase 2: Resources ──────────────────────────────────────────────────────
+
+class MaintenanceTechnicianCreate(BaseModel):
+    user_id: UUID | None = None
+    name: str = Field(min_length=1, max_length=150)
+    email: str | None = None
+    phone: str | None = None
+    specialization: str | None = None
+    hourly_rate: Decimal = Field(default=Decimal("0"), ge=0)
+    notes: str | None = None
+
+
+class MaintenanceTechnicianUpdate(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    specialization: str | None = None
+    hourly_rate: Decimal | None = Field(default=None, ge=0)
+    is_active: bool | None = None
+    notes: str | None = None
+
+
+class MaintenanceTechnicianResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    user_id: UUID | None
+    name: str
+    email: str | None
+    phone: str | None
+    specialization: str | None
+    hourly_rate: Decimal
+    is_active: bool
+    notes: str | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceTeamCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=150)
+    leader_id: UUID | None = None
+    description: str | None = None
+
+
+class MaintenanceTeamUpdate(BaseModel):
+    name: str | None = None
+    leader_id: UUID | None = None
+    description: str | None = None
+    is_active: bool | None = None
+
+
+class MaintenanceTeamResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    name: str
+    leader_id: UUID | None
+    description: str | None
+    is_active: bool
+    member_count: int = 0
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceContractorCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=150)
+    contact_person: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    specialization: str | None = None
+    hourly_rate: Decimal = Field(default=Decimal("0"), ge=0)
+    notes: str | None = None
+
+
+class MaintenanceContractorUpdate(BaseModel):
+    name: str | None = None
+    contact_person: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    specialization: str | None = None
+    hourly_rate: Decimal | None = Field(default=None, ge=0)
+    is_active: bool | None = None
+    notes: str | None = None
+
+
+class MaintenanceContractorResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    name: str
+    contact_person: str | None
+    email: str | None
+    phone: str | None
+    specialization: str | None
+    hourly_rate: Decimal
+    is_active: bool
+    notes: str | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceSLACreate(BaseModel):
+    name: str = Field(min_length=1, max_length=150)
+    priority: str = "medium"
+    response_hours: Decimal = Field(default=Decimal("4"), ge=0)
+    resolution_hours: Decimal = Field(default=Decimal("24"), ge=0)
+    contractor_id: UUID | None = None
+
+
+class MaintenanceSLAUpdate(BaseModel):
+    name: str | None = None
+    priority: str | None = None
+    response_hours: Decimal | None = Field(default=None, ge=0)
+    resolution_hours: Decimal | None = Field(default=None, ge=0)
+    contractor_id: UUID | None = None
+    is_active: bool | None = None
+
+
+class MaintenanceSLAResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    name: str
+    priority: str
+    response_hours: Decimal
+    resolution_hours: Decimal
+    contractor_id: UUID | None
+    contractor_name: str | None = None
+    is_active: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceCertificateCreate(BaseModel):
+    technician_id: UUID
+    name: str = Field(min_length=1, max_length=150)
+    issued_date: date | None = None
+    expiry_date: date | None = None
+    notes: str | None = None
+
+
+class MaintenanceCertificateResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    technician_id: UUID
+    name: str
+    issued_date: date | None
+    expiry_date: date | None
+    notes: str | None
+    technician_name: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

@@ -12,11 +12,17 @@ from app.core.time import utc_now
 from app.models.maintenance import (
     MaintenanceAsset,
     MaintenanceAssetCategory,
+    MaintenanceCertificate,
+    MaintenanceContractor,
     MaintenanceLocation,
     MaintenanceMeter,
     MaintenanceOrder,
     MaintenancePlan,
     MaintenanceRequest,
+    MaintenanceSLA,
+    MaintenanceTeam,
+    MaintenanceTeamMember,
+    MaintenanceTechnician,
     RepairOrder,
 )
 from app.models.user import User
@@ -27,6 +33,11 @@ from app.schemas.maintenance import (
     MaintenanceAssetCreate,
     MaintenanceAssetResponse,
     MaintenanceAssetUpdate,
+    MaintenanceCertificateCreate,
+    MaintenanceCertificateResponse,
+    MaintenanceContractorCreate,
+    MaintenanceContractorResponse,
+    MaintenanceContractorUpdate,
     MaintenanceLocationCreate,
     MaintenanceLocationResponse,
     MaintenanceMeterCreate,
@@ -41,6 +52,15 @@ from app.schemas.maintenance import (
     MaintenanceRequestCreate,
     MaintenanceRequestResponse,
     MaintenanceRequestUpdate,
+    MaintenanceSLACreate,
+    MaintenanceSLAResponse,
+    MaintenanceSLAUpdate,
+    MaintenanceTeamCreate,
+    MaintenanceTeamResponse,
+    MaintenanceTeamUpdate,
+    MaintenanceTechnicianCreate,
+    MaintenanceTechnicianResponse,
+    MaintenanceTechnicianUpdate,
 )
 
 router = APIRouter(prefix="/maintenance", tags=["Maintenance & Repairs"])
@@ -496,3 +516,233 @@ async def update_repair(
         r.completed_at = utc_now()
     await db.flush()
     return ResponseBase(data={"id": str(r.id), "status": r.status}, message="რემონტი განახლდა")
+
+
+# ── Phase 2: Resources — technicians, teams, contractors, SLA, certificates ──
+
+@router.get("/technicians", response_model=ResponseBase[list[MaintenanceTechnicianResponse]])
+async def list_technicians(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenanceTechnician).where(MaintenanceTechnician.company_id == current_user.company_id).order_by(MaintenanceTechnician.name)
+    )).scalars().all()
+    return ResponseBase(data=[MaintenanceTechnicianResponse.model_validate(t) for t in rows])
+
+
+@router.post("/technicians", response_model=ResponseBase[MaintenanceTechnicianResponse], status_code=201)
+async def create_technician(
+    data: MaintenanceTechnicianCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    t = MaintenanceTechnician(company_id=current_user.company_id, **data.model_dump())
+    db.add(t)
+    await db.flush()
+    return ResponseBase(data=MaintenanceTechnicianResponse.model_validate(t), message="ტექნიკოსი დაემატა")
+
+
+@router.patch("/technicians/{technician_id}", response_model=ResponseBase[MaintenanceTechnicianResponse])
+async def update_technician(
+    technician_id: uuid.UUID,
+    data: MaintenanceTechnicianUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    t = (await db.execute(
+        select(MaintenanceTechnician).where(MaintenanceTechnician.id == technician_id, MaintenanceTechnician.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not t:
+        raise HTTPException(status_code=404, detail="ტექნიკოსი არ მოიძებნა")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(t, field, value)
+    await db.flush()
+    await db.refresh(t)
+    return ResponseBase(data=MaintenanceTechnicianResponse.model_validate(t), message="ტექნიკოსი განახლდა")
+
+
+@router.get("/teams", response_model=ResponseBase[list[MaintenanceTeamResponse]])
+async def list_teams(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenanceTeam).where(MaintenanceTeam.company_id == current_user.company_id).order_by(MaintenanceTeam.name)
+    )).scalars().all()
+    result = []
+    for team in rows:
+        count = (await db.execute(select(func.count(MaintenanceTeamMember.id)).where(MaintenanceTeamMember.team_id == team.id))).scalar_one()
+        result.append(MaintenanceTeamResponse.model_validate(team).model_copy(update={"member_count": count}))
+    return ResponseBase(data=result)
+
+
+@router.post("/teams", response_model=ResponseBase[MaintenanceTeamResponse], status_code=201)
+async def create_team(
+    data: MaintenanceTeamCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    t = MaintenanceTeam(company_id=current_user.company_id, **data.model_dump())
+    db.add(t)
+    await db.flush()
+    return ResponseBase(data=MaintenanceTeamResponse.model_validate(t), message="გუნდი შეიქმნა")
+
+
+@router.post("/teams/{team_id}/members", response_model=ResponseBase[dict], status_code=201)
+async def add_team_member(
+    team_id: uuid.UUID,
+    technician_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    team = (await db.execute(select(MaintenanceTeam.id).where(
+        MaintenanceTeam.id == team_id, MaintenanceTeam.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not team:
+        raise HTTPException(status_code=404, detail="გუნდი არ მოიძებნა")
+    db.add(MaintenanceTeamMember(team_id=team_id, technician_id=technician_id))
+    await db.flush()
+    return ResponseBase(message="წევრი დაემატა")
+
+
+@router.delete("/teams/{team_id}/members/{technician_id}", response_model=ResponseBase)
+async def remove_team_member(
+    team_id: uuid.UUID,
+    technician_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    m = (await db.execute(select(MaintenanceTeamMember).where(
+        MaintenanceTeamMember.team_id == team_id, MaintenanceTeamMember.technician_id == technician_id,
+    ))).scalar_one_or_none()
+    if m:
+        await db.delete(m)
+        await db.flush()
+    return ResponseBase(message="წევრი ამოღებულია")
+
+
+@router.get("/contractors", response_model=ResponseBase[list[MaintenanceContractorResponse]])
+async def list_contractors(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenanceContractor).where(MaintenanceContractor.company_id == current_user.company_id).order_by(MaintenanceContractor.name)
+    )).scalars().all()
+    return ResponseBase(data=[MaintenanceContractorResponse.model_validate(c) for c in rows])
+
+
+@router.post("/contractors", response_model=ResponseBase[MaintenanceContractorResponse], status_code=201)
+async def create_contractor(
+    data: MaintenanceContractorCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = MaintenanceContractor(company_id=current_user.company_id, **data.model_dump())
+    db.add(c)
+    await db.flush()
+    return ResponseBase(data=MaintenanceContractorResponse.model_validate(c), message="კონტრაქტორი დაემატა")
+
+
+@router.patch("/contractors/{contractor_id}", response_model=ResponseBase[MaintenanceContractorResponse])
+async def update_contractor(
+    contractor_id: uuid.UUID,
+    data: MaintenanceContractorUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = (await db.execute(
+        select(MaintenanceContractor).where(MaintenanceContractor.id == contractor_id, MaintenanceContractor.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not c:
+        raise HTTPException(status_code=404, detail="კონტრაქტორი არ მოიძებნა")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(c, field, value)
+    await db.flush()
+    await db.refresh(c)
+    return ResponseBase(data=MaintenanceContractorResponse.model_validate(c), message="კონტრაქტორი განახლდა")
+
+
+@router.get("/slas", response_model=ResponseBase[list[MaintenanceSLAResponse]])
+async def list_slas(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenanceSLA).where(MaintenanceSLA.company_id == current_user.company_id).order_by(MaintenanceSLA.name)
+    )).scalars().all()
+    contractor_ids = {s.contractor_id for s in rows if s.contractor_id}
+    contractor_names = {row[0]: row[1] for row in (await db.execute(
+        select(MaintenanceContractor.id, MaintenanceContractor.name).where(MaintenanceContractor.id.in_(contractor_ids))
+    )).all()} if contractor_ids else {}
+    return ResponseBase(data=[MaintenanceSLAResponse.model_validate(s).model_copy(update={"contractor_name": contractor_names.get(s.contractor_id)}) for s in rows])
+
+
+@router.post("/slas", response_model=ResponseBase[MaintenanceSLAResponse], status_code=201)
+async def create_sla(
+    data: MaintenanceSLACreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    s = MaintenanceSLA(company_id=current_user.company_id, **data.model_dump())
+    db.add(s)
+    await db.flush()
+    await db.refresh(s)
+    contractor_name = None
+    if s.contractor_id:
+        contractor_name = (await db.execute(select(MaintenanceContractor.name).where(MaintenanceContractor.id == s.contractor_id))).scalar_one_or_none()
+    return ResponseBase(data=MaintenanceSLAResponse.model_validate(s).model_copy(update={"contractor_name": contractor_name}), message="SLA შეიქმნა")
+
+
+@router.patch("/slas/{sla_id}", response_model=ResponseBase[MaintenanceSLAResponse])
+async def update_sla(
+    sla_id: uuid.UUID,
+    data: MaintenanceSLAUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    s = (await db.execute(
+        select(MaintenanceSLA).where(MaintenanceSLA.id == sla_id, MaintenanceSLA.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not s:
+        raise HTTPException(status_code=404, detail="SLA არ მოიძებნა")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(s, field, value)
+    await db.flush()
+    await db.refresh(s)
+    return ResponseBase(data=MaintenanceSLAResponse.model_validate(s), message="SLA განახლდა")
+
+
+@router.get("/certificates", response_model=ResponseBase[list[MaintenanceCertificateResponse]])
+async def list_certificates(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenanceCertificate).where(MaintenanceCertificate.company_id == current_user.company_id).order_by(MaintenanceCertificate.name)
+    )).scalars().all()
+    tech_ids = {c.technician_id for c in rows}
+    tech_names = {row[0]: row[1] for row in (await db.execute(
+        select(MaintenanceTechnician.id, MaintenanceTechnician.name).where(MaintenanceTechnician.id.in_(tech_ids))
+    )).all()} if tech_ids else {}
+    return ResponseBase(data=[MaintenanceCertificateResponse.model_validate(c).model_copy(update={"technician_name": tech_names.get(c.technician_id)}) for c in rows])
+
+
+@router.post("/certificates", response_model=ResponseBase[MaintenanceCertificateResponse], status_code=201)
+async def create_certificate(
+    data: MaintenanceCertificateCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tech = (await db.execute(select(MaintenanceTechnician.id).where(
+        MaintenanceTechnician.id == data.technician_id, MaintenanceTechnician.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not tech:
+        raise HTTPException(status_code=404, detail="ტექნიკოსი არ მოიძებნა")
+    c = MaintenanceCertificate(company_id=current_user.company_id, **data.model_dump())
+    db.add(c)
+    await db.flush()
+    await db.refresh(c)
+    tech_name = (await db.execute(select(MaintenanceTechnician.name).where(MaintenanceTechnician.id == c.technician_id))).scalar_one_or_none()
+    return ResponseBase(data=MaintenanceCertificateResponse.model_validate(c).model_copy(update={"technician_name": tech_name}), message="სერტიფიკატი დაემატა")

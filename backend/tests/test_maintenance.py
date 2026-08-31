@@ -165,3 +165,59 @@ async def test_plan_type_and_order_emergency(client, auth_headers):
     lst = await client.get("/api/v1/maintenance/orders?emergency=true", headers=auth_headers)
     assert lst.status_code == 200
     assert len(lst.json()["data"]) == 1
+
+
+# ── CMMS Phase 2: resources — technicians, teams, contractors, SLA, certificates ──
+
+async def test_technician_and_team_crud(client, auth_headers):
+    t = await client.post("/api/v1/maintenance/technicians", json={
+        "name": "გიორგი მექანიკოსი", "specialization": "ელექტრო", "hourly_rate": 45,
+    }, headers=auth_headers)
+    assert t.status_code == 201, t.text
+    tech_id = t.json()["data"]["id"]
+    assert t.json()["data"]["specialization"] == "ელექტრო"
+
+    team = await client.post("/api/v1/maintenance/teams", json={
+        "name": "ელექტრო გუნდი", "leader_id": tech_id,
+    }, headers=auth_headers)
+    assert team.status_code == 201, team.text
+    team_id = team.json()["data"]["id"]
+
+    member = await client.post(f"/api/v1/maintenance/teams/{team_id}/members?technician_id={tech_id}", headers=auth_headers)
+    assert member.status_code == 201, member.text
+
+    lst = await client.get("/api/v1/maintenance/teams", headers=auth_headers)
+    assert lst.status_code == 200
+    found = next(x for x in lst.json()["data"] if x["id"] == team_id)
+    assert found["member_count"] == 1
+
+    up = await client.patch(f"/api/v1/maintenance/technicians/{tech_id}", json={"hourly_rate": 50}, headers=auth_headers)
+    assert up.status_code == 200, up.text
+    assert Decimal(str(up.json()["data"]["hourly_rate"])) == Decimal("50.00")
+
+
+async def test_contractor_sla_and_certificate(client, auth_headers):
+    c = await client.post("/api/v1/maintenance/contractors", json={
+        "name": "შპს სერვისი", "contact_person": "ნინო", "specialization": "HVAC", "hourly_rate": 60,
+    }, headers=auth_headers)
+    assert c.status_code == 201, c.text
+    contractor_id = c.json()["data"]["id"]
+
+    sla = await client.post("/api/v1/maintenance/slas", json={
+        "name": "კრიტიკული SLA", "priority": "high", "response_hours": 2, "resolution_hours": 8, "contractor_id": contractor_id,
+    }, headers=auth_headers)
+    assert sla.status_code == 201, sla.text
+    assert sla.json()["data"]["contractor_name"] == "შპს სერვისი"
+
+    t = await client.post("/api/v1/maintenance/technicians", json={"name": "თეკლა ტექნიკოსი"}, headers=auth_headers)
+    tech_id = t.json()["data"]["id"]
+
+    cert = await client.post("/api/v1/maintenance/certificates", json={
+        "technician_id": tech_id, "name": "ელექტროუსაფრთხოება", "expiry_date": "2027-01-01",
+    }, headers=auth_headers)
+    assert cert.status_code == 201, cert.text
+    assert cert.json()["data"]["technician_name"] == "თეკლა ტექნიკოსი"
+
+    lst = await client.get("/api/v1/maintenance/certificates", headers=auth_headers)
+    assert lst.status_code == 200
+    assert len(lst.json()["data"]) == 1

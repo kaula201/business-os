@@ -2107,6 +2107,22 @@ const en: Record<string, string> = {
   'მდებარეობები არ არის': 'No locations',
   'წავშალოთ?': 'Delete?',
   'გარანტია': 'Warranty',
+  'ახალი ტექნიკოსი': 'New technician',
+  'ახალი კონტრაქტორი': 'New contractor',
+  'ახალი სერტიფიკატი': 'New certificate',
+  'სპეციალიზაცია': 'Specialization',
+  'საათობრივი ტარიფი': 'Hourly rate',
+  'ტექნიკოსები არ არის': 'No technicians',
+  'კონტრაქტორები არ არის': 'No contractors',
+  'სერტიფიკატები არ არის': 'No certificates',
+  'ლიდერი': 'Leader',
+  'რეაგირების დრო (სთ)': 'Response time (h)',
+  'მოგვარების დრო (სთ)': 'Resolution time (h)',
+  'მოგვარება (სთ)': 'Resolution (h)',
+  'სერტიფიკატის სახელი': 'Certificate name',
+  'ვადის გასვლა': 'Expiry date',
+  'სერტიფიკატი': 'Certificate',
+  'ტექნიკოსი': 'Technician',
 }
 
 i18n.use(initReactI18next).init({

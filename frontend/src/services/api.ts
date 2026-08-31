@@ -467,6 +467,22 @@ export const maintenanceApi = {
   requests: (params?: Record<string, unknown>) => api.get('/maintenance/requests', { params }),
   createRequest: (data: Record<string, unknown>) => api.post('/maintenance/requests', data),
   updateRequest: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/requests/${id}`, data),
+  // ── CMMS Phase 2: resources ──
+  technicians: () => api.get('/maintenance/technicians'),
+  createTechnician: (data: Record<string, unknown>) => api.post('/maintenance/technicians', data),
+  updateTechnician: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/technicians/${id}`, data),
+  teams: () => api.get('/maintenance/teams'),
+  createTeam: (data: Record<string, unknown>) => api.post('/maintenance/teams', data),
+  addTeamMember: (teamId: string, technicianId: string) => api.post(`/maintenance/teams/${teamId}/members?technician_id=${technicianId}`),
+  removeTeamMember: (teamId: string, technicianId: string) => api.delete(`/maintenance/teams/${teamId}/members/${technicianId}`),
+  contractors: () => api.get('/maintenance/contractors'),
+  createContractor: (data: Record<string, unknown>) => api.post('/maintenance/contractors', data),
+  updateContractor: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/contractors/${id}`, data),
+  slas: () => api.get('/maintenance/slas'),
+  createSla: (data: Record<string, unknown>) => api.post('/maintenance/slas', data),
+  updateSla: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/slas/${id}`, data),
+  certificates: () => api.get('/maintenance/certificates'),
+  createCertificate: (data: Record<string, unknown>) => api.post('/maintenance/certificates', data),
 }
 
 // PLM API

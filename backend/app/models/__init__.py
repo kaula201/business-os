@@ -211,10 +211,16 @@ from app.models.signature import SignatureRequest  # noqa: F401
 from app.models.maintenance import (  # noqa: F401
     MaintenanceAsset,
     MaintenanceAssetCategory,
+    MaintenanceCertificate,
+    MaintenanceContractor,
     MaintenanceLocation,
     MaintenanceMeter,
     MaintenanceOrder,
     MaintenancePlan,
     MaintenanceRequest,
+    MaintenanceSLA,
+    MaintenanceTeam,
+    MaintenanceTeamMember,
+    MaintenanceTechnician,
     RepairOrder,
 )
