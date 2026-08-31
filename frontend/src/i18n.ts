@@ -1993,6 +1993,19 @@ const en: Record<string, string> = {
   'შემოთავაზება გაგზავნილია ელფოსტაზე:': 'Quotation sent to email:',
   'ელფოსტის გაგზავნა ვერ მოხერხდა.': 'Failed to send the email.',
   'ელფოსტით გაგზავნა': 'Send by email',
+  'მოთხოვნები': 'Requests',
+  'სამუშაო დავალებები': 'Work orders',
+  'მოვლის გეგმები': 'Maintenance plans',
+  'მდებარეობები': 'Locations',
+  'მრიცხველები': 'Meters',
+  'ტექნიკოსები და გუნდები': 'Technicians & teams',
+  'კონტრაქტორები და SLA': 'Contractors & SLA',
+  'ნაწილები და მასალები': 'Parts & materials',
+  'ანალიტიკა': 'Analytics',
+  'კონფიგურაცია': 'Configuration',
+  'მოთხოვნები, სამუშაო დავალებები, გეგმები, აქტივები და ანალიტიკა': 'Requests, work orders, plans, assets and analytics',
+  'ეს განყოფილება მალე დაემატება — მონაცემები ინახება აქტივებისა და სამუშაო დავალებების მიხედვით.': 'This section is coming soon — data is tracked by assets and work orders.',
+  'მოთხოვნები არ არის': 'No requests',
 }
 
 i18n.use(initReactI18next).init({

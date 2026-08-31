@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Wrench, CalendarClock, Hammer, Plus, CheckCircle2 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { Wrench, CalendarClock, Hammer, Plus, CheckCircle2, ClipboardList, CalendarDays, Boxes, MapPin, Gauge, Users, Handshake, Package, Coins, BarChart3, Settings2 } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
@@ -17,12 +18,35 @@ const statusBadge = (s: string) => {
   return map[s] || 'badge'
 }
 
+const TABS: { key: string; label: string; icon: any }[] = [
+  { key: 'requests', label: 'მოთხოვნები', icon: ClipboardList },
+  { key: 'orders', label: 'სამუშაო დავალებები', icon: Wrench },
+  { key: 'plans', label: 'მოვლის გეგმები', icon: CalendarClock },
+  { key: 'calendar', label: 'კალენდარი', icon: CalendarDays },
+  { key: 'assets', label: 'აქტივები', icon: Boxes },
+  { key: 'locations', label: 'მდებარეობები', icon: MapPin },
+  { key: 'meters', label: 'მრიცხველები', icon: Gauge },
+  { key: 'technicians', label: 'ტექნიკოსები და გუნდები', icon: Users },
+  { key: 'contractors', label: 'კონტრაქტორები და SLA', icon: Handshake },
+  { key: 'parts', label: 'ნაწილები და მასალები', icon: Package },
+  { key: 'costs', label: 'ხარჯები', icon: Coins },
+  { key: 'analytics', label: 'ანალიტიკა', icon: BarChart3 },
+  { key: 'config', label: 'კონფიგურაცია', icon: Settings2 },
+]
+
 export default function MaintenancePage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'plans' | 'orders' | 'repairs'>('plans')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+  const [tab, setTab] = useState<string>(requestedTab && TABS.some((x) => x.key === requestedTab) ? requestedTab : 'requests')
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<Record<string, any>>({})
+
+  const changeTab = (key: string) => {
+    setTab(key)
+    setSearchParams({ tab: key })
+  }
 
   const { data: plans } = useQuery({ queryKey: ['maint-plans'], queryFn: () => maintenanceApi.plans().then(r => r.data.data) })
   const { data: orders } = useQuery({ queryKey: ['maint-orders'], queryFn: () => maintenanceApi.orders().then(r => r.data.data) })
@@ -99,22 +123,28 @@ export default function MaintenancePage() {
     else createRepair.mutate()
   }
 
+  const EmptyState = ({ text }: { text: string }) => (
+    <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-500 dark:border-dark-50 dark:text-gray-400">{text}</div>
+  )
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('მოვლა და შეკეთება')}</h1>
-          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('გეგმები, მოვლის დავალებები, სარემონტო სამუშაოები')}</p>
+          <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('მოთხოვნები, სამუშაო დავალებები, გეგმები, აქტივები და ანალიტიკა')}</p>
         </div>
-        <button onClick={() => openCreate(tab === 'plans' ? 'plan' : tab === 'orders' ? 'order' : 'repair')} className="btn btn-primary flex items-center gap-2">
-          <Plus size={18} /> {t('ახალი')}
-        </button>
+        {['requests', 'orders', 'plans'].includes(tab) && (
+          <button onClick={() => openCreate(tab === 'plans' ? 'plan' : tab === 'orders' ? 'order' : 'repair')} className="btn btn-primary flex items-center gap-2">
+            <Plus size={18} /> {t('ახალი')}
+          </button>
+        )}
       </div>
 
-      <div className="flex gap-2 border-b dark:border-dark-50">
-        {([['plans', 'გეგმები', CalendarClock], ['orders', 'მოვლის დავალებები', Wrench], ['repairs', 'შეკეთება', Hammer]] as const).map(([key, label, Icon]) => (
-          <button key={key} onClick={() => setTab(key)} className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium ${tab === key ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>
-            <Icon size={16} /> {t(label)}
+      <div className="flex flex-wrap gap-1 border-b pb-2 dark:border-dark-50">
+        {TABS.map(({ key, label, icon: Icon }) => (
+          <button key={key} onClick={() => changeTab(key)} className={`flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium ${tab === key ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>
+            <Icon size={15} /> {t(label)}
           </button>
         ))}
       </div>
@@ -183,7 +213,7 @@ export default function MaintenancePage() {
         </div>
       )}
 
-      {tab === 'repairs' && (
+      {tab === 'requests' && (
         <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
@@ -197,7 +227,7 @@ export default function MaintenancePage() {
             </thead>
             <tbody className="divide-y dark:divide-dark-50">
               {(repairs || []).length === 0 ? (
-                <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('სარემონტო სამუშაოები არ არის')}</td></tr>
+                <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('მოთხოვნები არ არის')}</td></tr>
               ) : (repairs || []).map((r: any) => (
                 <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                   <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{r.repair_number}</td>
@@ -216,6 +246,10 @@ export default function MaintenancePage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {['calendar', 'assets', 'locations', 'meters', 'technicians', 'contractors', 'parts', 'costs', 'analytics', 'config'].includes(tab) && (
+        <EmptyState text={t('ეს განყოფილება მალე დაემატება — მონაცემები ინახება აქტივებისა და სამუშაო დავალებების მიხედვით.')} />
       )}
 
       <Modal open={open} onClose={() => setOpen(false)} title={t('ახალი ჩანაწერი')}>

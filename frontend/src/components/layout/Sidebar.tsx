@@ -48,12 +48,29 @@ const GROUP_DEFS: { id: string; label: string; icon: any; prefixes: string[] }[]
 // მიმოხილვა, რჩეულები და ბოლო ნანახი ყოველთვის ზევით რჩება.
 const NAV_ORDER: (string)[] = [
   'sales', 'purchases', 'warehouse',
-  '/maintenance', '/production',
+  'maintenance', '/production',
   'finance', 'accounting',
   '/crm', '/hr', '/projects', '/fleet', '/documents', '/helpdesk',
   '/reports', '/ai',
   'other',
   '/settings',
+]
+
+// Maintenance sub-groups (collapsible under the Maintenance group)
+const MAINTENANCE_SUBGROUPS: { key: string; label: string }[] = [
+  { key: 'requests', label: 'მოთხოვნები' },
+  { key: 'orders', label: 'სამუშაო დავალებები' },
+  { key: 'plans', label: 'მოვლის გეგმები' },
+  { key: 'calendar', label: 'კალენდარი' },
+  { key: 'assets', label: 'აქტივები' },
+  { key: 'locations', label: 'მდებარეობები' },
+  { key: 'meters', label: 'მრიცხველები' },
+  { key: 'technicians', label: 'ტექნიკოსები და გუნდები' },
+  { key: 'contractors', label: 'კონტრაქტორები და SLA' },
+  { key: 'parts', label: 'ნაწილები და მასალები' },
+  { key: 'costs', label: 'ხარჯები' },
+  { key: 'analytics', label: 'ანალიტიკა' },
+  { key: 'config', label: 'კონფიგურაცია' },
 ]
 
 // ── Sub-components ──────────────────────────────────────────────────
@@ -328,6 +345,31 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
 
               {/* Direct top-level items (excluding მიმოხილვა) + groups, in user-defined order */}
               {NAV_ORDER.map((key) => {
+                if (key === 'maintenance') {
+                  const maintItem = directItems.find((i) => i.to === '/maintenance')
+                  if (!maintItem) return null
+                  return (
+                    <div key="maintenance" className="pt-1">
+                      <CollapsibleGroup
+                        icon={Wrench}
+                        label={maintItem.label}
+                        open={openGroups.has('maintenance')}
+                        onToggle={() => toggleGroup('maintenance')}
+                      >
+                        {MAINTENANCE_SUBGROUPS.map((sub) => (
+                          <NavLinkItem
+                            key={sub.key}
+                            item={{ to: `/maintenance?tab=${sub.key}`, icon: Wrench, label: sub.label }}
+                            onClose={onClose}
+                            depth={1}
+                            isFav={favorites.includes(`/maintenance?tab=${sub.key}`)}
+                            onToggleFav={toggleFav}
+                          />
+                        ))}
+                      </CollapsibleGroup>
+                    </div>
+                  )
+                }
                 if (key.startsWith('/')) {
                   const item = directItems.find((i) => i.to === key)
                   if (!item || item.to === '/dashboard') return null
