@@ -219,6 +219,9 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
     )
     .map((i) => (i.to === '/dashboard' ? { ...i, label: 'მიმოხილვა' } : i))
 
+  // მიმოხილვა (dashboard) — rendered separately, always above "ბოლო ნანახი"
+  const overviewItem = directItems.find((i) => i.to === '/dashboard')
+
   // Grouped items by route prefix
   const groupedItems = GROUP_DEFS.map((group) => ({
     ...group,
@@ -289,6 +292,13 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                 </div>
               )}
 
+              {/* მიმოხილვა — always above "ბოლო ნანახი" */}
+              {overviewItem && (
+                <div className="pt-1">
+                  <NavLinkItem item={overviewItem} onClose={onClose} depth={0} isFav={favorites.includes('/dashboard')} onToggleFav={toggleFav} />
+                </div>
+              )}
+
               {/* Recent */}
               {recentItems.length > 0 && (
                 <div className="pt-2">
@@ -304,8 +314,8 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                 </div>
               )}
 
-              {/* Direct top-level items */}
-              {directItems.map((item) => (
+              {/* Direct top-level items (excluding მიმოხილვა) */}
+              {directItems.filter((i) => i.to !== '/dashboard').map((item) => (
                 <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
               ))}
 
