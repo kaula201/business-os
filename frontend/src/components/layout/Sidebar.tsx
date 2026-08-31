@@ -44,6 +44,18 @@ const GROUP_DEFS: { id: string; label: string; icon: any; prefixes: string[] }[]
   { id: 'other', label: 'სხვა', icon: Settings, prefixes: ['/tasks', '/automations', '/payments', '/email-calendar', '/integrations', '/security', '/kitchen', '/studio', '/platform-studio', '/marketplace', '/field-service', '/quality'] },
 ]
 
+// User-defined order: group ids and direct route prefixes interleaved.
+// მიმოხილვა, რჩეულები და ბოლო ნანახი ყოველთვის ზევით რჩება.
+const NAV_ORDER: (string)[] = [
+  'sales', 'purchases', 'warehouse',
+  '/maintenance', '/production',
+  'finance', 'accounting',
+  '/crm', '/hr', '/projects', '/fleet', '/documents', '/helpdesk',
+  '/reports', '/ai',
+  'other',
+  '/settings',
+]
+
 // ── Sub-components ──────────────────────────────────────────────────
 
 function NavLinkItem({ item, onClose, depth = 0, isFav, onToggleFav }: { item: NavItem; onClose: () => void; depth?: number; isFav?: boolean; onToggleFav?: (to: string) => void }) {
@@ -314,26 +326,32 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                 </div>
               )}
 
-              {/* Direct top-level items (excluding მიმოხილვა) */}
-              {directItems.filter((i) => i.to !== '/dashboard').map((item) => (
-                <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
-              ))}
-
-              {/* Groups (sales, purchases, warehouse, finance, accounting, other) */}
-              {groupedItems.map((group) => (
-                <div key={group.id} className="pt-1">
-                  <CollapsibleGroup
-                    icon={group.icon}
-                    label={group.label}
-                    open={openGroups.has(group.id)}
-                    onToggle={() => toggleGroup(group.id)}
-                  >
-                    {group.items.map((item) => (
-                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
-                    ))}
-                  </CollapsibleGroup>
-                </div>
-              ))}
+              {/* Direct top-level items (excluding მიმოხილვა) + groups, in user-defined order */}
+              {NAV_ORDER.map((key) => {
+                if (key.startsWith('/')) {
+                  const item = directItems.find((i) => i.to === key)
+                  if (!item || item.to === '/dashboard') return null
+                  return (
+                    <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
+                  )
+                }
+                const group = groupedItems.find((g) => g.id === key)
+                if (!group) return null
+                return (
+                  <div key={group.id} className="pt-1">
+                    <CollapsibleGroup
+                      icon={group.icon}
+                      label={group.label}
+                      open={openGroups.has(group.id)}
+                      onToggle={() => toggleGroup(group.id)}
+                    >
+                      {group.items.map((item) => (
+                        <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
+                      ))}
+                    </CollapsibleGroup>
+                  </div>
+                )
+              })}
             </>
           )}
         </nav>
