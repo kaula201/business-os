@@ -99,6 +99,8 @@ from app.schemas.maintenance import (
     MaintenanceSLACreate,
     MaintenanceSLAResponse,
     MaintenanceSLAUpdate,
+    MaintenanceStatusConfigCreate,
+    MaintenanceStatusConfigResponse,
     MaintenanceTeamCreate,
     MaintenanceTeamResponse,
     MaintenanceTeamUpdate,
@@ -110,6 +112,8 @@ from app.schemas.maintenance import (
     MaintenanceToolIssueResponse,
     MaintenanceToolResponse,
     MaintenanceToolUpdate,
+    MaintenanceWorkTypeCreate,
+    MaintenanceWorkTypeResponse,
 )
 
 router = APIRouter(prefix="/maintenance", tags=["Maintenance & Repairs"])
