@@ -76,19 +76,24 @@ const MAINTENANCE_SUBGROUPS: { key: string; label: string }[] = [
 
 // ── Sub-components ──────────────────────────────────────────────────
 
-function NavLinkItem({ item, onClose, depth = 0, isFav, onToggleFav }: { item: NavItem; onClose: () => void; depth?: number; isFav?: boolean; onToggleFav?: (to: string) => void }) {
+function NavLinkItem({ item, onClose, depth = 0, isFav, onToggleFav, exact = false }: { item: NavItem; onClose: () => void; depth?: number; isFav?: boolean; onToggleFav?: (to: string) => void; exact?: boolean }) {
   const { t } = useTranslation()
+  const { search } = useLocation()
+  const targetSearch = item.to.includes('?') ? '?' + item.to.split('?')[1] : ''
   return (
     <NavLink
       to={item.to}
       onClick={onClose}
-      className={({ isActive }) =>
-        `group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all
-        ${isActive 
+      className={({ isActive }) => {
+        // For query-param links (?tab=) require an exact match so only the
+        // active sub-item is highlighted — not every /maintenance link.
+        const active = exact ? isActive && search === targetSearch : isActive
+        return `group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all
+        ${active 
           ? 'bg-primary-50 text-primary-800 shadow-sm ring-1 ring-primary-100 dark:bg-primary-900/40 dark:text-primary-200 dark:ring-primary-800/50' 
           : 'text-brandgray-600 hover:bg-brandgray-50 hover:text-brandgray-900 dark:text-gray-400 dark:hover:bg-dark-100 dark:hover:text-gray-200'
         }`
-      }
+      }}
     >
       <item.icon size={depth === 0 ? 20 : 17} className="transition-transform group-hover:scale-105 shrink-0" />
       <span className="truncate flex-1">{t(item.label)}</span>
@@ -371,6 +376,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                             item={{ to: `/maintenance?tab=${sub.key}`, icon: Wrench, label: sub.label }}
                             onClose={onClose}
                             depth={1}
+                            exact
                             isFav={favorites.includes(`/maintenance?tab=${sub.key}`)}
                             onToggleFav={toggleFav}
                           />
