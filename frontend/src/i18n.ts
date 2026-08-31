@@ -2164,6 +2164,21 @@ const en: Record<string, string> = {
   'პუნქტები': 'Items',
   'ინციდენტის ნომერი': 'Incident number',
   'სიმძიმე': 'Severity',
+  'ახალი მეტრიკა': 'New metric',
+  'ხარჯები არ არის': 'No costs',
+  'ბიუჯეტები არ არის': 'No budgets',
+  'მეტრიკები არ არის': 'No metrics',
+  'ხარჯის ტიპი': 'Cost type',
+  'შრომა': 'Labor',
+  'კონტრაქტორი': 'Contractor',
+  'პერიოდის დასაწყისი': 'Period start',
+  'პერიოდის დასასრული': 'Period end',
+  'დაგეგმილი თანხა': 'Planned amount',
+  'ათვისება': 'Utilization',
+  'ღია დავალებები': 'Open orders',
+  'დეფიციტური ნაწილები': 'Low stock parts',
+  'ბიუჯეტის ათვისება': 'Budget utilization',
+  'დაზიანებები': 'Failures',
 }
 
 i18n.use(initReactI18next).init({

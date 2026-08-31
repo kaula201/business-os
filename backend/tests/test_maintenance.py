@@ -400,3 +400,73 @@ async def test_work_permit_and_incident_lifecycle(client, auth_headers):
     # filter by status
     r6 = await client.get("/api/v1/maintenance/incidents?status=resolved", headers=auth_headers)
     assert len(r6.json()["data"]) == 1
+
+
+
+# ── CMMS Phase 5: costs & analytics ──────────────────────────────────────────
+
+async def test_cost_record_and_budget(client, auth_headers):
+    # create asset first
+    r = await client.post("/api/v1/maintenance/assets", headers=auth_headers, json={
+        "asset_code": "CMP-001", "name": "კომპრესორი 1", "category_id": None, "location_id": None,
+    })
+    assert r.status_code == 201, r.text
+    asset = r.json()["data"]
+
+    # cost record
+    r2 = await client.post("/api/v1/maintenance/cost-records", headers=auth_headers, json={
+        "asset_id": asset["id"], "cost_type": "parts", "description": "ფილტრი", "amount": "45.50",
+    })
+    assert r2.status_code == 201, r2.text
+    assert r2.json()["data"]["asset_name"] == "კომპრესორი 1"
+
+    r3 = await client.post("/api/v1/maintenance/cost-records", headers=auth_headers, json={
+        "asset_id": asset["id"], "cost_type": "labor", "description": "მონტაჟი", "amount": "120.00",
+    })
+    assert r3.status_code == 201
+
+    # budget
+    r4 = await client.post("/api/v1/maintenance/budgets", headers=auth_headers, json={
+        "name": "2026 წლის ბიუჯეტი",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "planned_amount": "1000.00",
+    })
+    assert r4.status_code == 201, r4.text
+    budget = r4.json()["data"]
+    assert budget["spent_amount"] == "0"
+
+    # summary
+    r5 = await client.get("/api/v1/maintenance/analytics/summary", headers=auth_headers)
+    assert r5.status_code == 200, r5.text
+    s = r5.json()["data"]
+    assert s["total_cost"] == "165.50"
+    assert s["parts_cost"] == "45.50"
+    assert s["labor_cost"] == "120.00"
+    assert s["total_assets"] == 1
+    assert s["budget_utilization"] == "16.55"
+
+
+async def test_reliability_metric(client, auth_headers):
+    r = await client.post("/api/v1/maintenance/assets", headers=auth_headers, json={
+        "asset_code": "PMP-001", "name": "ტუმბო A", "category_id": None, "location_id": None,
+    })
+    asset = r.json()["data"]
+
+    r2 = await client.post("/api/v1/maintenance/reliability-metrics", headers=auth_headers, json={
+        "asset_id": asset["id"],
+        "period_start": "2026-08-01",
+        "period_end": "2026-08-31",
+        "downtime_hours": "8.5",
+        "failures": 2,
+        "mttr_hours": "4.25",
+        "mtbf_hours": "360.0",
+    })
+    assert r2.status_code == 201, r2.text
+    m = r2.json()["data"]
+    assert m["asset_name"] == "ტუმბო A"
+    assert m["failures"] == 2
+
+    # filter by asset
+    r3 = await client.get(f"/api/v1/maintenance/reliability-metrics?asset_id={asset['id']}", headers=auth_headers)
+    assert len(r3.json()["data"]) == 1

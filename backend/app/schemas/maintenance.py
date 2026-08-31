@@ -675,3 +675,94 @@ class MaintenanceIncidentResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Phase 5: Costs & Analytics ────────────────────────────────────────────────
+
+class MaintenanceCostRecordCreate(BaseModel):
+    order_id: UUID | None = None
+    asset_id: UUID | None = None
+    cost_type: str = "other"
+    description: str | None = None
+    amount: Decimal = Field(default=Decimal("0"), ge=0)
+    incurred_at: datetime | None = None
+
+
+class MaintenanceCostRecordResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    order_id: UUID | None
+    asset_id: UUID | None
+    cost_type: str
+    description: str | None
+    amount: Decimal
+    incurred_at: datetime
+    order_number: str | None = None
+    asset_name: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceBudgetCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    period_start: date
+    period_end: date
+    planned_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    notes: str | None = None
+
+
+class MaintenanceBudgetResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    name: str
+    period_start: date
+    period_end: date
+    planned_amount: Decimal
+    spent_amount: Decimal = Decimal("0")
+    notes: str | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceReliabilityMetricCreate(BaseModel):
+    asset_id: UUID
+    period_start: date
+    period_end: date
+    downtime_hours: Decimal = Field(default=Decimal("0"), ge=0)
+    failures: int = Field(default=0, ge=0)
+    mttr_hours: Decimal = Field(default=Decimal("0"), ge=0)
+    mtbf_hours: Decimal = Field(default=Decimal("0"), ge=0)
+    notes: str | None = None
+
+
+class MaintenanceReliabilityMetricResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    asset_id: UUID
+    period_start: date
+    period_end: date
+    downtime_hours: Decimal
+    failures: int
+    mttr_hours: Decimal
+    mtbf_hours: Decimal
+    notes: str | None
+    asset_name: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceAnalyticsSummary(BaseModel):
+    total_cost: Decimal = Decimal("0")
+    labor_cost: Decimal = Decimal("0")
+    parts_cost: Decimal = Decimal("0")
+    contractor_cost: Decimal = Decimal("0")
+    other_cost: Decimal = Decimal("0")
+    open_orders: int = 0
+    completed_orders: int = 0
+    total_assets: int = 0
+    low_stock_parts: int = 0
+    open_incidents: int = 0
+    budget_utilization: Decimal = Decimal("0")

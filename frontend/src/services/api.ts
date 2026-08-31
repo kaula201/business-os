@@ -507,6 +507,14 @@ export const maintenanceApi = {
   incidents: (params?: Record<string, unknown>) => api.get('/maintenance/incidents', { params }),
   createIncident: (data: Record<string, unknown>) => api.post('/maintenance/incidents', data),
   updateIncident: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/incidents/${id}`, data),
+  // Phase 5: costs & analytics
+  costRecords: (params?: Record<string, unknown>) => api.get('/maintenance/cost-records', { params }),
+  createCostRecord: (data: Record<string, unknown>) => api.post('/maintenance/cost-records', data),
+  budgets: () => api.get('/maintenance/budgets'),
+  createBudget: (data: Record<string, unknown>) => api.post('/maintenance/budgets', data),
+  reliabilityMetrics: (params?: Record<string, unknown>) => api.get('/maintenance/reliability-metrics', { params }),
+  createReliabilityMetric: (data: Record<string, unknown>) => api.post('/maintenance/reliability-metrics', data),
+  analyticsSummary: () => api.get('/maintenance/analytics/summary'),
 }
 
 // PLM API

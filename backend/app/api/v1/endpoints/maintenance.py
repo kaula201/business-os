@@ -1,5 +1,6 @@
 """Maintenance & Repairs API — CMMS: assets, categories, locations, meters, requests, plans, orders, repairs."""
 import uuid
+from decimal import Decimal
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,10 +13,12 @@ from app.core.time import utc_now
 from app.models.maintenance import (
     MaintenanceAsset,
     MaintenanceAssetCategory,
+    MaintenanceBudget,
     MaintenanceCertificate,
     MaintenanceChecklist,
     MaintenanceChecklistItem,
     MaintenanceContractor,
+    MaintenanceCostRecord,
     MaintenanceIncident,
     MaintenanceLocation,
     MaintenanceMeter,
@@ -23,6 +26,7 @@ from app.models.maintenance import (
     MaintenancePart,
     MaintenancePartRequest,
     MaintenancePlan,
+    MaintenanceReliabilityMetric,
     MaintenanceRequest,
     MaintenanceSafetyInstruction,
     MaintenanceSLA,
@@ -72,11 +76,18 @@ from app.schemas.maintenance import (
     MaintenanceWorkPermitCreate,
     MaintenanceWorkPermitResponse,
     MaintenanceWorkPermitUpdate,
+    MaintenanceAnalyticsSummary,
+    MaintenanceBudgetCreate,
+    MaintenanceBudgetResponse,
     MaintenanceChecklistCreate,
     MaintenanceChecklistResponse,
+    MaintenanceCostRecordCreate,
+    MaintenanceCostRecordResponse,
     MaintenanceIncidentCreate,
     MaintenanceIncidentResponse,
     MaintenanceIncidentUpdate,
+    MaintenanceReliabilityMetricCreate,
+    MaintenanceReliabilityMetricResponse,
     MaintenanceSLACreate,
     MaintenanceSLAResponse,
     MaintenanceSLAUpdate,
@@ -1187,3 +1198,140 @@ async def update_incident(
     await db.flush()
     await db.refresh(i)
     return ResponseBase(data=MaintenanceIncidentResponse.model_validate(i), message="ინციდენტი განახლდა")
+
+
+# ── Phase 5: Costs & Analytics ───────────────────────────────────────────────
+
+@router.get("/cost-records", response_model=ResponseBase[list[MaintenanceCostRecordResponse]])
+async def list_cost_records(
+    cost_type: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(MaintenanceCostRecord).where(MaintenanceCostRecord.company_id == current_user.company_id)
+    if cost_type:
+        q = q.where(MaintenanceCostRecord.cost_type == cost_type)
+    rows = (await db.execute(q.order_by(MaintenanceCostRecord.incurred_at.desc()))).scalars().all()
+    order_ids = {c.order_id for c in rows if c.order_id}
+    asset_ids = {c.asset_id for c in rows if c.asset_id}
+    order_nums = {row[0]: row[1] for row in (await db.execute(
+        select(MaintenanceOrder.id, MaintenanceOrder.order_number).where(MaintenanceOrder.id.in_(order_ids))
+    )).all()} if order_ids else {}
+    asset_names = {row[0]: row[1] for row in (await db.execute(
+        select(MaintenanceAsset.id, MaintenanceAsset.name).where(MaintenanceAsset.id.in_(asset_ids))
+    )).all()} if asset_ids else {}
+    return ResponseBase(data=[MaintenanceCostRecordResponse.model_validate(c).model_copy(update={"order_number": order_nums.get(c.order_id), "asset_name": asset_names.get(c.asset_id)}) for c in rows])
+
+
+@router.post("/cost-records", response_model=ResponseBase[MaintenanceCostRecordResponse], status_code=201)
+async def create_cost_record(
+    data: MaintenanceCostRecordCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = MaintenanceCostRecord(company_id=current_user.company_id, **data.model_dump())
+    db.add(c)
+    await db.flush()
+    await db.refresh(c)
+    order_number = None
+    asset_name = None
+    if c.order_id:
+        order_number = (await db.execute(select(MaintenanceOrder.order_number).where(MaintenanceOrder.id == c.order_id))).scalar_one_or_none()
+    if c.asset_id:
+        asset_name = (await db.execute(select(MaintenanceAsset.name).where(MaintenanceAsset.id == c.asset_id))).scalar_one_or_none()
+    return ResponseBase(data=MaintenanceCostRecordResponse.model_validate(c).model_copy(update={"order_number": order_number, "asset_name": asset_name}), message="ხარჯი დაემატა")
+
+
+@router.get("/budgets", response_model=ResponseBase[list[MaintenanceBudgetResponse]])
+async def list_budgets(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenanceBudget).where(MaintenanceBudget.company_id == current_user.company_id).order_by(MaintenanceBudget.period_start.desc())
+    )).scalars().all()
+    result = []
+    for b in rows:
+        spent = (await db.execute(
+            select(func.coalesce(func.sum(MaintenanceCostRecord.amount), 0)).where(
+                MaintenanceCostRecord.company_id == current_user.company_id,
+                MaintenanceCostRecord.incurred_at >= datetime.combine(b.period_start, datetime.min.time()),
+                MaintenanceCostRecord.incurred_at <= datetime.combine(b.period_end, datetime.max.time()),
+            )
+        )).scalar_one()
+        result.append(MaintenanceBudgetResponse.model_validate(b).model_copy(update={"spent_amount": Decimal(str(spent))}))
+    return ResponseBase(data=result)
+
+
+@router.post("/budgets", response_model=ResponseBase[MaintenanceBudgetResponse], status_code=201)
+async def create_budget(
+    data: MaintenanceBudgetCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    b = MaintenanceBudget(company_id=current_user.company_id, **data.model_dump())
+    db.add(b)
+    await db.flush()
+    return ResponseBase(data=MaintenanceBudgetResponse.model_validate(b), message="ბიუჯეტი შეიქმნა")
+
+
+@router.get("/reliability-metrics", response_model=ResponseBase[list[MaintenanceReliabilityMetricResponse]])
+async def list_reliability_metrics(
+    asset_id: uuid.UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(MaintenanceReliabilityMetric).where(MaintenanceReliabilityMetric.company_id == current_user.company_id)
+    if asset_id:
+        q = q.where(MaintenanceReliabilityMetric.asset_id == asset_id)
+    rows = (await db.execute(q.order_by(MaintenanceReliabilityMetric.period_start.desc()))).scalars().all()
+    asset_ids = {m.asset_id for m in rows}
+    asset_names = {row[0]: row[1] for row in (await db.execute(
+        select(MaintenanceAsset.id, MaintenanceAsset.name).where(MaintenanceAsset.id.in_(asset_ids))
+    )).all()} if asset_ids else {}
+    return ResponseBase(data=[MaintenanceReliabilityMetricResponse.model_validate(m).model_copy(update={"asset_name": asset_names.get(m.asset_id)}) for m in rows])
+
+
+@router.post("/reliability-metrics", response_model=ResponseBase[MaintenanceReliabilityMetricResponse], status_code=201)
+async def create_reliability_metric(
+    data: MaintenanceReliabilityMetricCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    asset = (await db.execute(select(MaintenanceAsset.id).where(
+        MaintenanceAsset.id == data.asset_id, MaintenanceAsset.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="აქტივი არ მოიძებნა")
+    m = MaintenanceReliabilityMetric(company_id=current_user.company_id, **data.model_dump())
+    db.add(m)
+    await db.flush()
+    await db.refresh(m)
+    asset_name = (await db.execute(select(MaintenanceAsset.name).where(MaintenanceAsset.id == m.asset_id))).scalar_one_or_none()
+    return ResponseBase(data=MaintenanceReliabilityMetricResponse.model_validate(m).model_copy(update={"asset_name": asset_name}), message="მეტრიკა დაემატა")
+
+
+@router.get("/analytics/summary", response_model=ResponseBase[MaintenanceAnalyticsSummary])
+async def analytics_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    cid = current_user.company_id
+    total = (await db.execute(select(func.coalesce(func.sum(MaintenanceCostRecord.amount), 0)).where(MaintenanceCostRecord.company_id == cid))).scalar_one()
+    labor = (await db.execute(select(func.coalesce(func.sum(MaintenanceCostRecord.amount), 0)).where(MaintenanceCostRecord.company_id == cid, MaintenanceCostRecord.cost_type == "labor"))).scalar_one()
+    parts = (await db.execute(select(func.coalesce(func.sum(MaintenanceCostRecord.amount), 0)).where(MaintenanceCostRecord.company_id == cid, MaintenanceCostRecord.cost_type == "parts"))).scalar_one()
+    contractor = (await db.execute(select(func.coalesce(func.sum(MaintenanceCostRecord.amount), 0)).where(MaintenanceCostRecord.company_id == cid, MaintenanceCostRecord.cost_type == "contractor"))).scalar_one()
+    other = (await db.execute(select(func.coalesce(func.sum(MaintenanceCostRecord.amount), 0)).where(MaintenanceCostRecord.company_id == cid, MaintenanceCostRecord.cost_type == "other"))).scalar_one()
+    open_orders = (await db.execute(select(func.count(MaintenanceOrder.id)).where(MaintenanceOrder.company_id == cid, MaintenanceOrder.status.notin_(["completed", "cancelled"])))).scalar_one()
+    completed_orders = (await db.execute(select(func.count(MaintenanceOrder.id)).where(MaintenanceOrder.company_id == cid, MaintenanceOrder.status == "completed"))).scalar_one()
+    total_assets = (await db.execute(select(func.count(MaintenanceAsset.id)).where(MaintenanceAsset.company_id == cid))).scalar_one()
+    low_stock = (await db.execute(select(func.count(MaintenancePart.id)).where(MaintenancePart.company_id == cid, MaintenancePart.quantity_on_hand <= MaintenancePart.reorder_level))).scalar_one()
+    open_incidents = (await db.execute(select(func.count(MaintenanceIncident.id)).where(MaintenanceIncident.company_id == cid, MaintenanceIncident.status.in_(["open", "investigating"])))).scalar_one()
+    budget_planned = (await db.execute(select(func.coalesce(func.sum(MaintenanceBudget.planned_amount), 0)).where(MaintenanceBudget.company_id == cid))).scalar_one()
+    utilization = (total / budget_planned * 100) if budget_planned and budget_planned > 0 else Decimal("0")
+    utilization = utilization.quantize(Decimal("0.01"))
+    return ResponseBase(data=MaintenanceAnalyticsSummary(
+        total_cost=total, labor_cost=labor, parts_cost=parts, contractor_cost=contractor, other_cost=other,
+        open_orders=open_orders, completed_orders=completed_orders, total_assets=total_assets,
+        low_stock_parts=low_stock, open_incidents=open_incidents, budget_utilization=utilization,
+    ))

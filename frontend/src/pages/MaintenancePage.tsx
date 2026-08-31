@@ -70,6 +70,10 @@ export default function MaintenancePage() {
   const { data: workPermits } = useQuery({ queryKey: ['maint-permits'], queryFn: () => maintenanceApi.workPermits().then(r => r.data.data) })
   const { data: checklists } = useQuery({ queryKey: ['maint-checklists'], queryFn: () => maintenanceApi.checklists().then(r => r.data.data) })
   const { data: incidents } = useQuery({ queryKey: ['maint-incidents'], queryFn: () => maintenanceApi.incidents().then(r => r.data.data) })
+  const { data: costRecords } = useQuery({ queryKey: ['maint-costs'], queryFn: () => maintenanceApi.costRecords().then(r => r.data.data) })
+  const { data: budgets } = useQuery({ queryKey: ['maint-budgets'], queryFn: () => maintenanceApi.budgets().then(r => r.data.data) })
+  const { data: reliabilityMetrics } = useQuery({ queryKey: ['maint-reliability'], queryFn: () => maintenanceApi.reliabilityMetrics().then(r => r.data.data) })
+  const { data: analytics } = useQuery({ queryKey: ['maint-analytics'], queryFn: () => maintenanceApi.analyticsSummary().then(r => r.data.data) })
 
   const createPlan = useMutation({
     mutationFn: () => maintenanceApi.createPlan(form),
@@ -182,6 +186,18 @@ export default function MaintenancePage() {
   const resolveIncident = useMutation({
     mutationFn: (id: string) => maintenanceApi.updateIncident(id, { status: 'resolved' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['maint-incidents'] }),
+  })
+  const createCostRecord = useMutation({
+    mutationFn: () => maintenanceApi.createCostRecord(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-costs'] }); qc.invalidateQueries({ queryKey: ['maint-analytics'] }) },
+  })
+  const createBudget = useMutation({
+    mutationFn: () => maintenanceApi.createBudget(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-budgets'] }); qc.invalidateQueries({ queryKey: ['maint-analytics'] }) },
+  })
+  const createReliabilityMetric = useMutation({
+    mutationFn: () => maintenanceApi.createReliabilityMetric(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-reliability'] }) },
   })
 
   const openCreate = (kind: string) => {
@@ -434,6 +450,50 @@ export default function MaintenancePage() {
         <FormField label={t('აღწერა')}><textarea className="input" rows={3} value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} /></FormField>
       </>
     )
+    if (kind === 'cost') return (
+      <>
+        <FormField label={t('ხარჯის ტიპი')}>
+          <select className="input" value={form.cost_type || 'other'} onChange={e => setForm({ ...form, cost_type: e.target.value })}>
+            <option value="labor">{t('შრომა')}</option>
+            <option value="parts">{t('ნაწილები')}</option>
+            <option value="contractor">{t('კონტრაქტორი')}</option>
+            <option value="other">{t('სხვა')}</option>
+          </select>
+        </FormField>
+        <FormField label={t('აქტივი')}>
+          <select className="input" value={form.asset_id || ''} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
+            <option value="">—</option>
+            {(assets || []).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </FormField>
+        <FormField label={t('აღწერა')}><input className="input" value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} /></FormField>
+        <FormField label={t('თანხა')} required><input required type="number" className="input" value={form.amount || 0} onChange={e => setForm({ ...form, amount: e.target.value })} /></FormField>
+      </>
+    )
+    if (kind === 'budget') return (
+      <>
+        <FormField label={t('სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
+        <FormField label={t('პერიოდის დასაწყისი')}><input type="date" className="input" value={form.period_start || ''} onChange={e => setForm({ ...form, period_start: e.target.value })} /></FormField>
+        <FormField label={t('პერიოდის დასასრული')}><input type="date" className="input" value={form.period_end || ''} onChange={e => setForm({ ...form, period_end: e.target.value })} /></FormField>
+        <FormField label={t('დაგეგმილი თანხა')} required><input required type="number" className="input" value={form.planned_amount || 0} onChange={e => setForm({ ...form, planned_amount: e.target.value })} /></FormField>
+      </>
+    )
+    if (kind === 'reliability') return (
+      <>
+        <FormField label={t('აქტივი')} required>
+          <select required className="input" value={form.asset_id || ''} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
+            <option value="">—</option>
+            {(assets || []).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </FormField>
+        <FormField label={t('პერიოდის დასაწყისი')}><input type="date" className="input" value={form.period_start || ''} onChange={e => setForm({ ...form, period_start: e.target.value })} /></FormField>
+        <FormField label={t('პერიოდის დასასრული')}><input type="date" className="input" value={form.period_end || ''} onChange={e => setForm({ ...form, period_end: e.target.value })} /></FormField>
+        <FormField label={t('Downtime (სთ)')}><input type="number" className="input" value={form.downtime_hours || 0} onChange={e => setForm({ ...form, downtime_hours: e.target.value })} /></FormField>
+        <FormField label={t('დაზიანებები')}><input type="number" className="input" value={form.failures || 0} onChange={e => setForm({ ...form, failures: e.target.value })} /></FormField>
+        <FormField label={t('MTTR (სთ)')}><input type="number" className="input" value={form.mttr_hours || 0} onChange={e => setForm({ ...form, mttr_hours: e.target.value })} /></FormField>
+        <FormField label={t('MTBF (სთ)')}><input type="number" className="input" value={form.mtbf_hours || 0} onChange={e => setForm({ ...form, mtbf_hours: e.target.value })} /></FormField>
+      </>
+    )
     return (
       <>
         <FormField label={t('აღჭურვილობა')}><input className="input" value={form.equipment_name || ''} onChange={e => setForm({ ...form, equipment_name: e.target.value })} /></FormField>
@@ -470,6 +530,9 @@ export default function MaintenancePage() {
       createChecklist.mutate({ ...form, items })
     }
     else if (form.kind === 'incident') createIncident.mutate()
+    else if (form.kind === 'cost') createCostRecord.mutate()
+    else if (form.kind === 'budget') createBudget.mutate()
+    else if (form.kind === 'reliability') createReliabilityMetric.mutate()
     else createRepair.mutate()
   }
 
@@ -1075,33 +1138,77 @@ export default function MaintenancePage() {
       )}
 
       {tab === 'costs' && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="flex justify-end">
-            <button onClick={() => openCreate('sla')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი SLA')}</button>
+            <button onClick={() => openCreate('cost')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი ხარჯი')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('ტიპი')}</th>
+                  <th className="px-4 py-3">{t('აღწერა')}</th>
+                  <th className="px-4 py-3">{t('აქტივი')}</th>
+                  <th className="px-4 py-3">{t('თანხა')}</th>
+                  <th className="px-4 py-3">{t('თარიღი')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(costRecords || []).length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('ხარჯები არ არის')}</td></tr>
+                ) : (costRecords || []).map((c: any) => (
+                  <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3">
+                      {c.cost_type === 'labor' ? <span className="badge">{t('შრომა')}</span> : c.cost_type === 'parts' ? <span className="badge badge-warning">{t('ნაწილები')}</span> : c.cost_type === 'contractor' ? <span className="badge badge-info">{t('კონტრაქტორი')}</span> : <span className="badge">{t('სხვა')}</span>}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{c.description || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.asset_name || c.order_number || '—'}</td>
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{c.amount} ₾</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.incurred_at ? fmtDate(new Date(c.incurred_at)) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('budget')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი ბიუჯეტი')}</button>
           </div>
           <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
                 <tr>
                   <th className="px-4 py-3">{t('სახელი')}</th>
-                  <th className="px-4 py-3">{t('პრიორიტეტი')}</th>
-                  <th className="px-4 py-3">{t('რეაგირება (სთ)')}</th>
-                  <th className="px-4 py-3">{t('მოგვარება (სთ)')}</th>
-                  <th className="px-4 py-3">{t('კონტრაქტორი')}</th>
+                  <th className="px-4 py-3">{t('პერიოდი')}</th>
+                  <th className="px-4 py-3">{t('დაგეგმილი')}</th>
+                  <th className="px-4 py-3">{t('დახარჯული')}</th>
+                  <th className="px-4 py-3">{t('ათვისება')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(slas || []).length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('SLA არ არის')}</td></tr>
-                ) : (slas || []).map((s: any) => (
-                  <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
-                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{s.name}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{s.priority}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{s.response_hours}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{s.resolution_hours}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{s.contractor_name || '—'}</td>
-                  </tr>
-                ))}
+                {(budgets || []).length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('ბიუჯეტები არ არის')}</td></tr>
+                ) : (budgets || []).map((b: any) => {
+                  const planned = Number(b.planned_amount) || 0
+                  const spent = Number(b.spent_amount) || 0
+                  const pct = planned > 0 ? Math.round((spent / planned) * 100) : 0
+                  return (
+                    <tr key={b.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                      <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{b.name}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{fmtDate(new Date(b.period_start))} — {fmtDate(new Date(b.period_end))}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{b.planned_amount} ₾</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{b.spent_amount} ₾</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-100">
+                            <div className={`h-full rounded-full ${pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                          </div>
+                          <span className="text-xs text-gray-500">{pct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -1109,27 +1216,52 @@ export default function MaintenancePage() {
       )}
 
       {tab === 'analytics' && (
-        <div className="space-y-4">
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('ჯამური ხარჯი')}</p>
+              <p className="mt-1 text-2xl font-bold text-brandgray-900 dark:text-gray-100">{analytics?.total_cost || 0} ₾</p>
+            </div>
+            <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('ღია დავალებები')}</p>
+              <p className="mt-1 text-2xl font-bold text-brandgray-900 dark:text-gray-100">{analytics?.open_orders || 0}</p>
+            </div>
+            <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('დეფიციტური ნაწილები')}</p>
+              <p className="mt-1 text-2xl font-bold text-brandgray-900 dark:text-gray-100">{analytics?.low_stock_parts || 0}</p>
+            </div>
+            <div className="rounded-xl border bg-white p-4 shadow-sm dark:border-dark-50 dark:bg-dark-200">
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('ბიუჯეტის ათვისება')}</p>
+              <p className="mt-1 text-2xl font-bold text-brandgray-900 dark:text-gray-100">{analytics?.budget_utilization || 0}%</p>
+            </div>
+          </div>
+
           <div className="flex justify-end">
-            <button onClick={() => openCreate('certificate')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი სერტიფიკატი')}</button>
+            <button onClick={() => openCreate('reliability')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი მეტრიკა')}</button>
           </div>
           <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
                 <tr>
-                  <th className="px-4 py-3">{t('სერტიფიკატი')}</th>
-                  <th className="px-4 py-3">{t('ტექნიკოსი')}</th>
-                  <th className="px-4 py-3">{t('ვადის გასვლა')}</th>
+                  <th className="px-4 py-3">{t('აქტივი')}</th>
+                  <th className="px-4 py-3">{t('პერიოდი')}</th>
+                  <th className="px-4 py-3">{t('Downtime')}</th>
+                  <th className="px-4 py-3">{t('დაზიანებები')}</th>
+                  <th className="px-4 py-3">MTTR</th>
+                  <th className="px-4 py-3">MTBF</th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(certificates || []).length === 0 ? (
-                  <tr><td colSpan={3} className="p-8 text-center text-gray-500">{t('სერტიფიკატები არ არის')}</td></tr>
-                ) : (certificates || []).map((c: any) => (
-                  <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
-                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{c.name}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.technician_name || '—'}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.expiry_date ? fmtDate(new Date(c.expiry_date)) : '—'}</td>
+                {(reliabilityMetrics || []).length === 0 ? (
+                  <tr><td colSpan={6} className="p-8 text-center text-gray-500">{t('მეტრიკები არ არის')}</td></tr>
+                ) : (reliabilityMetrics || []).map((m: any) => (
+                  <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{m.asset_name || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{fmtDate(new Date(m.period_start))} — {fmtDate(new Date(m.period_end))}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{m.downtime_hours} სთ</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{m.failures}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{m.mttr_hours} სთ</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{m.mtbf_hours} სთ</td>
                   </tr>
                 ))}
               </tbody>
