@@ -443,14 +443,30 @@ export const consolidatedApi = {
 
 // Maintenance & Repairs API
 export const maintenanceApi = {
-  plans: () => api.get('/maintenance/plans'),
+  plans: (params?: Record<string, unknown>) => api.get('/maintenance/plans', { params }),
   createPlan: (data: Record<string, unknown>) => api.post('/maintenance/plans', data),
-  orders: (status?: string) => api.get('/maintenance/orders', { params: status ? { status } : {} }),
+  updatePlan: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/plans/${id}`, data),
+  orders: (params?: Record<string, unknown>) => api.get('/maintenance/orders', { params }),
   createOrder: (data: Record<string, unknown>) => api.post('/maintenance/orders', data),
   updateOrder: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/orders/${id}`, data),
   repairs: (status?: string) => api.get('/maintenance/repairs', { params: status ? { status } : {} }),
   createRepair: (data: Record<string, unknown>) => api.post('/maintenance/repairs', data),
   updateRepair: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/repairs/${id}`, data),
+  // ── CMMS Phase 1 ──
+  assets: (params?: Record<string, unknown>) => api.get('/maintenance/assets', { params }),
+  createAsset: (data: Record<string, unknown>) => api.post('/maintenance/assets', data),
+  updateAsset: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/assets/${id}`, data),
+  deleteAsset: (id: string) => api.delete(`/maintenance/assets/${id}`),
+  assetCategories: () => api.get('/maintenance/asset-categories'),
+  createAssetCategory: (data: Record<string, unknown>) => api.post('/maintenance/asset-categories', data),
+  locations: () => api.get('/maintenance/locations'),
+  createLocation: (data: Record<string, unknown>) => api.post('/maintenance/locations', data),
+  meters: (params?: Record<string, unknown>) => api.get('/maintenance/meters', { params }),
+  createMeter: (data: Record<string, unknown>) => api.post('/maintenance/meters', data),
+  updateMeter: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/meters/${id}`, data),
+  requests: (params?: Record<string, unknown>) => api.get('/maintenance/requests', { params }),
+  createRequest: (data: Record<string, unknown>) => api.post('/maintenance/requests', data),
+  updateRequest: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/requests/${id}`, data),
 }
 
 // PLM API

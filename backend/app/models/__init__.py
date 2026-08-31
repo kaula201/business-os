@@ -208,3 +208,13 @@ from app.models.payment_term import PaymentTerm  # noqa: F401
 from app.models.sales_team import SalesTeam, SalesTeamMember, SalesTarget, CommissionRule, CommissionAccrual  # noqa: F401
 from app.models.email_tracking import EmailEvent  # noqa: F401
 from app.models.signature import SignatureRequest  # noqa: F401
+from app.models.maintenance import (  # noqa: F401
+    MaintenanceAsset,
+    MaintenanceAssetCategory,
+    MaintenanceLocation,
+    MaintenanceMeter,
+    MaintenanceOrder,
+    MaintenancePlan,
+    MaintenanceRequest,
+    RepairOrder,
+)

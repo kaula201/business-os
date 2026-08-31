@@ -1,111 +1,410 @@
-"""Maintenance & Repairs API — maintenance plans, maintenance orders, repair orders."""
+"""Maintenance & Repairs API — CMMS: assets, categories, locations, meters, requests, plans, orders, repairs."""
 import uuid
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.models.maintenance import MaintenanceOrder, MaintenancePlan, RepairOrder
+from app.core.time import utc_now
+from app.models.maintenance import (
+    MaintenanceAsset,
+    MaintenanceAssetCategory,
+    MaintenanceLocation,
+    MaintenanceMeter,
+    MaintenanceOrder,
+    MaintenancePlan,
+    MaintenanceRequest,
+    RepairOrder,
+)
 from app.models.user import User
 from app.schemas.common import ResponseBase
+from app.schemas.maintenance import (
+    MaintenanceAssetCategoryCreate,
+    MaintenanceAssetCategoryResponse,
+    MaintenanceAssetCreate,
+    MaintenanceAssetResponse,
+    MaintenanceAssetUpdate,
+    MaintenanceLocationCreate,
+    MaintenanceLocationResponse,
+    MaintenanceMeterCreate,
+    MaintenanceMeterResponse,
+    MaintenanceMeterUpdate,
+    MaintenanceOrderCreate,
+    MaintenanceOrderResponse,
+    MaintenanceOrderUpdate,
+    MaintenancePlanCreate,
+    MaintenancePlanResponse,
+    MaintenancePlanUpdate,
+    MaintenanceRequestCreate,
+    MaintenanceRequestResponse,
+    MaintenanceRequestUpdate,
+)
 
 router = APIRouter(prefix="/maintenance", tags=["Maintenance & Repairs"])
 
 
-# ── Maintenance plans ───────────────────────────────────────────────
+# ── Asset categories ────────────────────────────────────────────────────────
 
-
-@router.get("/plans", response_model=ResponseBase[list[dict]])
-async def list_plans(
+@router.get("/asset-categories", response_model=ResponseBase[list[MaintenanceAssetCategoryResponse]])
+async def list_asset_categories(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     rows = (await db.execute(
-        select(MaintenancePlan).where(MaintenancePlan.company_id == current_user.company_id).order_by(MaintenancePlan.name)
+        select(MaintenanceAssetCategory).where(MaintenanceAssetCategory.company_id == current_user.company_id).order_by(MaintenanceAssetCategory.name)
     )).scalars().all()
-    return ResponseBase(data=[{
-        "id": str(p.id), "name": p.name, "asset_id": str(p.asset_id) if p.asset_id else None,
-        "interval_days": p.interval_days, "next_due_at": p.next_due_at.isoformat() if p.next_due_at else None,
-        "assigned_to": str(p.assigned_to) if p.assigned_to else None, "is_active": p.is_active,
-    } for p in rows])
+    return ResponseBase(data=[MaintenanceAssetCategoryResponse.model_validate(c) for c in rows])
 
 
-@router.post("/plans", response_model=ResponseBase[dict], status_code=201)
-async def create_plan(
-    data: dict,
+@router.post("/asset-categories", response_model=ResponseBase[MaintenanceAssetCategoryResponse], status_code=201)
+async def create_asset_category(
+    data: MaintenanceAssetCategoryCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    p = MaintenancePlan(
+    c = MaintenanceAssetCategory(company_id=current_user.company_id, name=data.name.strip(), description=data.description)
+    db.add(c)
+    await db.flush()
+    return ResponseBase(data=MaintenanceAssetCategoryResponse.model_validate(c), message="კატეგორია შეიქმნა")
+
+
+# ── Locations ───────────────────────────────────────────────────────────────
+
+@router.get("/locations", response_model=ResponseBase[list[MaintenanceLocationResponse]])
+async def list_locations(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenanceLocation).where(MaintenanceLocation.company_id == current_user.company_id).order_by(MaintenanceLocation.name)
+    )).scalars().all()
+    return ResponseBase(data=[MaintenanceLocationResponse.model_validate(l) for l in rows])
+
+
+@router.post("/locations", response_model=ResponseBase[MaintenanceLocationResponse], status_code=201)
+async def create_location(
+    data: MaintenanceLocationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    l = MaintenanceLocation(company_id=current_user.company_id, name=data.name.strip(), parent_id=data.parent_id, description=data.description)
+    db.add(l)
+    await db.flush()
+    return ResponseBase(data=MaintenanceLocationResponse.model_validate(l), message="მდებარეობა შეიქმნა")
+
+
+# ── Assets ──────────────────────────────────────────────────────────────────
+
+def _asset_response(a: MaintenanceAsset, category_name: str | None = None, location_name: str | None = None) -> MaintenanceAssetResponse:
+    return MaintenanceAssetResponse.model_validate(a).model_copy(update={"category_name": category_name, "location_name": location_name})
+
+
+@router.get("/assets", response_model=ResponseBase[list[MaintenanceAssetResponse]])
+async def list_assets(
+    status: str | None = None,
+    category_id: uuid.UUID | None = None,
+    search: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(MaintenanceAsset).where(MaintenanceAsset.company_id == current_user.company_id)
+    if status:
+        q = q.where(MaintenanceAsset.status == status)
+    if category_id:
+        q = q.where(MaintenanceAsset.category_id == category_id)
+    if search:
+        term = f"%{search.strip()}%"
+        q = q.where(or_(MaintenanceAsset.name.ilike(term), MaintenanceAsset.asset_code.ilike(term), MaintenanceAsset.serial_number.ilike(term)))
+    rows = (await db.execute(q.order_by(MaintenanceAsset.asset_code))).scalars().all()
+
+    cat_ids = {a.category_id for a in rows if a.category_id}
+    loc_ids = {a.location_id for a in rows if a.location_id}
+    cat_names = {row[0]: row[1] for row in (await db.execute(select(MaintenanceAssetCategory.id, MaintenanceAssetCategory.name).where(MaintenanceAssetCategory.id.in_(cat_ids)))).all()} if cat_ids else {}
+    loc_names = {row[0]: row[1] for row in (await db.execute(select(MaintenanceLocation.id, MaintenanceLocation.name).where(MaintenanceLocation.id.in_(loc_ids)))).all()} if loc_ids else {}
+    return ResponseBase(data=[_asset_response(a, cat_names.get(a.category_id), loc_names.get(a.location_id)) for a in rows])
+
+
+@router.post("/assets", response_model=ResponseBase[MaintenanceAssetResponse], status_code=201)
+async def create_asset(
+    data: MaintenanceAssetCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    dup = (await db.execute(select(MaintenanceAsset.id).where(
+        MaintenanceAsset.company_id == current_user.company_id,
+        MaintenanceAsset.asset_code == data.asset_code.strip(),
+    ))).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail="ამ კოდით აქტივი უკვე არსებობს")
+    a = MaintenanceAsset(company_id=current_user.company_id, **data.model_dump())
+    db.add(a)
+    await db.flush()
+    await db.refresh(a)
+    cat_name = None
+    loc_name = None
+    if a.category_id:
+        cat_name = (await db.execute(select(MaintenanceAssetCategory.name).where(MaintenanceAssetCategory.id == a.category_id))).scalar_one_or_none()
+    if a.location_id:
+        loc_name = (await db.execute(select(MaintenanceLocation.name).where(MaintenanceLocation.id == a.location_id))).scalar_one_or_none()
+    return ResponseBase(data=_asset_response(a, cat_name, loc_name), message="აქტივი შეიქმნა")
+
+
+@router.patch("/assets/{asset_id}", response_model=ResponseBase[MaintenanceAssetResponse])
+async def update_asset(
+    asset_id: uuid.UUID,
+    data: MaintenanceAssetUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    a = (await db.execute(
+        select(MaintenanceAsset).where(MaintenanceAsset.id == asset_id, MaintenanceAsset.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not a:
+        raise HTTPException(status_code=404, detail="აქტივი არ მოიძებნა")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(a, field, value)
+    await db.flush()
+    await db.refresh(a)
+    return ResponseBase(data=_asset_response(a), message="აქტივი განახლდა")
+
+
+@router.delete("/assets/{asset_id}", response_model=ResponseBase)
+async def delete_asset(
+    asset_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    a = (await db.execute(
+        select(MaintenanceAsset).where(MaintenanceAsset.id == asset_id, MaintenanceAsset.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not a:
+        raise HTTPException(status_code=404, detail="აქტივი არ მოიძებნა")
+    await db.delete(a)
+    await db.flush()
+    return ResponseBase(message="აქტივი წაიშალა")
+
+
+# ── Meters ─────────────────────────────────────────────────────────────────
+
+@router.get("/meters", response_model=ResponseBase[list[MaintenanceMeterResponse]])
+async def list_meters(
+    asset_id: uuid.UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(MaintenanceMeter).where(MaintenanceMeter.company_id == current_user.company_id)
+    if asset_id:
+        q = q.where(MaintenanceMeter.asset_id == asset_id)
+    rows = (await db.execute(q.order_by(MaintenanceMeter.name))).scalars().all()
+    asset_ids = {m.asset_id for m in rows}
+    asset_names = {row[0]: row[1] for row in (await db.execute(select(MaintenanceAsset.id, MaintenanceAsset.name).where(MaintenanceAsset.id.in_(asset_ids)))).all()} if asset_ids else {}
+    return ResponseBase(data=[MaintenanceMeterResponse.model_validate(m).model_copy(update={"asset_name": asset_names.get(m.asset_id)}) for m in rows])
+
+
+@router.post("/meters", response_model=ResponseBase[MaintenanceMeterResponse], status_code=201)
+async def create_meter(
+    data: MaintenanceMeterCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    asset = (await db.execute(select(MaintenanceAsset.id).where(
+        MaintenanceAsset.id == data.asset_id, MaintenanceAsset.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="აქტივი არ მოიძებნა")
+    m = MaintenanceMeter(company_id=current_user.company_id, **data.model_dump())
+    db.add(m)
+    await db.flush()
+    await db.refresh(m)
+    asset_name = (await db.execute(select(MaintenanceAsset.name).where(MaintenanceAsset.id == m.asset_id))).scalar_one_or_none()
+    return ResponseBase(data=MaintenanceMeterResponse.model_validate(m).model_copy(update={"asset_name": asset_name}), message="მრიცხველი შეიქმნა")
+
+
+@router.patch("/meters/{meter_id}", response_model=ResponseBase[MaintenanceMeterResponse])
+async def update_meter(
+    meter_id: uuid.UUID,
+    data: MaintenanceMeterUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    m = (await db.execute(
+        select(MaintenanceMeter).where(MaintenanceMeter.id == meter_id, MaintenanceMeter.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not m:
+        raise HTTPException(status_code=404, detail="მრიცხველი არ მოიძებნა")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(m, field, value)
+    m.last_reading_at = utc_now()
+    await db.flush()
+    await db.refresh(m)
+    return ResponseBase(data=MaintenanceMeterResponse.model_validate(m), message="მრიცხველი განახლდა")
+
+
+# ── Requests ───────────────────────────────────────────────────────────────
+
+@router.get("/requests", response_model=ResponseBase[list[MaintenanceRequestResponse]])
+async def list_requests(
+    status: str | None = None,
+    priority: str | None = None,
+    mine: bool = False,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(MaintenanceRequest).where(MaintenanceRequest.company_id == current_user.company_id)
+    if status:
+        q = q.where(MaintenanceRequest.status == status)
+    if priority:
+        q = q.where(MaintenanceRequest.priority == priority)
+    if mine:
+        q = q.where(MaintenanceRequest.assigned_to == current_user.id)
+    rows = (await db.execute(q.order_by(MaintenanceRequest.created_at.desc()))).scalars().all()
+    asset_ids = {r.asset_id for r in rows if r.asset_id}
+    asset_names = {row[0]: row[1] for row in (await db.execute(select(MaintenanceAsset.id, MaintenanceAsset.name).where(MaintenanceAsset.id.in_(asset_ids)))).all()} if asset_ids else {}
+    return ResponseBase(data=[MaintenanceRequestResponse.model_validate(r).model_copy(update={"asset_name": asset_names.get(r.asset_id)}) for r in rows])
+
+
+@router.post("/requests", response_model=ResponseBase[MaintenanceRequestResponse], status_code=201)
+async def create_request(
+    data: MaintenanceRequestCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.api.v1.endpoints.purchase_orders import allocate_document_number
+    number = await allocate_document_number(db, current_user.company_id, "maintenance_request", "MR")
+    r = MaintenanceRequest(
         company_id=current_user.company_id,
-        asset_id=data.get("asset_id"),
-        name=data.get("name", ""),
-        interval_days=int(data.get("interval_days", 30)),
-        next_due_at=date.fromisoformat(data["next_due_at"]) if data.get("next_due_at") else None,
-        assigned_to=data.get("assigned_to"),
-        notes=data.get("notes"),
+        request_number=number,
+        asset_id=data.asset_id,
+        title=data.title.strip(),
+        description=data.description,
+        priority=data.priority,
+        requested_by=data.requested_by or current_user.id,
+        assigned_to=data.assigned_to,
+        requested_date=data.requested_date or utc_now().date(),
     )
+    db.add(r)
+    await db.flush()
+    await db.refresh(r)
+    asset_name = None
+    if r.asset_id:
+        asset_name = (await db.execute(select(MaintenanceAsset.name).where(MaintenanceAsset.id == r.asset_id))).scalar_one_or_none()
+    return ResponseBase(data=MaintenanceRequestResponse.model_validate(r).model_copy(update={"asset_name": asset_name}), message="მოთხოვნა შეიქმნა")
+
+
+@router.patch("/requests/{request_id}", response_model=ResponseBase[MaintenanceRequestResponse])
+async def update_request(
+    request_id: uuid.UUID,
+    data: MaintenanceRequestUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    r = (await db.execute(
+        select(MaintenanceRequest).where(MaintenanceRequest.id == request_id, MaintenanceRequest.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="მოთხოვნა არ მოიძებნა")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(r, field, value)
+    if data.status == "completed" and r.completed_at is None:
+        r.completed_at = utc_now()
+    await db.flush()
+    await db.refresh(r)
+    return ResponseBase(data=MaintenanceRequestResponse.model_validate(r), message="მოთხოვნა განახლდა")
+
+
+# ── Maintenance plans ──────────────────────────────────────────────────────
+
+@router.get("/plans", response_model=ResponseBase[list[MaintenancePlanResponse]])
+async def list_plans(
+    plan_type: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(MaintenancePlan).where(MaintenancePlan.company_id == current_user.company_id)
+    if plan_type:
+        q = q.where(MaintenancePlan.plan_type == plan_type)
+    rows = (await db.execute(q.order_by(MaintenancePlan.name))).scalars().all()
+    asset_ids = {p.asset_id for p in rows if p.asset_id}
+    asset_names = {row[0]: row[1] for row in (await db.execute(select(MaintenanceAsset.id, MaintenanceAsset.name).where(MaintenanceAsset.id.in_(asset_ids)))).all()} if asset_ids else {}
+    return ResponseBase(data=[MaintenancePlanResponse.model_validate(p).model_copy(update={"asset_name": asset_names.get(p.asset_id)}) for p in rows])
+
+
+@router.post("/plans", response_model=ResponseBase[MaintenancePlanResponse], status_code=201)
+async def create_plan(
+    data: MaintenancePlanCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    p = MaintenancePlan(company_id=current_user.company_id, **data.model_dump())
     db.add(p)
     await db.flush()
-    return ResponseBase(data={"id": str(p.id), "name": p.name}, message="მოვლის გეგმა შეიქმნა")
+    return ResponseBase(data=MaintenancePlanResponse.model_validate(p), message="მოვლის გეგმა შეიქმნა")
 
 
-# ── Maintenance orders ───────────────────────────────────────────────
+@router.patch("/plans/{plan_id}", response_model=ResponseBase[MaintenancePlanResponse])
+async def update_plan(
+    plan_id: uuid.UUID,
+    data: MaintenancePlanUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    p = (await db.execute(
+        select(MaintenancePlan).where(MaintenancePlan.id == plan_id, MaintenancePlan.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="გეგმა არ მოიძებნა")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(p, field, value)
+    await db.flush()
+    await db.refresh(p)
+    return ResponseBase(data=MaintenancePlanResponse.model_validate(p), message="გეგმა განახლდა")
 
 
-@router.get("/orders", response_model=ResponseBase[list[dict]])
+# ── Maintenance orders ───────────────────────────────────────────────────────
+
+@router.get("/orders", response_model=ResponseBase[list[MaintenanceOrderResponse]])
 async def list_orders(
     status: str | None = None,
+    maintenance_type: str | None = None,
+    mine: bool = False,
+    emergency: bool | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     q = select(MaintenanceOrder).where(MaintenanceOrder.company_id == current_user.company_id)
     if status:
         q = q.where(MaintenanceOrder.status == status)
+    if maintenance_type:
+        q = q.where(MaintenanceOrder.maintenance_type == maintenance_type)
+    if mine:
+        q = q.where(MaintenanceOrder.assigned_to == current_user.id)
+    if emergency is not None:
+        q = q.where(MaintenanceOrder.is_emergency == emergency)
     rows = (await db.execute(q.order_by(MaintenanceOrder.created_at.desc()))).scalars().all()
-    return ResponseBase(data=[{
-        "id": str(o.id), "order_number": o.order_number, "asset_name": o.asset_name,
-        "maintenance_type": o.maintenance_type, "priority": o.priority, "status": o.status,
-        "scheduled_date": o.scheduled_date.isoformat() if o.scheduled_date else None,
-        "cost_estimate": float(o.cost_estimate), "actual_cost": float(o.actual_cost),
-        "downtime_hours": float(o.downtime_hours),
-    } for o in rows])
+    return ResponseBase(data=[MaintenanceOrderResponse.model_validate(o) for o in rows])
 
 
-@router.post("/orders", response_model=ResponseBase[dict], status_code=201)
+@router.post("/orders", response_model=ResponseBase[MaintenanceOrderResponse], status_code=201)
 async def create_order(
-    data: dict,
+    data: MaintenanceOrderCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.api.v1.endpoints.purchase_orders import allocate_document_number
     number = await allocate_document_number(db, current_user.company_id, "maintenance_order", "MO")
-    o = MaintenanceOrder(
-        company_id=current_user.company_id,
-        plan_id=data.get("plan_id"),
-        order_number=number,
-        asset_id=data.get("asset_id"),
-        asset_name=data.get("asset_name"),
-        maintenance_type=data.get("maintenance_type", "preventive"),
-        priority=data.get("priority", "medium"),
-        status=data.get("status", "draft"),
-        scheduled_date=data.get("scheduled_date"),
-        assigned_to=data.get("assigned_to"),
-        cost_estimate=data.get("cost_estimate", 0),
-        description=data.get("description"),
-    )
+    o = MaintenanceOrder(company_id=current_user.company_id, order_number=number, **data.model_dump())
     db.add(o)
     await db.flush()
-    return ResponseBase(data={"id": str(o.id), "order_number": o.order_number}, message="მოვლის დავალება შეიქმნა")
+    return ResponseBase(data=MaintenanceOrderResponse.model_validate(o), message="მოვლის დავალება შეიქმნა")
 
 
-@router.patch("/orders/{order_id}", response_model=ResponseBase[dict])
+@router.patch("/orders/{order_id}", response_model=ResponseBase[MaintenanceOrderResponse])
 async def update_order(
     order_id: uuid.UUID,
-    data: dict,
+    data: MaintenanceOrderUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -114,17 +413,24 @@ async def update_order(
     )).scalar_one_or_none()
     if not o:
         raise HTTPException(status_code=404, detail="დავალება არ მოიძებნა")
-    for field in ("status", "priority", "scheduled_date", "assigned_to", "actual_cost", "downtime_hours", "resolution_notes"):
-        if field in data:
-            setattr(o, field, data[field])
-    if data.get("status") == "completed":
-        o.completed_at = datetime.utcnow()
+    before = o.status
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(o, field, value)
+    if data.status == "in_progress" and o.started_at is None:
+        o.started_at = utc_now()
+    if data.status == "completed" and o.completed_at is None:
+        o.completed_at = utc_now()
+    if before != "completed" and o.status == "completed" and o.plan_id:
+        plan = (await db.execute(select(MaintenancePlan).where(MaintenancePlan.id == o.plan_id))).scalar_one_or_none()
+        if plan:
+            plan.last_run_at = utc_now().date()
+            plan.next_due_at = plan.last_run_at + __import__("datetime").timedelta(days=plan.interval_days)
     await db.flush()
-    return ResponseBase(data={"id": str(o.id), "status": o.status}, message="დავალება განახლდა")
+    await db.refresh(o)
+    return ResponseBase(data=MaintenanceOrderResponse.model_validate(o), message="დავალება განახლდა")
 
 
-# ── Repair orders ───────────────────────────────────────────────────
-
+# ── Repair orders ───────────────────────────────────────────────────────────
 
 @router.get("/repairs", response_model=ResponseBase[list[dict]])
 async def list_repairs(
@@ -164,7 +470,7 @@ async def create_repair(
         estimated_cost=data.get("estimated_cost", 0),
         technician_id=data.get("technician_id"),
         warranty=data.get("warranty", False),
-        received_at=datetime.utcnow(),
+        received_at=utc_now(),
     )
     db.add(r)
     await db.flush()
@@ -187,6 +493,6 @@ async def update_repair(
         if field in data:
             setattr(r, field, data[field])
     if data.get("status") == "completed":
-        r.completed_at = datetime.utcnow()
+        r.completed_at = utc_now()
     await db.flush()
     return ResponseBase(data={"id": str(r.id), "status": r.status}, message="რემონტი განახლდა")

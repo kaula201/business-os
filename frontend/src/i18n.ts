@@ -2093,6 +2093,20 @@ const en: Record<string, string> = {
   'SLA წესები': 'SLA rules',
   'ავტომატიზაციები': 'Automations',
   'ნომერაცია': 'Numbering',
+  'აქტივის კოდი': 'Asset code',
+  'ახალი აქტივი': 'New asset',
+  'ახალი მოთხოვნა': 'New request',
+  'ახალი მრიცხველი': 'New meter',
+  'ახალი მდებარეობა': 'New location',
+  'მწარმოებელი': 'Manufacturer',
+  'გარანტია ვადა': 'Warranty until',
+  'მიმდინარე მნიშვნელობა': 'Current value',
+  'ბოლო წაკითხვა': 'Last reading',
+  'აქტივები არ არის': 'No assets',
+  'მრიცხველები არ არის': 'No meters',
+  'მდებარეობები არ არის': 'No locations',
+  'წავშალოთ?': 'Delete?',
+  'გარანტია': 'Warranty',
 }
 
 i18n.use(initReactI18next).init({
