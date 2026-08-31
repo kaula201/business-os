@@ -1,8 +1,8 @@
 // frontend/src/components/layout/Sidebar.tsx
 import { NavLink, useLocation } from 'react-router-dom'
-import { 
-  LayoutDashboard, Users, ShoppingCart, Package, 
-  CheckSquare, Bot, Settings, X, ReceiptText, Building2, WalletCards, Landmark, BookOpen, FileText, TrendingUp, Scale, Car, ChevronDown, ChevronRight, DollarSign, Banknote, HandCoins, Wrench, BarChart3, Target, Coins, Network, CalendarClock, CalendarRange, Loader2, Star, Factory, FolderKanban, ChefHat
+import {
+  LayoutDashboard, Users, ShoppingCart, Package,
+  CheckSquare, Bot, Settings, X, ReceiptText, Building2, WalletCards, Landmark, BookOpen, FileText, TrendingUp, Scale, Car, ChevronDown, ChevronRight, DollarSign, Banknote, HandCoins, Wrench, BarChart3, Target, Coins, Network, CalendarClock, CalendarRange, Loader2, Star, Factory, FolderKanban, ChefHat, LifeBuoy, Boxes, Store, LayoutGrid, Settings2, BadgeCheck, Zap, CreditCard, Plug, Shield, RefreshCw, Tags, Globe, TrendingDown, BookOpenCheck
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -18,34 +18,35 @@ const iconMap: Record<string, any> = {
   Landmark, BookOpen, FileText, TrendingUp, Scale, Car,
   DollarSign, Banknote, HandCoins, Wrench, BarChart3, Target,
   Coins, Network, CalendarClock, CalendarRange,
-  Factory, FolderKanban, ChefHat,
+  Factory, FolderKanban, ChefHat, LifeBuoy, Boxes, Store,
+  LayoutGrid, Settings2, BadgeCheck, Zap, CreditCard, Plug, Shield,
+  RefreshCw, Tags, Globe, TrendingDown, BookOpenCheck,
 }
 
-// ── Category groups (static structure, filtered by enabled modules) ──
+// ── Sidebar structure (user-defined) ──────────────────────────────────
+// Direct items: shown as top-level links.
+// Groups: collapsible sections keyed by route prefixes.
+// Everything not listed falls into the "სხვა" (Other) group.
 
-interface NavGroup {
-  id: string
-  label: string
-  icon: any
-  category: string  // matches AppModule.category
-  items: { to: string; icon: any; label: string }[]
-}
+interface NavItem { to: string; icon: any; label: string }
 
-const categoryGroups: NavGroup[] = [
-  { id: 'crm', label: 'CRM — გაყიდვების მართვა', icon: Target, category: 'sales', items: [] },
-  { id: 'sales', label: 'გაყიდვები', icon: ShoppingCart, category: 'sales', items: [] },
-  { id: 'operations', label: 'ოპერაციები', icon: Package, category: 'operations', items: [] },
-  { id: 'tools', label: 'ინსტრუმენტები', icon: Wrench, category: 'tools', items: [] },
-  { id: 'purchases', label: 'შესყიდვები', icon: Building2, category: 'purchases', items: [] },
-  { id: 'finance', label: 'ფინანსები', icon: DollarSign, category: 'finance', items: [] },
-  { id: 'accounting', label: 'ბუღალტერია', icon: BookOpen, category: 'accounting', items: [] },
-  { id: 'fleet', label: 'ავტოპარკი', icon: Car, category: 'fleet', items: [] },
-  { id: 'other', label: 'სხვა', icon: Settings, category: 'other', items: [] },
+const DIRECT_PREFIXES = [
+  '/dashboard', '/crm', '/production', '/maintenance', '/hr', '/fleet',
+  '/helpdesk', '/projects', '/documents', '/reports', '/ai', '/settings',
+]
+
+const GROUP_DEFS: { id: string; label: string; icon: any; prefixes: string[] }[] = [
+  { id: 'sales', label: 'გაყიდვები', icon: ShoppingCart, prefixes: ['/clients', '/orders', '/invoices', '/quotations', '/price-lists', '/sales-teams', '/email-tracking', '/subscriptions', '/customer-portal', '/ecommerce', '/pos'] },
+  { id: 'purchases', label: 'შესყიდვები', icon: Building2, prefixes: ['/purchases', '/procurement', '/suppliers', '/supplier-finance', '/vendor-portal'] },
+  { id: 'warehouse', label: 'საწყობი', icon: Package, prefixes: ['/inventory', '/wms', '/inventory-valuation'] },
+  { id: 'finance', label: 'ფინანსები', icon: DollarSign, prefixes: ['/cash', '/banking', '/banking-rules', '/currency', '/customer-finance', '/expenses', '/assets'] },
+  { id: 'accounting', label: 'ბუღალტერია', icon: BookOpen, prefixes: ['/chart-of-accounts', '/journal-entries', '/trial-balance', '/profit-loss', '/balance-sheet', '/srs', '/budgeting', '/analytic-accounting', '/deferred', '/accounting-periods', '/gl-recurring', '/gl-exchange-differences', '/gl-consolidated', '/accounting-controls'] },
+  { id: 'other', label: 'სხვა', icon: Settings, prefixes: ['/tasks', '/automations', '/payments', '/email-calendar', '/integrations', '/security', '/kitchen', '/studio', '/platform-studio', '/marketplace', '/field-service', '/quality'] },
 ]
 
 // ── Sub-components ──────────────────────────────────────────────────
 
-function NavLinkItem({ item, onClose, depth = 0, isFav, onToggleFav }: { item: { to: string; icon: any; label: string }; onClose: () => void; depth?: number; isFav?: boolean; onToggleFav?: (to: string) => void }) {
+function NavLinkItem({ item, onClose, depth = 0, isFav, onToggleFav }: { item: NavItem; onClose: () => void; depth?: number; isFav?: boolean; onToggleFav?: (to: string) => void }) {
   const { t } = useTranslation()
   return (
     <NavLink
@@ -168,8 +169,6 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
     return () => { cancelled = true }
   }, [])
 
-  // Ensure modules are loaded before rendering navigation
-  // Prevents race condition where sidebar renders empty before API responds
   if (loading) {
     return (
       <aside className={`fixed md:static inset-y-0 left-0 z-50
@@ -195,8 +194,6 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
   // Build nav items from enabled modules + role-based access
   const enabledModules = modules.filter((m) => m.enabled && m.module.is_active)
 
-  // Role-based menu: hide modules the current user's role cannot access.
-  // Admin/owner always see everything; other roles need can_access=true.
   const canAccess = (moduleCode: string): boolean => {
     if (!user) return false
     if (user.role === 'admin' || user.role === 'owner') return true
@@ -207,67 +204,39 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
     )
   }
 
-  const getNavItems = (category: string) =>
-    enabledModules
-      .filter((m) => m.module.category === category && canAccess(m.module.code))
-      .map((m) => ({
-        to: m.module.route || `/${m.module.code}`,
-        icon: iconMap[m.module.icon || 'FileText'] || FileText,
-        label: m.module.name,
-      }))
+  const allItems: NavItem[] = enabledModules
+    .filter((m) => canAccess(m.module.code))
+    .map((m) => ({
+      to: m.module.route || `/${m.module.code}`,
+      icon: iconMap[m.module.icon || 'FileText'] || FileText,
+      label: m.module.name,
+    }))
 
-  // Separate CRM items (they go in a special group)
-  const crmItems = getNavItems('sales').filter((i) => i.to.startsWith('/crm'))
-  const salesItems = getNavItems('sales').filter((i) => !i.to.startsWith('/crm'))
+  // Direct items: top-level links (dashboard, crm, production, maintenance, hr, fleet, helpdesk, projects, documents, reports, ai, settings)
+  const directItems = allItems
+    .filter((i) =>
+      DIRECT_PREFIXES.some((p) => i.to === p || i.to.startsWith(p + '/')),
+    )
+    .map((i) => (i.to === '/dashboard' ? { ...i, label: 'მიმოხილვა' } : i))
 
-  // Finance items grouped into compact sub-sections so the menu stays short
-  const financeItems = getNavItems('finance')
-  const financeGroups = [
-    { title: t('სალარო და ბანკი'), codes: ['cash', 'banking'] },
-    { title: t('მოვალეები და ვალდებულებები'), codes: ['customer-finance', 'supplier-finance'] },
-    { title: t('ხარჯები და აქტივები'), codes: ['expenses', 'assets'] },
-    { title: t('ვალუტა'), codes: ['currency'] },
-  ].map((group) => ({
+  // Grouped items by route prefix
+  const groupedItems = GROUP_DEFS.map((group) => ({
     ...group,
-    items: financeItems.filter((i) => group.codes.some((c) => i.to.startsWith(`/${c}`))),
+    items: allItems.filter((i) =>
+      group.prefixes.some((p) => i.to === p || i.to.startsWith(p + '/')),
+    ),
   })).filter((g) => g.items.length > 0)
 
   // Favorites: resolve stored routes to nav items (only those still accessible)
-  const favoriteItems: { to: string; icon: any; label: string }[] = favorites
-    .map((favTo) => {
-      const found = [
-        ...crmItems,
-        ...salesItems,
-        ...getNavItems('operations'),
-        ...getNavItems('purchases'),
-        ...getNavItems('finance'),
-        ...getNavItems('accounting'),
-        ...getNavItems('fleet'),
-        ...getNavItems('other'),
-      ].find((i) => i.to === favTo)
-      return found ? { ...found, to: favTo } : null
-    })
-    .filter((i): i is { to: string; icon: any; label: string } => i !== null)
+  const favoriteItems: NavItem[] = favorites
+    .map((favTo) => allItems.find((i) => i.to === favTo))
+    .filter((i): i is NavItem => i !== undefined)
 
-  // Recent: last visited module routes (excluding dashboard itself).
-  // Plain computation (no hook): Sidebar re-renders on route change via
-  // useLocation, so readRecent() re-reads localStorage each render.
-  const recentItems: { to: string; icon: any; label: string }[] = readRecent()
+  // Recent: last visited module routes (excluding dashboard itself)
+  const recentItems: NavItem[] = readRecent()
     .filter((r) => r !== '/dashboard')
-    .map((r) => {
-      const found = [
-        ...crmItems,
-        ...salesItems,
-        ...getNavItems('operations'),
-        ...getNavItems('purchases'),
-        ...getNavItems('finance'),
-        ...getNavItems('accounting'),
-        ...getNavItems('fleet'),
-        ...getNavItems('other'),
-      ].find((i) => i.to === r)
-      return found ? { ...found, to: r } : null
-    })
-    .filter((i): i is { to: string; icon: any; label: string } => i !== null)
+    .map((r) => allItems.find((i) => i.to === r))
+    .filter((i): i is NavItem => i !== undefined)
 
   return (
     <>
@@ -306,17 +275,6 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
             </div>
           ) : (
             <>
-              {/* Dashboard */}
-              {enabledModules.some((m) => m.module.code === 'dashboard') && (
-                <NavLinkItem
-                  item={{ to: '/dashboard', icon: LayoutDashboard, label: 'მიმოხილვა' }}
-                  onClose={onClose}
-                  depth={0}
-                  isFav={favorites.includes('/dashboard')}
-                  onToggleFav={toggleFav}
-                />
-              )}
-
               {/* Favorites */}
               {favorites.length > 0 && (
                 <div className="pt-2">
@@ -346,130 +304,25 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                 </div>
               )}
 
-              {/* CRM group */}
-              {crmItems.length > 0 && (
-                <div className="pt-1">
-                  <CollapsibleGroup
-                    icon={Target}
-                    label={t('CRM — გაყიდვების მართვა')}
-                    open={openGroups.has('crm')}
-                    onToggle={() => toggleGroup('crm')}
-                  >
-                    {crmItems.map((item) => (
-                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
-                    ))}
-                  </CollapsibleGroup>
-                </div>
-              )}
-
-              {/* Sales group */}
-              {salesItems.length > 0 && (
-                <div className="pt-1">
-                  <CollapsibleGroup
-                    icon={ShoppingCart}
-                    label={t('გაყიდვები')}
-                    open={openGroups.has('sales')}
-                    onToggle={() => toggleGroup('sales')}
-                  >
-                    {salesItems.map((item) => (
-                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
-                    ))}
-                  </CollapsibleGroup>
-                </div>
-              )}
-
-              {/* Operations */}
-              {getNavItems('operations').map((item) => (
+              {/* Direct top-level items */}
+              {directItems.map((item) => (
                 <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
               ))}
 
-              {/* Tools group — ინსტრუმენტები */}
-              {getNavItems('tools').length > 0 && (
-                <div className="pt-1">
+              {/* Groups (sales, purchases, warehouse, finance, accounting, other) */}
+              {groupedItems.map((group) => (
+                <div key={group.id} className="pt-1">
                   <CollapsibleGroup
-                    icon={Wrench}
-                    label={t('ინსტრუმენტები')}
-                    open={openGroups.has('tools')}
-                    onToggle={() => toggleGroup('tools')}
+                    icon={group.icon}
+                    label={group.label}
+                    open={openGroups.has(group.id)}
+                    onToggle={() => toggleGroup(group.id)}
                   >
-                    {getNavItems('tools').map((item) => (
+                    {group.items.map((item) => (
                       <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
                     ))}
                   </CollapsibleGroup>
                 </div>
-              )}
-
-              {/* Purchases group */}
-              {getNavItems('purchases').length > 0 && (
-                <div className="pt-1">
-                  <CollapsibleGroup
-                    icon={Building2}
-                    label={t('შესყიდვები')}
-                    open={openGroups.has('purchases')}
-                    onToggle={() => toggleGroup('purchases')}
-                  >
-                    {getNavItems('purchases').map((item) => (
-                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
-                    ))}
-                  </CollapsibleGroup>
-                </div>
-              )}
-
-              {/* Finance group — compact sub-sections */}
-              {financeGroups.length > 0 && (
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup('finance')}
-                    aria-expanded={openGroups.has('finance')}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-brandgray-600 hover:bg-brandgray-50 hover:text-brandgray-900 transition-colors dark:text-gray-400 dark:hover:bg-dark-100 dark:hover:text-gray-200"
-                  >
-                    <DollarSign size={20} />
-                    <span className="flex-1 text-left">{t('ფინანსები')}</span>
-                    {openGroups.has('finance') ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  </button>
-
-                  {openGroups.has('finance') && (
-                    <div className="ml-3 pl-3 border-l border-brandgray-200 dark:border-dark-50 space-y-1 mt-1">
-                      {financeGroups.map((group) => (
-                        <div key={group.title}>
-                          <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-brandgray-400 dark:text-gray-500">
-                            {group.title}
-                          </p>
-                          {group.items.map((item) => (
-                            <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Accounting group */}
-              {getNavItems('accounting').length > 0 && (
-                <div className="pt-1">
-                  <CollapsibleGroup
-                    icon={BookOpen}
-                    label={t('ბუღალტერია')}
-                    open={openGroups.has('accounting')}
-                    onToggle={() => toggleGroup('accounting')}
-                  >
-                    {getNavItems('accounting').map((item) => (
-                      <NavLinkItem key={item.to} item={item} onClose={onClose} depth={1} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
-                    ))}
-                  </CollapsibleGroup>
-                </div>
-              )}
-
-              {/* Fleet */}
-              {getNavItems('fleet').map((item) => (
-                <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
-              ))}
-
-              {/* Other items */}
-              {getNavItems('other').map((item) => (
-                <NavLinkItem key={item.to} item={item} onClose={onClose} depth={0} isFav={favorites.includes(item.to)} onToggleFav={toggleFav} />
               ))}
             </>
           )}

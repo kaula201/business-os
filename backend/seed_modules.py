@@ -20,6 +20,7 @@ MODULES = [
     ("tasks",         "დავალებები",         "Task management",                  "CheckSquare",      "/tasks",         "operations", 60,  None),
     ("documents",     "დოკუმენტები",        "Document management",               "FileText",         "/documents",     "operations", 61,  None),
     ("production",    "წარმოება",            "BOM & work orders",                "Factory",          "/production",    "operations", 62,  "inventory"),
+    ("maintenance",   "Maintenance",         "Equipment maintenance & work orders", "Wrench",        "/maintenance",  "operations", 63,  "production"),
     ("projects",      "პროექტები",           "Project management",               "FolderKanban",     "/projects",      "operations", 63,  "tasks"),
     ("kitchen",       "სამზარეულო (KDS)",    "Kitchen display system",           "ChefHat",          "/kitchen",       "tools",      64,  "pos"),
     ("purchases",     "შესყიდვები",         "Purchase orders",                  "ShoppingCart",     "/purchases",     "purchases",  70,  None),
