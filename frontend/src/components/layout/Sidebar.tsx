@@ -248,12 +248,14 @@ function CollapsibleGroup({
   open,
   onToggle,
   children,
+  depth = 0,
 }: {
   icon: any
   label: string
   open: boolean
   onToggle: () => void
   children: React.ReactNode
+  depth?: number
 }) {
   const { t } = useTranslation()
   return (
@@ -262,14 +264,20 @@ function CollapsibleGroup({
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-brandgray-600 hover:bg-brandgray-50 hover:text-brandgray-900 transition-colors dark:text-gray-400 dark:hover:bg-dark-100 dark:hover:text-gray-200"
+        className={`w-full flex items-center gap-3 rounded-lg text-sm font-semibold transition-colors
+          ${depth === 0
+            ? 'px-3 py-2 text-brandgray-700 hover:bg-brandgray-50 hover:text-brandgray-900 dark:text-gray-300 dark:hover:bg-dark-100 dark:hover:text-gray-100'
+            : 'px-2 py-1.5 text-[13px] text-brandgray-500 hover:bg-brandgray-50 hover:text-brandgray-800 dark:text-gray-400 dark:hover:bg-dark-100 dark:hover:text-gray-200'
+          }`}
       >
-        <Icon size={18} className="shrink-0" />
+        <Icon size={depth === 0 ? 18 : 14} className={`shrink-0 ${depth === 0 ? 'text-primary-700 dark:text-primary-400' : 'text-brandgray-400 dark:text-gray-500'}`} />
         <span className="flex-1 text-left truncate">{t(label)}</span>
-        {open ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
+        <span className={`shrink-0 transition-transform duration-150 ${open ? 'rotate-90' : ''}`}>
+          <ChevronRight size={14} className="text-brandgray-400 dark:text-gray-500" />
+        </span>
       </button>
       {open && (
-        <div className="ml-3 pl-3 border-l border-brandgray-200 dark:border-dark-50 space-y-0.5 mt-0.5">
+        <div className={`${depth === 0 ? 'ml-3 pl-3 border-l border-brandgray-200 dark:border-dark-50' : 'ml-2 pl-2'} space-y-0.5 mt-0.5`}>
           {children}
         </div>
       )}
@@ -291,7 +299,14 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
   const { pathname } = useLocation()
   const [modules, setModules] = useState<CompanyModuleStatus[]>([])
   const [loading, setLoading] = useState(true)
-  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
+    // All groups open by default so every sub-item is visible without clicks.
+    const all = new Set<string>([
+      'sales', 'purchases', 'warehouse', 'finance', 'accounting', 'other', 'maintenance',
+      ...MAINTENANCE_GROUPS.map((g) => `maint-${g.key}`),
+    ])
+    return all
+  })
   const [favorites, setFavorites] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('bos_favs') || '[]')
@@ -499,6 +514,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                               label={group.label}
                               open={openGroups.has(`maint-${group.key}`)}
                               onToggle={() => toggleGroup(`maint-${group.key}`)}
+                              depth={1}
                             >
                               {group.items.map((sub) => (
                                 <NavLinkItem
