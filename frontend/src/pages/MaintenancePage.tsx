@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { Wrench, CalendarClock, Hammer, Plus, CheckCircle2, ClipboardList, CalendarDays, Boxes, MapPin, Gauge, Users, Handshake, Package, Coins, BarChart3, Settings2 } from 'lucide-react'
+import { Wrench, CalendarClock, Hammer, Plus, CheckCircle2, ClipboardList, CalendarDays, Boxes, MapPin, Gauge, Users, Handshake, Package, Coins, BarChart3, Settings2, Shield } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
@@ -29,6 +29,7 @@ const TABS: { key: string; label: string; icon: any }[] = [
   { key: 'technicians', label: 'ტექნიკოსები და გუნდები', icon: Users },
   { key: 'contractors', label: 'კონტრაქტორები და SLA', icon: Handshake },
   { key: 'parts', label: 'ნაწილები და მასალები', icon: Package },
+  { key: 'safety', label: 'უსაფრთხოება', icon: Shield },
   { key: 'costs', label: 'ხარჯები', icon: Coins },
   { key: 'analytics', label: 'ანალიტიკა', icon: BarChart3 },
   { key: 'config', label: 'კონფიგურაცია', icon: Settings2 },
@@ -65,6 +66,10 @@ export default function MaintenancePage() {
   const { data: partRequests } = useQuery({ queryKey: ['maint-part-requests'], queryFn: () => maintenanceApi.partRequests().then(r => r.data.data) })
   const { data: tools } = useQuery({ queryKey: ['maint-tools'], queryFn: () => maintenanceApi.tools().then(r => r.data.data) })
   const { data: toolIssues } = useQuery({ queryKey: ['maint-tool-issues'], queryFn: () => maintenanceApi.toolIssues().then(r => r.data.data) })
+  const { data: safetyInstructions } = useQuery({ queryKey: ['maint-safety'], queryFn: () => maintenanceApi.safetyInstructions().then(r => r.data.data) })
+  const { data: workPermits } = useQuery({ queryKey: ['maint-permits'], queryFn: () => maintenanceApi.workPermits().then(r => r.data.data) })
+  const { data: checklists } = useQuery({ queryKey: ['maint-checklists'], queryFn: () => maintenanceApi.checklists().then(r => r.data.data) })
+  const { data: incidents } = useQuery({ queryKey: ['maint-incidents'], queryFn: () => maintenanceApi.incidents().then(r => r.data.data) })
 
   const createPlan = useMutation({
     mutationFn: () => maintenanceApi.createPlan(form),
@@ -153,6 +158,30 @@ export default function MaintenancePage() {
   const returnTool = useMutation({
     mutationFn: (id: string) => maintenanceApi.returnTool(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['maint-tool-issues'] }); qc.invalidateQueries({ queryKey: ['maint-tools'] }) },
+  })
+  const createSafetyInstruction = useMutation({
+    mutationFn: () => maintenanceApi.createSafetyInstruction(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-safety'] }) },
+  })
+  const createWorkPermit = useMutation({
+    mutationFn: () => maintenanceApi.createWorkPermit(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-permits'] }) },
+  })
+  const approveWorkPermit = useMutation({
+    mutationFn: (id: string) => maintenanceApi.updateWorkPermit(id, { status: 'approved' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['maint-permits'] }),
+  })
+  const createChecklist = useMutation({
+    mutationFn: (data: Record<string, unknown>) => maintenanceApi.createChecklist(data),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-checklists'] }) },
+  })
+  const createIncident = useMutation({
+    mutationFn: () => maintenanceApi.createIncident(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-incidents'] }) },
+  })
+  const resolveIncident = useMutation({
+    mutationFn: (id: string) => maintenanceApi.updateIncident(id, { status: 'resolved' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['maint-incidents'] }),
   })
 
   const openCreate = (kind: string) => {
@@ -353,6 +382,58 @@ export default function MaintenancePage() {
         </FormField>
       </>
     )
+    if (kind === 'safety') return (
+      <>
+        <FormField label={t('სათაური')} required><input required className="input" value={form.title || ''} onChange={e => setForm({ ...form, title: e.target.value })} /></FormField>
+        <FormField label={t('კატეგორია')}><input className="input" value={form.category || ''} onChange={e => setForm({ ...form, category: e.target.value })} /></FormField>
+        <FormField label={t('შინაარსი')}><textarea className="input" rows={3} value={form.content || ''} onChange={e => setForm({ ...form, content: e.target.value })} /></FormField>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={!!form.is_mandatory} onChange={e => setForm({ ...form, is_mandatory: e.target.checked })} />
+          {t('სავალდებულო')}
+        </label>
+      </>
+    )
+    if (kind === 'permit') return (
+      <>
+        <FormField label={t('ნებართვის ნომერი')} required><input required className="input" value={form.permit_number || ''} onChange={e => setForm({ ...form, permit_number: e.target.value })} /></FormField>
+        <FormField label={t('სამუშაოს ტიპი')} required><input required className="input" value={form.work_type || ''} onChange={e => setForm({ ...form, work_type: e.target.value })} /></FormField>
+        <FormField label={t('მდებარეობა')}><input className="input" value={form.location || ''} onChange={e => setForm({ ...form, location: e.target.value })} /></FormField>
+        <FormField label={t('რისკის დონე')}>
+          <select className="input" value={form.risk_level || 'low'} onChange={e => setForm({ ...form, risk_level: e.target.value })}>
+            <option value="low">{t('დაბალი')}</option>
+            <option value="medium">{t('საშუალო')}</option>
+            <option value="high">{t('მაღალი')}</option>
+            <option value="critical">{t('კრიტიკული')}</option>
+          </select>
+        </FormField>
+      </>
+    )
+    if (kind === 'checklist') return (
+      <>
+        <FormField label={t('სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
+        <FormField label={t('კატეგორია')}><input className="input" value={form.category || ''} onChange={e => setForm({ ...form, category: e.target.value })} /></FormField>
+        <FormField label={t('პუნქტები (მძიმით გამოყოფილი)')}><textarea className="input" rows={3} value={form.items_text || ''} onChange={e => setForm({ ...form, items_text: e.target.value })} /></FormField>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={!!form.is_mandatory} onChange={e => setForm({ ...form, is_mandatory: e.target.checked })} />
+          {t('სავალდებულო')}
+        </label>
+      </>
+    )
+    if (kind === 'incident') return (
+      <>
+        <FormField label={t('ინციდენტის ნომერი')} required><input required className="input" value={form.incident_number || ''} onChange={e => setForm({ ...form, incident_number: e.target.value })} /></FormField>
+        <FormField label={t('სათაური')} required><input required className="input" value={form.title || ''} onChange={e => setForm({ ...form, title: e.target.value })} /></FormField>
+        <FormField label={t('სიმძიმე')}>
+          <select className="input" value={form.severity || 'low'} onChange={e => setForm({ ...form, severity: e.target.value })}>
+            <option value="low">{t('დაბალი')}</option>
+            <option value="medium">{t('საშუალო')}</option>
+            <option value="high">{t('მაღალი')}</option>
+            <option value="critical">{t('კრიტიკული')}</option>
+          </select>
+        </FormField>
+        <FormField label={t('აღწერა')}><textarea className="input" rows={3} value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} /></FormField>
+      </>
+    )
     return (
       <>
         <FormField label={t('აღჭურვილობა')}><input className="input" value={form.equipment_name || ''} onChange={e => setForm({ ...form, equipment_name: e.target.value })} /></FormField>
@@ -382,6 +463,13 @@ export default function MaintenancePage() {
     else if (form.kind === 'part-request') createPartRequest.mutate()
     else if (form.kind === 'tool') createTool.mutate()
     else if (form.kind === 'tool-issue') issueTool.mutate()
+    else if (form.kind === 'safety') createSafetyInstruction.mutate()
+    else if (form.kind === 'permit') createWorkPermit.mutate()
+    else if (form.kind === 'checklist') {
+      const items = (form.items_text || '').split(',').map((s: string) => s.trim()).filter(Boolean)
+      createChecklist.mutate({ ...form, items })
+    }
+    else if (form.kind === 'incident') createIncident.mutate()
     else createRepair.mutate()
   }
 
@@ -842,6 +930,140 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 text-right">
                       {!ti.returned_at && (
                         <button onClick={() => returnTool.mutate(ti.id)} className="btn btn-sm btn-outline">{t('დაბრუნება')}</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'safety' && (
+        <div className="space-y-6">
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('safety')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი ინსტრუქცია')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('სათაური')}</th>
+                  <th className="px-4 py-3">{t('კატეგორია')}</th>
+                  <th className="px-4 py-3">{t('სავალდებულო')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(safetyInstructions || []).length === 0 ? (
+                  <tr><td colSpan={3} className="p-8 text-center text-gray-500">{t('ინსტრუქციები არ არის')}</td></tr>
+                ) : (safetyInstructions || []).map((s: any) => (
+                  <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{s.title}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{s.category || '—'}</td>
+                    <td className="px-4 py-3">{s.is_mandatory ? <span className="badge badge-danger">{t('სავალდებულო')}</span> : <span className="badge">{t('რეკომენდებული')}</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('permit')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი ნებართვა')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('ნომერი')}</th>
+                  <th className="px-4 py-3">{t('სამუშაოს ტიპი')}</th>
+                  <th className="px-4 py-3">{t('რისკი')}</th>
+                  <th className="px-4 py-3">{t('სტატუსი')}</th>
+                  <th className="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(workPermits || []).length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('ნებართვები არ არის')}</td></tr>
+                ) : (workPermits || []).map((w: any) => (
+                  <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{w.permit_number}</td>
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{w.work_type}</td>
+                    <td className="px-4 py-3">
+                      {w.risk_level === 'high' || w.risk_level === 'critical' ? <span className="badge badge-danger">{w.risk_level}</span> : w.risk_level === 'medium' ? <span className="badge badge-warning">{w.risk_level}</span> : <span className="badge">{w.risk_level}</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {w.status === 'approved' ? <span className="badge badge-success">{t('დამტკიცებული')}</span> : w.status === 'rejected' ? <span className="badge badge-danger">{t('უარყოფილი')}</span> : <span className="badge badge-warning">{t('ნახაზი')}</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {w.status === 'draft' && (
+                        <button onClick={() => approveWorkPermit.mutate(w.id)} className="btn btn-sm btn-outline">{t('დამტკიცება')}</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('checklist')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი ჩეკლისტი')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('სახელი')}</th>
+                  <th className="px-4 py-3">{t('კატეგორია')}</th>
+                  <th className="px-4 py-3">{t('პუნქტები')}</th>
+                  <th className="px-4 py-3">{t('სავალდებულო')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(checklists || []).length === 0 ? (
+                  <tr><td colSpan={4} className="p-8 text-center text-gray-500">{t('ჩეკლისტები არ არის')}</td></tr>
+                ) : (checklists || []).map((c: any) => (
+                  <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{c.name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.category || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.item_count}</td>
+                    <td className="px-4 py-3">{c.is_mandatory ? <span className="badge badge-danger">{t('სავალდებულო')}</span> : <span className="badge">{t('რეკომენდებული')}</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('incident')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი ინციდენტი')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('ნომერი')}</th>
+                  <th className="px-4 py-3">{t('სათაური')}</th>
+                  <th className="px-4 py-3">{t('სიმძიმე')}</th>
+                  <th className="px-4 py-3">{t('სტატუსი')}</th>
+                  <th className="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(incidents || []).length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('ინციდენტები არ არის')}</td></tr>
+                ) : (incidents || []).map((i: any) => (
+                  <tr key={i.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{i.incident_number}</td>
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{i.title}</td>
+                    <td className="px-4 py-3">
+                      {i.severity === 'high' || i.severity === 'critical' ? <span className="badge badge-danger">{i.severity}</span> : i.severity === 'medium' ? <span className="badge badge-warning">{i.severity}</span> : <span className="badge">{i.severity}</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {i.status === 'resolved' || i.status === 'closed' ? <span className="badge badge-success">{t('მოგვარებული')}</span> : <span className="badge badge-warning">{t('ღია')}</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {i.status === 'open' && (
+                        <button onClick={() => resolveIncident.mutate(i.id)} className="btn btn-sm btn-outline">{t('მოგვარება')}</button>
                       )}
                     </td>
                   </tr>

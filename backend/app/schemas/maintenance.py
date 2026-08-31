@@ -567,3 +567,111 @@ class MaintenanceToolIssueResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Phase 4: Planning & Safety ────────────────────────────────────────────────
+
+class MaintenanceSafetyInstructionCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    category: str | None = None
+    content: str | None = None
+    is_mandatory: bool = False
+
+
+class MaintenanceSafetyInstructionResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    title: str
+    category: str | None
+    content: str | None
+    is_mandatory: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceWorkPermitCreate(BaseModel):
+    permit_number: str = Field(min_length=1, max_length=50)
+    order_id: UUID | None = None
+    work_type: str = Field(min_length=1, max_length=100)
+    location: str | None = None
+    risk_level: str = "low"
+    expires_at: datetime | None = None
+    notes: str | None = None
+
+
+class MaintenanceWorkPermitUpdate(BaseModel):
+    status: str | None = None
+    risk_level: str | None = None
+    expires_at: datetime | None = None
+    notes: str | None = None
+
+
+class MaintenanceWorkPermitResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    permit_number: str
+    order_id: UUID | None
+    work_type: str
+    location: str | None
+    risk_level: str
+    status: str
+    issued_at: datetime | None
+    expires_at: datetime | None
+    approved_by: UUID | None
+    notes: str | None
+    order_number: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceChecklistCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    category: str | None = None
+    is_mandatory: bool = False
+    items: list[str] = []
+
+
+class MaintenanceChecklistResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    name: str
+    category: str | None
+    is_mandatory: bool
+    item_count: int = 0
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceIncidentCreate(BaseModel):
+    incident_number: str = Field(min_length=1, max_length=50)
+    title: str = Field(min_length=1, max_length=255)
+    severity: str = "low"
+    occurred_at: datetime | None = None
+    description: str | None = None
+
+
+class MaintenanceIncidentUpdate(BaseModel):
+    status: str | None = None
+    severity: str | None = None
+    root_cause: str | None = None
+    corrective_action: str | None = None
+
+
+class MaintenanceIncidentResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    incident_number: str
+    title: str
+    severity: str
+    status: str
+    reported_by: UUID | None
+    occurred_at: datetime | None
+    description: str | None
+    root_cause: str | None
+    corrective_action: str | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

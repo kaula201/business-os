@@ -88,6 +88,14 @@
     "function": "period_history",
     "doc": "",
     "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{year}/close-year",
+    "full_path": "/accounting-periods/{year}/close-year",
+    "function": "close_year",
+    "doc": "Close a fiscal year: zero out all P&L accounts (4xxx/5xxx) into retained earnings (3200) with a balanced closing entry. Idempotent: if the year is already closed, returns the existing entry.",
+    "auth": false
    }
   ]
  },
@@ -209,6 +217,14 @@
     "full_path": "/analytic/gl-reconciliation",
     "function": "gl_reconciliation",
     "doc": "Compare GL account balances with analytic entry totals per GL account.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/ar-ap-reconciliation",
+    "full_path": "/analytic/ar-ap-reconciliation",
+    "function": "ar_ap_reconciliation",
+    "doc": "Compare GL control accounts (1300 AR / 2100 AP) with subledger totals. AR subledger = sum of client balances (receivables). AP subledger = sum of supplier payable outstanding amounts. A healthy ledger",
     "auth": false
    }
   ]
@@ -563,6 +579,14 @@
   "routes": [
    {
     "method": "GET",
+    "path": "/meta",
+    "full_path": "/automations/meta",
+    "function": "automation_meta",
+    "doc": "Return the trigger/action/op vocabulary for the rule builder UI.",
+    "auth": false
+   },
+   {
+    "method": "GET",
     "path": "/",
     "full_path": "/automations/",
     "function": "list_rules",
@@ -598,7 +622,7 @@
     "path": "/trigger/{trigger}",
     "full_path": "/automations/trigger/{trigger}",
     "function": "run_trigger",
-    "doc": "Fire a business event; every active rule matching the trigger runs its action.",
+    "doc": "Fire a business event; every active rule matching the trigger AND its conditions runs its action. Tracks run_count / last_run_at.",
     "auth": false
    }
   ]
@@ -769,6 +793,14 @@
     "full_path": "/connections/{connection_id}/sync",
     "function": "sync_connection",
     "doc": "Sync bank transactions from TBC/BOG. Accepts a list of transactions (date, reference, description, counterparty, amount, direction, currency) and imports them with fingerprint deduplication.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/connections/{connection_id}/import-file",
+    "full_path": "/connections/{connection_id}/import-file",
+    "function": "import_bank_file",
+    "doc": "Import a bank statement file (CSV/MT940-style) for a connection. Column-order flexible parsing (header row detected): date, reference, description, counterparty, debit, credit | amount, direction. Fin",
     "auth": false
    }
   ]
@@ -1016,6 +1048,14 @@
     "function": "consolidated_intercompany",
     "doc": "Per-account balances across group companies — intercompany reconciliation.",
     "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/checks",
+    "full_path": "/gl/consolidated/checks",
+    "function": "consolidated_checks",
+    "doc": "Consolidation health checks (Odoo-depth): 1. Each company's balance sheet is balanced (assets == liabilities + equity) 2. Intercompany balances match across companies (A's receivable == B's payable) 3",
+    "auth": false
    }
   ]
  },
@@ -1208,6 +1248,70 @@
     "function": "update_activity",
     "doc": "",
     "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/pipeline-stages",
+    "full_path": "/crm/pipeline-stages",
+    "function": "list_pipeline_stages",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/pipeline-stages",
+    "full_path": "/crm/pipeline-stages",
+    "function": "create_pipeline_stage",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/pipeline-stages/{stage_id}",
+    "full_path": "/crm/pipeline-stages/{stage_id}",
+    "function": "update_pipeline_stage",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/pipeline-stages/{stage_id}",
+    "full_path": "/crm/pipeline-stages/{stage_id}",
+    "function": "delete_pipeline_stage",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/pipeline-stages/reorder",
+    "full_path": "/crm/pipeline-stages/reorder",
+    "function": "reorder_pipeline_stages",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/leads/{lead_id}/score",
+    "full_path": "/crm/leads/{lead_id}/score",
+    "function": "get_lead_score",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/opportunities/{opportunity_id}/quotation",
+    "full_path": "/crm/opportunities/{opportunity_id}/quotation",
+    "function": "create_quotation_from_opportunity",
+    "doc": "Create a draft quotation from a won opportunity (client must exist).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/quotations/{quotation_id}/send-email",
+    "full_path": "/crm/quotations/{quotation_id}/send-email",
+    "function": "send_quotation_email",
+    "doc": "Send a quotation to the client's email (SMTP or sandbox email_messages).",
+    "auth": false
    }
   ]
  },
@@ -1228,7 +1332,7 @@
     "path": "/pipeline-value",
     "full_path": "/crm/pipeline-value",
     "function": "pipeline_value_by_stage",
-    "doc": "Return pipeline value aggregated by stage, excluding won/lost.",
+    "doc": "Return pipeline value aggregated by stage, excluding won/lost. Backfills: any qualified lead without an opportunity gets one auto-created, so the pipeline forecast is never empty for qualified leads.",
     "auth": false
    },
    {
@@ -1938,7 +2042,7 @@
     "path": "/cart/{cart_id}/checkout",
     "full_path": "/ecommerce/cart/{cart_id}/checkout",
     "function": "checkout",
-    "doc": "Convert cart to an e-commerce order.",
+    "doc": "Convert cart to an e-commerce order. When Stripe is configured the charge is attempted for real; otherwise the order is created as 'paid' in sandbox (demo) mode.",
     "auth": false
    },
    {
@@ -2108,7 +2212,7 @@
     "path": "/signature-requests/sign",
     "full_path": "/signature-requests/sign",
     "function": "sign_request",
-    "doc": "Sign or decline a request by token + signer email (the signer acts).",
+    "doc": "Sign or decline a request by token + signer email (the signer acts). The signing token IS the authorization — no login required.",
     "auth": false
    }
   ]
@@ -3530,6 +3634,22 @@
     "auth": false
    },
    {
+    "method": "POST",
+    "path": "/counterparties/verify",
+    "full_path": "/integrations/counterparties/verify",
+    "function": "verify_counterparty",
+    "doc": "Verify a counterparty (client/supplier) against SRS open data. Every check is stored in counterparty_checks so the verification history is auditable. When the open-data portal is unreachable the check",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/counterparties/checks",
+    "full_path": "/integrations/counterparties/checks",
+    "function": "list_counterparty_checks",
+    "doc": "Verification history for counterparties.",
+    "auth": false
+   },
+   {
     "method": "GET",
     "path": "/api-keys",
     "full_path": "/integrations/api-keys",
@@ -3617,8 +3737,8 @@
    },
    {
     "method": "GET",
-    "path": "/{product_id}",
-    "full_path": "/inventory/valuation/{product_id}",
+    "path": "/{product_id:uuid}",
+    "full_path": "/inventory/valuation/{product_id:uuid}",
     "function": "get_product_valuation",
     "doc": "",
     "auth": false
@@ -3629,6 +3749,22 @@
     "full_path": "/inventory/valuation/adjust",
     "function": "adjust_valuation",
     "doc": "Manually inject an incoming layer (e.g. opening balance / correction).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/methods",
+    "full_path": "/inventory/valuation/methods",
+    "function": "list_valuation_methods",
+    "doc": "Per-product valuation method: standard | avco | fifo.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/methods",
+    "full_path": "/inventory/valuation/methods",
+    "function": "set_valuation_method",
+    "doc": "Set a product's valuation method (standard/avco/fifo) + standard cost.",
     "auth": false
    }
   ]
@@ -3855,6 +3991,118 @@
   "routes": [
    {
     "method": "GET",
+    "path": "/asset-categories",
+    "full_path": "/maintenance/asset-categories",
+    "function": "list_asset_categories",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/asset-categories",
+    "full_path": "/maintenance/asset-categories",
+    "function": "create_asset_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/locations",
+    "full_path": "/maintenance/locations",
+    "function": "list_locations",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/locations",
+    "full_path": "/maintenance/locations",
+    "function": "create_location",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/assets",
+    "full_path": "/maintenance/assets",
+    "function": "list_assets",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/assets",
+    "full_path": "/maintenance/assets",
+    "function": "create_asset",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/assets/{asset_id}",
+    "full_path": "/maintenance/assets/{asset_id}",
+    "function": "update_asset",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/assets/{asset_id}",
+    "full_path": "/maintenance/assets/{asset_id}",
+    "function": "delete_asset",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/meters",
+    "full_path": "/maintenance/meters",
+    "function": "list_meters",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/meters",
+    "full_path": "/maintenance/meters",
+    "function": "create_meter",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/meters/{meter_id}",
+    "full_path": "/maintenance/meters/{meter_id}",
+    "function": "update_meter",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/requests",
+    "full_path": "/maintenance/requests",
+    "function": "list_requests",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/requests",
+    "full_path": "/maintenance/requests",
+    "function": "create_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/requests/{request_id}",
+    "full_path": "/maintenance/requests/{request_id}",
+    "function": "update_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
     "path": "/plans",
     "full_path": "/maintenance/plans",
     "function": "list_plans",
@@ -3866,6 +4114,14 @@
     "path": "/plans",
     "full_path": "/maintenance/plans",
     "function": "create_plan",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/plans/{plan_id}",
+    "full_path": "/maintenance/plans/{plan_id}",
+    "function": "update_plan",
     "doc": "",
     "auth": false
    },
@@ -3914,6 +4170,222 @@
     "path": "/repairs/{repair_id}",
     "full_path": "/maintenance/repairs/{repair_id}",
     "function": "update_repair",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/technicians",
+    "full_path": "/maintenance/technicians",
+    "function": "list_technicians",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/technicians",
+    "full_path": "/maintenance/technicians",
+    "function": "create_technician",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/technicians/{technician_id}",
+    "full_path": "/maintenance/technicians/{technician_id}",
+    "function": "update_technician",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/teams",
+    "full_path": "/maintenance/teams",
+    "function": "list_teams",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/teams",
+    "full_path": "/maintenance/teams",
+    "function": "create_team",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/teams/{team_id}/members",
+    "full_path": "/maintenance/teams/{team_id}/members",
+    "function": "add_team_member",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/teams/{team_id}/members/{technician_id}",
+    "full_path": "/maintenance/teams/{team_id}/members/{technician_id}",
+    "function": "remove_team_member",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/contractors",
+    "full_path": "/maintenance/contractors",
+    "function": "list_contractors",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/contractors",
+    "full_path": "/maintenance/contractors",
+    "function": "create_contractor",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/contractors/{contractor_id}",
+    "full_path": "/maintenance/contractors/{contractor_id}",
+    "function": "update_contractor",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/slas",
+    "full_path": "/maintenance/slas",
+    "function": "list_slas",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/slas",
+    "full_path": "/maintenance/slas",
+    "function": "create_sla",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/slas/{sla_id}",
+    "full_path": "/maintenance/slas/{sla_id}",
+    "function": "update_sla",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/certificates",
+    "full_path": "/maintenance/certificates",
+    "function": "list_certificates",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/certificates",
+    "full_path": "/maintenance/certificates",
+    "function": "create_certificate",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/parts",
+    "full_path": "/maintenance/parts",
+    "function": "list_parts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/parts",
+    "full_path": "/maintenance/parts",
+    "function": "create_part",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/parts/{part_id}",
+    "full_path": "/maintenance/parts/{part_id}",
+    "function": "update_part",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/part-requests",
+    "full_path": "/maintenance/part-requests",
+    "function": "list_part_requests",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/part-requests",
+    "full_path": "/maintenance/part-requests",
+    "function": "create_part_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/part-requests/{request_id}",
+    "full_path": "/maintenance/part-requests/{request_id}",
+    "function": "update_part_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/tools",
+    "full_path": "/maintenance/tools",
+    "function": "list_tools",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/tools",
+    "full_path": "/maintenance/tools",
+    "function": "create_tool",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/tools/{tool_id}",
+    "full_path": "/maintenance/tools/{tool_id}",
+    "function": "update_tool",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/tool-issues",
+    "full_path": "/maintenance/tool-issues",
+    "function": "list_tool_issues",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/tool-issues",
+    "full_path": "/maintenance/tool-issues",
+    "function": "issue_tool",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/tool-issues/{issue_id}/return",
+    "full_path": "/maintenance/tool-issues/{issue_id}/return",
+    "function": "return_tool",
     "doc": "",
     "auth": false
    }
@@ -3976,6 +4448,30 @@
     "path": "/my-apps",
     "full_path": "/marketplace/my-apps",
     "function": "my_installed_apps",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/apps/{app_id:uuid}/purchase",
+    "full_path": "/marketplace/apps/{app_id:uuid}/purchase",
+    "function": "purchase_app",
+    "doc": "Buy a paid app. Stripe charge when configured, else sandbox 'paid'.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/apps/{app_id:uuid}/trial",
+    "full_path": "/marketplace/apps/{app_id:uuid}/trial",
+    "function": "start_app_trial",
+    "doc": "Start a 14-day trial for a paid app.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/purchases",
+    "full_path": "/marketplace/purchases",
+    "function": "list_purchases",
     "doc": "",
     "auth": false
    }
@@ -4240,6 +4736,338 @@
     "function": "refund_payment",
     "doc": "",
     "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/payroll_engine.py",
+  "prefix": "/payroll-engine",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/structures",
+    "full_path": "/payroll-engine/structures",
+    "function": "list_structures",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/structures",
+    "full_path": "/payroll-engine/structures",
+    "function": "create_structure",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/structures/{structure_id}",
+    "full_path": "/payroll-engine/structures/{structure_id}",
+    "function": "delete_structure",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/structures/{structure_id}/rules",
+    "full_path": "/payroll-engine/structures/{structure_id}/rules",
+    "function": "list_rules",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/structures/{structure_id}/rules",
+    "full_path": "/payroll-engine/structures/{structure_id}/rules",
+    "function": "create_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/rules/{rule_id}",
+    "full_path": "/payroll-engine/rules/{rule_id}",
+    "function": "delete_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/parameters",
+    "full_path": "/payroll-engine/parameters",
+    "function": "list_parameters",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/parameters",
+    "full_path": "/payroll-engine/parameters",
+    "function": "set_parameter",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/work-entries",
+    "full_path": "/payroll-engine/work-entries",
+    "function": "create_work_entry",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/work-entries",
+    "full_path": "/payroll-engine/work-entries",
+    "function": "list_work_entries",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/adjustments",
+    "full_path": "/payroll-engine/adjustments",
+    "function": "list_adjustments",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/adjustments",
+    "full_path": "/payroll-engine/adjustments",
+    "function": "create_adjustment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/adjustments/{adjustment_id}",
+    "full_path": "/payroll-engine/adjustments/{adjustment_id}",
+    "function": "delete_adjustment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/calculate",
+    "full_path": "/payroll-engine/calculate",
+    "function": "calculate_with_rules",
+    "doc": "Run the salary structure rules for one employee and persist lines.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/entries/{entry_id}/lines",
+    "full_path": "/payroll-engine/entries/{entry_id}/lines",
+    "function": "entry_lines",
+    "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/platform.py",
+  "prefix": "/platform",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/custom-fields",
+    "full_path": "/platform/custom-fields",
+    "function": "list_custom_fields",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/custom-fields",
+    "full_path": "/platform/custom-fields",
+    "function": "create_custom_field",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "DELETE",
+    "path": "/custom-fields/{field_id}",
+    "full_path": "/platform/custom-fields/{field_id}",
+    "function": "delete_custom_field",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "GET",
+    "path": "/custom-values",
+    "full_path": "/platform/custom-values",
+    "function": "list_custom_values",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/custom-values/{entity_type}/{entity_id}",
+    "full_path": "/platform/custom-values/{entity_type}/{entity_id}",
+    "function": "set_custom_values",
+    "doc": "Set multiple custom field values for a record: {field_id: value}.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/workflows",
+    "full_path": "/platform/workflows",
+    "function": "list_workflows",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/workflows",
+    "full_path": "/platform/workflows",
+    "function": "create_workflow",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "DELETE",
+    "path": "/workflows/{workflow_id}",
+    "full_path": "/platform/workflows/{workflow_id}",
+    "function": "delete_workflow",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "GET",
+    "path": "/reports",
+    "full_path": "/platform/reports",
+    "function": "list_reports",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/reports",
+    "full_path": "/platform/reports",
+    "function": "create_report",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "GET",
+    "path": "/reports/{report_id}/export",
+    "full_path": "/platform/reports/{report_id}/export",
+    "function": "export_report",
+    "doc": "Export report data as CSV (inline base64) based on the saved template.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/import-mappings",
+    "full_path": "/platform/import-mappings",
+    "function": "list_import_mappings",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/import-mappings",
+    "full_path": "/platform/import-mappings",
+    "function": "create_import_mapping",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "DELETE",
+    "path": "/import-mappings/{mapping_id}",
+    "full_path": "/platform/import-mappings/{mapping_id}",
+    "function": "delete_import_mapping",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "GET",
+    "path": "/industry-templates",
+    "full_path": "/platform/industry-templates",
+    "function": "list_industry_templates",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/industry-templates",
+    "full_path": "/platform/industry-templates",
+    "function": "create_industry_template",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "GET",
+    "path": "/pdf-templates",
+    "full_path": "/platform/pdf-templates",
+    "function": "list_pdf_templates",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/pdf-templates",
+    "full_path": "/platform/pdf-templates",
+    "function": "create_pdf_template",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "PATCH",
+    "path": "/pdf-templates/{template_id}",
+    "full_path": "/platform/pdf-templates/{template_id}",
+    "function": "update_pdf_template",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "DELETE",
+    "path": "/pdf-templates/{template_id}",
+    "full_path": "/platform/pdf-templates/{template_id}",
+    "function": "delete_pdf_template",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "POST",
+    "path": "/pdf-templates/{template_id}/render",
+    "full_path": "/platform/pdf-templates/{template_id}/render",
+    "function": "render_pdf_template",
+    "doc": "Render a PDF from the template layout with the provided data rows. data: {\"company_name\": ..., \"client_name\": ..., \"items\": [{name, qty, price, total}], \"subtotal\": ..., \"vat\": ..., \"total\": ..., \"num",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/custom-roles",
+    "full_path": "/platform/custom-roles",
+    "function": "list_custom_roles",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/custom-roles",
+    "full_path": "/platform/custom-roles",
+    "function": "create_custom_role",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "PATCH",
+    "path": "/custom-roles/{role_id}",
+    "full_path": "/platform/custom-roles/{role_id}",
+    "function": "update_custom_role",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "DELETE",
+    "path": "/custom-roles/{role_id}",
+    "full_path": "/platform/custom-roles/{role_id}",
+    "function": "delete_custom_role",
+    "doc": "",
+    "auth": true
    }
   ]
  },
@@ -5534,6 +6362,22 @@
     "function": "resource_utilization",
     "doc": "Per-user load: sum of allocations across active projects.",
     "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{project_id}/timesheets/{entry_id}/mark-billed",
+    "full_path": "/projects/{project_id}/timesheets/{entry_id}/mark-billed",
+    "function": "mark_timesheet_billed",
+    "doc": "Mark a timesheet entry as billed (invoice issued / sent to client).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{project_id}/billing-summary",
+    "full_path": "/projects/{project_id}/billing-summary",
+    "function": "project_billing_summary",
+    "doc": "Timesheet billing summary: billable hours, unbilled value, billed value.",
+    "auth": false
    }
   ]
  },
@@ -5681,8 +6525,8 @@
    },
    {
     "method": "GET",
-    "path": "/{check_id}",
-    "full_path": "/quality-control/{check_id}",
+    "path": "/{check_id:uuid}",
+    "full_path": "/quality-control/{check_id:uuid}",
     "function": "get_quality_check",
     "doc": "",
     "auth": false
@@ -5697,18 +6541,98 @@
    },
    {
     "method": "PUT",
-    "path": "/{check_id}",
-    "full_path": "/quality-control/{check_id}",
+    "path": "/{check_id:uuid}",
+    "full_path": "/quality-control/{check_id:uuid}",
     "function": "update_quality_check",
     "doc": "",
     "auth": false
    },
    {
     "method": "DELETE",
-    "path": "/{check_id}",
-    "full_path": "/quality-control/{check_id}",
+    "path": "/{check_id:uuid}",
+    "full_path": "/quality-control/{check_id:uuid}",
     "function": "delete_quality_check",
     "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/control-points",
+    "full_path": "/quality-control/control-points",
+    "function": "list_control_points",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/control-points",
+    "full_path": "/quality-control/control-points",
+    "function": "create_control_point",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/control-points/{cp_id}",
+    "full_path": "/quality-control/control-points/{cp_id}",
+    "function": "delete_control_point",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/control-points/{cp_id}/tests",
+    "full_path": "/quality-control/control-points/{cp_id}/tests",
+    "function": "list_quality_tests",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/control-points/{cp_id}/tests",
+    "full_path": "/quality-control/control-points/{cp_id}/tests",
+    "function": "create_quality_test",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/checks/{check_id:uuid}/results",
+    "full_path": "/quality-control/checks/{check_id:uuid}/results",
+    "function": "record_test_result",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/alerts",
+    "full_path": "/quality-control/alerts",
+    "function": "list_quality_alerts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/alerts",
+    "full_path": "/quality-control/alerts",
+    "function": "create_quality_alert",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/alerts/{alert_id}/resolve",
+    "full_path": "/quality-control/alerts/{alert_id}/resolve",
+    "function": "resolve_quality_alert",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/scan",
+    "full_path": "/quality-control/scan",
+    "function": "scan_barcode",
+    "doc": "Odoo-style barcode scan: find the product by barcode/SKU/GTIN and auto-create a pending quality check for it.",
     "auth": false
    }
   ]

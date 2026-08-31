@@ -319,3 +319,84 @@ async def test_tool_issue_and_return_flow(client, auth_headers):
     updated2 = next(t for t in r7.json()["data"] if t["id"] == tool["id"])
     assert updated2["available"] == 2
     assert updated2["status"] == "available"
+
+
+
+# ── CMMS Phase 4: planning & safety ───────────────────────────────────────────
+
+async def test_safety_instruction_and_checklist(client, auth_headers):
+    # safety instruction
+    r = await client.post("/api/v1/maintenance/safety-instructions", headers=auth_headers, json={
+        "title": "ელექტრო სამუშაოების უსაფრთხოება",
+        "category": "ელექტრო",
+        "content": "გამორთე დენი სამუშაოს დაწყებამდე",
+        "is_mandatory": True,
+    })
+    assert r.status_code == 201, r.text
+    assert r.json()["data"]["is_mandatory"] is True
+
+    r2 = await client.get("/api/v1/maintenance/safety-instructions", headers=auth_headers)
+    assert len(r2.json()["data"]) == 1
+
+    # checklist with items
+    r3 = await client.post("/api/v1/maintenance/checklists", headers=auth_headers, json={
+        "name": "ყოველდღიური შემოწმება",
+        "category": "ინსპექცია",
+        "is_mandatory": True,
+        "items": ["შეამოწმე ზეთის დონე", "შეამოწმე წნევა", "შეამოწმე გაჟონვა"],
+    })
+    assert r3.status_code == 201, r3.text
+    assert r3.json()["data"]["item_count"] == 3
+
+    r4 = await client.get("/api/v1/maintenance/checklists", headers=auth_headers)
+    assert r4.json()["data"][0]["item_count"] == 3
+
+
+async def test_work_permit_and_incident_lifecycle(client, auth_headers):
+    # work permit
+    r = await client.post("/api/v1/maintenance/work-permits", headers=auth_headers, json={
+        "permit_number": "WP-001",
+        "work_type": "შედუღება",
+        "location": "ცეხი 2",
+        "risk_level": "high",
+    })
+    assert r.status_code == 201, r.text
+    permit = r.json()["data"]
+    assert permit["status"] == "draft"
+
+    # approve → issued_at set
+    r2 = await client.patch(f"/api/v1/maintenance/work-permits/{permit['id']}", headers=auth_headers, json={"status": "approved"})
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["data"]["status"] == "approved"
+    assert r2.json()["data"]["issued_at"] is not None
+
+    # duplicate permit number rejected
+    r3 = await client.post("/api/v1/maintenance/work-permits", headers=auth_headers, json={
+        "permit_number": "WP-001", "work_type": "შედუღება",
+    })
+    assert r3.status_code == 409
+
+    # incident
+    r4 = await client.post("/api/v1/maintenance/incidents", headers=auth_headers, json={
+        "incident_number": "INC-001",
+        "title": "მცირე დამწვრობა",
+        "severity": "medium",
+        "description": "ტექნიკოსმა ხელი დაიწვა",
+    })
+    assert r4.status_code == 201, r4.text
+    incident = r4.json()["data"]
+    assert incident["status"] == "open"
+
+    # resolve with root cause
+    r5 = await client.patch(f"/api/v1/maintenance/incidents/{incident['id']}", headers=auth_headers, json={
+        "status": "resolved",
+        "root_cause": "დამცავი ხელთათმანის გარეშე მუშაობა",
+        "corrective_action": "სავალდებულო ხელთათმანები",
+    })
+    assert r5.status_code == 200, r5.text
+    assert r5.json()["data"]["status"] == "resolved"
+    assert r5.json()["data"]["root_cause"] is not None
+
+    # filter by status
+    r6 = await client.get("/api/v1/maintenance/incidents?status=resolved", headers=auth_headers)
+    assert len(r6.json()["data"]) == 1

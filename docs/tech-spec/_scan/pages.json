@@ -31,8 +31,13 @@
  {
   "module_code": "AccountingPeriods",
   "file": "frontend/src/pages/AccountingPeriodsPage.tsx",
-  "lines": 212,
+  "lines": 241,
   "buttons": [
+   {
+    "label": "მუშავდება...",
+    "on_click": "() => { if (confirm(t('წლის დახურვა — P&L გადავა გაუნაწილებელ მოგებაში. გაგრძელება?'))) closeYearMutation.mutate() }",
+    "disabled": true
+   },
    {
     "label": "მუშავდება...",
     "on_click": "() => { if (confirm(t('თვის დახურვის ავტომატური გაშვება (ამორტიზაცია, კურსი, დეფერირებული)?'))) runAutomation.mutate() }",
@@ -82,13 +87,17 @@
    {
     "method": "POST",
     "path": "/gl/automation/run"
+   },
+   {
+    "method": "POST",
+    "path": "/accounting-periods/${year}/close-year"
    }
   ]
  },
  {
   "module_code": "AnalyticAccounting",
   "file": "frontend/src/pages/AnalyticAccountingPage.tsx",
-  "lines": 65,
+  "lines": 67,
   "buttons": [
    {
     "label": "ცენტრი",
@@ -246,7 +255,7 @@
  {
   "module_code": "Automations",
   "file": "frontend/src/pages/AutomationsPage.tsx",
-  "lines": 127,
+  "lines": 207,
   "buttons": [
    {
     "label": "ახალი წესი",
@@ -265,6 +274,10 @@
    }
   ],
   "selects": [
+   {
+    "label": null,
+    "options": []
+   },
    {
     "label": null,
     "options": []
@@ -300,7 +313,7 @@
    },
    {
     "method": "CREATE",
-    "path": "form",
+    "path": "{\n        name: form.name",
     "client": "automationsApi"
    },
    {
@@ -370,12 +383,22 @@
  {
   "module_code": "Banking",
   "file": "frontend/src/pages/BankingPage.tsx",
-  "lines": 342,
+  "lines": 444,
   "buttons": [
    {
     "label": "ანგარიშის დამატება",
     "on_click": "() => { setError(''); setAccountOpen(true) }",
     "disabled": false
+   },
+   {
+    "label": "ბანკის კავშირი",
+    "on_click": "() => { setError(''); setConnOpen(true) }",
+    "disabled": false
+   },
+   {
+    "label": "ფაილის იმპორტი",
+    "on_click": "() => { setError(''); setUploadConnId(connections[0]?.id || ''); setUploadOpen(true) }",
+    "disabled": true
    },
    {
     "label": "CSV იმპორტი",
@@ -415,6 +438,26 @@
    {
     "label": "იტვირთება...",
     "on_click": "() => importStatement.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setConnOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "ინახება...",
+    "on_click": "() => createConnection.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setUploadOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "იტვირთება...",
+    "on_click": "() => uploadStatement.mutate()",
     "disabled": true
    },
    {
@@ -492,7 +535,7 @@
  {
   "module_code": "CRM",
   "file": "frontend/src/pages/CRMPage.tsx",
-  "lines": 499,
+  "lines": 597,
   "buttons": [
    {
     "label": "CRM OS",
@@ -530,6 +573,21 @@
     "disabled": false
    },
    {
+    "label": "ეტაპების კონფიგურაცია",
+    "on_click": "() => setStagesOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "შემოთავაზება",
+    "on_click": "() => quotationMutation.mutate(item.id)",
+    "disabled": true
+   },
+   {
+    "label": "ელფოსტით გაგზავნა",
+    "on_click": "() => { const q = quotationMutation.data?.data?.data as { quotation_id?: string } | undefined; if (q?.quotation_id) send",
+    "disabled": true
+   },
+   {
     "label": "დაკავშირებულად მონიშვნა",
     "on_click": "() => updateLeadMutation.mutate({ id: selectedLead.id, data: { status: 'contacted' } })",
     "disabled": true
@@ -553,6 +611,31 @@
     "label": "შემდეგი მოქმედების დაგეგმვა",
     "on_click": "() => setActivityOpen(true)",
     "disabled": true
+   },
+   {
+    "label": "×",
+    "on_click": "() => setQuotationMsg('')",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => { setEditingStage(null); setStageForm({ key: '', name: '', probability: 10, color: '#3b82f6' }) }",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "რედაქტირება",
+    "on_click": "() => { setEditingStage(stage); setStageForm({ key: stage.key, name: stage.name, probability: stage.probability, color: ",
+    "disabled": false
+   },
+   {
+    "label": "წაშლა",
+    "on_click": "() => { if (window.confirm(t('წავშალოთ ეს ეტაპი?'))) deleteStageMutation.mutate(stage.id) }",
+    "disabled": false
    },
    {
     "label": "საკონტაქტო ინფორმაცია არ არის",
@@ -592,6 +675,15 @@
    {
     "label": null,
     "options": []
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
    },
    {
     "label": null,
@@ -731,7 +823,7 @@
  {
   "module_code": "Clients",
   "file": "frontend/src/pages/ClientsPage.tsx",
-  "lines": 294,
+  "lines": 295,
   "buttons": [
    {
     "label": "Excel იმპორტი",
@@ -802,7 +894,7 @@
  {
   "module_code": "ConsolidatedReports",
   "file": "frontend/src/pages/ConsolidatedReportsPage.tsx",
-  "lines": 182,
+  "lines": 220,
   "buttons": [
    {
     "label": "მუშავდება...",
@@ -832,7 +924,7 @@
  {
   "module_code": "Currency",
   "file": "frontend/src/pages/CurrencyPage.tsx",
-  "lines": 318,
+  "lines": 319,
   "buttons": [
    {
     "label": "ახლდება...",
@@ -911,7 +1003,7 @@
  {
   "module_code": "CustomerFinance",
   "file": "frontend/src/pages/CustomerFinancePage.tsx",
-  "lines": 249,
+  "lines": 250,
   "buttons": [
    {
     "label": "ინახება...",
@@ -979,7 +1071,7 @@
  {
   "module_code": "Dashboard",
   "file": "frontend/src/pages/DashboardPage.tsx",
-  "lines": 373,
+  "lines": 386,
   "buttons": [
    {
     "label": "მორგება",
@@ -1129,9 +1221,50 @@
   ]
  },
  {
+  "module_code": "Ecommerce",
+  "file": "frontend/src/pages/EcommercePage.tsx",
+  "lines": 121,
+  "buttons": [
+   {
+    "label": "ახალი კამპანია",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createCampaign.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "",
+    "client": "emailMarketingApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "{\n      name: form.name",
+    "client": "emailMarketingApi"
+   },
+   {
+    "method": "REMOVE",
+    "path": "id",
+    "client": "emailMarketingApi"
+   }
+  ]
+ },
+ {
   "module_code": "EmailCalendar",
   "file": "frontend/src/pages/EmailCalendarPage.tsx",
-  "lines": 177,
+  "lines": 178,
   "buttons": [
    {
     "label": "ახალი ელ.ფოსტა",
@@ -1178,7 +1311,7 @@
  {
   "module_code": "EmailTracking",
   "file": "frontend/src/pages/EmailTrackingPage.tsx",
-  "lines": 140,
+  "lines": 141,
   "buttons": [
    {
     "label": "ახალი ხელმოწერის მოთხოვნა",
@@ -1208,7 +1341,7 @@
  {
   "module_code": "ExchangeDifferences",
   "file": "frontend/src/pages/ExchangeDifferencesPage.tsx",
-  "lines": 97,
+  "lines": 98,
   "buttons": [
    {
     "label": "გადაფასება",
@@ -1277,6 +1410,84 @@
    {
     "method": "POST",
     "path": "/expenses/${id}/reject"
+   }
+  ]
+ },
+ {
+  "module_code": "FieldService",
+  "file": "frontend/src/pages/FieldServicePage.tsx",
+  "lines": 180,
+  "buttons": [
+   {
+    "label": "ახალი სამუშაო",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "დაწყება",
+    "on_click": "() => startJob.mutate(j.id)",
+    "disabled": false
+   },
+   {
+    "label": "დასრულება",
+    "on_click": "() => setCompleteFor(j.id)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createJob.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setCompleteFor(null)",
+    "disabled": false
+   },
+   {
+    "label": "დასრულება",
+    "on_click": "() => completeJob.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "low",
+      "label": "Low"
+     },
+     {
+      "value": "medium",
+      "label": "Medium"
+     },
+     {
+      "value": "high",
+      "label": "High"
+     },
+     {
+      "value": "urgent",
+      "label": "Urgent"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "",
+    "client": "fieldServiceApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "form",
+    "client": "fieldServiceApi"
    }
   ]
  },
@@ -1373,7 +1584,7 @@
  {
   "module_code": "HR",
   "file": "frontend/src/pages/HRPage.tsx",
-  "lines": 995,
+  "lines": 1503,
   "buttons": [
    {
     "label": "თანამშრომლის დამატება",
@@ -1406,6 +1617,31 @@
     "disabled": false
    },
    {
+    "label": "ახალი სტრუქტურა",
+    "on_click": "() => setStructModal(true)",
+    "disabled": false
+   },
+   {
+    "label": "ბონუსი/დაქვითვა",
+    "on_click": "() => setAdjModal(true)",
+    "disabled": false
+   },
+   {
+    "label": "სამუშაო ჩანაწერი",
+    "on_click": "() => setWeModal(true)",
+    "disabled": false
+   },
+   {
+    "label": "პარამეტრები",
+    "on_click": "() => setParamModal(true)",
+    "disabled": false
+   },
+   {
+    "label": "გაანგარიშება წესებით",
+    "on_click": "() => { setCalcResult(null); setCalcModal(true) }",
+    "disabled": false
+   },
+   {
     "label": "რედაქტირება",
     "on_click": "() => openEdit(emp)",
     "disabled": false
@@ -1433,6 +1669,11 @@
    {
     "label": "✕",
     "on_click": "() => setExplainPayslip(null)",
+    "disabled": false
+   },
+   {
+    "label": "ახალი წესი",
+    "on_click": "() => setRuleModal(true)",
     "disabled": false
    },
    {
@@ -1468,6 +1709,36 @@
    {
     "label": "შენახვა",
     "on_click": "() => createTimesheet.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createStructure.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createRule.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => setParameter.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "მუშავდება...",
+    "on_click": "() => runCalc.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createAdjustment.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createWorkEntry.mutate()",
     "disabled": true
    }
   ],
@@ -1574,6 +1845,122 @@
       "label": ""
      }
     ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "addition",
+      "label": "addition"
+     },
+     {
+      "value": "deduction",
+      "label": "deduction"
+     },
+     {
+      "value": "tax",
+      "label": "tax"
+     },
+     {
+      "value": "pension",
+      "label": "pension"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "fixed",
+      "label": "fixed"
+     },
+     {
+      "value": "percentage",
+      "label": "percentage"
+     },
+     {
+      "value": "formula",
+      "label": "formula"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "gross",
+      "label": "gross"
+     },
+     {
+      "value": "base",
+      "label": "base"
+     },
+     {
+      "value": "net",
+      "label": "net"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "bonus",
+      "label": "bonus"
+     },
+     {
+      "value": "premium",
+      "label": "premium"
+     },
+     {
+      "value": "fine",
+      "label": "fine"
+     },
+     {
+      "value": "advance",
+      "label": "advance"
+     },
+     {
+      "value": "other",
+      "label": "other"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
    }
   ],
   "inputs": [],
@@ -1608,7 +1995,7 @@
    },
    {
     "method": "GET",
-    "path": "/recruitment/job-postings"
+    "path": "/recruitment/"
    },
    {
     "method": "GET",
@@ -1644,7 +2031,7 @@
    },
    {
     "method": "POST",
-    "path": "/recruitment/job-postings"
+    "path": "/recruitment/"
    },
    {
     "method": "POST",
@@ -1659,7 +2046,7 @@
  {
   "module_code": "Helpdesk",
   "file": "frontend/src/pages/HelpdeskPage.tsx",
-  "lines": 825,
+  "lines": 826,
   "buttons": [
    {
     "label": "შენახვა",
@@ -1925,12 +2312,17 @@
  {
   "module_code": "Integrations",
   "file": "frontend/src/pages/IntegrationsPage.tsx",
-  "lines": 252,
+  "lines": 340,
   "buttons": [
    {
     "label": "ახალი API Key",
     "on_click": "() => { setNewKey(''); tab === 'keys' ? setKeyOpen(true) : setHookOpen(true) }",
     "disabled": false
+   },
+   {
+    "label": "მუშავდება...",
+    "on_click": "() => verify.mutate()",
+    "disabled": true
    },
    {
     "label": "შექმნა",
@@ -1980,7 +2372,7 @@
  {
   "module_code": "Inventory",
   "file": "frontend/src/pages/InventoryPage.tsx",
-  "lines": 762,
+  "lines": 763,
   "buttons": [
    {
     "label": "/> : }",
@@ -2131,7 +2523,7 @@
  {
   "module_code": "InventoryValuation",
   "file": "frontend/src/pages/InventoryValuationPage.tsx",
-  "lines": 171,
+  "lines": 241,
   "buttons": [
    {
     "label": "კორექტირება",
@@ -2139,8 +2531,18 @@
     "disabled": false
    },
    {
+    "label": "შეფასების მეთოდი",
+    "on_click": "() => setMethodOpen(true)",
+    "disabled": false
+   },
+   {
     "label": "შენახვა",
     "on_click": "() => adjust.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => setMethod.mutate()",
     "disabled": true
    }
   ],
@@ -2151,6 +2553,32 @@
      {
       "value": "",
       "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "avco",
+      "label": "AVCO —"
+     },
+     {
+      "value": "fifo",
+      "label": "FIFO —"
+     },
+     {
+      "value": "standard",
+      "label": "Standard —"
      }
     ]
    }
@@ -2172,7 +2600,7 @@
  {
   "module_code": "Invoices",
   "file": "frontend/src/pages/InvoicesPage.tsx",
-  "lines": 348,
+  "lines": 349,
   "buttons": [
    {
     "label": "შევსება",
@@ -2273,7 +2701,7 @@
  {
   "module_code": "JournalEntries",
   "file": "frontend/src/pages/JournalEntriesPage.tsx",
-  "lines": 243,
+  "lines": 244,
   "buttons": [
    {
     "label": "ახალი ხელით ჩანაწერი",
@@ -2308,7 +2736,7 @@
  {
   "module_code": "Kitchen",
   "file": "frontend/src/pages/KitchenPage.tsx",
-  "lines": 81,
+  "lines": 82,
   "buttons": [
    {
     "label": "მზადება",
@@ -2361,9 +2789,413 @@
   "api_calls": []
  },
  {
+  "module_code": "Maintenance",
+  "file": "frontend/src/pages/MaintenancePage.tsx",
+  "lines": 935,
+  "buttons": [
+   {
+    "label": "ახალი",
+    "on_click": "() => openCreate(tab === 'plans' ? 'plan' : tab === 'orders' ? 'order' : tab === 'assets' ? 'asset' : tab === 'meters' ?",
+    "disabled": false
+   },
+   {
+    "label": "დასრულება",
+    "on_click": "() => updateOrder.mutate({ id: o.id, data: { status: 'completed' } })",
+    "disabled": false
+   },
+   {
+    "label": "დასრულება",
+    "on_click": "() => updateRepair.mutate({ id: r.id, data: { status: 'done' } })",
+    "disabled": false
+   },
+   {
+    "label": "ახალი აქტივი",
+    "on_click": "() => openCreate('asset')",
+    "disabled": false
+   },
+   {
+    "label": "წაშლა",
+    "on_click": "() => { if (window.confirm(t('წავშალოთ?'))) deleteAsset.mutate(a.id) }",
+    "disabled": false
+   },
+   {
+    "label": "ახალი მოთხოვნა",
+    "on_click": "() => openCreate('request')",
+    "disabled": false
+   },
+   {
+    "label": "დასრულება",
+    "on_click": "() => updateRequest.mutate({ id: r.id, data: { status: 'completed' } })",
+    "disabled": false
+   },
+   {
+    "label": "ახალი მრიცხველი",
+    "on_click": "() => openCreate('meter')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი მდებარეობა",
+    "on_click": "() => openCreate('location')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ტექნიკოსი",
+    "on_click": "() => openCreate('technician')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი კონტრაქტორი",
+    "on_click": "() => openCreate('contractor')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ნაწილი",
+    "on_click": "() => openCreate('part')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი მოთხოვნა",
+    "on_click": "() => openCreate('part-request')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ხელსაწყო",
+    "on_click": "() => openCreate('tool')",
+    "disabled": false
+   },
+   {
+    "label": "ხელსაწყოს გაცემა",
+    "on_click": "() => openCreate('tool-issue')",
+    "disabled": false
+   },
+   {
+    "label": "დაბრუნება",
+    "on_click": "() => returnTool.mutate(ti.id)",
+    "disabled": false
+   },
+   {
+    "label": "ახალი SLA",
+    "on_click": "() => openCreate('sla')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი სერტიფიკატი",
+    "on_click": "() => openCreate('certificate')",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "submit",
+    "disabled": false
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "preventive",
+      "label": "Preventive"
+     },
+     {
+      "value": "corrective",
+      "label": "Corrective"
+     },
+     {
+      "value": "predictive",
+      "label": "Predictive"
+     },
+     {
+      "value": "emergency",
+      "label": "Emergency"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "low",
+      "label": "Low"
+     },
+     {
+      "value": "medium",
+      "label": "Medium"
+     },
+     {
+      "value": "high",
+      "label": "High"
+     },
+     {
+      "value": "urgent",
+      "label": "Urgent"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "low",
+      "label": "Low"
+     },
+     {
+      "value": "medium",
+      "label": "Medium"
+     },
+     {
+      "value": "high",
+      "label": "High"
+     },
+     {
+      "value": "urgent",
+      "label": "Urgent"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "hours",
+      "label": "Hours"
+     },
+     {
+      "value": "km",
+      "label": "Km"
+     },
+     {
+      "value": "cycles",
+      "label": "Cycles"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "low",
+      "label": "Low"
+     },
+     {
+      "value": "medium",
+      "label": "Medium"
+     },
+     {
+      "value": "high",
+      "label": "High"
+     },
+     {
+      "value": "urgent",
+      "label": "Urgent"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "low",
+      "label": "Low"
+     },
+     {
+      "value": "medium",
+      "label": "Medium"
+     },
+     {
+      "value": "high",
+      "label": "High"
+     },
+     {
+      "value": "urgent",
+      "label": "Urgent"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Marketplace",
+  "file": "frontend/src/pages/MarketplacePage.tsx",
+  "lines": 156,
+  "buttons": [
+   {
+    "label": "აპის გამოქვეყნება",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "მოხსნა",
+    "on_click": "() => uninstall.mutate(a.id)",
+    "disabled": false
+   },
+   {
+    "label": "ყიდვა",
+    "on_click": "() => purchase.mutate(a.id)",
+    "disabled": false
+   },
+   {
+    "label": "ტრიალი",
+    "on_click": "() => trial.mutate(a.id)",
+    "disabled": false
+   },
+   {
+    "label": "დაყენება",
+    "on_click": "() => install.mutate(a.id)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "გამოქვეყნება",
+    "on_click": "() => createApp.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "sales",
+      "label": "Sales"
+     },
+     {
+      "value": "finance",
+      "label": "Finance"
+     },
+     {
+      "value": "operations",
+      "label": "Operations"
+     },
+     {
+      "value": "hr",
+      "label": "HR"
+     },
+     {
+      "value": "crm",
+      "label": "CRM"
+     },
+     {
+      "value": "other",
+      "label": "Other"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "CREATE",
+    "path": "form",
+    "client": "marketplaceApi"
+   }
+  ]
+ },
+ {
   "module_code": "Orders",
   "file": "frontend/src/pages/OrdersPage.tsx",
-  "lines": 511,
+  "lines": 512,
   "buttons": [
    {
     "label": "ახალი გაყიდვის შეკვეთა",
@@ -2454,7 +3286,7 @@
  {
   "module_code": "Payments",
   "file": "frontend/src/pages/PaymentsPage.tsx",
-  "lines": 135,
+  "lines": 136,
   "buttons": [
    {
     "label": "ახალი გადახდა",
@@ -2526,9 +3358,195 @@
   ]
  },
  {
+  "module_code": "PlatformStudio",
+  "file": "frontend/src/pages/PlatformStudioPage.tsx",
+  "lines": 416,
+  "buttons": [
+   {
+    "label": "ახალი ველი",
+    "on_click": "() => setFieldOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ვორქფლოუ",
+    "on_click": "() => setWfOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ანგარიში",
+    "on_click": "() => setRepOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "ახალი PDF შაბლონი",
+    "on_click": "() => setPdfOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "პრევიუ",
+    "on_click": "() => { setPreviewId(p.id); renderPdf.mutate(p.id) }",
+    "disabled": true
+   },
+   {
+    "label": "ახალი როლი",
+    "on_click": "() => setRoleOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "ახალი მეპინგი",
+    "on_click": "() => setImpOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setFieldOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createField.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setWfOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createWorkflow.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setRepOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createReport.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setPdfOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createPdf.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setRoleOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createRole.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setImpOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createImport.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => setPdfPreview(null)",
+    "disabled": false
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Plm",
+  "file": "frontend/src/pages/PlmPage.tsx",
+  "lines": 191,
+  "buttons": [
+   {
+    "label": "ახალი",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "დამტკიცება",
+    "on_click": "() => approveEco.mutate(e.id)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => (tab === 'versions' ? createVersion : createEco).mutate()",
+    "disabled": false
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "design",
+      "label": "Design"
+     },
+     {
+      "value": "material",
+      "label": "Material"
+     },
+     {
+      "value": "process",
+      "label": "Process"
+     },
+     {
+      "value": "other",
+      "label": "Other"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "",
+    "client": "productsApi"
+   }
+  ]
+ },
+ {
   "module_code": "Portal",
   "file": "frontend/src/pages/PortalPage.tsx",
-  "lines": 193,
+  "lines": 238,
   "buttons": [
    {
     "label": "ახალი პორტალის მომხმარებელი",
@@ -2577,7 +3595,7 @@
  {
   "module_code": "Pos",
   "file": "frontend/src/pages/PosPage.tsx",
-  "lines": 1328,
+  "lines": 1329,
   "buttons": [
    {
     "label": "Offline",
@@ -2969,7 +3987,7 @@
  {
   "module_code": "Procurement",
   "file": "frontend/src/pages/ProcurementPage.tsx",
-  "lines": 788,
+  "lines": 789,
   "buttons": [
    {
     "label": "RFQ",
@@ -3260,7 +4278,7 @@
  {
   "module_code": "Projects",
   "file": "frontend/src/pages/ProjectsPage.tsx",
-  "lines": 331,
+  "lines": 526,
   "buttons": [
    {
     "label": "შაბლონები",
@@ -3280,6 +4298,21 @@
    {
     "label": "ინახება...",
     "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "ბილინგი",
+    "on_click": "() => markBilled.mutate(e.id)",
+    "disabled": false
+   },
+   {
+    "label": "დროის დამატება",
+    "on_click": "() => addTimesheet.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "წევრის დამატება",
+    "on_click": "() => addMember.mutate()",
     "disabled": true
    },
    {
@@ -3303,8 +4336,48 @@
     "disabled": true
    }
   ],
-  "selects": [],
-  "inputs": [],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "member",
+      "label": "member"
+     },
+     {
+      "value": "lead",
+      "label": "lead"
+     },
+     {
+      "value": "manager",
+      "label": "manager"
+     },
+     {
+      "value": "consultant",
+      "label": "consultant"
+     }
+    ]
+   }
+  ],
+  "inputs": [
+   {
+    "placeholder": "% ",
+    "type": "number"
+   },
+   {
+    "placeholder": "₾/h",
+    "type": "number"
+   }
+  ],
   "api_calls": [
    {
     "method": "GET",
@@ -3313,13 +4386,17 @@
    {
     "method": "POST",
     "path": "/projects/"
+   },
+   {
+    "method": "GET",
+    "path": "/users/"
    }
   ]
  },
  {
   "module_code": "Purchases",
   "file": "frontend/src/pages/PurchasesPage.tsx",
-  "lines": 448,
+  "lines": 449,
   "buttons": [
    {
     "label": "ახალი შესყიდვის შეკვეთა",
@@ -3455,9 +4532,87 @@
   ]
  },
  {
+  "module_code": "Quality",
+  "file": "frontend/src/pages/QualityPage.tsx",
+  "lines": 177,
+  "buttons": [
+   {
+    "label": "ახალი",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "სკანირება",
+    "on_click": "() => scanBarcode.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "დახურვა",
+    "on_click": "() => resolveAlert.mutate(a.id)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "submit",
+    "disabled": false
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "receipt",
+      "label": "Receipt"
+     },
+     {
+      "value": "production",
+      "label": "Production"
+     },
+     {
+      "value": "delivery",
+      "label": "Delivery"
+     },
+     {
+      "value": "operation",
+      "label": "Operation"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "low",
+      "label": "Low"
+     },
+     {
+      "value": "medium",
+      "label": "Medium"
+     },
+     {
+      "value": "high",
+      "label": "High"
+     },
+     {
+      "value": "critical",
+      "label": "Critical"
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
   "module_code": "Quotations",
   "file": "frontend/src/pages/QuotationsPage.tsx",
-  "lines": 251,
+  "lines": 252,
   "buttons": [
    {
     "label": "ახალი შემოთავაზება",
@@ -3512,7 +4667,7 @@
  {
   "module_code": "RecurringEntries",
   "file": "frontend/src/pages/RecurringEntriesPage.tsx",
-  "lines": 166,
+  "lines": 167,
   "buttons": [
    {
     "label": "გაუშვი დაგვიანებული",
@@ -3588,7 +4743,7 @@
  {
   "module_code": "Reports",
   "file": "frontend/src/pages/ReportsPage.tsx",
-  "lines": 387,
+  "lines": 388,
   "buttons": [
    {
     "label": "Excel ექსპორტი",
@@ -3715,7 +4870,7 @@
  {
   "module_code": "Security",
   "file": "frontend/src/pages/SecurityPage.tsx",
-  "lines": 311,
+  "lines": 312,
   "buttons": [
    {
     "label": "გამორთვა",
@@ -3813,7 +4968,7 @@
  {
   "module_code": "Settings",
   "file": "frontend/src/pages/SettingsPage.tsx",
-  "lines": 378,
+  "lines": 379,
   "buttons": [
    {
     "label": "ინახება...",
@@ -3881,6 +5036,72 @@
     "method": "UPDATE",
     "path": "managerApprovalLimit",
     "client": "purchaseApprovalApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Sign",
+  "file": "frontend/src/pages/SignPage.tsx",
+  "lines": 118,
+  "buttons": [
+   {
+    "label": "ახალი მოწვევა",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "გაგზავნა",
+    "on_click": "() => createReq.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "LIST",
+    "path": "",
+    "client": "signatureApi"
+   },
+   {
+    "method": "CREATE",
+    "path": "form",
+    "client": "signatureApi"
+   }
+  ]
+ },
+ {
+  "module_code": "Signer",
+  "file": "frontend/src/pages/SignerPage.tsx",
+  "lines": 154,
+  "buttons": [
+   {
+    "label": "გასუფთავება",
+    "on_click": "clearCanvas",
+    "disabled": false
+   },
+   {
+    "label": "უარყოფა",
+    "on_click": "() => sign.mutate('decline')",
+    "disabled": true
+   },
+   {
+    "label": "ხელმოწერა",
+    "on_click": "() => sign.mutate('sign')",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": [
+   {
+    "method": "POST",
+    "path": "/signature-requests/sign"
    }
   ]
  },
@@ -3982,9 +5203,114 @@
   ]
  },
  {
+  "module_code": "Storefront",
+  "file": "frontend/src/pages/StorefrontPage.tsx",
+  "lines": 230,
+  "buttons": [
+   {
+    "label": "ახალი პროდუქტი",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": ": null}",
+    "on_click": "() => setTab(key)",
+    "disabled": false
+   },
+   {
+    "label": "კალათაში",
+    "on_click": "() => addToCart.mutate(p.id)",
+    "disabled": false
+   },
+   {
+    "label": "გადახდა",
+    "on_click": "() => checkout.mutate()",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createProduct.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
+  "module_code": "Studio",
+  "file": "frontend/src/pages/StudioPage.tsx",
+  "lines": 203,
+  "buttons": [
+   {
+    "label": "ახალი აპი",
+    "on_click": "() => setOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "ფორმები",
+    "on_click": "() => { setSelectedApp(a.id); setFormOpen(null) }",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ფორმა",
+    "on_click": "() => { setFormOpen(a.id); setSelectedApp(null) }",
+    "disabled": false
+   },
+   {
+    "label": "ჩანაწერები",
+    "on_click": "() => setFormOpen(f.id)",
+    "disabled": false
+   },
+   {
+    "label": "დამატება",
+    "on_click": "() => createRecord.mutate()",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createApp.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setFormOpen(null)",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createForm.mutate()",
+    "disabled": true
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
+ },
+ {
   "module_code": "Subscriptions",
   "file": "frontend/src/pages/SubscriptionsPage.tsx",
-  "lines": 143,
+  "lines": 144,
   "buttons": [
    {
     "label": "ახალი გამოწერა",
@@ -4037,7 +5363,7 @@
  {
   "module_code": "SupplierFinance",
   "file": "frontend/src/pages/SupplierFinancePage.tsx",
-  "lines": 481,
+  "lines": 482,
   "buttons": [
    {
     "label": "გადახდა",
@@ -4184,7 +5510,7 @@
  {
   "module_code": "Tasks",
   "file": "frontend/src/pages/TasksPage.tsx",
-  "lines": 466,
+  "lines": 467,
   "buttons": [
    {
     "label": "/> : t.status === 'in_progress' ? : }",
@@ -4294,7 +5620,7 @@
  {
   "module_code": "VendorDashboard",
   "file": "frontend/src/pages/VendorDashboardPage.tsx",
-  "lines": 165,
+  "lines": 166,
   "buttons": [
    {
     "label": "გასვლა",
@@ -4324,7 +5650,7 @@
  {
   "module_code": "VendorPortal",
   "file": "frontend/src/pages/VendorPortalPage.tsx",
-  "lines": 230,
+  "lines": 231,
   "buttons": [
    {
     "label": "ახალი პორტალის მომხმარებელი",
@@ -4397,7 +5723,7 @@
  {
   "module_code": "Wms",
   "file": "frontend/src/pages/WmsPage.tsx",
-  "lines": 872,
+  "lines": 873,
   "buttons": [
    {
     "label": "პარტიები",

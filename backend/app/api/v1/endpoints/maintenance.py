@@ -13,7 +13,10 @@ from app.models.maintenance import (
     MaintenanceAsset,
     MaintenanceAssetCategory,
     MaintenanceCertificate,
+    MaintenanceChecklist,
+    MaintenanceChecklistItem,
     MaintenanceContractor,
+    MaintenanceIncident,
     MaintenanceLocation,
     MaintenanceMeter,
     MaintenanceOrder,
@@ -21,12 +24,14 @@ from app.models.maintenance import (
     MaintenancePartRequest,
     MaintenancePlan,
     MaintenanceRequest,
+    MaintenanceSafetyInstruction,
     MaintenanceSLA,
     MaintenanceTeam,
     MaintenanceTeamMember,
     MaintenanceTechnician,
     MaintenanceTool,
     MaintenanceToolIssue,
+    MaintenanceWorkPermit,
     RepairOrder,
 )
 from app.models.user import User
@@ -62,6 +67,16 @@ from app.schemas.maintenance import (
     MaintenanceRequestCreate,
     MaintenanceRequestResponse,
     MaintenanceRequestUpdate,
+    MaintenanceSafetyInstructionCreate,
+    MaintenanceSafetyInstructionResponse,
+    MaintenanceWorkPermitCreate,
+    MaintenanceWorkPermitResponse,
+    MaintenanceWorkPermitUpdate,
+    MaintenanceChecklistCreate,
+    MaintenanceChecklistResponse,
+    MaintenanceIncidentCreate,
+    MaintenanceIncidentResponse,
+    MaintenanceIncidentUpdate,
     MaintenanceSLACreate,
     MaintenanceSLAResponse,
     MaintenanceSLAUpdate,
@@ -1002,3 +1017,173 @@ async def return_tool(
     await db.flush()
     await db.refresh(i)
     return ResponseBase(data=MaintenanceToolIssueResponse.model_validate(i), message="ხელსაწყო დაბრუნდა")
+
+
+# ── Phase 4: Planning & Safety ───────────────────────────────────────────────
+
+@router.get("/safety-instructions", response_model=ResponseBase[list[MaintenanceSafetyInstructionResponse]])
+async def list_safety_instructions(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenanceSafetyInstruction).where(MaintenanceSafetyInstruction.company_id == current_user.company_id).order_by(MaintenanceSafetyInstruction.title)
+    )).scalars().all()
+    return ResponseBase(data=[MaintenanceSafetyInstructionResponse.model_validate(s) for s in rows])
+
+
+@router.post("/safety-instructions", response_model=ResponseBase[MaintenanceSafetyInstructionResponse], status_code=201)
+async def create_safety_instruction(
+    data: MaintenanceSafetyInstructionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    s = MaintenanceSafetyInstruction(company_id=current_user.company_id, **data.model_dump())
+    db.add(s)
+    await db.flush()
+    return ResponseBase(data=MaintenanceSafetyInstructionResponse.model_validate(s), message="ინსტრუქცია დაემატა")
+
+
+@router.get("/work-permits", response_model=ResponseBase[list[MaintenanceWorkPermitResponse]])
+async def list_work_permits(
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(MaintenanceWorkPermit).where(MaintenanceWorkPermit.company_id == current_user.company_id)
+    if status:
+        q = q.where(MaintenanceWorkPermit.status == status)
+    rows = (await db.execute(q.order_by(MaintenanceWorkPermit.created_at.desc()))).scalars().all()
+    order_ids = {w.order_id for w in rows if w.order_id}
+    order_nums = {row[0]: row[1] for row in (await db.execute(
+        select(MaintenanceOrder.id, MaintenanceOrder.order_number).where(MaintenanceOrder.id.in_(order_ids))
+    )).all()} if order_ids else {}
+    return ResponseBase(data=[MaintenanceWorkPermitResponse.model_validate(w).model_copy(update={"order_number": order_nums.get(w.order_id)}) for w in rows])
+
+
+@router.post("/work-permits", response_model=ResponseBase[MaintenanceWorkPermitResponse], status_code=201)
+async def create_work_permit(
+    data: MaintenanceWorkPermitCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    dup = (await db.execute(select(MaintenanceWorkPermit.id).where(
+        MaintenanceWorkPermit.company_id == current_user.company_id,
+        MaintenanceWorkPermit.permit_number == data.permit_number.strip(),
+    ))).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail="ამ ნომრით ნებართვა უკვე არსებობს")
+    w = MaintenanceWorkPermit(company_id=current_user.company_id, **data.model_dump())
+    db.add(w)
+    await db.flush()
+    await db.refresh(w)
+    order_number = None
+    if w.order_id:
+        order_number = (await db.execute(select(MaintenanceOrder.order_number).where(MaintenanceOrder.id == w.order_id))).scalar_one_or_none()
+    return ResponseBase(data=MaintenanceWorkPermitResponse.model_validate(w).model_copy(update={"order_number": order_number}), message="ნებართვა შეიქმნა")
+
+
+@router.patch("/work-permits/{permit_id}", response_model=ResponseBase[MaintenanceWorkPermitResponse])
+async def update_work_permit(
+    permit_id: uuid.UUID,
+    data: MaintenanceWorkPermitUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    w = (await db.execute(
+        select(MaintenanceWorkPermit).where(MaintenanceWorkPermit.id == permit_id, MaintenanceWorkPermit.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not w:
+        raise HTTPException(status_code=404, detail="ნებართვა არ მოიძებნა")
+    if data.status == "approved" and w.status != "approved":
+        w.issued_at = utc_now()
+        w.approved_by = current_user.id
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(w, field, value)
+    await db.flush()
+    await db.refresh(w)
+    order_number = None
+    if w.order_id:
+        order_number = (await db.execute(select(MaintenanceOrder.order_number).where(MaintenanceOrder.id == w.order_id))).scalar_one_or_none()
+    return ResponseBase(data=MaintenanceWorkPermitResponse.model_validate(w).model_copy(update={"order_number": order_number}), message="ნებართვა განახლდა")
+
+
+@router.get("/checklists", response_model=ResponseBase[list[MaintenanceChecklistResponse]])
+async def list_checklists(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenanceChecklist).where(MaintenanceChecklist.company_id == current_user.company_id).order_by(MaintenanceChecklist.name)
+    )).scalars().all()
+    ids = [c.id for c in rows]
+    counts = {row[0]: row[1] for row in (await db.execute(
+        select(MaintenanceChecklistItem.checklist_id, func.count(MaintenanceChecklistItem.id)).where(MaintenanceChecklistItem.checklist_id.in_(ids)).group_by(MaintenanceChecklistItem.checklist_id)
+    )).all()} if ids else {}
+    return ResponseBase(data=[MaintenanceChecklistResponse.model_validate(c).model_copy(update={"item_count": counts.get(c.id, 0)}) for c in rows])
+
+
+@router.post("/checklists", response_model=ResponseBase[MaintenanceChecklistResponse], status_code=201)
+async def create_checklist(
+    data: MaintenanceChecklistCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = MaintenanceChecklist(company_id=current_user.company_id, name=data.name, category=data.category, is_mandatory=data.is_mandatory)
+    db.add(c)
+    await db.flush()
+    for idx, item_text in enumerate(data.items or []):
+        if item_text.strip():
+            db.add(MaintenanceChecklistItem(company_id=current_user.company_id, checklist_id=c.id, text=item_text.strip(), sort_order=idx))
+    await db.flush()
+    return ResponseBase(data=MaintenanceChecklistResponse.model_validate(c).model_copy(update={"item_count": len(data.items or [])}), message="ჩეკლისტი შეიქმნა")
+
+
+@router.get("/incidents", response_model=ResponseBase[list[MaintenanceIncidentResponse]])
+async def list_incidents(
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(MaintenanceIncident).where(MaintenanceIncident.company_id == current_user.company_id)
+    if status:
+        q = q.where(MaintenanceIncident.status == status)
+    rows = (await db.execute(q.order_by(MaintenanceIncident.created_at.desc()))).scalars().all()
+    return ResponseBase(data=[MaintenanceIncidentResponse.model_validate(i) for i in rows])
+
+
+@router.post("/incidents", response_model=ResponseBase[MaintenanceIncidentResponse], status_code=201)
+async def create_incident(
+    data: MaintenanceIncidentCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    dup = (await db.execute(select(MaintenanceIncident.id).where(
+        MaintenanceIncident.company_id == current_user.company_id,
+        MaintenanceIncident.incident_number == data.incident_number.strip(),
+    ))).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail="ამ ნომრით ინციდენტი უკვე არსებობს")
+    i = MaintenanceIncident(company_id=current_user.company_id, reported_by=current_user.id, **data.model_dump())
+    db.add(i)
+    await db.flush()
+    return ResponseBase(data=MaintenanceIncidentResponse.model_validate(i), message="ინციდენტი დაფიქსირდა")
+
+
+@router.patch("/incidents/{incident_id}", response_model=ResponseBase[MaintenanceIncidentResponse])
+async def update_incident(
+    incident_id: uuid.UUID,
+    data: MaintenanceIncidentUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    i = (await db.execute(
+        select(MaintenanceIncident).where(MaintenanceIncident.id == incident_id, MaintenanceIncident.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not i:
+        raise HTTPException(status_code=404, detail="ინციდენტი არ მოიძებნა")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(i, field, value)
+    await db.flush()
+    await db.refresh(i)
+    return ResponseBase(data=MaintenanceIncidentResponse.model_validate(i), message="ინციდენტი განახლდა")

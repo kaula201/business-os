@@ -377,3 +377,100 @@ class MaintenanceToolIssue(Base):
     returned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+# ── Phase 4: Planning & Safety ───────────────────────────────────────────────
+
+class MaintenanceSafetyInstruction(Base):
+    """Safety instructions / procedures."""
+
+    __tablename__ = "maintenance_safety_instructions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_mandatory: Mapped[bool] = mapped_column(default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class MaintenanceWorkPermit(Base):
+    """Work permits for high-risk maintenance jobs."""
+
+    __tablename__ = "maintenance_work_permits"
+
+    class Status:
+        DRAFT = "draft"
+        APPROVED = "approved"
+        REJECTED = "rejected"
+        CLOSED = "closed"
+        CHOICES = [DRAFT, APPROVED, REJECTED, CLOSED]
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    permit_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    order_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("maintenance_orders.id"), nullable=True)
+    work_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    location: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    risk_level: Mapped[str] = mapped_column(String(20), default="low", nullable=False)
+    # low | medium | high | critical
+    status: Mapped[str] = mapped_column(String(20), default=Status.DRAFT, nullable=False, index=True)
+    issued_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class MaintenanceChecklist(Base):
+    """Mandatory checklists for work orders."""
+
+    __tablename__ = "maintenance_checklists"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    is_mandatory: Mapped[bool] = mapped_column(default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class MaintenanceChecklistItem(Base):
+    """Individual items inside a checklist."""
+
+    __tablename__ = "maintenance_checklist_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    checklist_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("maintenance_checklists.id"), nullable=False, index=True)
+    text: Mapped[str] = mapped_column(String(500), nullable=False)
+    sort_order: Mapped[int] = mapped_column(default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class MaintenanceIncident(Base):
+    """Safety incidents / near-misses."""
+
+    __tablename__ = "maintenance_incidents"
+
+    class Status:
+        OPEN = "open"
+        INVESTIGATING = "investigating"
+        RESOLVED = "resolved"
+        CLOSED = "closed"
+        CHOICES = [OPEN, INVESTIGATING, RESOLVED, CLOSED]
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    incident_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), default="low", nullable=False)
+    # low | medium | high | critical
+    status: Mapped[str] = mapped_column(String(20), default=Status.OPEN, nullable=False, index=True)
+    reported_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    occurred_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    root_cause: Mapped[str | None] = mapped_column(Text, nullable=True)
+    corrective_action: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

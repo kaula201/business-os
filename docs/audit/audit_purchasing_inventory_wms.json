@@ -1,0 +1,89 @@
+{
+  "modules": [
+    {
+      "name": "procurement",
+      "score": 7,
+      "strengths": "RFQ-ს სრული ციკლი: შექმნა, მრავალ მომწოდებელზე გაგზავნა, პასუხების მიღება, შედარება (comparison), award; vendor price-lists, price-trend ანალიზი, blanket orders აქტივაციით, მომწოდებლის scorecards ავტო-გამოთვლით და auto-replenish (min/max-ზე დაფუძნებული).",
+      "gaps": "Odoo-ს supplierinfo (მომწოდებლის ფასები პროდუქტზე ვალიდურობის თარიღით და პრიორიტეტით) არ არის — price-lists ცალკე დგას და PO-ზე ავტომატურად არ იწევს; RFQ-დან PO-ზე კონვერტაცია არ არის; tender/შესყიდვის მოთხოვნის (purchase requisition) ნაკადი არ არსებობს."
+    },
+    {
+      "name": "purchase_orders",
+      "score": 7,
+      "strengths": "სტატუსების მანქანა draft→approved→partially_received→received ტრანზიციების ვალიდაციით; goods receipts იდემპოტენტობის გასაღებით, ნაწილობრივი მიღებით, quality_status-ით; three-way match (ordered vs received vs billed) და billed/remaining რაოდენობების თვალყური; blanket order-ებთან კავშირი.",
+      "gaps": "Odoo-ს RFQ→PO→receipt→invoice ჯაჭვი არ არის სრული: PO-დან vendor bill-ის ავტომატური გენერაცია არ არსებობს (ინვოისი ცალკე იქმნება supplier_finance-ში); backorder/გადადებული მიწოდების დაგეგმვა და scheduled receipts არ არის; PO-ზე ფასის გადამოწმება vendor pricelist-თან არ ხდება."
+    },
+    {
+      "name": "purchase_approvals",
+      "score": 4,
+      "strengths": "მარტივი კომპანიის დონის პოლიტიკა: manager_approval_limit (თანხის ზღვარი, რომლის ზემოთაც მენეჯერის დამტკიცებაა საჭირო), admin-ის მიერ განახლება; PO-ს approved სტატუსზე გადასვლა ლიმიტს ამოწმებს.",
+      "gaps": "Odoo-სთან შედარებით ზედაპირულია: მრავალსაფეხურიანი დამტკიცების ჯაჭვები (მენეჯერი→დირექტორი), მომწოდებლის/პროდუქტის/კატეგორიის მიხედვით წესები, RFQ-სა და blanket order-ზე დამტკიცება, უარყოფის მიზეზის სავალდებულო ფიქსაცია — არცერთი არ არის."
+    },
+    {
+      "name": "purchase_costs",
+      "score": 4,
+      "strengths": "შესყიდვის თვითღირებულების ისტორია: unit_cost, previous_average_cost, new_average_cost — AVCO-ს ცვლილებების აუდიტის კვალი.",
+      "gaps": "მხოლოდ წაკითხვადი ისტორიაა (1 route): landed costs-თან ინტეგრაცია არ არის (დაჯდომის ხარჯები cost history-ში არ აისახება), ღირებულების ვარიაციის ანალიზი (ბიუჯეტი vs ფაქტი), მომწოდებლის ფასების ცვლილების შედარებითი ანგარიში არ არსებობს."
+    },
+    {
+      "name": "suppliers",
+      "score": 6,
+      "strengths": "სრული CRUD, არქივირება, დუბლიკატი საიდენტიფიკაციო კოდის შემოწმება, დაშიფრული საბანკო რეკვიზიტები (მასკირებული დაბრუნებით), VAT სტატუსი, fiscal position, რეიტინგი და შესყიდვის ისტორია, payment terms დღეებში.",
+      "gaps": "Odoo-ს vendor pricelist (supplierinfo: ფასი, ვალიდურობა, მინიმალური რაოდენობა, პრიორიტეტი) არ არის; მრავალვალუტიანი ნაგულისხმევი პირობები, მომწოდებლის კატეგორიზაცია/სეგმენტაცია და vendor portal-ის სიღრმე (შეკვეთების დადასტურება) შეზღუდულია."
+    },
+    {
+      "name": "supplier_finance",
+      "score": 8,
+      "strengths": "ძლიერი მოდული: მომწოდებლის ინვოისები matching_status-ით და match_issues-ით, დუბლიკატის შემოწმება, payables, გადახდები, overpayments-ის ავტო-გამოყენება, ტოლერანსების კონფიგურაცია, აუდიტის კვალი.",
+      "gaps": "Odoo-სთან: 3-way match-ის ავტომატური ბლოკირება (გადახდა მხოლოდ შეხამების შემდეგ) არ არის სავალდებულო ნაკადი; გადახდის გრაფიკი/განვადება მხოლოდ დღეების რიცხვითაა; ინვოისის ავტომატური შექმნა PO-დან არ ხდება."
+    },
+    {
+      "name": "consolidation_purchases",
+      "score": 6,
+      "strengths": "ნიშური და სასარგებლო: ჯგუფური (intercompany) შესყიდვების ავტო-აღმოჩენა — როცა მომწოდებელი იგივე კონსოლიდაციის ჯგუფის კომპანიაა, იქმნება draft ინვოისი და სარკისებური ჩანაწერი მოპირდაპირე კომპანიაში.",
+      "gaps": "მხოლოდ 1 endpoint (auto-detect-purchases): intercompany ფასების წესები/მარჟა, ჯგუფური შესყიდვების კონსოლიდირებული ანგარიში და გამორიცხვების ავტომატური გენერაცია შეზღუდულია."
+    },
+    {
+      "name": "products",
+      "score": 6,
+      "strengths": "CRUD, კატეგორიების ხე, ვარიანტები (SKU/barcode თითოზე), სურათები, barcode/GTIN ველები, conversion_factor (UoM კონვერტაცია), min_stock, adjust-stock და stock-movements ისტორია.",
+      "gaps": "Odoo-ს UoM მოდელი არ არის (მხოლოდ სტრიქონი unit + conversion_factor, UoM კატეგორიების გარეშე); reordering rules საწყობის მიხედვით არ არის პროდუქტზე; მომწოდებლის ფასები პროდუქტზე (supplierinfo) არ არის; lot/serial-ის კონფიგურაცია პროდუქტზე (tracking) არ არსებობს."
+    },
+    {
+      "name": "warehouses",
+      "score": 8,
+      "strengths": "ძლიერი: მრავალსაწყობიანობა, იერარქიული ზონები (aisle/rack/shelf/bin/dock/staging), ნაშთები და zone-balances, ტრანსფერები, მოძრაობების ისტორია, ინვენტარიზაცია (counts), რეზერვაციები (locked balances), აუდიტი, წაშლის დაცვა აქტიური ბმულებისას.",
+      "gaps": "Odoo-სთან: cycle counts ავტომატური დაგეგმვით (პერიოდულობა, ABC კატეგორიები) არ არის — counts მექანუალურია; putaway სტრატეგიები (მიღებისას ადგილის ავტო-შერჩევა) არ არის; ლოკაციის დონეზე ღირებულებითი შეფასება არ ხდება."
+    },
+    {
+      "name": "warehouses_enhanced",
+      "score": 6,
+      "strengths": "საწყობის ღირებულებითი შეფასება (valuation), მოძრაობების ანალიტიკა, low-stock გაფრთხილებები, ნაშთების და მოძრაობების ექსპორტი.",
+      "gaps": "Odoo-ს ანალიტიკასთან შედარებით: ABC/XYZ ანალიზი, მარაგის ასაკი (stock aging), ბრუნვადობის (turnover) ანგარიში და დეფიციტის პროგნოზი არ არის."
+    },
+    {
+      "name": "wms",
+      "score": 6,
+      "strengths": "Lot/batch და serial ტრეკინგი: პარტიების შექმნა, მიღება, კორექტირება, ტრანსფერი; სერიული ნომრების სტატუსის მართვა; მარაგის ცვლილებები რეზერვაციების დაცვით.",
+      "gaps": "Odoo-სთან: barcode სკანირების endpoint არ არის (მხოლოდ QC-შია scan); პარტიის ვადის გასვლის (expiry) თარიღები და FEFO არ არის; serial-ის კავშირი შეკვეთებთან/მიწოდებასთან სუსტია; ლოკაციის დონეზე lot ნაშთები არ არის."
+    },
+    {
+      "name": "wms_ops",
+      "score": 7,
+      "strengths": "ძლიერი ოპერაციული ფენა: pick lists (ნაწილობრივი pick-ით), packing slips, replenishment rules (min/max/reorder) და suggestions, landed costs ალოკაციით, batch/serial traceability, მარაგის ალოკაციის ხედი.",
+      "gaps": "Odoo-სთან: wave picking და ჯგუფური pick არ არის; putaway არ არის; გადაზიდვა/გადამზიდავი (carrier, shipping) არ არის; landed cost არ უკავშირდება valuation layers-ს (cost_layer) — ცალკე ჩანაწერია."
+    },
+    {
+      "name": "inventory_valuation",
+      "score": 7,
+      "strengths": "Odoo-ს სიღრმის მცდელობა წარმატებულია: AVCO layers, FIFO cost lots, Standard cost, პროდუქტის დონეზე მეთოდის კონფიგურაცია, incoming-ზე ავტო-გამოთვლა, კორექტირება.",
+      "gaps": "Odoo-სთან: COGS-ის ჩანაწერები GL-ში (ბუღალტრული გატარებები) არ ხდება — ვალუაცია იზოლირებულია ბუღალტრიისგან; საწყობის დონეზე ვალუაცია და პერიოდული ინვენტარიზაციის ანგარიში (valuation report) არ არის; landed cost-ის ჩართვა ღირებულებაში არ არის."
+    },
+    {
+      "name": "quality_control",
+      "score": 6,
+      "strengths": "Odoo-ს სტრუქტურის მსგავსი: control points (receipt/production/delivery/operation), ტესტები, შედეგების ჩაწერა, გაფრთხილებები (alerts) გადაწყვეტით, barcode scan endpoint.",
+      "gaps": "Odoo-სთან: QC ავტომატურად არ ტრიგერდება მიღებაზე (receipt-ზე quality_status არსებობს, მაგრამ ხელითაა); ტესტის ტოლერანსების სავალდებულო შემოწმება (pass/fail ავტო-გამოთვლა ლიმიტებით) არ არის; fail-ისას მარაგის ბლოკირება/კარანტინი არ ხდება; მიწოდებაზე QC და მომწოდებლის შეფასებაზე გავლენა არ არის."
+    }
+  ],
+  "summary": "ჯგუფის საშუალო ქულა ~6.4/10. ძლიერი მხარეები: მრავალსაწყობიანობა ზონებითა და რეზერვაციებით (8), მომწოდებლის ფინანსები 3-way matching-ით (8), AVCO/FIFO/Standard ვალუაცია cost layers-ით (7), WMS picking/packing/landed cost/traceability (7), RFQ→award→blanket ციკლი (7). ძირითადი ხარვეზები Odoo-სთან: (1) RFQ→PO→receipt→invoice ჯაჭვი არ არის დახურული — PO-დან vendor bill ავტომატურად არ იქმნება და 3-way match ბლოკირებადი ნაკადი არ არის; (2) vendor pricelists (supplierinfo) არ არსებობს — ფასები PO-ზე ავტომატურად არ იწევს; (3) UoM მოდელი და პროდუქტზე lot/serial/reorder კონფიგურაცია არ არის; (4) დამტკიცების ნაკადი ზედაპირულია (მხოლოდ თანხის ლიმიტი); (5) cycle counts ავტომატიზაციის გარეშე, putaway/wave picking არ არის; (6) ვალუაცია GL-სთან არ არის ინტეგრირებული და landed cost ვალუაციაში არ ხვდება; (7) QC მიღებაზე ავტო-ტრიგერის და fail-ბლოკირების გარეშე. პრიორიტეტული გაუმჯობესება: supplierinfo + PO ფასის ვალიდაცია, PO→invoice ავტომატიზაცია, UoM მოდელი, landed cost→valuation ინტეგრაცია, QC-ის მიღების ნაკადში ჩართვა."
+}

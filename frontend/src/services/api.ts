@@ -496,6 +496,17 @@ export const maintenanceApi = {
   toolIssues: (params?: Record<string, unknown>) => api.get('/maintenance/tool-issues', { params }),
   issueTool: (data: Record<string, unknown>) => api.post('/maintenance/tool-issues', data),
   returnTool: (id: string) => api.post(`/maintenance/tool-issues/${id}/return`),
+  // Phase 4: planning & safety
+  safetyInstructions: () => api.get('/maintenance/safety-instructions'),
+  createSafetyInstruction: (data: Record<string, unknown>) => api.post('/maintenance/safety-instructions', data),
+  workPermits: (params?: Record<string, unknown>) => api.get('/maintenance/work-permits', { params }),
+  createWorkPermit: (data: Record<string, unknown>) => api.post('/maintenance/work-permits', data),
+  updateWorkPermit: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/work-permits/${id}`, data),
+  checklists: () => api.get('/maintenance/checklists'),
+  createChecklist: (data: Record<string, unknown>) => api.post('/maintenance/checklists', data),
+  incidents: (params?: Record<string, unknown>) => api.get('/maintenance/incidents', { params }),
+  createIncident: (data: Record<string, unknown>) => api.post('/maintenance/incidents', data),
+  updateIncident: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/incidents/${id}`, data),
 }
 
 // PLM API
