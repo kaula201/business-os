@@ -299,14 +299,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
   const { pathname } = useLocation()
   const [modules, setModules] = useState<CompanyModuleStatus[]>([])
   const [loading, setLoading] = useState(true)
-  const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
-    // All groups open by default so every sub-item is visible without clicks.
-    const all = new Set<string>([
-      'sales', 'purchases', 'warehouse', 'finance', 'accounting', 'other', 'maintenance',
-      ...MAINTENANCE_GROUPS.map((g) => `maint-${g.key}`),
-    ])
-    return all
-  })
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
   const [favorites, setFavorites] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('bos_favs') || '[]')
