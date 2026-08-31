@@ -483,6 +483,19 @@ export const maintenanceApi = {
   updateSla: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/slas/${id}`, data),
   certificates: () => api.get('/maintenance/certificates'),
   createCertificate: (data: Record<string, unknown>) => api.post('/maintenance/certificates', data),
+  // Phase 3: parts & tools
+  parts: (params?: Record<string, unknown>) => api.get('/maintenance/parts', { params }),
+  createPart: (data: Record<string, unknown>) => api.post('/maintenance/parts', data),
+  updatePart: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/parts/${id}`, data),
+  partRequests: (params?: Record<string, unknown>) => api.get('/maintenance/part-requests', { params }),
+  createPartRequest: (data: Record<string, unknown>) => api.post('/maintenance/part-requests', data),
+  updatePartRequest: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/part-requests/${id}`, data),
+  tools: () => api.get('/maintenance/tools'),
+  createTool: (data: Record<string, unknown>) => api.post('/maintenance/tools', data),
+  updateTool: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/tools/${id}`, data),
+  toolIssues: (params?: Record<string, unknown>) => api.get('/maintenance/tool-issues', { params }),
+  issueTool: (data: Record<string, unknown>) => api.post('/maintenance/tool-issues', data),
+  returnTool: (id: string) => api.post(`/maintenance/tool-issues/${id}/return`),
 }
 
 // PLM API

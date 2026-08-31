@@ -297,3 +297,83 @@ class MaintenanceCertificate(Base):
     expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+# ── Phase 3: Parts & Tools ──────────────────────────────────────────────────
+
+class MaintenancePart(Base):
+    """Spare parts inventory for maintenance work."""
+
+    __tablename__ = "maintenance_parts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    part_code: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    unit: Mapped[str] = mapped_column(String(20), default="ცალი", nullable=False)
+    quantity_on_hand: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"), nullable=False)
+    reorder_level: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"), nullable=False)
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"), nullable=False)
+    location: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    supplier: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class MaintenancePartRequest(Base):
+    """Part requests — requested/reserved/used against work orders."""
+
+    __tablename__ = "maintenance_part_requests"
+
+    class Status:
+        REQUESTED = "requested"
+        RESERVED = "reserved"
+        ISSUED = "issued"
+        CANCELLED = "cancelled"
+        CHOICES = [REQUESTED, RESERVED, ISSUED, CANCELLED]
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    part_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("maintenance_parts.id"), nullable=False, index=True)
+    order_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("maintenance_orders.id"), nullable=True)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("1"), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default=Status.REQUESTED, nullable=False, index=True)
+    requested_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    requested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    issued_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class MaintenanceTool(Base):
+    """Tools used by technicians."""
+
+    __tablename__ = "maintenance_tools"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    tool_code: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    quantity: Mapped[int] = mapped_column(default=1, nullable=False)
+    available: Mapped[int] = mapped_column(default=1, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="available", nullable=False)
+    # available | issued | maintenance | lost
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class MaintenanceToolIssue(Base):
+    """Tool issue/return tracking."""
+
+    __tablename__ = "maintenance_tool_issues"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    tool_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("maintenance_tools.id"), nullable=False, index=True)
+    technician_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("maintenance_technicians.id"), nullable=False, index=True)
+    issued_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    returned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

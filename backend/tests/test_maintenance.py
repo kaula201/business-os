@@ -221,3 +221,101 @@ async def test_contractor_sla_and_certificate(client, auth_headers):
     lst = await client.get("/api/v1/maintenance/certificates", headers=auth_headers)
     assert lst.status_code == 200
     assert len(lst.json()["data"]) == 1
+
+
+
+# ── CMMS Phase 3: parts & tools ──────────────────────────────────────────────
+
+async def test_part_and_part_request_flow(client, auth_headers):
+    # create part
+    r = await client.post("/api/v1/maintenance/parts", headers=auth_headers, json={
+        "part_code": "BRG-001",
+        "name": "საკისარი 6204",
+        "category": "საკისრები",
+        "quantity_on_hand": "10",
+        "reorder_level": "3",
+        "unit_cost": "12.50",
+        "location": "A-1",
+        "supplier": "ტექნოიმპორტი",
+    })
+    assert r.status_code == 201, r.text
+    part = r.json()["data"]
+    assert part["part_code"] == "BRG-001"
+    assert part["is_low"] is False
+
+    # duplicate code rejected
+    r2 = await client.post("/api/v1/maintenance/parts", headers=auth_headers, json={
+        "part_code": "BRG-001", "name": "დუბლიკატი",
+    })
+    assert r2.status_code == 409
+
+    # low-stock flag
+    r3 = await client.patch(f"/api/v1/maintenance/parts/{part['id']}", headers=auth_headers, json={"quantity_on_hand": "2"})
+    assert r3.status_code == 200
+    assert r3.json()["data"]["is_low"] is True
+
+    # part request
+    r4 = await client.post("/api/v1/maintenance/part-requests", headers=auth_headers, json={
+        "part_id": part["id"], "quantity": "2",
+    })
+    assert r4.status_code == 201, r4.text
+    req = r4.json()["data"]
+    assert req["status"] == "requested"
+    assert req["part_name"] == "საკისარი 6204"
+
+    # issue → decrements stock
+    r5 = await client.patch(f"/api/v1/maintenance/part-requests/{req['id']}", headers=auth_headers, json={"status": "issued"})
+    assert r5.status_code == 200, r5.text
+    assert r5.json()["data"]["issued_at"] is not None
+
+    r6 = await client.get("/api/v1/maintenance/parts", headers=auth_headers)
+    updated = next(p for p in r6.json()["data"] if p["id"] == part["id"])
+    assert updated["quantity_on_hand"] == "0.00"
+
+    # list with low filter
+    r7 = await client.get("/api/v1/maintenance/parts?low=true", headers=auth_headers)
+    assert all(p["is_low"] for p in r7.json()["data"])
+
+
+async def test_tool_issue_and_return_flow(client, auth_headers):
+    # create technician
+    r = await client.post("/api/v1/maintenance/technicians", headers=auth_headers, json={
+        "name": "გიორგი მეფარიშვილი", "specialization": "ელექტრიკოსი", "phone": "599111222", "hourly_rate": "25",
+    })
+    tech = r.json()["data"]
+
+    # create tool
+    r2 = await client.post("/api/v1/maintenance/tools", headers=auth_headers, json={
+        "tool_code": "MUL-001", "name": "მულტიმეტრი", "category": "ელექტრო", "quantity": 2,
+    })
+    assert r2.status_code == 201, r2.text
+    tool = r2.json()["data"]
+    assert tool["available"] == 2
+
+    # issue to technician
+    r3 = await client.post("/api/v1/maintenance/tool-issues", headers=auth_headers, json={
+        "tool_id": tool["id"], "technician_id": tech["id"],
+    })
+    assert r3.status_code == 201, r3.text
+    issue = r3.json()["data"]
+    assert issue["tool_name"] == "მულტიმეტრი"
+    assert issue["technician_name"] == "გიორგი მეფარიშვილი"
+
+    # available decremented
+    r4 = await client.get("/api/v1/maintenance/tools", headers=auth_headers)
+    updated = next(t for t in r4.json()["data"] if t["id"] == tool["id"])
+    assert updated["available"] == 1
+
+    # open issues list
+    r5 = await client.get("/api/v1/maintenance/tool-issues?open_only=true", headers=auth_headers)
+    assert len(r5.json()["data"]) == 1
+
+    # return
+    r6 = await client.post(f"/api/v1/maintenance/tool-issues/{issue['id']}/return", headers=auth_headers)
+    assert r6.status_code == 200, r6.text
+    assert r6.json()["data"]["returned_at"] is not None
+
+    r7 = await client.get("/api/v1/maintenance/tools", headers=auth_headers)
+    updated2 = next(t for t in r7.json()["data"] if t["id"] == tool["id"])
+    assert updated2["available"] == 2
+    assert updated2["status"] == "available"

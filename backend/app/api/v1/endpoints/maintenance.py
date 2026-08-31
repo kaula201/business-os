@@ -17,12 +17,16 @@ from app.models.maintenance import (
     MaintenanceLocation,
     MaintenanceMeter,
     MaintenanceOrder,
+    MaintenancePart,
+    MaintenancePartRequest,
     MaintenancePlan,
     MaintenanceRequest,
     MaintenanceSLA,
     MaintenanceTeam,
     MaintenanceTeamMember,
     MaintenanceTechnician,
+    MaintenanceTool,
+    MaintenanceToolIssue,
     RepairOrder,
 )
 from app.models.user import User
@@ -46,6 +50,12 @@ from app.schemas.maintenance import (
     MaintenanceOrderCreate,
     MaintenanceOrderResponse,
     MaintenanceOrderUpdate,
+    MaintenancePartCreate,
+    MaintenancePartRequestCreate,
+    MaintenancePartRequestResponse,
+    MaintenancePartRequestUpdate,
+    MaintenancePartResponse,
+    MaintenancePartUpdate,
     MaintenancePlanCreate,
     MaintenancePlanResponse,
     MaintenancePlanUpdate,
@@ -61,6 +71,11 @@ from app.schemas.maintenance import (
     MaintenanceTechnicianCreate,
     MaintenanceTechnicianResponse,
     MaintenanceTechnicianUpdate,
+    MaintenanceToolCreate,
+    MaintenanceToolIssueCreate,
+    MaintenanceToolIssueResponse,
+    MaintenanceToolResponse,
+    MaintenanceToolUpdate,
 )
 
 router = APIRouter(prefix="/maintenance", tags=["Maintenance & Repairs"])
@@ -746,3 +761,244 @@ async def create_certificate(
     await db.refresh(c)
     tech_name = (await db.execute(select(MaintenanceTechnician.name).where(MaintenanceTechnician.id == c.technician_id))).scalar_one_or_none()
     return ResponseBase(data=MaintenanceCertificateResponse.model_validate(c).model_copy(update={"technician_name": tech_name}), message="სერტიფიკატი დაემატა")
+
+
+# ── Phase 3: Parts & Tools ───────────────────────────────────────────────────
+
+@router.get("/parts", response_model=ResponseBase[list[MaintenancePartResponse]])
+async def list_parts(
+    low: bool = False,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(MaintenancePart).where(MaintenancePart.company_id == current_user.company_id)
+    rows = (await db.execute(q.order_by(MaintenancePart.part_code))).scalars().all()
+    result = []
+    for p in rows:
+        is_low = p.quantity_on_hand <= p.reorder_level
+        if low and not is_low:
+            continue
+        result.append(MaintenancePartResponse.model_validate(p).model_copy(update={"is_low": is_low}))
+    return ResponseBase(data=result)
+
+
+@router.post("/parts", response_model=ResponseBase[MaintenancePartResponse], status_code=201)
+async def create_part(
+    data: MaintenancePartCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    dup = (await db.execute(select(MaintenancePart.id).where(
+        MaintenancePart.company_id == current_user.company_id,
+        MaintenancePart.part_code == data.part_code.strip(),
+    ))).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail="ამ კოდით ნაწილი უკვე არსებობს")
+    p = MaintenancePart(company_id=current_user.company_id, **data.model_dump())
+    db.add(p)
+    await db.flush()
+    await db.refresh(p)
+    return ResponseBase(data=MaintenancePartResponse.model_validate(p).model_copy(update={"is_low": p.quantity_on_hand <= p.reorder_level}), message="ნაწილი დაემატა")
+
+
+@router.patch("/parts/{part_id}", response_model=ResponseBase[MaintenancePartResponse])
+async def update_part(
+    part_id: uuid.UUID,
+    data: MaintenancePartUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    p = (await db.execute(
+        select(MaintenancePart).where(MaintenancePart.id == part_id, MaintenancePart.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="ნაწილი არ მოიძებნა")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(p, field, value)
+    await db.flush()
+    await db.refresh(p)
+    return ResponseBase(data=MaintenancePartResponse.model_validate(p).model_copy(update={"is_low": p.quantity_on_hand <= p.reorder_level}), message="ნაწილი განახლდა")
+
+
+@router.get("/part-requests", response_model=ResponseBase[list[MaintenancePartRequestResponse]])
+async def list_part_requests(
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(MaintenancePartRequest).where(MaintenancePartRequest.company_id == current_user.company_id)
+    if status:
+        q = q.where(MaintenancePartRequest.status == status)
+    rows = (await db.execute(q.order_by(MaintenancePartRequest.requested_at.desc()))).scalars().all()
+    part_ids = {r.part_id for r in rows}
+    part_info = {row[0]: (row[1], row[2]) for row in (await db.execute(
+        select(MaintenancePart.id, MaintenancePart.name, MaintenancePart.part_code).where(MaintenancePart.id.in_(part_ids))
+    )).all()} if part_ids else {}
+    result = []
+    for r in rows:
+        name, code = part_info.get(r.part_id, (None, None))
+        result.append(MaintenancePartRequestResponse.model_validate(r).model_copy(update={"part_name": name, "part_code": code}))
+    return ResponseBase(data=result)
+
+
+@router.post("/part-requests", response_model=ResponseBase[MaintenancePartRequestResponse], status_code=201)
+async def create_part_request(
+    data: MaintenancePartRequestCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    part = (await db.execute(select(MaintenancePart).where(
+        MaintenancePart.id == data.part_id, MaintenancePart.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not part:
+        raise HTTPException(status_code=404, detail="ნაწილი არ მოიძებნა")
+    r = MaintenancePartRequest(company_id=current_user.company_id, requested_by=current_user.id, **data.model_dump())
+    db.add(r)
+    await db.flush()
+    await db.refresh(r)
+    return ResponseBase(data=MaintenancePartRequestResponse.model_validate(r).model_copy(update={"part_name": part.name, "part_code": part.part_code}), message="მოთხოვნა შეიქმნა")
+
+
+@router.patch("/part-requests/{request_id}", response_model=ResponseBase[MaintenancePartRequestResponse])
+async def update_part_request(
+    request_id: uuid.UUID,
+    data: MaintenancePartRequestUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    r = (await db.execute(
+        select(MaintenancePartRequest).where(MaintenancePartRequest.id == request_id, MaintenancePartRequest.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="მოთხოვნა არ მოიძებნა")
+    if data.status == "issued" and r.status != "issued":
+        r.issued_at = utc_now()
+        part = (await db.execute(select(MaintenancePart).where(MaintenancePart.id == r.part_id))).scalar_one_or_none()
+        if part:
+            part.quantity_on_hand = part.quantity_on_hand - r.quantity
+    r.status = data.status or r.status
+    await db.flush()
+    await db.refresh(r)
+    part = (await db.execute(select(MaintenancePart).where(MaintenancePart.id == r.part_id))).scalar_one_or_none()
+    return ResponseBase(data=MaintenancePartRequestResponse.model_validate(r).model_copy(update={"part_name": part.name if part else None, "part_code": part.part_code if part else None}), message="მოთხოვნა განახლდა")
+
+
+@router.get("/tools", response_model=ResponseBase[list[MaintenanceToolResponse]])
+async def list_tools(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(MaintenanceTool).where(MaintenanceTool.company_id == current_user.company_id).order_by(MaintenanceTool.tool_code)
+    )).scalars().all()
+    return ResponseBase(data=[MaintenanceToolResponse.model_validate(t) for t in rows])
+
+
+@router.post("/tools", response_model=ResponseBase[MaintenanceToolResponse], status_code=201)
+async def create_tool(
+    data: MaintenanceToolCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    dup = (await db.execute(select(MaintenanceTool.id).where(
+        MaintenanceTool.company_id == current_user.company_id,
+        MaintenanceTool.tool_code == data.tool_code.strip(),
+    ))).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail="ამ კოდით ხელსაწყო უკვე არსებობს")
+    t = MaintenanceTool(company_id=current_user.company_id, available=data.quantity, **data.model_dump())
+    db.add(t)
+    await db.flush()
+    return ResponseBase(data=MaintenanceToolResponse.model_validate(t), message="ხელსაწყო დაემატა")
+
+
+@router.patch("/tools/{tool_id}", response_model=ResponseBase[MaintenanceToolResponse])
+async def update_tool(
+    tool_id: uuid.UUID,
+    data: MaintenanceToolUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    t = (await db.execute(
+        select(MaintenanceTool).where(MaintenanceTool.id == tool_id, MaintenanceTool.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not t:
+        raise HTTPException(status_code=404, detail="ხელსაწყო არ მოიძებნა")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(t, field, value)
+    await db.flush()
+    await db.refresh(t)
+    return ResponseBase(data=MaintenanceToolResponse.model_validate(t), message="ხელსაწყო განახლდა")
+
+
+@router.get("/tool-issues", response_model=ResponseBase[list[MaintenanceToolIssueResponse]])
+async def list_tool_issues(
+    open_only: bool = False,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(MaintenanceToolIssue).where(MaintenanceToolIssue.company_id == current_user.company_id)
+    if open_only:
+        q = q.where(MaintenanceToolIssue.returned_at.is_(None))
+    rows = (await db.execute(q.order_by(MaintenanceToolIssue.issued_at.desc()))).scalars().all()
+    tool_ids = {i.tool_id for i in rows}
+    tech_ids = {i.technician_id for i in rows}
+    tool_names = {row[0]: row[1] for row in (await db.execute(
+        select(MaintenanceTool.id, MaintenanceTool.name).where(MaintenanceTool.id.in_(tool_ids))
+    )).all()} if tool_ids else {}
+    tech_names = {row[0]: row[1] for row in (await db.execute(
+        select(MaintenanceTechnician.id, MaintenanceTechnician.name).where(MaintenanceTechnician.id.in_(tech_ids))
+    )).all()} if tech_ids else {}
+    return ResponseBase(data=[MaintenanceToolIssueResponse.model_validate(i).model_copy(update={"tool_name": tool_names.get(i.tool_id), "technician_name": tech_names.get(i.technician_id)}) for i in rows])
+
+
+@router.post("/tool-issues", response_model=ResponseBase[MaintenanceToolIssueResponse], status_code=201)
+async def issue_tool(
+    data: MaintenanceToolIssueCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tool = (await db.execute(select(MaintenanceTool).where(
+        MaintenanceTool.id == data.tool_id, MaintenanceTool.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not tool:
+        raise HTTPException(status_code=404, detail="ხელსაწყო არ მოიძებნა")
+    if tool.available <= 0:
+        raise HTTPException(status_code=400, detail="ხელსაწყო არ არის ხელმისაწვდომი")
+    tech = (await db.execute(select(MaintenanceTechnician.id).where(
+        MaintenanceTechnician.id == data.technician_id, MaintenanceTechnician.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not tech:
+        raise HTTPException(status_code=404, detail="ტექნიკოსი არ მოიძებნა")
+    tool.available = tool.available - 1
+    if tool.available == 0:
+        tool.status = "issued"
+    i = MaintenanceToolIssue(company_id=current_user.company_id, **data.model_dump())
+    db.add(i)
+    await db.flush()
+    await db.refresh(i)
+    tech_name = (await db.execute(select(MaintenanceTechnician.name).where(MaintenanceTechnician.id == i.technician_id))).scalar_one_or_none()
+    return ResponseBase(data=MaintenanceToolIssueResponse.model_validate(i).model_copy(update={"tool_name": tool.name, "technician_name": tech_name}), message="ხელსაწყო გაიცა")
+
+
+@router.post("/tool-issues/{issue_id}/return", response_model=ResponseBase[MaintenanceToolIssueResponse])
+async def return_tool(
+    issue_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    i = (await db.execute(
+        select(MaintenanceToolIssue).where(MaintenanceToolIssue.id == issue_id, MaintenanceToolIssue.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not i:
+        raise HTTPException(status_code=404, detail="გაცემა არ მოიძებნა")
+    if i.returned_at is None:
+        i.returned_at = utc_now()
+        tool = (await db.execute(select(MaintenanceTool).where(MaintenanceTool.id == i.tool_id))).scalar_one_or_none()
+        if tool:
+            tool.available = tool.available + 1
+            if tool.available > 0:
+                tool.status = "available"
+    await db.flush()
+    await db.refresh(i)
+    return ResponseBase(data=MaintenanceToolIssueResponse.model_validate(i), message="ხელსაწყო დაბრუნდა")

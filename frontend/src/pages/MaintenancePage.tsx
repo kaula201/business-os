@@ -61,6 +61,10 @@ export default function MaintenancePage() {
   const { data: contractors } = useQuery({ queryKey: ['maint-contractors'], queryFn: () => maintenanceApi.contractors().then(r => r.data.data) })
   const { data: slas } = useQuery({ queryKey: ['maint-slas'], queryFn: () => maintenanceApi.slas().then(r => r.data.data) })
   const { data: certificates } = useQuery({ queryKey: ['maint-certificates'], queryFn: () => maintenanceApi.certificates().then(r => r.data.data) })
+  const { data: parts } = useQuery({ queryKey: ['maint-parts'], queryFn: () => maintenanceApi.parts().then(r => r.data.data) })
+  const { data: partRequests } = useQuery({ queryKey: ['maint-part-requests'], queryFn: () => maintenanceApi.partRequests().then(r => r.data.data) })
+  const { data: tools } = useQuery({ queryKey: ['maint-tools'], queryFn: () => maintenanceApi.tools().then(r => r.data.data) })
+  const { data: toolIssues } = useQuery({ queryKey: ['maint-tool-issues'], queryFn: () => maintenanceApi.toolIssues().then(r => r.data.data) })
 
   const createPlan = useMutation({
     mutationFn: () => maintenanceApi.createPlan(form),
@@ -129,6 +133,26 @@ export default function MaintenancePage() {
   const createCertificate = useMutation({
     mutationFn: () => maintenanceApi.createCertificate(form),
     onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-certificates'] }) },
+  })
+  const createPart = useMutation({
+    mutationFn: () => maintenanceApi.createPart(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-parts'] }) },
+  })
+  const createPartRequest = useMutation({
+    mutationFn: () => maintenanceApi.createPartRequest(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-part-requests'] }) },
+  })
+  const createTool = useMutation({
+    mutationFn: () => maintenanceApi.createTool(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-tools'] }) },
+  })
+  const issueTool = useMutation({
+    mutationFn: () => maintenanceApi.issueTool(form),
+    onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-tool-issues'] }); qc.invalidateQueries({ queryKey: ['maint-tools'] }) },
+  })
+  const returnTool = useMutation({
+    mutationFn: (id: string) => maintenanceApi.returnTool(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['maint-tool-issues'] }); qc.invalidateQueries({ queryKey: ['maint-tools'] }) },
   })
 
   const openCreate = (kind: string) => {
@@ -282,6 +306,53 @@ export default function MaintenancePage() {
         <FormField label={t('ვადის გასვლა')}><input type="date" className="input" value={form.expiry_date || ''} onChange={e => setForm({ ...form, expiry_date: e.target.value })} /></FormField>
       </>
     )
+    if (kind === 'part') return (
+      <>
+        <FormField label={t('ნაწილის კოდი')} required><input required className="input" value={form.part_code || ''} onChange={e => setForm({ ...form, part_code: e.target.value })} /></FormField>
+        <FormField label={t('სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
+        <FormField label={t('კატეგორია')}><input className="input" value={form.category || ''} onChange={e => setForm({ ...form, category: e.target.value })} /></FormField>
+        <FormField label={t('რაოდენობა')}><input type="number" className="input" value={form.quantity_on_hand || 0} onChange={e => setForm({ ...form, quantity_on_hand: e.target.value })} /></FormField>
+        <FormField label={t('მინიმალური მარაგი')}><input type="number" className="input" value={form.reorder_level || 0} onChange={e => setForm({ ...form, reorder_level: e.target.value })} /></FormField>
+        <FormField label={t('ერთეულის ფასი')}><input type="number" className="input" value={form.unit_cost || 0} onChange={e => setForm({ ...form, unit_cost: e.target.value })} /></FormField>
+        <FormField label={t('მდებარეობა')}><input className="input" value={form.location || ''} onChange={e => setForm({ ...form, location: e.target.value })} /></FormField>
+        <FormField label={t('მომწოდებელი')}><input className="input" value={form.supplier || ''} onChange={e => setForm({ ...form, supplier: e.target.value })} /></FormField>
+      </>
+    )
+    if (kind === 'part-request') return (
+      <>
+        <FormField label={t('ნაწილი')} required>
+          <select required className="input" value={form.part_id || ''} onChange={e => setForm({ ...form, part_id: e.target.value })}>
+            <option value="">—</option>
+            {(parts || []).map((p: any) => <option key={p.id} value={p.id}>{p.part_code} — {p.name}</option>)}
+          </select>
+        </FormField>
+        <FormField label={t('რაოდენობა')}><input type="number" className="input" value={form.quantity || 1} onChange={e => setForm({ ...form, quantity: e.target.value })} /></FormField>
+      </>
+    )
+    if (kind === 'tool') return (
+      <>
+        <FormField label={t('ხელსაწყოს კოდი')} required><input required className="input" value={form.tool_code || ''} onChange={e => setForm({ ...form, tool_code: e.target.value })} /></FormField>
+        <FormField label={t('სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
+        <FormField label={t('კატეგორია')}><input className="input" value={form.category || ''} onChange={e => setForm({ ...form, category: e.target.value })} /></FormField>
+        <FormField label={t('რაოდენობა')}><input type="number" className="input" value={form.quantity || 1} onChange={e => setForm({ ...form, quantity: e.target.value })} /></FormField>
+      </>
+    )
+    if (kind === 'tool-issue') return (
+      <>
+        <FormField label={t('ხელსაწყო')} required>
+          <select required className="input" value={form.tool_id || ''} onChange={e => setForm({ ...form, tool_id: e.target.value })}>
+            <option value="">—</option>
+            {(tools || []).filter((tl: any) => tl.available > 0).map((tl: any) => <option key={tl.id} value={tl.id}>{tl.tool_code} — {tl.name} ({tl.available})</option>)}
+          </select>
+        </FormField>
+        <FormField label={t('ტექნიკოსი')} required>
+          <select required className="input" value={form.technician_id || ''} onChange={e => setForm({ ...form, technician_id: e.target.value })}>
+            <option value="">—</option>
+            {(technicians || []).map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </FormField>
+      </>
+    )
     return (
       <>
         <FormField label={t('აღჭურვილობა')}><input className="input" value={form.equipment_name || ''} onChange={e => setForm({ ...form, equipment_name: e.target.value })} /></FormField>
@@ -307,6 +378,10 @@ export default function MaintenancePage() {
     else if (form.kind === 'contractor') createContractor.mutate()
     else if (form.kind === 'sla') createSla.mutate()
     else if (form.kind === 'certificate') createCertificate.mutate()
+    else if (form.kind === 'part') createPart.mutate()
+    else if (form.kind === 'part-request') createPartRequest.mutate()
+    else if (form.kind === 'tool') createTool.mutate()
+    else if (form.kind === 'tool-issue') issueTool.mutate()
     else createRepair.mutate()
   }
 
@@ -646,29 +721,129 @@ export default function MaintenancePage() {
       )}
 
       {tab === 'parts' && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="flex justify-end">
-            <button onClick={() => openCreate('team')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი გუნდი')}</button>
+            <button onClick={() => openCreate('part')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი ნაწილი')}</button>
           </div>
           <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
                 <tr>
+                  <th className="px-4 py-3">{t('კოდი')}</th>
                   <th className="px-4 py-3">{t('სახელი')}</th>
-                  <th className="px-4 py-3">{t('ლიდერი')}</th>
-                  <th className="px-4 py-3">{t('წევრები')}</th>
-                  <th className="px-4 py-3">{t('აღწერა')}</th>
+                  <th className="px-4 py-3">{t('კატეგორია')}</th>
+                  <th className="px-4 py-3">{t('რაოდენობა')}</th>
+                  <th className="px-4 py-3">{t('მინ. მარაგი')}</th>
+                  <th className="px-4 py-3">{t('ფასი')}</th>
+                  <th className="px-4 py-3">{t('სტატუსი')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(teams || []).length === 0 ? (
-                  <tr><td colSpan={4} className="p-8 text-center text-gray-500">{t('გუნდები არ არის')}</td></tr>
-                ) : (teams || []).map((tm: any) => (
-                  <tr key={tm.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
-                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{tm.name}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tm.leader_id ? '✓' : '—'}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tm.member_count}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tm.description || '—'}</td>
+                {(parts || []).length === 0 ? (
+                  <tr><td colSpan={7} className="p-8 text-center text-gray-500">{t('ნაწილები არ არის')}</td></tr>
+                ) : (parts || []).map((p: any) => (
+                  <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{p.part_code}</td>
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{p.name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.category || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.quantity_on_hand} {p.unit}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.reorder_level}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.unit_cost} ₾</td>
+                    <td className="px-4 py-3">{p.is_low ? <span className="badge badge-danger">{t('დეფიციტი')}</span> : <span className="badge badge-success">{t('ნორმაში')}</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('part-request')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი მოთხოვნა')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('ნაწილი')}</th>
+                  <th className="px-4 py-3">{t('რაოდენობა')}</th>
+                  <th className="px-4 py-3">{t('სტატუსი')}</th>
+                  <th className="px-4 py-3">{t('მოთხოვნილია')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(partRequests || []).length === 0 ? (
+                  <tr><td colSpan={4} className="p-8 text-center text-gray-500">{t('მოთხოვნები არ არის')}</td></tr>
+                ) : (partRequests || []).map((pr: any) => (
+                  <tr key={pr.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{pr.part_name || pr.part_code}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{pr.quantity}</td>
+                    <td className="px-4 py-3">
+                      {pr.status === 'issued' ? <span className="badge badge-success">{t('გაცემული')}</span> : pr.status === 'reserved' ? <span className="badge">{t('რეზერვირებული')}</span> : <span className="badge badge-warning">{t('მოთხოვნილი')}</span>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{pr.requested_at ? fmtDate(new Date(pr.requested_at)) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('tool')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ახალი ხელსაწყო')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('კოდი')}</th>
+                  <th className="px-4 py-3">{t('სახელი')}</th>
+                  <th className="px-4 py-3">{t('კატეგორია')}</th>
+                  <th className="px-4 py-3">{t('ხელმისაწვდომი')}</th>
+                  <th className="px-4 py-3">{t('სტატუსი')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(tools || []).length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('ხელსაწყოები არ არის')}</td></tr>
+                ) : (tools || []).map((tl: any) => (
+                  <tr key={tl.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{tl.tool_code}</td>
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{tl.name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tl.category || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tl.available} / {tl.quantity}</td>
+                    <td className="px-4 py-3">{tl.status === 'available' ? <span className="badge badge-success">{t('ხელმისაწვდომი')}</span> : <span className="badge badge-warning">{t('გაცემული')}</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end">
+            <button onClick={() => openCreate('tool-issue')} className="btn btn-primary flex items-center gap-2"><Plus size={16} /> {t('ხელსაწყოს გაცემა')}</button>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-dark-50 dark:bg-dark-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">{t('ხელსაწყო')}</th>
+                  <th className="px-4 py-3">{t('ტექნიკოსი')}</th>
+                  <th className="px-4 py-3">{t('გაცემულია')}</th>
+                  <th className="px-4 py-3">{t('დაბრუნებულია')}</th>
+                  <th className="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
+                {(toolIssues || []).length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('გაცემები არ არის')}</td></tr>
+                ) : (toolIssues || []).map((ti: any) => (
+                  <tr key={ti.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{ti.tool_name || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{ti.technician_name || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{ti.issued_at ? fmtDate(new Date(ti.issued_at)) : '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{ti.returned_at ? fmtDate(new Date(ti.returned_at)) : <span className="badge badge-warning">{t('გაცემულია')}</span>}</td>
+                    <td className="px-4 py-3 text-right">
+                      {!ti.returned_at && (
+                        <button onClick={() => returnTool.mutate(ti.id)} className="btn btn-sm btn-outline">{t('დაბრუნება')}</button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

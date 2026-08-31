@@ -441,3 +441,129 @@ class MaintenanceCertificateResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Phase 3: Parts & Tools ──────────────────────────────────────────────────
+
+class MaintenancePartCreate(BaseModel):
+    part_code: str = Field(min_length=1, max_length=50)
+    name: str = Field(min_length=1, max_length=255)
+    category: str | None = None
+    unit: str = "ცალი"
+    quantity_on_hand: Decimal = Field(default=Decimal("0"), ge=0)
+    reorder_level: Decimal = Field(default=Decimal("0"), ge=0)
+    unit_cost: Decimal = Field(default=Decimal("0"), ge=0)
+    location: str | None = None
+    supplier: str | None = None
+    notes: str | None = None
+
+
+class MaintenancePartUpdate(BaseModel):
+    name: str | None = None
+    category: str | None = None
+    unit: str | None = None
+    quantity_on_hand: Decimal | None = Field(default=None, ge=0)
+    reorder_level: Decimal | None = Field(default=None, ge=0)
+    unit_cost: Decimal | None = Field(default=None, ge=0)
+    location: str | None = None
+    supplier: str | None = None
+    notes: str | None = None
+
+
+class MaintenancePartResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    part_code: str
+    name: str
+    category: str | None
+    unit: str
+    quantity_on_hand: Decimal
+    reorder_level: Decimal
+    unit_cost: Decimal
+    location: str | None
+    supplier: str | None
+    notes: str | None
+    is_low: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenancePartRequestCreate(BaseModel):
+    part_id: UUID
+    order_id: UUID | None = None
+    quantity: Decimal = Field(default=Decimal("1"), gt=0)
+
+
+class MaintenancePartRequestUpdate(BaseModel):
+    status: str | None = None
+
+
+class MaintenancePartRequestResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    part_id: UUID
+    order_id: UUID | None
+    quantity: Decimal
+    status: str
+    requested_by: UUID | None
+    requested_at: datetime
+    issued_at: datetime | None
+    part_name: str | None = None
+    part_code: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceToolCreate(BaseModel):
+    tool_code: str = Field(min_length=1, max_length=50)
+    name: str = Field(min_length=1, max_length=255)
+    category: str | None = None
+    quantity: int = Field(default=1, ge=1)
+    notes: str | None = None
+
+
+class MaintenanceToolUpdate(BaseModel):
+    name: str | None = None
+    category: str | None = None
+    quantity: int | None = Field(default=None, ge=1)
+    status: str | None = None
+    notes: str | None = None
+
+
+class MaintenanceToolResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    tool_code: str
+    name: str
+    category: str | None
+    quantity: int
+    available: int
+    status: str
+    notes: str | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MaintenanceToolIssueCreate(BaseModel):
+    tool_id: UUID
+    technician_id: UUID
+    notes: str | None = None
+
+
+class MaintenanceToolIssueResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    tool_id: UUID
+    technician_id: UUID
+    issued_at: datetime
+    returned_at: datetime | None
+    notes: str | None
+    tool_name: str | None = None
+    technician_name: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
