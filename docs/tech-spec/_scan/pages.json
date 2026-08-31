@@ -2791,7 +2791,7 @@
  {
   "module_code": "Maintenance",
   "file": "frontend/src/pages/MaintenancePage.tsx",
-  "lines": 935,
+  "lines": 1157,
   "buttons": [
    {
     "label": "ახალი",
@@ -2871,6 +2871,36 @@
    {
     "label": "დაბრუნება",
     "on_click": "() => returnTool.mutate(ti.id)",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ინსტრუქცია",
+    "on_click": "() => openCreate('safety')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ნებართვა",
+    "on_click": "() => openCreate('permit')",
+    "disabled": false
+   },
+   {
+    "label": "დამტკიცება",
+    "on_click": "() => approveWorkPermit.mutate(w.id)",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ჩეკლისტი",
+    "on_click": "() => openCreate('checklist')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ინციდენტი",
+    "on_click": "() => openCreate('incident')",
+    "disabled": false
+   },
+   {
+    "label": "მოგვარება",
+    "on_click": "() => resolveIncident.mutate(i.id)",
     "disabled": false
    },
    {
@@ -3083,6 +3113,48 @@
      {
       "value": "",
       "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "low",
+      "label": ""
+     },
+     {
+      "value": "medium",
+      "label": ""
+     },
+     {
+      "value": "high",
+      "label": ""
+     },
+     {
+      "value": "critical",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "low",
+      "label": ""
+     },
+     {
+      "value": "medium",
+      "label": ""
+     },
+     {
+      "value": "high",
+      "label": ""
+     },
+     {
+      "value": "critical",
+      "label": ""
      }
     ]
    },

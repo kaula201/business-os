@@ -4388,6 +4388,86 @@
     "function": "return_tool",
     "doc": "",
     "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/safety-instructions",
+    "full_path": "/maintenance/safety-instructions",
+    "function": "list_safety_instructions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/safety-instructions",
+    "full_path": "/maintenance/safety-instructions",
+    "function": "create_safety_instruction",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/work-permits",
+    "full_path": "/maintenance/work-permits",
+    "function": "list_work_permits",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/work-permits",
+    "full_path": "/maintenance/work-permits",
+    "function": "create_work_permit",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/work-permits/{permit_id}",
+    "full_path": "/maintenance/work-permits/{permit_id}",
+    "function": "update_work_permit",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/checklists",
+    "full_path": "/maintenance/checklists",
+    "function": "list_checklists",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/checklists",
+    "full_path": "/maintenance/checklists",
+    "function": "create_checklist",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/incidents",
+    "full_path": "/maintenance/incidents",
+    "function": "list_incidents",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/incidents",
+    "full_path": "/maintenance/incidents",
+    "function": "create_incident",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/incidents/{incident_id}",
+    "full_path": "/maintenance/incidents/{incident_id}",
+    "function": "update_incident",
+    "doc": "",
+    "auth": false
    }
   ]
  },
