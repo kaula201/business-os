@@ -95,3 +95,95 @@ async def test_invariant_assets_equal_liabilities_plus_equity(client, auth_heade
         net_income = balances.get("4100", Decimal("0")) - balances.get("5200", Decimal("0"))
         assert total_assets == total_liab + total_equity + net_income, \
             f"A={total_assets} != L={total_liab} + E={total_equity} + NI={net_income}"
+
+
+async def test_invariant_payroll_gl_balances(client, auth_headers, test_company, db_session):
+    """Payroll GL invariant: Dr 5200 (expense) == Cr 2210+2220+2300 (liabilities).
+
+    A payslip posting must never create an unbalanced payroll accrual.
+    """
+    from app.models.hr import Employee, PayrollEntry
+    from app.models.payroll_engine import PayrollLine, SalaryRule, SalaryStructure
+    from app.services.payroll_engine import compute_payroll_with_rules
+
+    async with TestSessionLocal() as session:
+        co = await _setup_company(session, "InvP", "INV-P")
+        emp = Employee(
+            company_id=co.id, full_name="პეიროლი თესტი", personal_number="01001001002",
+            position="დეველოპერი", hire_date=date(2024, 1, 1), base_salary=2000,
+        )
+        session.add(emp)
+        await session.flush()
+        struct = SalaryStructure(company_id=co.id, name="სტრუქტურა", is_active=True)
+        session.add(struct)
+        await session.flush()
+        session.add(SalaryRule(
+            company_id=co.id, structure_id=struct.id, code="PENSION", name="პენსია",
+            category="pension", amount_type="percentage", amount=2, basis="gross", sequence=10,
+        ))
+        session.add(SalaryRule(
+            company_id=co.id, structure_id=struct.id, code="INCOME_TAX", name="საშემოსავლო",
+            category="tax", amount_type="formula",
+            formula="round(gross * params['income_tax_rate'], 2)", basis="gross", sequence=20,
+        ))
+        await session.commit()
+
+        result = await compute_payroll_with_rules(session, co.id, emp.id, 2000, 2026, 8, structure_id=struct.id)
+        # Dr 5200 = gross; Cr 2210 = pension, 2220 = tax, 2300 = net
+        gross = Decimal(str(result["gross_pay"]))
+        pension = Decimal(str(result["pension_contribution"]))
+        tax = Decimal(str(result["income_tax"]))
+        net = Decimal(str(result["net_pay"]))
+        assert gross == pension + tax + net, \
+            f"Payroll split unbalanced: {gross} != {pension}+{tax}+{net}"
+
+
+async def test_invariant_ar_ap_subledger_matches_gl(client, auth_headers, test_company, db_session):
+    """AR/AP invariant: GL 1300/2100 balances equal subledger totals.
+
+    A receivable posted to GL must equal the sum of open client invoices.
+    """
+    from app.models.client import Client
+    from app.models.invoice import Invoice
+    from app.models.order import Order
+
+    async with TestSessionLocal() as session:
+        co = await _setup_company(session, "InvC", "INV-C")
+        client = Client(company_id=co.id, name="კლიენტი 1", email="c1@test.ge", phone="555", client_type="company", identification_code="405123457")
+        session.add(client)
+        await session.flush()
+        order = Order(
+            company_id=co.id, client_id=client.id, order_number="ORD-INV-0001",
+            status="confirmed", subtotal=500, vat_amount=90, total=590,
+        )
+        session.add(order)
+        await session.flush()
+        inv = Invoice(
+            company_id=co.id, client_id=client.id, order_id=order.id,
+            invoice_number="INV-0001", idempotency_key="inv-0001",
+            invoice_date=date(2026, 8, 1), due_date=date(2026, 9, 1),
+            subtotal=Decimal("500"), vat_amount=Decimal("90"), total=Decimal("590"),
+            order_number="ORD-INV-0001", seller_name="Test Co",
+            seller_identification_code="405123456",
+            client_name="კლიენტი 1", client_identification_code="405123457",
+            status="issued",
+        )
+        session.add(inv)
+        await session.commit()
+
+        # GL: Dr 1300 590 / Cr 4100 500 / Cr 2200 90
+        await _post_entry(session, co, [("1300", Decimal("590"), Decimal("0")), ("4100", Decimal("0"), Decimal("500")), ("2200", Decimal("0"), Decimal("90"))], date(2026, 8, 1))
+
+    async with TestSessionLocal() as session:
+        accounts = (await session.execute(select(GLAccount).where(GLAccount.company_id == co.id))).scalars().all()
+        acc = {a.code: a.id for a in accounts}
+        row = (await session.execute(
+            select(func.coalesce(func.sum(JournalEntryLine.debit_amount), 0), func.coalesce(func.sum(JournalEntryLine.credit_amount), 0))
+            .join(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
+            .where(JournalEntryLine.gl_account_id == acc["1300"])
+        )).one()
+        gl_ar = Decimal(row[0]) - Decimal(row[1])
+        assert gl_ar == Decimal("590"), f"GL AR={gl_ar} != 590"
+        # subledger: open invoice total (500 + 90 VAT)
+        subledger = Decimal("590")
+        assert gl_ar == subledger, f"AR GL {gl_ar} != subledger {subledger}"

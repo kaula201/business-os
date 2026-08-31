@@ -485,23 +485,47 @@ async def generate_payslips(
         count = (await db.execute(
             select(func.count(Payslip.id)).where(Payslip.company_id == company_id)
         )).scalar() or 0
-        from app.services.payroll_rules import compute_payroll
-        calc = compute_payroll(
-            gross_pay=entry.gross_pay,
-            pension_participant=True,
-            period_year=year,
-            period_month=month,
-        )
+        # Explanation lines come from the persisted rule-based PayrollLines so
+        # bonuses/deductions and custom rules are reflected on the payslip.
+        from app.models.payroll_engine import PayrollAdjustment, PayrollLine
+        rule_lines = (await db.execute(
+            select(PayrollLine).where(
+                PayrollLine.payroll_entry_id == entry.id,
+            ).order_by(PayrollLine.created_at)
+        )).scalars().all()
+        adj_lines = (await db.execute(
+            select(PayrollAdjustment).where(
+                PayrollAdjustment.company_id == company_id,
+                PayrollAdjustment.employee_id == entry.employee_id,
+                PayrollAdjustment.period_year == year,
+                PayrollAdjustment.period_month == month,
+            )
+        )).scalars().all()
         explanation = {
-            "meta": calc["explanation"].meta,
+            "meta": {
+                "engine": "rules",
+                "period": f"{year}-{month:02d}",
+                "gross_pay": float(entry.gross_pay),
+                "pension_contribution": float(entry.pension_contribution),
+                "income_tax": float(entry.income_tax),
+                "net_pay": float(entry.net_pay),
+            },
             "lines": [
                 {
-                    "label_ka": l.label_ka, "label_en": l.label_en,
-                    "basis_ka": l.basis_ka, "basis_en": l.basis_en,
-                    "note_ka": l.note_ka, "note_en": l.note_en,
-                    "rate": l.rate, "amount": l.amount,
+                    "label_ka": l.name, "label_en": l.name,
+                    "basis_ka": f"{l.basis_amount:.2f}", "basis_en": f"{l.basis_amount:.2f}",
+                    "note_ka": l.formula_used or l.category, "note_en": l.formula_used or l.category,
+                    "rate": float(l.amount), "amount": float(l.amount),
                 }
-                for l in calc["explanation"].lines
+                for l in rule_lines
+            ] + [
+                {
+                    "label_ka": f"{a.kind}: {a.reason or ''}".strip(), "label_en": f"{a.kind}: {a.reason or ''}".strip(),
+                    "basis_ka": "0.00", "basis_en": "0.00",
+                    "note_ka": "adjustment", "note_en": "adjustment",
+                    "rate": float(a.amount), "amount": float(a.amount),
+                }
+                for a in adj_lines
             ],
         }
         import json as _json
