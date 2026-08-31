@@ -57,156 +57,21 @@ const NAV_ORDER: (string)[] = [
 ]
 
 // Maintenance sub-groups (collapsible under the Maintenance group)
-// 3-level: Maintenance → group → sub-item. Each sub-item maps to /maintenance?tab=<key>
-const MAINTENANCE_GROUPS: { key: string; label: string; items: { key: string; label: string }[] }[] = [
-  {
-    key: 'overview', label: 'მიმოხილვა',
-    items: [
-      { key: 'dashboard', label: 'Dashboard' },
-      { key: 'my-workspace', label: 'ჩემი სამუშაო სივრცე' },
-      { key: 'notifications', label: 'შეტყობინებები' },
-    ],
-  },
-  {
-    key: 'operations', label: 'ოპერაციები',
-    items: [
-      { key: 'requests', label: 'მოთხოვნები' },
-      { key: 'orders', label: 'სამუშაო დავალებები' },
-      { key: 'my-work', label: 'ჩემი სამუშაოები' },
-      { key: 'approvals', label: 'დასამტკიცებელი სამუშაოები' },
-      { key: 'backlog', label: 'სამუშაოების რიგი — Backlog' },
-      { key: 'emergency', label: 'ავარიული სამუშაოები' },
-      { key: 'completed', label: 'დასრულებული სამუშაოები' },
-    ],
-  },
-  {
-    key: 'planning', label: 'დაგეგმვა',
-    items: [
-      { key: 'plans', label: 'მოვლის გეგმები' },
-      { key: 'preventive', label: 'პრევენციული მოვლა' },
-      { key: 'predictive', label: 'პროგნოზული მოვლა' },
-      { key: 'inspection', label: 'ინსპექტირება' },
-      { key: 'calibration', label: 'კალიბრაცია' },
-      { key: 'calendar', label: 'კალენდარი' },
-      { key: 'schedule', label: 'სამუშაოების განრიგი' },
-      { key: 'resource-load', label: 'რესურსების დატვირთვა' },
-    ],
-  },
-  {
-    key: 'assets', label: 'აქტივები',
-    items: [
-      { key: 'asset-registry', label: 'აქტივების რეესტრი' },
-      { key: 'asset-hierarchy', label: 'აქტივების იერარქია' },
-      { key: 'components', label: 'კომპონენტები' },
-      { key: 'locations', label: 'მდებარეობები' },
-      { key: 'meters', label: 'მრიცხველები' },
-      { key: 'asset-history', label: 'აქტივის ისტორია' },
-      { key: 'warranties', label: 'გარანტიები' },
-      { key: 'tech-docs', label: 'ტექნიკური დოკუმენტები' },
-      { key: 'qr-codes', label: 'აქტივის QR კოდები' },
-    ],
-  },
-  {
-    key: 'resources', label: 'რესურსები',
-    items: [
-      { key: 'technicians', label: 'ტექნიკოსები' },
-      { key: 'teams', label: 'გუნდები' },
-      { key: 'specializations', label: 'სპეციალიზაციები' },
-      { key: 'work-schedules', label: 'სამუშაო გრაფიკები' },
-      { key: 'certificates', label: 'სერტიფიკატები' },
-      { key: 'contractors', label: 'კონტრაქტორები' },
-      { key: 'service-agreements', label: 'მომსახურების ხელშეკრულებები' },
-      { key: 'sla', label: 'SLA' },
-    ],
-  },
-  {
-    key: 'parts', label: 'ნაწილები და ხელსაწყოები',
-    items: [
-      { key: 'spare-parts', label: 'სათადარიგო ნაწილები' },
-      { key: 'requested-parts', label: 'მოთხოვნილი ნაწილები' },
-      { key: 'reserved-parts', label: 'რეზერვირებული ნაწილები' },
-      { key: 'used-parts', label: 'გამოყენებული ნაწილები' },
-      { key: 'parts-shortage', label: 'ნაწილების დეფიციტი' },
-      { key: 'purchase-requests', label: 'შესყიდვის მოთხოვნები' },
-      { key: 'tools', label: 'ხელსაწყოები' },
-      { key: 'tool-issue', label: 'ხელსაწყოების გაცემა/დაბრუნება' },
-    ],
-  },
-  {
-    key: 'safety', label: 'უსაფრთხოება და შესაბამისობა',
-    items: [
-      { key: 'safety-instructions', label: 'უსაფრთხოების ინსტრუქციები' },
-      { key: 'risk-assessment', label: 'რისკის შეფასება' },
-      { key: 'work-permits', label: 'სამუშაოს ნებართვები' },
-      { key: 'lockout-tagout', label: 'Lockout/Tagout' },
-      { key: 'checklists', label: 'სავალდებულო ჩეკლისტები' },
-      { key: 'incidents', label: 'ინციდენტები' },
-      { key: 'cert-expiry', label: 'სერტიფიკატების ვადები' },
-      { key: 'compliance-history', label: 'შესაბამისობის ისტორია' },
-    ],
-  },
-  {
-    key: 'costs', label: 'ხარჯები და ბიუჯეტი',
-    items: [
-      { key: 'work-costs', label: 'სამუშაოების ხარჯები' },
-      { key: 'asset-costs', label: 'აქტივების ხარჯები' },
-      { key: 'material-costs', label: 'მასალების ხარჯები' },
-      { key: 'labor-costs', label: 'შრომის ხარჯები' },
-      { key: 'contractor-costs', label: 'კონტრაქტორის ხარჯები' },
-      { key: 'budget', label: 'Maintenance ბიუჯეტი' },
-      { key: 'cost-centers', label: 'ხარჯის ცენტრები' },
-      { key: 'capitalization', label: 'კაპიტალიზაციის მოთხოვნები' },
-      { key: 'lifecycle-cost', label: 'აქტივის სიცოცხლის ციკლის ღირებულება' },
-    ],
-  },
-  {
-    key: 'reliability', label: 'საიმედოობა და დაზიანებები',
-    items: [
-      { key: 'failure-registry', label: 'დაზიანებების რეესტრი' },
-      { key: 'failure-codes', label: 'დაზიანების კოდები' },
-      { key: 'cause-classification', label: 'მიზეზების კლასიფიკაცია' },
-      { key: 'repeat-failures', label: 'განმეორებითი დაზიანებები' },
-      { key: 'rca', label: 'ძირეული მიზეზის ანალიზი — RCA' },
-      { key: 'downtime', label: 'Downtime' },
-      { key: 'mttr', label: 'MTTR' },
-      { key: 'mtbf', label: 'MTBF' },
-      { key: 'repair-replace', label: 'შეკეთება ან ჩანაცვლება' },
-    ],
-  },
-  {
-    key: 'analytics', label: 'ანალიტიკა',
-    items: [
-      { key: 'work-analysis', label: 'სამუშაოების ანალიზი' },
-      { key: 'asset-efficiency', label: 'აქტივების ეფექტიანობა' },
-      { key: 'planned-vs-emergency', label: 'გეგმური და ავარიული მოვლა' },
-      { key: 'cost-analysis', label: 'ხარჯების ანალიზი' },
-      { key: 'technician-efficiency', label: 'ტექნიკოსების ეფექტიანობა' },
-      { key: 'contractor-sla', label: 'კონტრაქტორების SLA' },
-      { key: 'parts-consumption', label: 'ნაწილების მოხმარება' },
-      { key: 'availability', label: 'აქტივების ხელმისაწვდომობა' },
-      { key: 'report-builder', label: 'კონსტრუქტორი რეპორტებისთვის' },
-    ],
-  },
-  {
-    key: 'config', label: 'კონფიგურაცია',
-    items: [
-      { key: 'asset-categories', label: 'აქტივების კატეგორიები' },
-      { key: 'asset-statuses', label: 'აქტივების სტატუსები' },
-      { key: 'work-types', label: 'სამუშაოების ტიპები' },
-      { key: 'request-categories', label: 'მოთხოვნების კატეგორიები' },
-      { key: 'priorities', label: 'პრიორიტეტები' },
-      { key: 'failure-cause-codes', label: 'დაზიანებისა და მიზეზის კოდები' },
-      { key: 'maintenance-templates', label: 'მოვლის შაბლონები' },
-      { key: 'checklist-templates', label: 'ჩეკლისტების შაბლონები' },
-      { key: 'workflows', label: 'სამუშაო პროცესები' },
-      { key: 'approval-rules', label: 'დამტკიცების წესები' },
-      { key: 'sla-rules', label: 'SLA წესები' },
-      { key: 'notifications', label: 'შეტყობინებები' },
-      { key: 'automations', label: 'ავტომატიზაციები' },
-      { key: 'numbering', label: 'ნომერაცია' },
-      { key: 'integrations', label: 'ინტეგრაციები' },
-    ],
-  },
+// Simple one-level list: Maintenance → sub-item. Each maps to /maintenance?tab=<key>
+const MAINTENANCE_SUBGROUPS: { key: string; label: string }[] = [
+  { key: 'requests', label: 'მოთხოვნები' },
+  { key: 'orders', label: 'სამუშაო დავალებები' },
+  { key: 'plans', label: 'მოვლის გეგმები' },
+  { key: 'calendar', label: 'კალენდარი' },
+  { key: 'assets', label: 'აქტივები' },
+  { key: 'locations', label: 'მდებარეობები' },
+  { key: 'meters', label: 'მრიცხველები' },
+  { key: 'technicians', label: 'ტექნიკოსები და გუნდები' },
+  { key: 'contractors', label: 'კონტრაქტორები და SLA' },
+  { key: 'parts', label: 'ნაწილები და მასალები' },
+  { key: 'costs', label: 'ხარჯები' },
+  { key: 'analytics', label: 'ანალიტიკა' },
+  { key: 'config', label: 'კონფიგურაცია' },
 ]
 
 // ── Sub-components ──────────────────────────────────────────────────
@@ -500,27 +365,15 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
                         open={openGroups.has('maintenance')}
                         onToggle={() => toggleGroup('maintenance')}
                       >
-                        {MAINTENANCE_GROUPS.map((group) => (
-                          <div key={group.key} className="pt-1">
-                            <CollapsibleGroup
-                              icon={ChevronRight}
-                              label={group.label}
-                              open={openGroups.has(`maint-${group.key}`)}
-                              onToggle={() => toggleGroup(`maint-${group.key}`)}
-                              depth={1}
-                            >
-                              {group.items.map((sub) => (
-                                <NavLinkItem
-                                  key={sub.key}
-                                  item={{ to: `/maintenance?tab=${sub.key}`, icon: Wrench, label: sub.label }}
-                                  onClose={onClose}
-                                  depth={2}
-                                  isFav={favorites.includes(`/maintenance?tab=${sub.key}`)}
-                                  onToggleFav={toggleFav}
-                                />
-                              ))}
-                            </CollapsibleGroup>
-                          </div>
+                        {MAINTENANCE_SUBGROUPS.map((sub) => (
+                          <NavLinkItem
+                            key={sub.key}
+                            item={{ to: `/maintenance?tab=${sub.key}`, icon: Wrench, label: sub.label }}
+                            onClose={onClose}
+                            depth={1}
+                            isFav={favorites.includes(`/maintenance?tab=${sub.key}`)}
+                            onToggleFav={toggleFav}
+                          />
                         ))}
                       </CollapsibleGroup>
                     </div>
