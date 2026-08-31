@@ -2,11 +2,33 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+
+
+class CRMPipelineStage(Base):
+    """Configurable pipeline stages (kanban columns) per company."""
+
+    __tablename__ = "crm_pipeline_stages"
+    __table_args__ = (
+        CheckConstraint("probability >= 0 AND probability <= 100", name="ck_crm_stage_probability"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    key: Mapped[str] = mapped_column(String(30), nullable=False, index=True)  # stable slug, e.g. qualification
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    probability: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    color: Mapped[str] = mapped_column(String(20), nullable=False, default="#94a3b8")
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_won: Mapped[bool] = mapped_column(nullable=False, default=False)
+    is_lost: Mapped[bool] = mapped_column(nullable=False, default=False)
+    is_active: Mapped[bool] = mapped_column(nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
 
 class CRMLead(Base):
@@ -15,6 +37,7 @@ class CRMLead(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
     owner_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    team_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sales_teams.id"), nullable=True, index=True)
     converted_client_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=True)
     company_name: Mapped[str] = mapped_column(String(255), nullable=False)
     contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -23,6 +46,7 @@ class CRMLead(Base):
     source: Mapped[str] = mapped_column(String(30), nullable=False, default="other")
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="new", index=True)
     estimated_value: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0"))
+    score: Mapped[int] = mapped_column(Integer, nullable=False, default=0, index=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     next_action_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     last_activity_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -44,6 +68,7 @@ class CRMOpportunity(Base):
     lead_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("crm_leads.id"), nullable=True, index=True)
     client_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=True)
     owner_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    team_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sales_teams.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     stage: Mapped[str] = mapped_column(String(30), nullable=False, default="qualification", index=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0"))

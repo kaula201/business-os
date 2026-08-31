@@ -90,14 +90,30 @@ export interface ClientCreate {
 // === CRM — Leads, pipeline and activities ===
 export type CRMLeadStatus = 'new' | 'contacted' | 'qualified' | 'unqualified' | 'converted'
 export type CRMLeadSource = 'website' | 'referral' | 'campaign' | 'phone' | 'email' | 'other'
-export type CRMOpportunityStage = 'qualification' | 'discovery' | 'proposal' | 'negotiation' | 'won' | 'lost'
+export type CRMOpportunityStage = string
 export type CRMActivityType = 'call' | 'meeting' | 'email' | 'task' | 'note'
 export type CRMActivityStatus = 'planned' | 'completed' | 'cancelled'
+
+export interface CRMPipelineStage {
+  id: string
+  company_id: string
+  key: string
+  name: string
+  probability: number
+  color: string
+  sort_order: number
+  is_won: boolean
+  is_lost: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
 
 export interface CRMLead {
   id: string
   company_id: string
   owner_id?: string
+  team_id?: string
   converted_client_id?: string
   company_name: string
   contact_name?: string
@@ -106,6 +122,7 @@ export interface CRMLead {
   source: CRMLeadSource
   status: CRMLeadStatus
   estimated_value: number
+  score: number
   notes?: string
   converted_at?: string
   created_at: string
@@ -121,6 +138,7 @@ export interface CRMLeadCreate {
   estimated_value: number
   notes?: string
   owner_id?: string
+  team_id?: string
 }
 
 export interface CRMOpportunity {
@@ -129,6 +147,7 @@ export interface CRMOpportunity {
   lead_id?: string
   client_id?: string
   owner_id?: string
+  team_id?: string
   name: string
   stage: CRMOpportunityStage
   amount: number

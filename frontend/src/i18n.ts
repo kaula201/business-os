@@ -1974,6 +1974,25 @@ const en: Record<string, string> = {
   'ბონუსი/დაქვითვა': 'Bonus / deduction',
   'სამუშაო ჩანაწერი': 'Work entry',
   'ბონუსები და დაქვითვები': 'Bonuses & deductions',
+  // ── CRM აუდიტის ბეჩი: pipeline კონფიგურაცია, გუნდი, scoring, quotation/email ──
+  'ეტაპების კონფიგურაცია': 'Stage configuration',
+  'Pipeline ეტაპი დაემატა.': 'Pipeline stage added.',
+  'Pipeline ეტაპი განახლდა.': 'Pipeline stage updated.',
+  'Pipeline ეტაპი წაიშალა.': 'Pipeline stage deleted.',
+  'Pipeline ეტაპების კონფიგურაცია': 'Pipeline stage configuration',
+  'გადაიტანეთ შესაძლებლობები ეტაპებს შორის — ეტაპის კონფიგურაცია ხელმისაწვდომია ღილაკზე დაჭერით.': 'Move opportunities between stages — stage configuration is available via the button.',
+  'ახალი ეტაპი': 'New stage',
+  'ეტაპის რედაქტირება': 'Edit stage',
+  'Key (უნიკალური)': 'Key (unique)',
+  'რიგი:': 'Order:',
+  'გაყიდვების გუნდი': 'Sales team',
+  'არ არის მინიჭებული': 'Not assigned',
+  'ლიდის ქულა': 'Lead score',
+  'შემოთავაზება': 'Quotation',
+  'შემოთავაზება შეიქმნა:': 'Quotation created:',
+  'შემოთავაზება გაგზავნილია ელფოსტაზე:': 'Quotation sent to email:',
+  'ელფოსტის გაგზავნა ვერ მოხერხდა.': 'Failed to send the email.',
+  'ელფოსტით გაგზავნა': 'Send by email',
 }
 
 i18n.use(initReactI18next).init({

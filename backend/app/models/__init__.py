@@ -61,7 +61,7 @@ from app.models.analytic import AnalyticAccount, AnalyticEntry
 from app.models.approval import ApprovalRequest
 from app.models.deferred import DeferredSchedule, DeferredRecognition
 from app.models.accounting_period import AccountingPeriod, AccountingPeriodEvent
-from app.models.crm import CRMActivity, CRMLead, CRMOpportunity
+from app.models.crm import CRMActivity, CRMLead, CRMOpportunity, CRMPipelineStage  # noqa: F401
 from app.models.banking import (
     BankAccount,
     BankStatementImport,

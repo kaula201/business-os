@@ -99,6 +99,18 @@ export const crmApi = {
   conversionRate: (params?: { days?: number }) => api.get('/crm/conversion-rate', { params }),
   leadSources: () => api.get('/crm/lead-sources'),
   staleLeads: (params?: { threshold_days?: number }) => api.get('/crm/stale-leads', { params }),
+  // ── Configurable pipeline stages (kanban) ──
+  listPipelineStages: () => api.get('/crm/pipeline-stages'),
+  createPipelineStage: (data: Record<string, unknown>) => api.post('/crm/pipeline-stages', data),
+  updatePipelineStage: (id: string, data: Record<string, unknown>) => api.patch(`/crm/pipeline-stages/${id}`, data),
+  deletePipelineStage: (id: string) => api.delete(`/crm/pipeline-stages/${id}`),
+  reorderPipelineStages: (stages: { id: string; sort_order: number }[]) =>
+    api.post('/crm/pipeline-stages/reorder', { stages }),
+  // ── Lead scoring ──
+  leadScore: (id: string) => api.get(`/crm/leads/${id}/score`),
+  // ── CRM → Quotation + email ──
+  createQuotationFromOpportunity: (id: string) => api.post(`/crm/opportunities/${id}/quotation`),
+  sendQuotationEmail: (id: string) => api.post(`/crm/quotations/${id}/send-email`),
 }
 
 // Orders API

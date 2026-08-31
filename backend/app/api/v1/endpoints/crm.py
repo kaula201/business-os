@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +11,8 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.time import utc_now
 from app.models.client import Client, ClientStatus, Contact
-from app.models.crm import CRMActivity, CRMLead, CRMOpportunity
+from app.models.crm import CRMActivity, CRMLead, CRMOpportunity, CRMPipelineStage
+from app.models.sales_team import SalesTeam
 from app.models.user import User
 from app.schemas.common import PaginatedResponse, ResponseBase
 from app.schemas.client import ClientResponse, ContactResponse
@@ -25,9 +28,106 @@ from app.schemas.crm import (
     CRMOpportunityCreate,
     CRMOpportunityResponse,
     CRMOpportunityUpdate,
+    CRMPipelineReorderRequest,
+    CRMPipelineStageCreate,
+    CRMPipelineStageResponse,
+    CRMPipelineStageUpdate,
+    LeadScoreBreakdown,
+    LeadScoreResponse,
 )
 
 router = APIRouter(prefix="/crm", tags=["CRM — ლიდები და გაყიდვები"])
+
+# Default pipeline stages seeded for every company (Odoo-style kanban columns).
+DEFAULT_STAGES = [
+    {"key": "qualification", "name": "კვალიფიკაცია", "probability": 10, "color": "#3b82f6", "sort_order": 0},
+    {"key": "discovery", "name": "საჭიროებების კვლევა", "probability": 25, "color": "#8b5cf6", "sort_order": 1},
+    {"key": "proposal", "name": "შეთავაზება", "probability": 50, "color": "#f59e0b", "sort_order": 2},
+    {"key": "negotiation", "name": "მოლაპარაკება", "probability": 75, "color": "#ef4444", "sort_order": 3},
+    {"key": "won", "name": "მოგებული", "probability": 100, "color": "#22c55e", "sort_order": 4, "is_won": True},
+    {"key": "lost", "name": "დაკარგული", "probability": 0, "color": "#94a3b8", "sort_order": 5, "is_lost": True},
+]
+
+
+async def _ensure_stages_seeded(db: AsyncSession, company_id: UUID) -> None:
+    """Seed default pipeline stages for a company on first access."""
+    existing = (await db.execute(
+        select(CRMPipelineStage.id).where(CRMPipelineStage.company_id == company_id).limit(1)
+    )).scalar_one_or_none()
+    if existing:
+        return
+    for s in DEFAULT_STAGES:
+        db.add(CRMPipelineStage(company_id=company_id, **s))
+    await db.flush()
+
+
+async def _stage_keys(db: AsyncSession, company_id: UUID) -> set[str]:
+    """Active stage keys for the company (seeded on demand)."""
+    await _ensure_stages_seeded(db, company_id)
+    rows = (await db.execute(
+        select(CRMPipelineStage.key).where(
+            CRMPipelineStage.company_id == company_id,
+            CRMPipelineStage.is_active.is_(True),
+        )
+    )).scalars().all()
+    return set(rows)
+
+
+async def _validate_team(db: AsyncSession, company_id: UUID, team_id: UUID | None) -> None:
+    if team_id is None:
+        return
+    team = (await db.execute(select(SalesTeam.id).where(
+        SalesTeam.id == team_id,
+        SalesTeam.company_id == company_id,
+    ))).scalar_one_or_none()
+    if not team:
+        raise HTTPException(status_code=404, detail="გაყიდვების გუნდი არ მოიძებნა")
+
+
+def _compute_lead_score(lead: CRMLead) -> int:
+    """Deterministic lead scoring: source + contact info + value + activity."""
+    score = 0
+    source_points = {"website": 5, "referral": 10, "campaign": 5, "phone": 8, "email": 8, "other": 2}
+    score += source_points.get(lead.source, 2)
+    if lead.email:
+        score += 10
+    if lead.phone:
+        score += 10
+    if lead.contact_name:
+        score += 5
+    if lead.estimated_value and lead.estimated_value >= 10000:
+        score += 20
+    elif lead.estimated_value and lead.estimated_value >= 1000:
+        score += 10
+    if lead.next_action_date:
+        score += 5
+    if lead.last_activity_at:
+        days_since = (utc_now() - lead.last_activity_at).days
+        if days_since <= 7:
+            score += 15
+        elif days_since <= 30:
+            score += 8
+    return min(score, 100)
+
+
+def _score_breakdown(lead: CRMLead) -> LeadScoreBreakdown:
+    source_points = {"website": 5, "referral": 10, "campaign": 5, "phone": 8, "email": 8, "other": 2}
+    source = source_points.get(lead.source, 2)
+    contact = (10 if lead.email else 0) + (10 if lead.phone else 0) + (5 if lead.contact_name else 0)
+    value = 20 if (lead.estimated_value and lead.estimated_value >= 10000) else (10 if (lead.estimated_value and lead.estimated_value >= 1000) else 0)
+    activity = 0
+    if lead.next_action_date:
+        activity += 5
+    if lead.last_activity_at:
+        days_since = (utc_now() - lead.last_activity_at).days
+        if days_since <= 7:
+            activity += 15
+        elif days_since <= 30:
+            activity += 8
+    return LeadScoreBreakdown(
+        source=source, contact_info=contact, value=value, activity=activity,
+        total=min(source + contact + value + activity, 100),
+    )
 
 
 def opportunity_response(opportunity: CRMOpportunity, lead_company_name: str | None = None) -> CRMOpportunityResponse:
@@ -46,9 +146,11 @@ async def create_lead(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await _validate_team(db, current_user.company_id, data.team_id)
     lead = CRMLead(
         company_id=current_user.company_id,
         owner_id=data.owner_id or current_user.id,
+        team_id=data.team_id,
         company_name=data.company_name.strip(),
         contact_name=data.contact_name.strip() if data.contact_name else None,
         email=str(data.email) if data.email else None,
@@ -59,12 +161,14 @@ async def create_lead(
         next_action_date=data.next_action_date,
         last_activity_at=utc_now(),
     )
+    lead.score = _compute_lead_score(lead)
     db.add(lead)
     await db.flush()
     add_audit(db, current_user, "crm.lead_created", "crm_lead", lead.id, {
         "company_name": lead.company_name,
         "source": lead.source,
         "estimated_value": lead.estimated_value,
+        "score": lead.score,
     })
     await db.flush()
     return ResponseBase(data=CRMLeadResponse.model_validate(lead))
@@ -128,6 +232,8 @@ async def update_lead(
         ))).scalar_one_or_none()
         if not owner:
             raise HTTPException(status_code=404, detail="პასუხისმგებელი თანამშრომელი არ მოიძებნა")
+    if data.team_id is not None:
+        await _validate_team(db, current_user.company_id, data.team_id)
     before_status = lead.status
     for field, value in data.model_dump(exclude_unset=True).items():
         if field == "email" and value is not None:
@@ -135,6 +241,7 @@ async def update_lead(
         setattr(lead, field, value)
     # Track last activity on any update
     lead.last_activity_at = utc_now()
+    lead.score = _compute_lead_score(lead)
     # Auto-create a pipeline opportunity the moment a lead is qualified,
     # so the pipeline forecast is never empty for qualified leads.
     if before_status != "qualified" and lead.status == "qualified":
@@ -156,6 +263,7 @@ async def update_lead(
                 amount=estimated_value if estimated_value is not None else 0,
                 expected_close_date=lead.next_action_date,
                 owner_id=data.owner_id or lead.owner_id,
+                team_id=data.team_id if data.team_id is not None else lead.team_id,
             ))
             add_audit(db, current_user, "crm.opportunity_auto_created", "crm_opportunity", lead.id, {
                 "lead_id": str(lead.id),
@@ -292,11 +400,16 @@ async def create_opportunity(
         ).scalar_one_or_none()
         if not client:
             raise HTTPException(status_code=404, detail="კლიენტი არ მოიძებნა")
+    stage_keys = await _stage_keys(db, current_user.company_id)
+    if data.stage not in stage_keys:
+        raise HTTPException(status_code=400, detail="მითითებული pipeline ეტაპი არ არსებობს")
+    await _validate_team(db, current_user.company_id, data.team_id)
     opportunity = CRMOpportunity(
         company_id=current_user.company_id,
         lead_id=data.lead_id,
         client_id=data.client_id,
         owner_id=data.owner_id or current_user.id,
+        team_id=data.team_id,
         name=data.name.strip(),
         stage=data.stage,
         amount=data.amount,
@@ -362,13 +475,25 @@ async def update_opportunity(
     ).scalar_one_or_none()
     if not opportunity:
         raise HTTPException(status_code=404, detail="გაყიდვების შესაძლებლობა არ მოიძებნა")
+    if data.stage is not None:
+        stage_keys = await _stage_keys(db, current_user.company_id)
+        if data.stage not in stage_keys:
+            raise HTTPException(status_code=400, detail="მითითებული pipeline ეტაპი არ არსებობს")
+    if data.team_id is not None:
+        await _validate_team(db, current_user.company_id, data.team_id)
     before_stage = opportunity.stage
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(opportunity, field, value)
-    if opportunity.stage == "won" and "probability" not in data.model_fields_set:
-        opportunity.probability = 100
-    if opportunity.stage == "lost" and "probability" not in data.model_fields_set:
-        opportunity.probability = 0
+    # Auto probability from the configured stage when the stage changes.
+    if data.stage is not None and data.stage != before_stage and "probability" not in data.model_fields_set:
+        stage_row = (await db.execute(
+            select(CRMPipelineStage).where(
+                CRMPipelineStage.company_id == current_user.company_id,
+                CRMPipelineStage.key == opportunity.stage,
+            )
+        )).scalar_one_or_none()
+        if stage_row:
+            opportunity.probability = stage_row.probability
     add_audit(db, current_user, "crm.opportunity_updated", "crm_opportunity", opportunity.id, {
         "before_stage": before_stage,
         "after_stage": opportunity.stage,
@@ -549,3 +674,265 @@ async def update_activity(
             Client.company_id == current_user.company_id,
         ))).scalar_one_or_none()
     return ResponseBase(data=activity_response(activity, related_name))
+
+
+# ── Configurable pipeline stages (kanban) ───────────────────────────────────
+
+@router.get("/pipeline-stages", response_model=ResponseBase[list[CRMPipelineStageResponse]])
+async def list_pipeline_stages(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _ensure_stages_seeded(db, current_user.company_id)
+    stages = (await db.execute(
+        select(CRMPipelineStage)
+        .where(CRMPipelineStage.company_id == current_user.company_id)
+        .order_by(CRMPipelineStage.sort_order.asc(), CRMPipelineStage.created_at.asc())
+    )).scalars().all()
+    return ResponseBase(data=[CRMPipelineStageResponse.model_validate(s) for s in stages])
+
+
+@router.post("/pipeline-stages", response_model=ResponseBase[CRMPipelineStageResponse], status_code=status.HTTP_201_CREATED)
+async def create_pipeline_stage(
+    data: CRMPipelineStageCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _ensure_stages_seeded(db, current_user.company_id)
+    duplicate = (await db.execute(select(CRMPipelineStage.id).where(
+        CRMPipelineStage.company_id == current_user.company_id,
+        CRMPipelineStage.key == data.key,
+    ))).scalar_one_or_none()
+    if duplicate:
+        raise HTTPException(status_code=409, detail="ამ key-ით pipeline ეტაპი უკვე არსებობს")
+    stage = CRMPipelineStage(company_id=current_user.company_id, **data.model_dump())
+    db.add(stage)
+    await db.flush()
+    add_audit(db, current_user, "crm.stage_created", "crm_pipeline_stage", stage.id, {
+        "key": stage.key, "name": stage.name, "sort_order": stage.sort_order,
+    })
+    await db.flush()
+    return ResponseBase(data=CRMPipelineStageResponse.model_validate(stage))
+
+
+@router.patch("/pipeline-stages/{stage_id}", response_model=ResponseBase[CRMPipelineStageResponse])
+async def update_pipeline_stage(
+    stage_id: UUID,
+    data: CRMPipelineStageUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    stage = (await db.execute(
+        select(CRMPipelineStage).where(
+            CRMPipelineStage.id == stage_id,
+            CRMPipelineStage.company_id == current_user.company_id,
+        ).with_for_update()
+    )).scalar_one_or_none()
+    if not stage:
+        raise HTTPException(status_code=404, detail="Pipeline ეტაპი არ მოიძებნა")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(stage, field, value)
+    add_audit(db, current_user, "crm.stage_updated", "crm_pipeline_stage", stage.id, {
+        "name": stage.name, "probability": stage.probability, "is_active": stage.is_active,
+    })
+    await db.flush()
+    await db.refresh(stage)
+    return ResponseBase(data=CRMPipelineStageResponse.model_validate(stage))
+
+
+@router.delete("/pipeline-stages/{stage_id}", response_model=ResponseBase)
+async def delete_pipeline_stage(
+    stage_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    stage = (await db.execute(
+        select(CRMPipelineStage).where(
+            CRMPipelineStage.id == stage_id,
+            CRMPipelineStage.company_id == current_user.company_id,
+        ).with_for_update()
+    )).scalar_one_or_none()
+    if not stage:
+        raise HTTPException(status_code=404, detail="Pipeline ეტაპი არ მოიძებნა")
+    if stage.is_won or stage.is_lost:
+        raise HTTPException(status_code=400, detail="მოგებული/დაკარგული ეტაპის წაშლა არ შეიძლება")
+    used = (await db.execute(select(func.count(CRMOpportunity.id)).where(
+        CRMOpportunity.company_id == current_user.company_id,
+        CRMOpportunity.stage == stage.key,
+    ))).scalar_one()
+    if used:
+        raise HTTPException(status_code=400, detail="ამ ეტაპზე შესაძლებლობებია — ჯერ გადაიტანეთ ისინი სხვა ეტაპზე")
+    await db.delete(stage)
+    add_audit(db, current_user, "crm.stage_deleted", "crm_pipeline_stage", stage.id, {"key": stage.key})
+    await db.commit()
+    return ResponseBase(message="Pipeline ეტაპი წაშლილია")
+
+
+@router.post("/pipeline-stages/reorder", response_model=ResponseBase[list[CRMPipelineStageResponse]])
+async def reorder_pipeline_stages(
+    data: CRMPipelineReorderRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ids = [item.id for item in data.stages]
+    stages = (await db.execute(
+        select(CRMPipelineStage).where(
+            CRMPipelineStage.company_id == current_user.company_id,
+            CRMPipelineStage.id.in_(ids),
+        )
+    )).scalars().all()
+    by_id = {s.id: s for s in stages}
+    for item in data.stages:
+        if item.id in by_id:
+            by_id[item.id].sort_order = item.sort_order
+    await db.flush()
+    ordered = (await db.execute(
+        select(CRMPipelineStage)
+        .where(CRMPipelineStage.company_id == current_user.company_id)
+        .order_by(CRMPipelineStage.sort_order.asc(), CRMPipelineStage.created_at.asc())
+    )).scalars().all()
+    return ResponseBase(data=[CRMPipelineStageResponse.model_validate(s) for s in ordered])
+
+
+# ── Lead scoring ─────────────────────────────────────────────────────────────
+
+@router.get("/leads/{lead_id}/score", response_model=ResponseBase[LeadScoreResponse])
+async def get_lead_score(
+    lead_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    lead = (await db.execute(
+        select(CRMLead).where(CRMLead.id == lead_id, CRMLead.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="ლიდი არ მოიძებნა")
+    breakdown = _score_breakdown(lead)
+    return ResponseBase(data=LeadScoreResponse(lead_id=lead.id, score=breakdown.total, breakdown=breakdown))
+
+
+# ── CRM → Quotation + email ──────────────────────────────────────────────────
+
+@router.post("/opportunities/{opportunity_id}/quotation", response_model=ResponseBase[dict], status_code=status.HTTP_201_CREATED)
+async def create_quotation_from_opportunity(
+    opportunity_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a draft quotation from a won opportunity (client must exist)."""
+    opportunity = (await db.execute(
+        select(CRMOpportunity).where(
+            CRMOpportunity.id == opportunity_id,
+            CRMOpportunity.company_id == current_user.company_id,
+        ).with_for_update()
+    )).scalar_one_or_none()
+    if not opportunity:
+        raise HTTPException(status_code=404, detail="გაყიდვების შესაძლებლობა არ მოიძებნა")
+    if opportunity.stage != "won":
+        raise HTTPException(status_code=400, detail="შემოთავაზება მხოლოდ მოგებული შესაძლებლობიდან იქმნება")
+    if not opportunity.client_id:
+        raise HTTPException(status_code=400, detail="შესაძლებლობას კლიენტი არ უკავშირდება — ჯერ გადაიყვანეთ ლიდი კლიენტად")
+
+    from app.models.quotation import Quotation, QuotationItem
+
+    today = utc_now().date()
+    prefix = f"QT-{today.strftime('%Y%m%d')}"
+    same_day = (await db.execute(select(func.count(Quotation.id)).where(
+        Quotation.company_id == current_user.company_id,
+        Quotation.quotation_number.like(f"{prefix}-%"),
+    ))).scalar_one()
+    number = f"{prefix}-{same_day + 1:03d}"
+
+    subtotal = opportunity.amount
+    vat = (subtotal * Decimal("0.18")).quantize(Decimal("0.01"))
+    total = subtotal + vat
+
+    q = Quotation(
+        company_id=current_user.company_id,
+        client_id=opportunity.client_id,
+        quotation_number=number,
+        quotation_date=today,
+        valid_until=None,
+        status="draft",
+        currency="GEL",
+        subtotal=subtotal,
+        vat_amount=vat,
+        total=total,
+        discount_percent=Decimal("0"),
+        notes=opportunity.notes,
+        created_by=current_user.id,
+    )
+    db.add(q)
+    await db.flush()
+    db.add(QuotationItem(
+        quotation_id=q.id,
+        product_id=None,
+        line_number=1,
+        description=opportunity.name,
+        quantity=Decimal("1"),
+        unit_price=subtotal,
+        discount_percent=Decimal("0"),
+        line_total=subtotal,
+    ))
+    add_audit(db, current_user, "crm.quotation_created_from_opportunity", "quotation", q.id, {
+        "opportunity_id": str(opportunity.id),
+        "number": number,
+    })
+    await db.commit()
+    return ResponseBase(data={"quotation_id": str(q.id), "quotation_number": number, "status": "draft"})
+
+
+@router.post("/quotations/{quotation_id}/send-email", response_model=ResponseBase[dict])
+async def send_quotation_email(
+    quotation_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Send a quotation to the client's email (SMTP or sandbox email_messages)."""
+    from app.models.email_calendar import EmailMessage
+    from app.models.quotation import Quotation
+    from app.services.email_service import send_email_smtp, smtp_configured
+
+    q = (await db.execute(
+        select(Quotation).where(Quotation.id == quotation_id, Quotation.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not q:
+        raise HTTPException(status_code=404, detail="შემოთავაზება არ მოიძებნა")
+    client = (await db.execute(select(Client).where(Client.id == q.client_id))).scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=404, detail="კლიენტი არ მოიძებნა")
+    contact = (await db.execute(
+        select(Contact).where(Contact.client_id == client.id, Contact.is_primary.is_(True))
+    )).scalar_one_or_none()
+    to_email = (contact.email if contact else None) or client.email
+    if not to_email:
+        raise HTTPException(status_code=400, detail="კლიენტს ელფოსტა არ აქვს მითითებული")
+
+    subject = f"კომერციული შემოთავაზება {q.quotation_number}"
+    body = (
+        f"გამარჯობა,\n\n"
+        f"გთავაზობთ კომერციულ შემოთავაზებას {q.quotation_number}.\n"
+        f"თანხა: {q.total:.2f} GEL (დღგ-ს ჩათვლით)\n"
+        f"მოქმედების ვადა: {q.valid_until or 'არ არის მითითებული'}\n\n"
+        f"პატივისცემით,\n{current_user.full_name or current_user.email}"
+    )
+    status_value = "sent"
+    if smtp_configured():
+        try:
+            send_email_smtp(to_email, subject, body)
+        except Exception:
+            status_value = "failed"
+    db.add(EmailMessage(
+        company_id=current_user.company_id,
+        to_email=to_email,
+        subject=subject,
+        body=body,
+        status=status_value,
+    ))
+    if status_value == "sent" and q.status == "draft":
+        q.status = "sent"
+    add_audit(db, current_user, "quotation.email_sent", "quotation", q.id, {
+        "to_email": to_email, "status": status_value,
+    })
+    await db.commit()
+    return ResponseBase(data={"to_email": to_email, "status": status_value})

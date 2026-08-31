@@ -10,9 +10,58 @@ from app.schemas.client import ClientResponse
 
 LeadSource = Literal["website", "referral", "campaign", "phone", "email", "other"]
 LeadStatus = Literal["new", "contacted", "qualified", "unqualified", "converted"]
-OpportunityStage = Literal["qualification", "discovery", "proposal", "negotiation", "won", "lost"]
+# Pipeline stages are configurable per company (crm_pipeline_stages); the API
+# validates against the company's configured stages, so no hardcoded Literal here.
 ActivityType = Literal["call", "meeting", "email", "task", "note"]
 ActivityStatus = Literal["planned", "completed", "cancelled"]
+
+
+# ── Configurable pipeline stages ─────────────────────────────────────────────
+
+class CRMPipelineStageCreate(BaseModel):
+    key: str = Field(min_length=2, max_length=30, pattern=r"^[a-z0-9_]+$")
+    name: str = Field(min_length=1, max_length=100)
+    probability: int = Field(default=10, ge=0, le=100)
+    color: str = Field(default="#94a3b8", max_length=20)
+    sort_order: int = Field(default=0, ge=0)
+    is_won: bool = False
+    is_lost: bool = False
+
+
+class CRMPipelineStageUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    probability: int | None = Field(default=None, ge=0, le=100)
+    color: str | None = Field(default=None, max_length=20)
+    sort_order: int | None = Field(default=None, ge=0)
+    is_won: bool | None = None
+    is_lost: bool | None = None
+    is_active: bool | None = None
+
+
+class CRMPipelineStageResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    key: str
+    name: str
+    probability: int
+    color: str
+    sort_order: int
+    is_won: bool
+    is_lost: bool
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CRMPipelineReorderItem(BaseModel):
+    id: UUID
+    sort_order: int = Field(ge=0)
+
+
+class CRMPipelineReorderRequest(BaseModel):
+    stages: list[CRMPipelineReorderItem]
 
 
 class CRMLeadCreate(BaseModel):
@@ -24,6 +73,7 @@ class CRMLeadCreate(BaseModel):
     estimated_value: Decimal = Field(default=Decimal("0"), ge=0)
     notes: str | None = None
     owner_id: UUID | None = None
+    team_id: UUID | None = None
     next_action_date: date | None = None
 
 
@@ -37,6 +87,7 @@ class CRMLeadUpdate(BaseModel):
     estimated_value: Decimal | None = Field(default=None, ge=0)
     notes: str | None = None
     owner_id: UUID | None = None
+    team_id: UUID | None = None
     next_action_date: date | None = None
 
 
@@ -44,6 +95,7 @@ class CRMLeadResponse(BaseModel):
     id: UUID
     company_id: UUID
     owner_id: UUID | None
+    team_id: UUID | None
     converted_client_id: UUID | None
     company_name: str
     contact_name: str | None
@@ -52,6 +104,7 @@ class CRMLeadResponse(BaseModel):
     source: str
     status: str
     estimated_value: Decimal
+    score: int
     notes: str | None
     next_action_date: date | None
     last_activity_at: datetime | None
@@ -80,11 +133,12 @@ class CRMOpportunityCreate(BaseModel):
     lead_id: UUID | None = None
     client_id: UUID | None = None
     name: str = Field(min_length=2, max_length=255)
-    stage: OpportunityStage = "qualification"
+    stage: str = Field(default="qualification", min_length=1, max_length=30)
     amount: Decimal = Field(default=Decimal("0"), ge=0)
     probability: int = Field(default=10, ge=0, le=100)
     expected_close_date: date | None = None
     owner_id: UUID | None = None
+    team_id: UUID | None = None
     notes: str | None = None
 
     @model_validator(mode="after")
@@ -96,12 +150,13 @@ class CRMOpportunityCreate(BaseModel):
 
 class CRMOpportunityUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=255)
-    stage: OpportunityStage | None = None
+    stage: str | None = Field(default=None, min_length=1, max_length=30)
     amount: Decimal | None = Field(default=None, ge=0)
     probability: int | None = Field(default=None, ge=0, le=100)
     expected_close_date: date | None = None
     lost_reason: str | None = None
     notes: str | None = None
+    team_id: UUID | None = None
 
 
 class CRMOpportunityResponse(BaseModel):
@@ -110,6 +165,7 @@ class CRMOpportunityResponse(BaseModel):
     lead_id: UUID | None
     client_id: UUID | None
     owner_id: UUID | None
+    team_id: UUID | None
     name: str
     stage: str
     amount: Decimal
@@ -225,3 +281,19 @@ class StaleLeadAlert(BaseModel):
     next_action_date: date | None = None
     owner_id: UUID | None = None
     created_at: datetime
+
+
+# ── Lead scoring ─────────────────────────────────────────────────────────────
+
+class LeadScoreBreakdown(BaseModel):
+    source: int
+    contact_info: int
+    value: int
+    activity: int
+    total: int
+
+
+class LeadScoreResponse(BaseModel):
+    lead_id: UUID
+    score: int
+    breakdown: LeadScoreBreakdown

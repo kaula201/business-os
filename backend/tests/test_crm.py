@@ -384,3 +384,218 @@ async def test_qualified_lead_auto_creates_pipeline_opportunity(client, auth_hea
         f"Pipeline shows {qual_stage['total_amount']}, expected >= 75000.00"
     )
     assert Decimal(str(data["total_pipeline"])) >= Decimal("75000.00")
+
+
+# ── Configurable pipeline stages (kanban) ────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_pipeline_stages_seeded_and_crud(client, auth_headers, test_company):
+    """Default stages are seeded on first access; CRUD works."""
+    listed = await client.get("/api/v1/crm/pipeline-stages", headers=auth_headers)
+    assert listed.status_code == 200, listed.text
+    stages = listed.json()["data"]
+    assert len(stages) == 6, f"Expected 6 default stages, got {len(stages)}"
+    keys = {s["key"] for s in stages}
+    assert {"qualification", "discovery", "proposal", "negotiation", "won", "lost"} <= keys
+    won = next(s for s in stages if s["key"] == "won")
+    assert won["is_won"] is True and won["probability"] == 100
+
+    # Create a custom stage
+    created = await client.post("/api/v1/crm/pipeline-stages", headers=auth_headers, json={
+        "key": "contract_signing", "name": "ხელშეკრულების გაფორმება",
+        "probability": 90, "color": "#10b981", "sort_order": 4,
+    })
+    assert created.status_code == 201, created.text
+    stage_id = created.json()["data"]["id"]
+
+    # Duplicate key rejected
+    dup = await client.post("/api/v1/crm/pipeline-stages", headers=auth_headers, json={
+        "key": "contract_signing", "name": "დუბლიკატი",
+    })
+    assert dup.status_code == 409
+
+    # Update
+    updated = await client.patch(f"/api/v1/crm/pipeline-stages/{stage_id}", headers=auth_headers, json={
+        "name": "ხელშეკრულება", "probability": 95,
+    })
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["data"]["name"] == "ხელშეკრულება"
+    assert updated.json()["data"]["probability"] == 95
+
+    # Delete
+    deleted = await client.delete(f"/api/v1/crm/pipeline-stages/{stage_id}", headers=auth_headers)
+    assert deleted.status_code == 200, deleted.text
+
+
+@pytest.mark.asyncio
+async def test_opportunity_stage_validated_against_configured_stages(client, auth_headers, test_company):
+    """Unknown stage keys are rejected; won/lost stages cannot be deleted."""
+    lead_resp = await client.post("/api/v1/crm/leads", headers=auth_headers,
+                                  json={"company_name": "Stage Guard Co", "source": "other"})
+    lead_id = lead_resp.json()["data"]["id"]
+
+    bad = await client.post("/api/v1/crm/opportunities", headers=auth_headers, json={
+        "lead_id": lead_id, "name": "ცუდი ეტაპი", "stage": "nonexistent_stage",
+    })
+    assert bad.status_code == 400, bad.text
+
+    ok = await client.post("/api/v1/crm/opportunities", headers=auth_headers, json={
+        "lead_id": lead_id, "name": "კარგი ეტაპი", "stage": "proposal",
+    })
+    assert ok.status_code == 201, ok.text
+    opp_id = ok.json()["data"]["id"]
+
+    # Move to a stage — probability auto-fills from the configured stage
+    moved = await client.patch(f"/api/v1/crm/opportunities/{opp_id}", headers=auth_headers,
+                               json={"stage": "negotiation"})
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["data"]["probability"] == 75, "Auto probability from stage config"
+
+    # won/lost stages cannot be deleted
+    stages = (await client.get("/api/v1/crm/pipeline-stages", headers=auth_headers)).json()["data"]
+    won_id = next(s["id"] for s in stages if s["key"] == "won")
+    blocked = await client.delete(f"/api/v1/crm/pipeline-stages/{won_id}", headers=auth_headers)
+    assert blocked.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_pipeline_stage_reorder(client, auth_headers, test_company):
+    stages = (await client.get("/api/v1/crm/pipeline-stages", headers=auth_headers)).json()["data"]
+    reversed_order = [{"id": s["id"], "sort_order": i} for i, s in enumerate(reversed(stages))]
+    resp = await client.post("/api/v1/crm/pipeline-stages/reorder", headers=auth_headers,
+                             json={"stages": reversed_order})
+    assert resp.status_code == 200, resp.text
+    ordered = resp.json()["data"]
+    assert ordered[0]["key"] == "lost", f"First stage should be 'lost' after reorder, got {ordered[0]['key']}"
+
+
+# ── Lead scoring ─────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_lead_score_computed_and_breakdown(client, auth_headers, test_company):
+    """Rich lead gets a high score; score endpoint returns breakdown."""
+    resp = await client.post("/api/v1/crm/leads", headers=auth_headers, json={
+        "company_name": "Scored Co",
+        "contact_name": "გიორგი გაბუნია",
+        "email": "gabunia@example.ge",
+        "phone": "+995599111222",
+        "source": "referral",
+        "estimated_value": 50000,
+        "next_action_date": "2026-12-01",
+    })
+    assert resp.status_code == 201, resp.text
+    lead = resp.json()["data"]
+    assert lead["score"] > 0, "Lead score should be computed on create"
+    assert lead["score"] <= 100
+
+    score_resp = await client.get(f"/api/v1/crm/leads/{lead['id']}/score", headers=auth_headers)
+    assert score_resp.status_code == 200, score_resp.text
+    data = score_resp.json()["data"]
+    assert data["score"] == lead["score"]
+    assert data["breakdown"]["source"] == 10  # referral
+    assert data["breakdown"]["contact_info"] == 25  # email + phone + contact_name
+    assert data["breakdown"]["value"] == 20  # >= 10000
+    assert data["breakdown"]["total"] == data["score"]
+
+    # Poor lead scores low: source=other (2) + fresh activity (15) = 17
+    poor = await client.post("/api/v1/crm/leads", headers=auth_headers, json={
+        "company_name": "Poor Co", "source": "other",
+    })
+    assert poor.json()["data"]["score"] == 17
+
+
+# ── Team assignment ──────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_lead_and_opportunity_team_assignment(client, auth_headers, test_company, db_session):
+    from app.models.sales_team import SalesTeam
+    team = SalesTeam(company_id=test_company.id, name="გაყიდვების გუნდი A")
+    db_session.add(team)
+    await db_session.commit()
+    await db_session.refresh(team)
+
+    lead_resp = await client.post("/api/v1/crm/leads", headers=auth_headers, json={
+        "company_name": "Team Lead Co", "source": "website", "team_id": str(team.id),
+    })
+    assert lead_resp.status_code == 201, lead_resp.text
+    assert lead_resp.json()["data"]["team_id"] == str(team.id)
+
+    # Invalid team rejected
+    bad = await client.post("/api/v1/crm/leads", headers=auth_headers, json={
+        "company_name": "Bad Team Co", "source": "other",
+        "team_id": "00000000-0000-0000-0000-000000000099",
+    })
+    assert bad.status_code == 404
+
+    # Opportunity inherits team from lead on qualification
+    qualified = await client.patch(f"/api/v1/crm/leads/{lead_resp.json()['data']['id']}",
+                                   headers=auth_headers, json={"status": "qualified"})
+    assert qualified.status_code == 200, qualified.text
+    opps = (await client.get("/api/v1/crm/opportunities", headers=auth_headers)).json()["data"]["items"]
+    assert any(o["team_id"] == str(team.id) for o in opps), "Auto-created opportunity should inherit team"
+
+
+# ── CRM → Quotation + email ──────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_quotation_created_from_won_opportunity(client, auth_headers, test_company):
+    lead_resp = await client.post("/api/v1/crm/leads", headers=auth_headers, json={
+        "company_name": "Quotation Co", "email": "quote@example.ge", "source": "website",
+        "estimated_value": 30000,
+    })
+    lead_id = lead_resp.json()["data"]["id"]
+    await client.patch(f"/api/v1/crm/leads/{lead_id}", headers=auth_headers, json={"status": "qualified"})
+    conv = await client.post(f"/api/v1/crm/leads/{lead_id}/convert", headers=auth_headers, json={
+        "client_type": "legal", "identification_code": "QUOT001", "is_vat_payer": True,
+    })
+    assert conv.status_code == 201, conv.text
+
+    opps = (await client.get("/api/v1/crm/opportunities", headers=auth_headers)).json()["data"]["items"]
+    opp = next(o for o in opps if o["lead_id"] == lead_id)
+    await client.patch(f"/api/v1/crm/opportunities/{opp['id']}", headers=auth_headers, json={"stage": "won"})
+
+    # Not-won guard
+    opp2 = (await client.post("/api/v1/crm/opportunities", headers=auth_headers, json={
+        "lead_id": lead_id, "name": "არა მოგებული", "stage": "proposal",
+    })).json()["data"]
+    blocked = await client.post(f"/api/v1/crm/opportunities/{opp2['id']}/quotation", headers=auth_headers)
+    assert blocked.status_code == 400
+
+    created = await client.post(f"/api/v1/crm/opportunities/{opp['id']}/quotation", headers=auth_headers)
+    assert created.status_code == 201, created.text
+    data = created.json()["data"]
+    assert data["status"] == "draft"
+    assert data["quotation_number"].startswith("QT-")
+
+    # Quotation appears in the quotations list
+    qlist = (await client.get("/api/v1/quotations/", headers=auth_headers)).json()["data"]["items"]
+    assert any(q["quotation_number"] == data["quotation_number"] for q in qlist)
+
+
+@pytest.mark.asyncio
+async def test_quotation_email_sent_sandbox(client, auth_headers, test_company):
+    """Email is stored in email_messages (sandbox) and quotation becomes 'sent'."""
+    lead_resp = await client.post("/api/v1/crm/leads", headers=auth_headers, json={
+        "company_name": "Email Co", "email": "client@example.ge", "source": "website",
+        "estimated_value": 15000,
+    })
+    lead_id = lead_resp.json()["data"]["id"]
+    await client.patch(f"/api/v1/crm/leads/{lead_id}", headers=auth_headers, json={"status": "qualified"})
+    await client.post(f"/api/v1/crm/leads/{lead_id}/convert", headers=auth_headers, json={
+        "client_type": "legal", "identification_code": "EMAIL001", "is_vat_payer": False,
+    })
+    opps = (await client.get("/api/v1/crm/opportunities", headers=auth_headers)).json()["data"]["items"]
+    opp = next(o for o in opps if o["lead_id"] == lead_id)
+    await client.patch(f"/api/v1/crm/opportunities/{opp['id']}", headers=auth_headers, json={"stage": "won"})
+    q = (await client.post(f"/api/v1/crm/opportunities/{opp['id']}/quotation", headers=auth_headers)).json()["data"]
+
+    sent = await client.post(f"/api/v1/crm/quotations/{q['quotation_id']}/send-email", headers=auth_headers)
+    assert sent.status_code == 200, sent.text
+    data = sent.json()["data"]
+    assert data["to_email"] == "client@example.ge"
+    assert data["status"] == "sent"
+
+    # Quotation status flipped to sent
+    qlist = (await client.get("/api/v1/quotations/", headers=auth_headers)).json()["data"]["items"]
+    updated = next(x for x in qlist if x["quotation_number"] == q["quotation_number"])
+    assert updated["status"] == "sent"

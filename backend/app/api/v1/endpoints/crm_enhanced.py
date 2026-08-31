@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.core.time import utc_now
+from app.models.crm import CRMActivity, CRMLead, CRMOpportunity, CRMPipelineStage
 from app.models.user import User
-from app.models.crm import CRMActivity, CRMLead, CRMOpportunity
 from app.schemas.common import ResponseBase, PaginatedResponse
 from app.schemas.crm import (
     ConversionRateResponse,
@@ -52,11 +52,12 @@ async def pipeline_forecast(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("crm", "can_access")),
 ):
-    stage_labels = {
-        "qualification": "კვალიფიკაცია", "discovery": "საჭიროებების კვლევა",
-        "proposal": "შეთავაზება", "negotiation": "მოლაპარაკება",
-        "won": "მოგებული", "lost": "დაკარგული",
-    }
+    stage_rows = (await db.execute(
+        select(CRMPipelineStage.key, CRMPipelineStage.name).where(
+            CRMPipelineStage.company_id == current_user.company_id,
+        )
+    )).all()
+    stage_labels = {key: name for key, name in stage_rows}
 
     # Per-stage aggregation — use Numeric(14,2) cast for sum to avoid type issues
     rows = (await db.execute(
@@ -166,15 +167,17 @@ async def pipeline_value_by_stage(
                 amount=lead.estimated_value if lead.estimated_value is not None else 0,
                 expected_close_date=lead.next_action_date,
                 owner_id=lead.owner_id,
+                team_id=lead.team_id,
             ))
     if qualified_leads:
         await db.flush()
 
-    stage_labels = {
-        "qualification": "კვალიფიკაცია", "discovery": "საჭიროებების კვლევა",
-        "proposal": "შეთავაზება", "negotiation": "მოლაპარაკება",
-        "won": "მოგებული", "lost": "დაკარგული",
-    }
+    stage_rows = (await db.execute(
+        select(CRMPipelineStage.key, CRMPipelineStage.name).where(
+            CRMPipelineStage.company_id == current_user.company_id,
+        )
+    )).all()
+    stage_labels = {key: name for key, name in stage_rows}
 
     rows = (await db.execute(
         select(
