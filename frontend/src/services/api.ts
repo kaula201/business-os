@@ -880,6 +880,12 @@ export const salesToolsApi = {
   updateQuotationStatus: (id: string, status: string) => api.patch(`/quotations/${id}/status`, { status }),
   convertQuotation: (id: string) => api.post(`/quotations/${id}/convert`),
   deleteQuotation: (id: string) => api.delete(`/quotations/${id}`),
+  // Quotation 2.0
+  updateQuotation: (id: string, data: Record<string, unknown>) => api.put(`/quotations/${id}`, data),
+  listQuotationVersions: (id: string) => api.get(`/quotations/${id}/versions`),
+  requestApproval: (id: string) => api.post(`/quotations/${id}/approval`),
+  signQuotation: (id: string, data: Record<string, unknown>) => api.post(`/quotations/${id}/sign`, data),
+  generatePortalToken: (id: string) => api.post(`/quotations/${id}/portal-token`),
   listPriceLists: (params?: Record<string, unknown>) => api.get('/price-lists/', { params }),
   createPriceList: (data: Record<string, unknown>) => api.post('/price-lists/', data),
   updatePriceList: (id: string, data: Record<string, unknown>) => api.patch(`/price-lists/${id}`, data),

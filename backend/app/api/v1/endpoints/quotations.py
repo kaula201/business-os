@@ -1,6 +1,9 @@
 """Quotations API — CRUD, status workflow, convert-to-order."""
+import hashlib
+import json
+import secrets
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -11,9 +14,11 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.endpoints.purchase_orders import add_audit
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.time import utc_now
+from app.models.approval import ApprovalRequest
 from app.models.client import Client
 from app.models.product import Product
-from app.models.quotation import Quotation, QuotationItem
+from app.models.quotation import Quotation, QuotationItem, QuotationVersion
 from app.models.user import User
 from app.schemas.common import PaginatedResponse, ResponseBase
 from app.schemas.sales_tools import (
@@ -21,6 +26,10 @@ from app.schemas.sales_tools import (
     QuotationItemResponse,
     QuotationResponse,
     QuotationStatusUpdate,
+    QuotationUpdate,
+    QuotationVersionResponse,
+    QuotationSignRequest,
+    PortalRespondRequest,
 )
 
 router = APIRouter(prefix="/quotations", tags=["კომერციული შემოთავაზებები"])
@@ -41,8 +50,14 @@ def _to_response(q: Quotation, client_name: str | None = None) -> QuotationRespo
             id=i.id, product_id=i.product_id, line_number=i.line_number,
             description=i.description, quantity=float(i.quantity), unit_price=float(i.unit_price),
             discount_percent=float(i.discount_percent), line_total=float(i.line_total),
+            is_optional=i.is_optional, config=i.config,
         ) for i in q.items],
         created_at=q.created_at, updated_at=q.updated_at,
+        version_number=q.version_number,
+        approval_required=q.approval_required, approval_request_id=q.approval_request_id,
+        signed_at=q.signed_at, signed_by=q.signed_by, signature_hash=q.signature_hash,
+        signature_method=q.signature_method, portal_token=q.portal_token,
+        portal_responded_at=q.portal_responded_at,
     )
 
 
@@ -138,7 +153,9 @@ async def create_quotation(
             quotation_id=q.id, product_id=item.product_id, line_number=idx,
             description=item.description, quantity=item.quantity, unit_price=item.unit_price,
             discount_percent=item.discount_percent, line_total=line_total,
+            is_optional=item.is_optional, config=item.config,
         ))
+    # Version 1 is the initial state — no snapshot row needed (created on first revision)
     await db.commit()
     await db.refresh(q)
 
@@ -226,3 +243,200 @@ async def delete_quotation(
     add_audit(db, current_user, "quotation.deleted", "quotation", q.id, {})
     await db.commit()
     return ResponseBase(message="შემოთავაზება წაშლილია")
+
+
+# ── Quotation 2.0: versions, approval, e-signature, portal, configurator ─────
+
+def _snapshot_items(q: Quotation) -> list[dict]:
+    return [{
+        "line_number": i.line_number, "description": i.description,
+        "quantity": float(i.quantity), "unit_price": float(i.unit_price),
+        "discount_percent": float(i.discount_percent), "line_total": float(i.line_total),
+        "is_optional": i.is_optional, "config": i.config,
+    } for i in q.items]
+
+
+@router.get("/{quotation_id}/versions", response_model=ResponseBase[list[QuotationVersionResponse]])
+async def list_versions(
+    quotation_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = await _load_quotation(db, current_user.company_id, quotation_id)
+    versions = (await db.execute(
+        select(QuotationVersion).where(QuotationVersion.quotation_id == q.id)
+        .order_by(QuotationVersion.version_number.desc())
+    )).scalars().all()
+    return ResponseBase(data=[QuotationVersionResponse(
+        id=v.id, version_number=v.version_number, status=v.status,
+        subtotal=float(v.subtotal), vat_amount=float(v.vat_amount), total=float(v.total),
+        discount_percent=float(v.discount_percent), items_snapshot=v.items_snapshot,
+        notes=v.notes, change_reason=v.change_reason, created_at=v.created_at,
+    ) for v in versions])
+
+
+@router.put("/{quotation_id}", response_model=ResponseBase[QuotationResponse])
+async def update_quotation(
+    quotation_id: uuid.UUID,
+    data: QuotationUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Full revision — bumps version_number and snapshots the previous state."""
+    q = await _load_quotation(db, current_user.company_id, quotation_id, for_update=True)
+    if q.status in ("accepted", "converted"):
+        raise HTTPException(status_code=400, detail="accepted/converted შემოთავაზების რედაქტირება არ შეიძლება")
+
+    # snapshot current state as the new version BEFORE applying changes
+    db.add(QuotationVersion(
+        quotation_id=q.id, version_number=q.version_number, status=q.status,
+        subtotal=q.subtotal, vat_amount=q.vat_amount, total=q.total,
+        discount_percent=q.discount_percent, items_snapshot=_snapshot_items(q),
+        notes=q.notes, change_reason=data.change_reason, created_by=current_user.id,
+    ))
+
+    # apply new state
+    q.valid_until = data.valid_until
+    q.discount_percent = data.discount_percent
+    q.notes = data.notes
+    q.version_number += 1
+    q.status = "draft"  # revision resets to draft
+
+    # replace items
+    for old in list(q.items):
+        await db.delete(old)
+    await db.flush()
+    subtotal = sum(money(i.quantity * i.unit_price) for i in data.items)
+    discount = money(subtotal * data.discount_percent / 100)
+    vat = money((subtotal - discount) * Decimal("0.18"))
+    q.subtotal = subtotal
+    q.vat_amount = vat
+    q.total = money(subtotal - discount + vat)
+    for idx, item in enumerate(data.items, start=1):
+        line_total = money(money(item.quantity * item.unit_price) * (1 - item.discount_percent / 100))
+        db.add(QuotationItem(
+            quotation_id=q.id, product_id=item.product_id, line_number=idx,
+            description=item.description, quantity=item.quantity, unit_price=item.unit_price,
+            discount_percent=item.discount_percent, line_total=line_total,
+            is_optional=item.is_optional, config=item.config,
+        ))
+    add_audit(db, current_user, "quotation.revised", "quotation", q.id, {"version": q.version_number})
+    await db.commit()
+    result = await _load_quotation(db, current_user.company_id, q.id)
+    client = (await db.execute(select(Client).where(Client.id == q.client_id))).scalar_one_or_none()
+    return ResponseBase(data=_to_response(result, client.name if client else None))
+
+
+@router.post("/{quotation_id}/approval", response_model=ResponseBase[QuotationResponse])
+async def request_approval(
+    quotation_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create an approval request when discount or amount exceeds thresholds."""
+    q = await _load_quotation(db, current_user.company_id, quotation_id, for_update=True)
+    if q.approval_request_id:
+        raise HTTPException(status_code=400, detail="დამტკიცება უკვე მოთხოვნილია")
+
+    # Thresholds: discount > 10% OR total > 50,000 GEL
+    needs_approval = float(q.discount_percent) > 10 or float(q.total) > 50000
+    if not needs_approval:
+        raise HTTPException(status_code=400, detail="დამტკიცება არ არის საჭირო (ფასდაკლება ≤ 10% და თანხა ≤ 50,000 ₾)")
+
+    req = ApprovalRequest(
+        company_id=current_user.company_id,
+        title=f"შემოთავაზების დამტკიცება {q.quotation_number}",
+        description=f"თანხა: {q.total} ₾, ფასდაკლება: {q.discount_percent}%",
+        approval_type="quotation",
+        amount=q.total,
+        requested_by=current_user.id,
+    )
+    db.add(req)
+    await db.flush()
+    q.approval_request_id = req.id
+    q.approval_required = True
+    add_audit(db, current_user, "quotation.approval_requested", "quotation", q.id, {"approval_id": str(req.id)})
+    await db.commit()
+    result = await _load_quotation(db, current_user.company_id, q.id)
+    client = (await db.execute(select(Client).where(Client.id == q.client_id))).scalar_one_or_none()
+    return ResponseBase(data=_to_response(result, client.name if client else None))
+
+
+@router.post("/{quotation_id}/sign", response_model=ResponseBase[QuotationResponse])
+async def sign_quotation(
+    quotation_id: uuid.UUID,
+    data: QuotationSignRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Electronic signature — records signer, timestamp and content hash."""
+    q = await _load_quotation(db, current_user.company_id, quotation_id, for_update=True)
+    if q.status != "sent":
+        raise HTTPException(status_code=400, detail="ხელმოწერა მხოლოდ sent სტატუსზე შეიძლება")
+    if q.signed_at:
+        raise HTTPException(status_code=400, detail="შემოთავაზება უკვე ხელმოწერილია")
+
+    content = json.dumps({
+        "id": str(q.id), "number": q.quotation_number, "total": float(q.total),
+        "discount": float(q.discount_percent), "version": q.version_number,
+        "items": _snapshot_items(q),
+    }, sort_keys=True, ensure_ascii=False)
+    q.signature_hash = hashlib.sha256(content.encode()).hexdigest()
+    q.signed_at = utc_now()
+    q.signed_by = data.signer_name
+    q.signature_method = data.method
+    q.status = "accepted"
+    add_audit(db, current_user, "quotation.signed", "quotation", q.id, {"signer": data.signer_name})
+    await db.commit()
+    result = await _load_quotation(db, current_user.company_id, q.id)
+    client = (await db.execute(select(Client).where(Client.id == q.client_id))).scalar_one_or_none()
+    return ResponseBase(data=_to_response(result, client.name if client else None))
+
+
+@router.post("/{quotation_id}/portal-token", response_model=ResponseBase[dict])
+async def generate_portal_token(
+    quotation_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate a client portal access token for accept/reject."""
+    q = await _load_quotation(db, current_user.company_id, quotation_id, for_update=True)
+    if not q.portal_token:
+        q.portal_token = secrets.token_urlsafe(32)
+        await db.commit()
+    return ResponseBase(data={"portal_token": q.portal_token, "portal_url": f"/portal/quotations/{q.portal_token}"})
+
+
+@router.post("/portal/{portal_token}", response_model=ResponseBase[dict])
+async def portal_respond(
+    portal_token: str,
+    data: PortalRespondRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Client-facing endpoint — no auth, token-based. Accept or reject a quotation."""
+    q = (await db.execute(
+        select(Quotation).options(selectinload(Quotation.items)).where(Quotation.portal_token == portal_token)
+    )).scalar_one_or_none()
+    if not q:
+        raise HTTPException(status_code=404, detail="შემოთავაზება ვერ მოიძებნა")
+    if q.status != "sent":
+        raise HTTPException(status_code=400, detail="შემოთავაზება აღარ არის sent სტატუსში")
+
+    if data.action == "accept":
+        q.status = "accepted"
+        q.portal_responded_at = utc_now()
+        if data.signer_name:
+            content = json.dumps({
+                "id": str(q.id), "number": q.quotation_number, "total": float(q.total),
+                "version": q.version_number, "items": _snapshot_items(q),
+            }, sort_keys=True, ensure_ascii=False)
+            q.signature_hash = hashlib.sha256(content.encode()).hexdigest()
+            q.signed_at = utc_now()
+            q.signed_by = data.signer_name
+            q.signature_method = "portal"
+    else:
+        q.status = "rejected"
+        q.portal_responded_at = utc_now()
+
+    await db.commit()
+    return ResponseBase(data={"status": q.status, "quotation_number": q.quotation_number})

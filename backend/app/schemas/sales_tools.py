@@ -58,6 +58,8 @@ class QuotationItemCreate(BaseModel):
     quantity: Decimal = Field(gt=0)
     unit_price: Decimal = Field(ge=0)
     discount_percent: Decimal = Field(default=Decimal("0"), ge=0, le=100)
+    is_optional: bool = False
+    config: dict | None = None
 
 
 class QuotationCreate(BaseModel):
@@ -83,6 +85,8 @@ class QuotationItemResponse(BaseModel):
     unit_price: float
     discount_percent: float
     line_total: float
+    is_optional: bool = False
+    config: dict | None = None
 
 
 class QuotationResponse(BaseModel):
@@ -104,6 +108,49 @@ class QuotationResponse(BaseModel):
     items: list[QuotationItemResponse] = []
     created_at: datetime
     updated_at: datetime
+    # Quotation 2.0
+    version_number: int = 1
+    approval_required: bool = False
+    approval_request_id: UUID | None = None
+    signed_at: datetime | None = None
+    signed_by: str | None = None
+    signature_hash: str | None = None
+    signature_method: str | None = None
+    portal_token: str | None = None
+    portal_responded_at: datetime | None = None
+
+
+class QuotationVersionResponse(BaseModel):
+    id: UUID
+    version_number: int
+    status: str
+    subtotal: float
+    vat_amount: float
+    total: float
+    discount_percent: float
+    items_snapshot: list = []
+    notes: str | None
+    change_reason: str | None
+    created_at: datetime
+
+
+class QuotationUpdate(BaseModel):
+    """Full revision — creates a new version snapshot."""
+    valid_until: date | None = None
+    discount_percent: Decimal = Field(default=Decimal("0"), ge=0, le=100)
+    notes: str | None = None
+    items: list[QuotationItemCreate] = Field(min_length=1)
+    change_reason: str | None = None
+
+
+class QuotationSignRequest(BaseModel):
+    signer_name: str = Field(min_length=1, max_length=255)
+    method: str = Field(default="manual", pattern="^(manual|portal)$")
+
+
+class PortalRespondRequest(BaseModel):
+    action: str = Field(pattern="^(accept|reject)$")
+    signer_name: str | None = None
 
 
 # ── Payment terms ────────────────────────────────────────────────────────────
