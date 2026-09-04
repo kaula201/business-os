@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useIsFetching, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { Wrench, CalendarClock, Hammer, Plus, CheckCircle2, ClipboardList, CalendarDays, Boxes, MapPin, Gauge, Users, Handshake, Package, Coins, BarChart3, Settings2, Shield, Pencil, Trash2, Play, X } from 'lucide-react'
+import { Wrench, CalendarClock, Hammer, Plus, CheckCircle2, ClipboardList, CalendarDays, Boxes, MapPin, Gauge, Users, Handshake, Package, Coins, BarChart3, Settings2, Shield, Pencil, Trash2, Play, X, Loader2 } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
@@ -38,6 +38,7 @@ const TABS: { key: string; label: string; icon: any }[] = [
 export default function MaintenancePage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const isFetching = useIsFetching({ queryKey: ['maint-'] })
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get('tab')
   const [tab, setTab] = useState<string>(requestedTab && TABS.some((x) => x.key === requestedTab) ? requestedTab : 'requests')
@@ -710,6 +711,12 @@ export default function MaintenancePage() {
 
   return (
     <div className="space-y-6">
+      {isFetching > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-primary-100 bg-primary-50/50 px-3 py-2 text-xs text-primary-700 dark:border-primary-800/40 dark:bg-primary-900/20 dark:text-primary-300">
+          <Loader2 size={14} className="animate-spin" />
+          {t('მონაცემები იტვირთება…')}
+        </div>
+      )}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('მოვლა და შეკეთება')}</h1>

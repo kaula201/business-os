@@ -2191,6 +2191,7 @@ const en: Record<string, string> = {
   'შემდეგი ნომერი': 'Next number',
   'არა': 'No',
   'დღეს': 'Today',
+  'მონაცემები იტვირთება…': 'Loading data…',
 }
 
 i18n.use(initReactI18next).init({
