@@ -876,22 +876,21 @@ export default function MaintenancePage() {
             <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-dark-100 dark:text-gray-400">
               <tr>
                 <th className="px-4 py-3">{t('ნომერი')}</th>
-                <th className="px-4 py-3">{t('აღჭურვილობა')}</th>
+                <th className="px-4 py-3">{t('აღწერა')}</th>
                 <th className="px-4 py-3">{t('სტატუსი')}</th>
-                <th className="px-4 py-3">{t('პრიორიტეტი')}</th>
+                <th className="px-4 py-3">{t('სერიული ნომერი')}</th>
                 <th className="px-4 py-3"></th>
-                  <th className="px-4 py-3"></th>
               </tr>
-            </thead>
-            <tbody className="divide-y dark:divide-dark-50">
+              </thead>
+              <tbody className="divide-y dark:divide-dark-50">
               {filterRows(repairs).length === 0 ? (
                 <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('მოთხოვნები არ არის')}</td></tr>
               ) : filterRows(repairs).map((r: any) => (
                 <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                   <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{r.repair_number}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.equipment_name || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.issue_description || '—'}</td>
                   <td className="px-4 py-3"><span className={`badge ${statusBadge(r.status)}`}>{r.status}</span></td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.priority}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.serial_number || '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       {r.status !== 'done' && r.status !== 'cancelled' && (
@@ -899,7 +898,7 @@ export default function MaintenancePage() {
                           <CheckCircle2 size={14} /> {t('დასრულება')}
                         </button>
                       )}
-                      <RowActions item={r} kind="request" onEdit={editItem} onDelete={removeItem} />
+                      <RowActions item={r} kind="repair" onEdit={editItem} onDelete={removeItem} />
                     </div>
                   </td>
                 </tr>
