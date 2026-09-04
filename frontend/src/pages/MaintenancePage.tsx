@@ -749,9 +749,9 @@ export default function MaintenancePage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1 border-b pb-2 dark:border-dark-50">
+      <div className="flex gap-1 overflow-x-auto border-b pb-2 dark:border-dark-50">
         {TABS.map(({ key, label, icon: Icon }) => (
-          <button key={key} onClick={() => changeTab(key)} className={`flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium ${tab === key ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>
+          <button key={key} onClick={() => changeTab(key)} className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium ${tab === key ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>
             <Icon size={15} /> {t(label)}
           </button>
         ))}
