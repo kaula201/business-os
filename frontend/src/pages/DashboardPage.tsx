@@ -3,24 +3,78 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { dashboardApi, usersApi } from '../services/api'
-import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, ArrowDown, Wallet, Clock , ArrowUpRight } from 'lucide-react'
+import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, ArrowDown, Wallet, Clock , ArrowUpRight, LayoutGrid, Info, X } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts'
 import { StatusBadge, orderStatusMap } from '../components/ui/Badges'
 import type { DashboardData } from '../types'
+import Modal from '../components/ui/Modal'
 // Unified currency format: "590 ₾"
 const money = (v: number | string | null | undefined) =>
   new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL' }).format(Number(v || 0))
 
 const COLORS = ['#16A6D4', '#4CAF32', '#7C6966', '#8EDFF7', '#94DF79', '#BCAEAB']
 
+// All known KPI keys (used when a role view has no explicit list)
+const KPI_ORDER = ['revenue', 'orders', 'clients', 'tasks', 'pipeline', 'leads', 'cashflow', 'receivables', 'payables', 'unpaid_invoices', 'low_stock', 'stock_value', 'inventory']
+
+// KPI keys → icons/colors for the role view rendering
+const KPI_META: Record<string, { icon: any; color: 'blue' | 'green' | 'red' | 'gray'; to?: string }> = {
+  revenue: { icon: TrendingUp, color: 'blue', to: '/sales' },
+  orders: { icon: ShoppingCart, color: 'green', to: '/sales' },
+  clients: { icon: Users, color: 'gray', to: '/crm' },
+  tasks: { icon: Clock, color: 'red', to: '/tasks' },
+  pipeline: { icon: TrendingUp, color: 'blue', to: '/crm' },
+  leads: { icon: Users, color: 'green', to: '/crm' },
+  cashflow: { icon: Wallet, color: 'green' },
+  receivables: { icon: Wallet, color: 'red' },
+  payables: { icon: Wallet, color: 'gray' },
+  unpaid_invoices: { icon: AlertTriangle, color: 'red' },
+  low_stock: { icon: Package, color: 'red', to: '/warehouse' },
+  stock_value: { icon: Package, color: 'blue', to: '/warehouse' },
+  inventory: { icon: Package, color: 'gray', to: '/warehouse' },
+}
+
 export default function DashboardPage() {
   const { t } = useTranslation()
   const [period, setPeriod] = useState('30d')
   const [ownerId, setOwnerId] = useState('')
   const [showCustomize, setShowCustomize] = useState(false)
+  const [activeView, setActiveView] = useState<string | null>(null)
+  const [drillKpi, setDrillKpi] = useState<string | null>(null)
+  const [kpiTooltip, setKpiTooltip] = useState<string | null>(null)
   const [hiddenKpis, setHiddenKpis] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('bos_hidden_kpis') || '[]') } catch { return [] }
   })
+
+  // Role views (from backend) — auto-select default on first load
+  const { data: roleViewsData } = useQuery({
+    queryKey: ['dashboard-role-views'],
+    queryFn: () => dashboardApi.getRoleViews().then(r => r.data.data),
+  })
+  const { data: kpiDefs } = useQuery({
+    queryKey: ['dashboard-kpi-defs'],
+    queryFn: () => dashboardApi.getKpiDefinitions().then(r => r.data.data),
+  })
+  const { data: drillData, isLoading: drillLoading } = useQuery({
+    queryKey: ['dashboard-drill', drillKpi],
+    queryFn: () => drillKpi ? dashboardApi.getKpiDrillDown(drillKpi, 15).then(r => r.data.data) : null,
+    enabled: !!drillKpi,
+  })
+
+  // saved layout per view — localStorage
+  const [savedLayouts, setSavedLayouts] = useState<Record<string, string[]>>(() => {
+    try { return JSON.parse(localStorage.getItem('bos_dash_layouts') || '{}') } catch { return {} }
+  })
+  const persistLayout = (viewKey: string, kpis: string[]) => {
+    const next = { ...savedLayouts, [viewKey]: kpis }
+    setSavedLayouts(next)
+    localStorage.setItem('bos_dash_layouts', JSON.stringify(next))
+  }
+
+  const effectiveView = activeView ?? roleViewsData?.default_view ?? 'director'
+  const roleView = roleViewsData?.views?.find((v: any) => v.key === effectiveView) || roleViewsData?.views?.[0]
+  // For this view: saved layout overrides, else backend defaults
+  const viewKpis = savedLayouts[effectiveView]?.length ? savedLayouts[effectiveView] : (roleView?.kpis || KPI_ORDER)
 
   const toggleKpi = (key: string) => {
     setHiddenKpis(prev => {
@@ -28,6 +82,16 @@ export default function DashboardPage() {
       localStorage.setItem('bos_hidden_kpis', JSON.stringify(next))
       return next
     })
+  }
+
+  // Per-view layout toggle — persists which KPIs a role view shows
+  const toggleViewKpi = (key: string) => {
+    const base = roleView?.kpis || KPI_ORDER
+    const current = savedLayouts[effectiveView]?.length ? savedLayouts[effectiveView] : base
+    const next = current.includes(key)
+      ? current.filter((x: string) => x !== key)
+      : [...base, key]
+    persistLayout(effectiveView, next)
   }
 
   const { data: users } = useQuery({
@@ -60,12 +124,32 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200">{t('მიმოხილვა')}</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={ownerId}
-            onChange={(e) => setOwnerId(e.target.value)}
-            className="input h-9 w-auto text-sm"
-            aria-label={t('პასუხისმგებელი ფილტრი')}
-          >
+          {roleViewsData?.views && (
+            <div className="flex gap-1 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-50 p-1">
+              {roleViewsData.views.map((v: any) => (
+                <button
+                  key={v.key}
+                  onClick={() => {
+                    setActiveView(v.key)
+                    // switch to this layout's saved KPIs when user picks a view
+                    if (savedLayouts[v.key]?.length) {
+                      setHiddenKpis(savedLayouts[v.key].filter((k: string) => !roleViewsData.views.every((vv: any) => !vv.kpis.includes(k))))
+                    }
+                  }}
+                  title={`${v.label} — ${v.modules.join(', ')}`}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${effectiveView === v.key ? 'bg-primary-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100'}`}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+          )}
+        <select
+          value={ownerId}
+          onChange={(e) => setOwnerId(e.target.value)}
+          className="input h-9 w-auto text-sm"
+          aria-label={t('პასუხისმგებელი ფილტრი')}
+        >
             <option value="">{t('ყველა თანამშრომელი')}</option>
             {(users?.items || users || []).map((u: any) => (
               <option key={u.id} value={u.id}>{u.full_name}</option>
@@ -95,45 +179,81 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Customize panel */}
+      {/* Customize panel — per-view layout */}
       {showCustomize && (
         <div className="card p-4">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('KPI ბარათების მორგება')}</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
+            {t('KPI ბარათების მორგება')} — {roleView?.label || effectiveView}
+          </h3>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+            {t('ჩართეთ / გამორთეთ ბარათები — შეინახება ამ ხედისთვის (მხოლოდ თქვენს ბრაუზერში)')}
+          </p>
           <div className="flex flex-wrap gap-2">
-            {[
-              { key: 'revenue', label: t('შემოსავალი') },
-              { key: 'clients', label: t('აქტიური კლიენტები') },
-              { key: 'orders', label: t('მიმდინარე შეკვეთები') },
-              { key: 'tasks', label: t('დაგვიანებული დავალებები') },
-            ].map(k => (
-              <button
-                key={k.key}
-                onClick={() => toggleKpi(k.key)}
-                className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${hiddenKpis.includes(k.key) ? 'bg-gray-100 dark:bg-dark-100 text-gray-400 line-through' : 'bg-primary-50 text-primary-700 border-primary-200'}`}
-              >
-                {k.label}
-              </button>
-            ))}
+            {(roleView?.kpis || KPI_ORDER).map((k: string) => {
+              const meta = KPI_META[k]
+              const def = kpiDefs?.find((d: any) => d.key === k)
+              const isOn = viewKpis.includes(k)
+              return (
+                <button
+                  key={k}
+                  onClick={() => toggleViewKpi(k)}
+                  title={def?.formula}
+                  className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${isOn ? 'bg-primary-50 text-primary-700 border-primary-200' : 'bg-gray-100 dark:bg-dark-100 text-gray-400 line-through'}`}
+                >
+                  {meta?.icon ? (() => { const Ico = meta.icon; return <Ico size={13} className="inline mr-1" /> })() : null}
+                  {def?.label || k}
+                </button>
+              )
+            })}
           </div>
+          <button
+            onClick={() => persistLayout(effectiveView, roleView?.kpis || KPI_ORDER)}
+            className="mt-3 text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-dark-50 text-gray-500 dark:text-gray-400 hover:text-primary-600 transition-colors"
+          >
+            {t('ნაგულისხმები აღდგენა')}
+          </button>
         </div>
       )}
 
-      {/* KPI Cards */}
+      {/* KPI Cards — role view driven, click = drill-down, ? = definition */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {!hiddenKpis.includes('revenue') && (
-        <KPICard
-          icon={TrendingUp}
-          label={t('შემოსავალი')}
-          value={kpi?.total_revenue != null ? money(kpi.total_revenue) : money(0)}
-          change={kpi?.revenue_change}
-          color="blue"
-          hint={`${t('ინვოისირებული შეკვეთები')}: ${data?.invoiced_orders_count ?? 0} / ${data?.total_orders_count ?? 0}`}
-          to="/invoices"
-        />
-        )}
-        {!hiddenKpis.includes('clients') && <KPICard icon={Users} label={t('აქტიური კლიენტები')} value={String(kpi?.active_clients || 0)} color="green" to="/clients" />}
-        {!hiddenKpis.includes('orders') && <KPICard icon={ShoppingCart} label={t('მიმდინარე შეკვეთები')} value={String(kpi?.active_orders || 0)} color="gray" to="/orders" />}
-        {!hiddenKpis.includes('tasks') && <KPICard icon={AlertTriangle} label={t('დაგვიანებული დავალებები')} value={String(kpi?.overdue_tasks || 0)} color="red" to="/tasks" />}
+        {viewKpis.map((k: string) => {
+          if (hiddenKpis.includes(k)) return null
+          const meta = KPI_META[k]
+          if (!meta) return null
+          const def = kpiDefs?.find((d: any) => d.key === k)
+          const val = (() => {
+            switch (k) {
+              case 'revenue': return kpi?.total_revenue != null ? money(kpi.total_revenue) : money(0)
+              case 'orders': return String(kpi?.active_orders || 0)
+              case 'clients': return String(kpi?.active_clients || 0)
+              case 'tasks': return String(kpi?.overdue_tasks || 0)
+              case 'pipeline': return kpi?.pipeline_value != null ? money(kpi.pipeline_value) : money(0)
+              case 'leads': return String(kpi?.open_leads || 0)
+              case 'receivables': return kpi?.receivables_outstanding != null ? money(kpi.receivables_outstanding) : money(0)
+              case 'payables': return kpi?.payables_outstanding != null ? money(kpi.payables_outstanding) : money(0)
+              case 'unpaid_invoices': return kpi?.unpaid_invoices != null ? money(kpi.unpaid_invoices) : money(0)
+              case 'cashflow': return kpi?.cashflow_30d != null ? money(kpi.cashflow_30d) : money(0)
+              case 'low_stock': return String(kpi?.low_stock_products || 0)
+              case 'stock_value': return kpi?.stock_value != null ? money(kpi.stock_value) : money(0)
+              case 'inventory': return kpi?.inventory_units != null ? String(new Intl.NumberFormat('ka-GE').format(Math.round(kpi.inventory_units))) : '0'
+              default: return '—'
+            }
+          })()
+          return (
+            <KPICard
+              key={k}
+              icon={meta.icon}
+              label={def?.label || k}
+              value={val}
+              color={meta.color}
+              to={meta.to}
+              onDrill={() => setDrillKpi(k)}
+              infoTitle={def ? `${def.label}: ${def.formula}` : undefined}
+              infoSource={def?.source}
+            />
+          )
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -333,11 +453,42 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* KPI Drill-down modal */}
+      <Modal open={!!drillKpi} onClose={() => setDrillKpi(null)} title={drillData?.title || t('დეტალები')}>
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+          {drillLoading && <p className="text-sm text-gray-500">{t('ჩატვირთვა...')}</p>}
+          {drillData && (
+            <>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500 dark:text-gray-400">{t('ჯამი')}</span>
+                <span className="font-bold text-gray-900 dark:text-gray-100">{drillData.total}</span>
+              </div>
+              {drillData.rows.length === 0 ? (
+                <p className="text-sm text-gray-400 py-6 text-center">{t('ჩანაწერები არ არის')}</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <tbody className="divide-y dark:divide-dark-50">
+                    {drillData.rows.slice(0, 15).map((r: any, i: number) => (
+                      <tr key={i}>
+                        <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">{r.label}</td>
+                        <td className="py-2 pr-4 text-gray-500">{r.date}</td>
+                        {r.status && <td className="py-2"><span className="badge">{r.status}</span></td>}
+                        <td className="py-2 text-right font-medium text-gray-900 dark:text-gray-100">{r.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }
 
-function KPICard({ icon: Icon, label, value, change, color, hint, to }: { icon: any; label: string; value: string; change?: number; color: string; hint?: string; to?: string }) {
+function KPICard({ icon: Icon, label, value, change, color, hint, to, onDrill, infoTitle, infoSource }: { icon: any; label: string; value: string; change?: number; color: string; hint?: string; to?: string; onDrill?: () => void; infoTitle?: string; infoSource?: string }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const colorMap: Record<string, string> = {
@@ -348,7 +499,19 @@ function KPICard({ icon: Icon, label, value, change, color, hint, to }: { icon: 
   }
 
   const content = (
-    <div className="card flex items-center gap-4 dark:bg-dark-200 dark:border-dark-50">
+    <div className="card relative flex items-center gap-4 dark:bg-dark-200 dark:border-dark-50">
+      {infoSource && (
+        <div className="absolute top-2 right-2 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); }}
+            title={infoTitle}
+            className="text-gray-300 dark:text-gray-600 hover:text-primary-500 transition-colors cursor-help"
+          >
+            <Info size={14} />
+          </button>
+        </div>
+      )}
       <div className={`p-3 rounded-xl ${colorMap[color] || colorMap.blue}`}>
         <Icon size={24} />
       </div>
@@ -364,14 +527,29 @@ function KPICard({ icon: Icon, label, value, change, color, hint, to }: { icon: 
         {hint && (
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1" title={t('შემოსავალი ითვლება მხოლოდ გაცემული (issued) ინვოისებიდან')}>{hint}</p>
         )}
+        {infoSource && (
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate max-w-[240px]" title={infoSource}>
+            {infoSource}
+          </p>
+        )}
       </div>
-      {to && (
+      {onDrill && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDrill() }}
+          title={t('დეტალები (drill-down)')}
+          className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-gray-100 dark:bg-dark-100 text-gray-500 dark:text-gray-400 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+        >
+          <ArrowUpRight size={14} />
+        </button>
+      )}
+      {!onDrill && to && (
         <ArrowUpRight size={16} className="text-gray-300 dark:text-gray-600 transition-colors group-hover:text-primary-500" />
       )}
     </div>
   )
 
-  return to ? (
+  return to && !onDrill ? (
     <button
       type="button"
       onClick={() => navigate(to)}
@@ -381,6 +559,8 @@ function KPICard({ icon: Icon, label, value, change, color, hint, to }: { icon: 
       {content}
     </button>
   ) : (
-    content
+    <div className="group transition-transform hover:-translate-y-0.5 cursor-pointer" onClick={onDrill}>
+      {content}
+    </div>
   )
 }

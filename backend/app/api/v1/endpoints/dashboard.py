@@ -14,6 +14,9 @@ from app.models.product import Product
 from app.models.warehouse import InventoryBalance
 from app.models.task import Task, TaskStatus
 from app.models.invoice import Invoice
+from app.models.crm import CRMLead, CRMOpportunity
+from app.models.receivable import CustomerReceivable
+from app.models.purchase import SupplierPayable
 from app.schemas.dashboard import (
     DashboardSummary, KPICards, RevenueChart, RevenueDataPoint,
     OrderStatusDistribution, RecentActivity, CriticalAlert, KPITooltip
@@ -121,6 +124,37 @@ async def get_dashboard_summary(
         overdue_tasks=overdue_tasks_count,
         low_stock_products=low_stock_count,
         total_revenue=float(total_revenue),
+        pipeline_value=float((await db.execute(
+            select(func.coalesce(func.sum(CRMOpportunity.amount), 0))
+            .where(CRMOpportunity.company_id == company_id, CRMOpportunity.stage.notin_(["won", "lost"]))
+        )).scalar() or 0),
+        open_leads=int((await db.execute(
+            select(func.count(CRMLead.id)).where(CRMLead.company_id == company_id, CRMLead.status.notin_(["converted", "unqualified"]))
+        )).scalar() or 0),
+        receivables_outstanding=float((await db.execute(
+            select(func.coalesce(func.sum(CustomerReceivable.outstanding_amount), 0))
+            .where(CustomerReceivable.company_id == company_id, CustomerReceivable.status != "paid")
+        )).scalar() or 0),
+        payables_outstanding=float((await db.execute(
+            select(func.coalesce(func.sum(SupplierPayable.outstanding_amount), 0))
+            .where(SupplierPayable.company_id == company_id, SupplierPayable.status != "paid")
+        )).scalar() or 0),
+        stock_value=float((await db.execute(
+            select(func.coalesce(func.sum(InventoryBalance.quantity * Product.purchase_price), 0))
+            .where(InventoryBalance.company_id == company_id, InventoryBalance.product_id == Product.id)
+        )).scalar() or 0),
+        inventory_units=float((await db.execute(
+            select(func.coalesce(func.sum(InventoryBalance.quantity), 0))
+            .where(InventoryBalance.company_id == company_id)
+        )).scalar() or 0),
+        cashflow_30d=float((await db.execute(
+            select(func.coalesce(func.sum(Order.total), 0))
+            .where(Order.company_id == company_id, Order.status == OrderStatus.COMPLETED.value, Order.created_at >= date_from)
+        )).scalar() or 0),
+        unpaid_invoices=float((await db.execute(
+            select(func.coalesce(func.sum(Invoice.total), 0))
+            .where(Invoice.company_id == company_id, Invoice.status == "issued")
+        )).scalar() or 0),
     )
 
     # Revenue chart (daily aggregation from issued invoices)

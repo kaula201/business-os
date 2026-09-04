@@ -606,6 +606,10 @@ export const dashboardApi = {
   getCashFlow: () => api.get('/dashboard/cash-flow'),
   getDrillDown: (entity: 'ar' | 'ap', bucket: string = 'all') =>
     api.get(`/dashboard/drill-down/${entity}`, { params: { bucket } }),
+  getRoleViews: () => api.get('/dashboard/role-views'),
+  getKpiDefinitions: () => api.get('/dashboard/kpi-definitions'),
+  getKpiDrillDown: (kpiKey: string, limit?: number) =>
+    api.get(`/dashboard/kpi-detail/${kpiKey}`, { params: { limit } }),
 }
 
 // AI API

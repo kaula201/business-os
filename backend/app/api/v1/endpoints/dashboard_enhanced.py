@@ -504,3 +504,233 @@ async def drill_down(
         currency=report_currency,
         rows=rows,
     ))
+
+
+# ── Dashboard customization: role views, KPI definitions, drill-down ──────────
+
+class DashboardRoleView(BaseModel):
+    key: str
+    label: str
+    kpis: list[str]
+    modules: list[str]
+
+
+class RoleViewsResponse(BaseModel):
+    views: list[DashboardRoleView]
+    default_view: str
+
+
+@router.get("/role-views", response_model=ResponseBase[RoleViewsResponse])
+async def role_views(
+    current_user: User = Depends(require_module("dashboard", "can_access")),
+):
+    """Role-based dashboard layouts. Admin → director, accountant → finance,
+    manager → sales, employee → default."""
+    role = current_user.role
+    admin_view = DashboardRoleView(
+        key="director", label="დირექტორი",
+        kpis=["revenue", "orders", "clients", "cashflow", "tasks", "pipeline"],
+        modules=["sales", "finance", "crm", "tasks"],
+    )
+    acct_view = DashboardRoleView(
+        key="accountant", label="ბუღალტერი",
+        kpis=["revenue", "cashflow", "receivables", "payables", "unpaid_invoices"],
+        modules=["finance", "accounting"],
+    )
+    sales_view = DashboardRoleView(
+        key="sales", label="გაყიდვების მენეჯერი",
+        kpis=["revenue", "orders", "clients", "pipeline", "leads"],
+        modules=["sales", "crm"],
+    )
+    wh_view = DashboardRoleView(
+        key="warehouse", label="საწყობის მენეჯერი",
+        kpis=["low_stock", "stock_value", "orders", "inventory"],
+        modules=["warehouse", "sales"],
+    )
+    default_view = "director" if role == User.Role.ADMIN else (
+        "accountant" if role == User.Role.ACCOUNTANT else (
+            "sales" if role == User.Role.MANAGER else "director"
+        )
+    )
+    views = [admin_view, acct_view, sales_view, wh_view]
+    return ResponseBase(data=RoleViewsResponse(views=views, default_view=default_view))
+
+
+KPI_DEFINITIONS: dict[str, dict] = {
+    "revenue": {
+        "label": "შემოსავალი",
+        "formula": "Σ Invoice.total, სადაც status = 'issued' (გაცემული ინვოისები) — შეკვეთები შემოსავალში მხოლოდ ინვოისირების შემდეგ ხვდება",
+        "source": "invoices ცხრილი, status = 'issued'",
+    },
+    "orders": {
+        "label": "მიმდინარე შეკვეთები",
+        "formula": "COUNT(orders) — სტატუსით გარდა completed/cancelled-ის",
+        "source": "orders ცხრილი",
+    },
+    "clients": {
+        "label": "აქტიური კლიენტები",
+        "formula": "COUNT(clients) — deleted_at IS NULL",
+        "source": "clients ცხრილი",
+    },
+    "tasks": {
+        "label": "დაგვიანებული დავალებები",
+        "formula": "COUNT(tasks) — due_date < now და status ∉ {done, cancelled}",
+        "source": "tasks ცხრილი",
+    },
+    "cashflow": {
+        "label": "ფულადი ნაკადი (6 თვე)",
+        "formula": "Σ payments (შემოსავალი) − Σ expenses (ხარჯები) ბოლო 6 თვეში",
+        "source": "customer_payments / supplier_payments",
+    },
+    "pipeline": {
+        "label": "CRM Pipeline ღირებულება",
+        "formula": "Σ opportunities.amount — stage ∉ {won, lost}",
+        "source": "crm_opportunities ცხრილი",
+    },
+    "leads": {
+        "label": "ღია ლიდები",
+        "formula": "COUNT(crm_leads) — status ∉ {converted, unqualified}",
+        "source": "crm_leads ცხრილი",
+    },
+    "receivables": {
+        "label": "მოვალეები (AR)",
+        "formula": "Σ customer_receivables ბალანსი — ასაკის ჯგუფების მიხედვით",
+        "source": "customer_receivables / aging",
+    },
+    "payables": {
+        "label": "ვალდებულებები (AP)",
+        "formula": "Σ supplier_payables ბალანსი",
+        "source": "supplier_payables / aging",
+    },
+    "unpaid_invoices": {
+        "label": "გადაუხდელი ინვოისები",
+        "formula": "Σ Invoice.total — სტატუსით ≠ paid",
+        "source": "invoices ცხრილი",
+    },
+    "low_stock": {
+        "label": "დეფიციტური ნაწილები",
+        "formula": "COUNT(products) — Σ warehouse ბალანსი ≤ min_stock",
+        "source": "products + inventory_balances",
+    },
+    "stock_value": {
+        "label": "საწყობის ღირებულება",
+        "formula": "Σ inventory_balances.quantity × product.unit_cost",
+        "source": "inventory_balances + products",
+    },
+    "inventory": {
+        "label": "მარაგის ერთეულები",
+        "formula": "Σ inventory_balances.quantity (ყველა პროდუქტი/საწყობი)",
+        "source": "inventory_balances",
+    },
+}
+
+
+class KPIInfo(BaseModel):
+    key: str
+    label: str
+    formula: str
+    source: str
+
+
+@router.get("/kpi-definitions", response_model=ResponseBase[list[KPIInfo]])
+async def kpi_definitions(
+    current_user: User = Depends(require_module("dashboard", "can_access")),
+):
+    return ResponseBase(data=[
+        KPIInfo(key=k, label=v["label"], formula=v["formula"], source=v["source"])
+        for k, v in KPI_DEFINITIONS.items()
+    ])
+
+
+class KpiDrillDownRow(BaseModel):
+    label: str
+    value: str
+    date: str | None = None
+    status: str | None = None
+
+
+class KpiDrillDownResponse(BaseModel):
+    kpi: str
+    title: str
+    rows: list[KpiDrillDownRow]
+    total: str
+
+
+def _days_ago(db: AsyncSession, company_id: UUID, model, col, days: int):
+    pass  # helper placeholder (specific queries inline below)
+
+
+@router.get("/kpi-detail/{kpi_key}", response_model=ResponseBase[KpiDrillDownResponse])
+async def kpi_drill_down(
+    kpi_key: str,
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("dashboard", "can_access")),
+):
+    """Latest rows behind each KPI — click a card to see what makes up the number."""
+    cid = current_user.company_id
+    today = date.today()
+    period_start = today - timedelta(days=30)
+
+    if kpi_key == "revenue":
+        # Canonical revenue = issued invoices (same source as summary KPI)
+        rows = (await db.execute(
+            select(Invoice).where(Invoice.company_id == cid, Invoice.status == "issued")
+            .order_by(Invoice.created_at.desc())
+            .limit(limit)
+        )).scalars().all()
+        data = [KpiDrillDownRow(label=f"ინვოისი {inv.invoice_number}", value=str(inv.total), date=str(inv.created_at.date() if inv.created_at else ""), status=inv.status) for inv in rows]
+        total = str((await db.execute(select(func.coalesce(func.sum(Invoice.total), 0)).where(Invoice.company_id == cid, Invoice.status == "issued"))).scalar())
+        return ResponseBase(data=KpiDrillDownResponse(kpi="revenue", title="შემოსავალი — გაცემული ინვოისები", rows=data, total=total))
+
+    if kpi_key == "orders":
+        rows = (await db.execute(
+            select(Order).where(Order.company_id == cid, Order.status.notin_([OrderStatus.COMPLETED.value, OrderStatus.CANCELLED.value]))
+            .order_by(Order.created_at.desc()).limit(limit)
+        )).scalars().all()
+        data = [KpiDrillDownRow(label=f"#{o.order_number}", value=o.status, date=str(o.created_at.date() if o.created_at else ""), status=o.status) for o in rows]
+        total = str(len(rows))
+        return ResponseBase(data=KpiDrillDownResponse(kpi="orders", title="მიმდინარე შეკვეთები", rows=data, total=total))
+
+    if kpi_key == "clients":
+        rows = (await db.execute(
+            select(Client).where(Client.company_id == cid, Client.deleted_at.is_(None))
+            .order_by(Client.created_at.desc()).limit(limit)
+        )).scalars().all()
+        data = [KpiDrillDownRow(label=c.name or c.company_name or "—", value="კლიენტი", date=str(c.created_at.date() if c.created_at else "")) for c in rows]
+        total = str((await db.execute(select(func.count(Client.id)).where(Client.company_id == cid, Client.deleted_at.is_(None)))).scalar())
+        return ResponseBase(data=KpiDrillDownResponse(kpi="clients", title="ბოლო დამატებული კლიენტები", rows=data, total=total))
+
+    if kpi_key == "tasks":
+        rows = (await db.execute(
+            select(Task).where(Task.company_id == cid, Task.due_date < utc_now(), Task.status.notin_(["done", "cancelled"]))
+            .order_by(Task.due_date.asc()).limit(limit)
+        )).scalars().all()
+        data = [KpiDrillDownRow(label=t.title or "—", value="დაგვიანებული", date=str(t.due_date.date()) if t.due_date else None, status=t.status) for t in rows]
+        total = str(len(rows))
+        return ResponseBase(data=KpiDrillDownResponse(kpi="tasks", title="დაგვიანებული დავალებები", rows=data, total=total))
+
+    if kpi_key == "leads":
+        rows = (await db.execute(
+            select(CRMLead).where(CRMLead.company_id == cid, CRMLead.status.notin_(["converted", "unqualified"]))
+            .order_by(CRMLead.created_at.desc()).limit(limit)
+        )).scalars().all()
+        data = [KpiDrillDownRow(label=l.name or "—", value=l.status or "—", date=str(l.created_at.date()) if l.created_at else None, status=l.status) for l in rows]
+        total = str(len(rows))
+        return ResponseBase(data=KpiDrillDownResponse(kpi="leads", title="ღია ლიდები", rows=data, total=total))
+
+    if kpi_key == "low_stock":
+        stock_total = (
+            select(func.coalesce(func.sum(InventoryBalance.quantity), 0))
+            .where(InventoryBalance.company_id == cid, InventoryBalance.product_id == Product.id)
+            .correlate(Product).scalar_subquery()
+        )
+        rows = (await db.execute(
+            select(Product).where(Product.company_id == cid, stock_total <= Product.min_stock, Product.is_active == True)
+            .order_by(Product.name).limit(limit)
+        )).scalars().all()
+        data = [KpiDrillDownRow(label=p.name or p.sku or "—", value=f"მინიმუმი: {p.min_stock}", status="low_stock") for p in rows]
+        total = str(len(rows))
+        return ResponseBase(data=KpiDrillDownResponse(kpi="low_stock", title="დეფიციტური პროდუქტები", rows=data, total=total))
+
+    return ResponseBase(data=KpiDrillDownResponse(kpi=kpi_key, title=kpi_key, rows=[], total="0"))

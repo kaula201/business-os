@@ -10,6 +10,14 @@ class KPICards(BaseModel):
     overdue_tasks: int
     low_stock_products: int
     total_revenue: float = 0.0
+    pipeline_value: float = 0.0
+    open_leads: int = 0
+    receivables_outstanding: float = 0.0
+    payables_outstanding: float = 0.0
+    stock_value: float = 0.0
+    inventory_units: float = 0.0
+    cashflow_30d: float = 0.0
+    unpaid_invoices: float = 0.0
 
 
 class KPITooltip(BaseModel):
