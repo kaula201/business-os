@@ -123,79 +123,82 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header row 1: title + role views */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200">{t('მიმოხილვა')}</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          {roleViewsData?.views && (
-            <div className="flex gap-1 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-50 p-1">
-              {roleViewsData.views.map((v: any) => (
-                <button
-                  key={v.key}
-                  onClick={() => {
-                    setActiveView(v.key)
-                    // switch to this layout's saved KPIs when user picks a view
-                    if (savedLayouts[v.key]?.length) {
-                      setHiddenKpis(savedLayouts[v.key].filter((k: string) => !roleViewsData.views.every((vv: any) => !vv.kpis.includes(k))))
-                    }
-                  }}
-                  title={`${v.label} — ${v.modules.join(', ')}`}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${effectiveView === v.key ? 'bg-primary-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100'}`}
-                >
-                  {v.label}
-                </button>
-              ))}
-            </div>
-          )}
-          {/* Snapshot control: pause/resume auto-refresh + last update time */}
-          <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
-            <span>{t('ავტო-განახლება')}</span>
-            <button
-              onClick={() => setRefreshFrozen(f => !f)}
-              title={refreshFrozen ? t('ავტო-განახლების გაგრძელება') : t('ავტო-განახლების გაჩერება')}
-              className={`w-8 h-4.5 rounded-full transition-colors relative ${refreshFrozen ? 'bg-gray-300 dark:bg-dark-50' : 'bg-primary-600'}`}
-              style={{ height: 18 }}
-            >
-              <span className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-all ${refreshFrozen ? 'left-0.5' : 'left-4'}`} style={{ top: 2 }} />
-            </button>
-            {dataUpdatedAt > 0 && (
-              <span title={t('ბოლო განახლება')}>
-                {new Date(dataUpdatedAt).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              </span>
-            )}
-          </div>
-          <select
-            value={ownerId}
-            onChange={(e) => setOwnerId(e.target.value)}
-            className="input h-9 w-auto text-sm"
-            aria-label={t('პასუხისმგებელი ფილტრი')}
-          >
-            <option value="">{t('ყველა თანამშრომელი')}</option>
-            {(users?.items || users || []).map((u: any) => (
-              <option key={u.id} value={u.id}>{u.full_name}</option>
-            ))}
-          </select>
-          <div className="flex gap-2 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-50 p-1 dark:bg-dark-200 dark:border-dark-50">
-            {[
-              { key: '7d', label: t('7 დღე') },
-              { key: '30d', label: t('30 დღე') },
-              { key: '90d', label: t('90 დღე') },
-            ].map(p => (
+        {roleViewsData?.views && (
+          <div className="flex gap-1 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-50 p-1">
+            {roleViewsData.views.map((v: any) => (
               <button
-                key={p.key}
-                onClick={() => setPeriod(p.key)}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${period === p.key ? 'bg-primary-600 text-white' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 dark:text-gray-400 dark:text-gray-500 dark:hover:bg-dark-100'}`}
+                key={v.key}
+                onClick={() => {
+                  setActiveView(v.key)
+                  // switch to this layout's saved KPIs when user picks a view
+                  if (savedLayouts[v.key]?.length) {
+                    setHiddenKpis(savedLayouts[v.key].filter((k: string) => !roleViewsData.views.every((vv: any) => !vv.kpis.includes(k))))
+                  }
+                }}
+                title={`${v.label} — ${v.modules.join(', ')}`}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${effectiveView === v.key ? 'bg-primary-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100'}`}
               >
-                {p.label}
+                {v.label}
               </button>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* Header row 2: snapshot control + filters + customize */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Snapshot control: pause/resume auto-refresh + last update time */}
+        <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+          <span>{t('ავტო-განახლება')}</span>
           <button
-            onClick={() => setShowCustomize(!showCustomize)}
-            className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${showCustomize ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-dark-200 border-gray-200 dark:border-dark-50 text-gray-600 dark:text-gray-400'}`}
+            onClick={() => setRefreshFrozen(f => !f)}
+            title={refreshFrozen ? t('ავტო-განახლების გაგრძელება') : t('ავტო-განახლების გაჩერება')}
+            className={`w-8 h-4.5 rounded-full transition-colors relative ${refreshFrozen ? 'bg-gray-300 dark:bg-dark-50' : 'bg-primary-600'}`}
+            style={{ height: 18 }}
           >
-            {t('მორგება')}
+            <span className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-all ${refreshFrozen ? 'left-0.5' : 'left-4'}`} style={{ top: 2 }} />
           </button>
+          {dataUpdatedAt > 0 && (
+            <span title={t('ბოლო განახლება')}>
+              {new Date(dataUpdatedAt).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          )}
         </div>
+        <select
+          value={ownerId}
+          onChange={(e) => setOwnerId(e.target.value)}
+          className="input h-9 w-auto text-sm"
+          aria-label={t('პასუხისმგებელი ფილტრი')}
+        >
+          <option value="">{t('ყველა თანამშრომელი')}</option>
+          {(users?.items || users || []).map((u: any) => (
+            <option key={u.id} value={u.id}>{u.full_name}</option>
+          ))}
+        </select>
+        <div className="flex gap-2 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-50 p-1 dark:bg-dark-200 dark:border-dark-50">
+          {[
+            { key: '7d', label: t('7 დღე') },
+            { key: '30d', label: t('30 დღე') },
+            { key: '90d', label: t('90 დღე') },
+          ].map(p => (
+            <button
+              key={p.key}
+              onClick={() => setPeriod(p.key)}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${period === p.key ? 'bg-primary-600 text-white' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-dark-100 dark:bg-dark-100 dark:text-gray-400 dark:text-gray-500 dark:hover:bg-dark-100'}`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setShowCustomize(!showCustomize)}
+          className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${showCustomize ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-dark-200 border-gray-200 dark:border-dark-50 text-gray-600 dark:text-gray-400'}`}
+        >
+          {t('მორგება')}
+        </button>
       </div>
 
       {/* Customize panel — per-view layout */}
@@ -528,7 +531,7 @@ function KPICard({ icon: Icon, label, value, change, color, hint, to, onDrill, i
   }
 
   const content = (
-    <div className="card relative flex items-center gap-4 dark:bg-dark-200 dark:border-dark-50">
+    <div className="card relative flex items-center gap-4 dark:bg-dark-200 dark:border-dark-50 min-h-[140px]">
       {infoSource && (
         <div className="absolute top-2 right-2 flex items-center gap-1">
           <button
@@ -541,12 +544,12 @@ function KPICard({ icon: Icon, label, value, change, color, hint, to, onDrill, i
           </button>
         </div>
       )}
-      <div className={`p-3 rounded-xl ${colorMap[color] || colorMap.blue}`}>
+      <div className={`p-3 rounded-xl shrink-0 ${colorMap[color] || colorMap.blue}`}>
         <Icon size={24} />
       </div>
-      <div className="flex-1">
-        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200">{value}</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{t(label)}</p>
+      <div className="flex-1 min-w-0">
+        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200 truncate">{value}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 truncate">{t(label)}</p>
         {change !== undefined && (
           <span className={`text-xs flex items-center gap-1 mt-0.5 ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {change >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
@@ -554,10 +557,10 @@ function KPICard({ icon: Icon, label, value, change, color, hint, to, onDrill, i
           </span>
         )}
         {hint && (
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1" title={t('შემოსავალი ითვლება მხოლოდ გაცემული (issued) ინვოისებიდან')}>{hint}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate" title={t('შემოსავალი ითვლება მხოლოდ გაცემული (issued) ინვოისებიდან')}>{hint}</p>
         )}
         {infoSource && (
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate max-w-[240px]" title={infoSource}>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate" title={infoSource}>
             {infoSource}
           </p>
         )}
@@ -573,7 +576,7 @@ function KPICard({ icon: Icon, label, value, change, color, hint, to, onDrill, i
         </button>
       )}
       {!onDrill && to && (
-        <ArrowUpRight size={16} className="text-gray-300 dark:text-gray-600 transition-colors group-hover:text-primary-500" />
+        <ArrowUpRight size={16} className="text-gray-300 dark:text-gray-600 transition-colors group-hover:text-primary-500 shrink-0" />
       )}
     </div>
   )
