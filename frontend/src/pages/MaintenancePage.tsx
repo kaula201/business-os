@@ -53,6 +53,13 @@ export default function MaintenancePage() {
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<Record<string, any>>({})
   const [searchQuery, setSearchQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortAsc, setSortAsc] = useState(true)
+
+  // Reset page when tab or search changes
+  useEffect(() => { setPage(1) }, [tab, searchQuery])
 
   const changeTab = (key: string) => {
     setTab(key)
@@ -283,6 +290,7 @@ export default function MaintenancePage() {
         case 'plan': return maintenanceApi.deletePlan(id)
         case 'order': return maintenanceApi.deleteOrder(id)
         case 'request': return maintenanceApi.deleteRequest(id)
+        case 'repair': return maintenanceApi.deleteRepair(id)
         case 'meter': return maintenanceApi.deleteMeter(id)
         case 'asset': return maintenanceApi.deleteAsset(id)
         case 'technician': return maintenanceApi.deleteTechnician(id)
@@ -710,12 +718,37 @@ export default function MaintenancePage() {
     <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-500 dark:border-dark-50 dark:text-gray-400">{text}</div>
   )
 
-  // Generic client-side filter: matches any string field of the row
+  // Generic client-side filter + sort + paginate
   const filterRows = (rows: any[] | undefined) => {
     if (!rows) return []
+    let out = rows
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((r) => Object.values(r).some((v) => v != null && String(v).toLowerCase().includes(q)))
+    if (q) {
+      out = out.filter((r) => Object.values(r).some((v) => v != null && String(v).toLowerCase().includes(q)))
+    }
+    if (sortKey && out.length > 0) {
+      out = [...out].sort((a, b) => {
+        const av = a[sortKey]
+        const bv = b[sortKey]
+        const cmp = av == null ? 1 : bv == null ? -1 : String(av).localeCompare(String(bv), undefined, { numeric: true })
+        return sortAsc ? cmp : -cmp
+      })
+    }
+    const start = (page - 1) * pageSize
+    return out.slice(start, start + pageSize)
+  }
+
+  const totalFiltered = (rows: any[] | undefined) => {
+    if (!rows) return 0
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return rows.length
+    return rows.filter((r) => Object.values(r).some((v) => v != null && String(v).toLowerCase().includes(q))).length
+  }
+
+  const toggleSort = (key: string) => {
+    if (sortKey === key) setSortAsc(!sortAsc)
+    else { setSortKey(key); setSortAsc(true) }
+    setPage(1)
   }
 
   return (
@@ -1650,6 +1683,24 @@ export default function MaintenancePage() {
         <MaintenanceCalendar orders={orders || []} plans={plans || []} t={t} />
       )}
 
+      {tab !== 'calendar' && (
+        <PaginationBar
+          total={totalFiltered(
+            tab === 'plans' ? plans : tab === 'orders' ? orders : tab === 'requests' ? requests
+            : tab === 'assets' ? assets : tab === 'meters' ? meters : tab === 'locations' ? locations
+            : tab === 'technicians' ? technicians : tab === 'contractors' ? contractors
+            : tab === 'parts' ? parts : tab === 'safety' ? safetyInstructions
+            : tab === 'costs' ? costRecords : tab === 'analytics' ? reliabilityMetrics
+            : tab === 'config' ? workTypes : []
+          )}
+          page={page}
+          pageSize={pageSize}
+          onPage={setPage}
+          onPageSize={setPageSize}
+          t={t}
+        />
+      )}
+
       <Modal open={open} onClose={() => setOpen(false)} title={t('ახალი ჩანაწერი')}>
         <div className="space-y-4">
           {renderForm()}
@@ -1683,6 +1734,25 @@ function RowActions({ item, kind, onEdit, onDelete }: { item: any; kind: string;
       >
         <Trash2 size={14} />
       </button>
+    </div>
+  )
+}
+
+// ── P2: pagination footer ────────────────────────────────────────────────────
+
+function PaginationBar({ total, page, pageSize, onPage, onPageSize, t }: { total: number; page: number; pageSize: number; onPage: (p: number) => void; onPageSize: (s: number) => void; t: (k: string) => string }) {
+  const pages = Math.max(1, Math.ceil(total / pageSize))
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 px-1 pt-1 text-sm text-gray-500 dark:text-gray-400">
+      <span>{t('სულ')}: {total}</span>
+      <div className="flex items-center gap-2">
+        <select value={pageSize} onChange={(e) => { onPageSize(Number(e.target.value)); onPage(1) }} className="input h-8 w-20 text-xs">
+          {[10, 25, 50, 100].map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <span className="text-xs">{page} / {pages}</span>
+        <button onClick={() => onPage(Math.max(1, page - 1))} disabled={page <= 1} className="btn btn-sm btn-outline disabled:opacity-40">←</button>
+        <button onClick={() => onPage(Math.min(pages, page + 1))} disabled={page >= pages} className="btn btn-sm btn-outline disabled:opacity-40">→</button>
+      </div>
     </div>
   )
 }

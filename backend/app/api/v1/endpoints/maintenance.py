@@ -2023,3 +2023,19 @@ async def delete_tool_issue(
     await db.delete(i)
     await db.flush()
     return ResponseBase(message="გაცემა წაიშალა")
+
+
+@router.delete("/repairs/{repair_id}", response_model=ResponseBase)
+async def delete_repair(
+    repair_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    r = (await db.execute(
+        select(RepairOrder).where(RepairOrder.id == repair_id, RepairOrder.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="მოთხოვნა არ მოიძებნა")
+    await db.delete(r)
+    await db.flush()
+    return ResponseBase(message="მოთხოვნა წაიშალა")

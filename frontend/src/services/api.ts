@@ -452,6 +452,7 @@ export const maintenanceApi = {
   repairs: (status?: string) => api.get('/maintenance/repairs', { params: status ? { status } : {} }),
   createRepair: (data: Record<string, unknown>) => api.post('/maintenance/repairs', data),
   updateRepair: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/repairs/${id}`, data),
+  deleteRepair: (id: string) => api.delete(`/maintenance/repairs/${id}`),
   // ── CMMS Phase 1 ──
   assets: (params?: Record<string, unknown>) => api.get('/maintenance/assets', { params }),
   createAsset: (data: Record<string, unknown>) => api.post('/maintenance/assets', data),
