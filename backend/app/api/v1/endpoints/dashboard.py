@@ -27,6 +27,13 @@ from app.services.revenue import get_revenue_for_period, get_total_revenue
 router = APIRouter(prefix="/dashboard", tags=["დეშბორდი"])
 
 
+def _pct_change(cur: float, prev: float) -> float | None:
+    """Percentage change vs previous period; None when previous is 0/undeterminable."""
+    if prev is None or prev == 0:
+        return None
+    return round((float(cur) - float(prev)) / float(prev) * 100, 1)
+
+
 @router.get("/summary", response_model=ResponseBase[DashboardSummary])
 async def get_dashboard_summary(
     period: str = "30d",
@@ -50,6 +57,49 @@ async def get_dashboard_summary(
     # Period mapping
     days = {"7d": 7, "30d": 30, "90d": 90}.get(period, 30)
     date_from = now - timedelta(days=days)
+
+    # Previous period window (same length) — for KPI % comparison
+    prev_from = date_from - timedelta(days=days)
+
+    cur_cashflow = float((await db.execute(
+        select(func.coalesce(func.sum(Order.total), 0))
+        .where(Order.company_id == company_id, Order.status == OrderStatus.COMPLETED.value, Order.created_at >= date_from)
+    )).scalar() or 0)
+    prev_cashflow = float((await db.execute(
+        select(func.coalesce(func.sum(Order.total), 0))
+        .where(Order.company_id == company_id, Order.status == OrderStatus.COMPLETED.value, Order.created_at >= prev_from, Order.created_at < date_from)
+    )).scalar() or 0)
+
+    cur_rev_issued = float((await db.execute(
+        select(func.coalesce(func.sum(Invoice.total), 0))
+        .where(Invoice.company_id == company_id, Invoice.status == "issued", Invoice.created_at >= date_from)
+    )).scalar() or 0)
+    prev_rev_issued = float((await db.execute(
+        select(func.coalesce(func.sum(Invoice.total), 0))
+        .where(Invoice.company_id == company_id, Invoice.status == "issued", Invoice.created_at >= prev_from, Invoice.created_at < date_from)
+    )).scalar() or 0)
+
+    prev_active_orders = int((await db.execute(
+        select(func.count()).where(
+            Order.company_id == company_id,
+            Order.status.notin_([OrderStatus.COMPLETED, OrderStatus.CANCELLED]),
+            Order.created_at >= prev_from, Order.created_at < date_from
+        )
+    )).scalar() or 0)
+    prev_active_clients = int((await db.execute(
+        select(func.count()).where(
+            Client.company_id == company_id, Client.status == ClientStatus.ACTIVE,
+            Client.deleted_at.is_(None),
+            Client.created_at >= prev_from, Client.created_at < date_from
+        )
+    )).scalar() or 0)
+    prev_overdue_tasks = int((await db.execute(
+        select(func.count()).where(
+            Task.company_id == company_id,
+            Task.due_date < now, Task.status.notin_([TaskStatus.DONE, TaskStatus.CANCELLED]),
+            Task.created_at >= prev_from, Task.created_at < date_from
+        )
+    )).scalar() or 0)
 
     # KPI Cards
     active_clients_count = (await db.execute(
@@ -155,6 +205,11 @@ async def get_dashboard_summary(
             select(func.coalesce(func.sum(Invoice.total), 0))
             .where(Invoice.company_id == company_id, Invoice.status == "issued")
         )).scalar() or 0),
+        revenue_change=_pct_change(cur_rev_issued, prev_rev_issued),
+        orders_change=_pct_change(active_orders_count, prev_active_orders),
+        clients_change=_pct_change(active_clients_count, prev_active_clients),
+        tasks_change=_pct_change(overdue_tasks_count, prev_overdue_tasks),
+        cashflow_change=_pct_change(cur_cashflow, prev_cashflow),
     )
 
     # Revenue chart (daily aggregation from issued invoices)

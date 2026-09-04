@@ -18,6 +18,12 @@ class KPICards(BaseModel):
     inventory_units: float = 0.0
     cashflow_30d: float = 0.0
     unpaid_invoices: float = 0.0
+    # Period comparison (vs previous period of same length) — null when undeterminable
+    revenue_change: float | None = None
+    orders_change: float | None = None
+    clients_change: float | None = None
+    tasks_change: float | None = None
+    cashflow_change: float | None = None
 
 
 class KPITooltip(BaseModel):

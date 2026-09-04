@@ -42,6 +42,7 @@ export default function DashboardPage() {
   const [activeView, setActiveView] = useState<string | null>(null)
   const [drillKpi, setDrillKpi] = useState<string | null>(null)
   const [kpiTooltip, setKpiTooltip] = useState<string | null>(null)
+  const [refreshFrozen, setRefreshFrozen] = useState(false)
   const [hiddenKpis, setHiddenKpis] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('bos_hidden_kpis') || '[]') } catch { return [] }
   })
@@ -99,9 +100,10 @@ export default function DashboardPage() {
     queryFn: () => usersApi.list({ page_size: 100 }).then(r => r.data.data),
   })
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, dataUpdatedAt } = useQuery({
     queryKey: ['dashboard', period, ownerId],
     queryFn: () => dashboardApi.getSummary(period, ownerId || undefined).then(r => r.data.data),
+    refetchInterval: refreshFrozen ? false : 60_000,  // silent auto-refresh, frozen while paused
   })
   const { data: aging } = useQuery({
     queryKey: ['dashboard-aging'],
@@ -144,12 +146,29 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
-        <select
-          value={ownerId}
-          onChange={(e) => setOwnerId(e.target.value)}
-          className="input h-9 w-auto text-sm"
-          aria-label={t('პასუხისმგებელი ფილტრი')}
-        >
+          {/* Snapshot control: pause/resume auto-refresh + last update time */}
+          <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+            <span>{t('ავტო-განახლება')}</span>
+            <button
+              onClick={() => setRefreshFrozen(f => !f)}
+              title={refreshFrozen ? t('ავტო-განახლების გაგრძელება') : t('ავტო-განახლების გაჩერება')}
+              className={`w-8 h-4.5 rounded-full transition-colors relative ${refreshFrozen ? 'bg-gray-300 dark:bg-dark-50' : 'bg-primary-600'}`}
+              style={{ height: 18 }}
+            >
+              <span className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-all ${refreshFrozen ? 'left-0.5' : 'left-4'}`} style={{ top: 2 }} />
+            </button>
+            {dataUpdatedAt > 0 && (
+              <span title={t('ბოლო განახლება')}>
+                {new Date(dataUpdatedAt).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+            )}
+          </div>
+          <select
+            value={ownerId}
+            onChange={(e) => setOwnerId(e.target.value)}
+            className="input h-9 w-auto text-sm"
+            aria-label={t('პასუხისმგებელი ფილტრი')}
+          >
             <option value="">{t('ყველა თანამშრომელი')}</option>
             {(users?.items || users || []).map((u: any) => (
               <option key={u.id} value={u.id}>{u.full_name}</option>
@@ -246,6 +265,16 @@ export default function DashboardPage() {
               icon={meta.icon}
               label={def?.label || k}
               value={val}
+              change={(() => {
+                switch (k) {
+                  case 'revenue': return kpi?.revenue_change != null ? kpi.revenue_change : undefined
+                  case 'orders': return kpi?.orders_change != null ? kpi.orders_change : undefined
+                  case 'clients': return kpi?.clients_change != null ? kpi.clients_change : undefined
+                  case 'tasks': return kpi?.tasks_change != null ? kpi.tasks_change : undefined
+                  case 'cashflow': return kpi?.cashflow_change != null ? kpi.cashflow_change : undefined
+                  default: return undefined
+                }
+              })()}
               color={meta.color}
               to={meta.to}
               onDrill={() => setDrillKpi(k)}
