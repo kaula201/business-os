@@ -840,3 +840,83 @@ class MaintenanceNumberingConfigResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── P1 Audit: Update schemas (edit support) ──────────────────────────────────
+
+class MaintenanceAssetCategoryUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = None
+
+
+class MaintenanceLocationUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=150)
+    parent_id: UUID | None = None
+    description: str | None = None
+
+
+class MaintenanceBudgetUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    period_start: date | None = None
+    period_end: date | None = None
+    planned_amount: Decimal | None = Field(default=None, ge=0)
+    notes: str | None = None
+
+
+class MaintenanceCertificateUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=150)
+    issued_date: date | None = None
+    expiry_date: date | None = None
+    notes: str | None = None
+
+
+class MaintenanceChecklistUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    category: str | None = None
+    is_mandatory: bool | None = None
+
+
+class MaintenanceCostRecordUpdate(BaseModel):
+    cost_type: str | None = None
+    description: str | None = None
+    amount: Decimal | None = Field(default=None, ge=0)
+    incurred_at: datetime | None = None
+
+
+class MaintenanceSafetyInstructionUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    category: str | None = None
+    content: str | None = None
+    is_mandatory: bool | None = None
+
+
+class MaintenanceReliabilityMetricUpdate(BaseModel):
+    downtime_hours: Decimal | None = Field(default=None, ge=0)
+    failures: int | None = Field(default=None, ge=0)
+    mttr_hours: Decimal | None = Field(default=None, ge=0)
+    mtbf_hours: Decimal | None = Field(default=None, ge=0)
+    notes: str | None = None
+
+
+class MaintenanceWorkTypeUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    code: str | None = None
+    is_active: bool | None = None
+
+
+class MaintenancePriorityUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=50)
+    level: int | None = Field(default=None, ge=1)
+    color: str | None = None
+    is_active: bool | None = None
+
+
+class MaintenanceStatusConfigUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=50)
+    is_closed: bool | None = None
+    is_active: bool | None = None
+
+
+class MaintenanceNumberingConfigUpdate(BaseModel):
+    prefix: str | None = Field(default=None, min_length=1, max_length=20)
+    next_number: int | None = Field(default=None, ge=1)

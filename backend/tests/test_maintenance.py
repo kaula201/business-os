@@ -529,3 +529,148 @@ async def test_status_and_numbering_config(client, auth_headers):
 
     r5 = await client.get("/api/v1/maintenance/config/numbering", headers=auth_headers)
     assert len(r5.json()["data"]) == 1
+
+
+
+# ── CMMS P1 audit: edit & delete support ──────────────────────────────────────
+
+async def test_edit_and_delete_technician_contractor_sla(client, auth_headers):
+    # create technician → edit → delete
+    r = await client.post("/api/v1/maintenance/technicians", headers=auth_headers, json={
+        "name": "ედიტ ტექნიკოსი", "specialization": "მექანიკოსი", "phone": "599000111", "hourly_rate": "30",
+    })
+    tech = r.json()["data"]
+    r2 = await client.patch(f"/api/v1/maintenance/technicians/{tech['id']}", headers=auth_headers, json={"hourly_rate": "35", "specialization": "უფროსი მექანიკოსი"})
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["data"]["hourly_rate"] == "35.00"
+    assert r2.json()["data"]["specialization"] == "უფროსი მექანიკოსი"
+
+    # contractor edit + delete
+    r3 = await client.post("/api/v1/maintenance/contractors", headers=auth_headers, json={
+        "name": "კონტრაქტი 1", "contact_person": "ირაკლი", "phone": "599000222", "specialization": "ელექტრო", "hourly_rate": "40",
+    })
+    cont = r3.json()["data"]
+    r4 = await client.patch(f"/api/v1/maintenance/contractors/{cont['id']}", headers=auth_headers, json={"hourly_rate": "45"})
+    assert r4.status_code == 200, r4.text
+    assert r4.json()["data"]["hourly_rate"] == "45.00"
+
+    # SLA edit
+    r5 = await client.post("/api/v1/maintenance/slas", headers=auth_headers, json={
+        "name": "SLA-1", "priority": "high", "response_hours": 2, "resolution_hours": 24,
+    })
+    sla = r5.json()["data"]
+    r6 = await client.patch(f"/api/v1/maintenance/slas/{sla['id']}", headers=auth_headers, json={"response_hours": 1})
+    assert r6.status_code == 200, r6.text
+    assert r6.json()["data"]["response_hours"] == "1.00"
+
+    # deletes
+    assert (await client.delete(f"/api/v1/maintenance/technicians/{tech['id']}", headers=auth_headers)).status_code == 200
+    assert (await client.delete(f"/api/v1/maintenance/contractors/{cont['id']}", headers=auth_headers)).status_code == 200
+    assert (await client.delete(f"/api/v1/maintenance/slas/{sla['id']}", headers=auth_headers)).status_code == 200
+    # gone now
+    assert (await client.get("/api/v1/maintenance/technicians", headers=auth_headers)).json()["data"] == []
+
+
+async def test_edit_and_delete_budget_part_tool(client, auth_headers):
+    # budget edit + delete
+    r = await client.post("/api/v1/maintenance/budgets", headers=auth_headers, json={
+        "name": "ბიუჯეტი A", "period_start": "2026-01-01", "period_end": "2026-12-31", "planned_amount": "5000",
+    })
+    b = r.json()["data"]
+    r2 = await client.patch(f"/api/v1/maintenance/budgets/{b['id']}", headers=auth_headers, json={"planned_amount": "8000", "name": "ბიუჯეტი A+"})
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["data"]["planned_amount"] == "8000.00"
+
+    # part edit + delete
+    r3 = await client.post("/api/v1/maintenance/parts", headers=auth_headers, json={
+        "part_code": "FLT-001", "name": "ფილტრი", "quantity_on_hand": "10", "reorder_level": "2",
+    })
+    pt = r3.json()["data"]
+    r4 = await client.patch(f"/api/v1/maintenance/parts/{pt['id']}", headers=auth_headers, json={"reorder_level": "5", "supplier": "მომწოდებელი X"})
+    assert r4.status_code == 200, r4.text
+    assert r4.json()["data"]["reorder_level"] == "5.00"
+
+    # tool edit + delete
+    r5 = await client.post("/api/v1/maintenance/tools", headers=auth_headers, json={
+        "tool_code": "DRL-001", "name": "ბურღი", "quantity": 1,
+    })
+    tl = r5.json()["data"]
+    r6 = await client.patch(f"/api/v1/maintenance/tools/{tl['id']}", headers=auth_headers, json={"name": "ბურღი პროფ"})
+    assert r6.status_code == 200, r6.text
+    assert r6.json()["data"]["name"] == "ბურღი პროფ"
+
+    assert (await client.delete(f"/api/v1/maintenance/budgets/{b['id']}", headers=auth_headers)).status_code == 200
+    assert (await client.delete(f"/api/v1/maintenance/parts/{pt['id']}", headers=auth_headers)).status_code == 200
+    assert (await client.delete(f"/api/v1/maintenance/tools/{tl['id']}", headers=auth_headers)).status_code == 200
+
+
+async def test_edit_and_delete_config_and_misc(client, auth_headers):
+    # work type edit + delete
+    r = await client.post("/api/v1/maintenance/config/work-types", headers=auth_headers, json={"name": "ტიპი 1", "code": "T1"})
+    wt = r.json()["data"]
+    r2 = await client.patch(f"/api/v1/maintenance/config/work-types/{wt['id']}", headers=auth_headers, json={"name": "ტიპი 1+"})
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["data"]["name"] == "ტიპი 1+"
+    assert (await client.delete(f"/api/v1/maintenance/config/work-types/{wt['id']}", headers=auth_headers)).status_code == 200
+
+    # priority edit + delete
+    r3 = await client.post("/api/v1/maintenance/config/priorities", headers=auth_headers, json={"name": "დაბალი", "level": 3})
+    pr = r3.json()["data"]
+    r4 = await client.patch(f"/api/v1/maintenance/config/priorities/{pr['id']}", headers=auth_headers, json={"level": 4})
+    assert r4.status_code == 200, r4.text
+    assert r4.json()["data"]["level"] == 4
+    assert (await client.delete(f"/api/v1/maintenance/config/priorities/{pr['id']}", headers=auth_headers)).status_code == 200
+
+    # location edit + delete
+    r5 = await client.post("/api/v1/maintenance/locations", headers=auth_headers, json={"name": "ცეხი 1"})
+    loc = r5.json()["data"]
+    r6 = await client.patch(f"/api/v1/maintenance/locations/{loc['id']}", headers=auth_headers, json={"name": "ცეხი 1-A"})
+    assert r6.status_code == 200, r6.text
+    assert r6.json()["data"]["name"] == "ცეხი 1-A"
+    assert (await client.delete(f"/api/v1/maintenance/locations/{loc['id']}", headers=auth_headers)).status_code == 200
+
+    # safety instruction edit + delete
+    r7 = await client.post("/api/v1/maintenance/safety-instructions", headers=auth_headers, json={"title": "ინსტრუქცია 1"})
+    si = r7.json()["data"]
+    r8 = await client.patch(f"/api/v1/maintenance/safety-instructions/{si['id']}", headers=auth_headers, json={"is_mandatory": True})
+    assert r8.status_code == 200, r8.text
+    assert r8.json()["data"]["is_mandatory"] is True
+    assert (await client.delete(f"/api/v1/maintenance/safety-instructions/{si['id']}", headers=auth_headers)).status_code == 200
+
+
+async def test_delete_cascade_order_and_checklist(client, auth_headers):
+    # checklist → delete cascades items
+    r = await client.post("/api/v1/maintenance/checklists", headers=auth_headers, json={
+        "name": "ჩეკლისტი 1", "items": ["პუნქტი 1", "პუნქტი 2"],
+    })
+    c = r.json()["data"]
+    assert (await client.delete(f"/api/v1/maintenance/checklists/{c['id']}", headers=auth_headers)).status_code == 200
+
+    # cost record edit + delete
+    r2 = await client.post("/api/v1/maintenance/cost-records", headers=auth_headers, json={"cost_type": "other", "amount": "10"})
+    cr = r2.json()["data"]
+    r3 = await client.patch(f"/api/v1/maintenance/cost-records/{cr['id']}", headers=auth_headers, json={"amount": "15", "description": "გასწორდა"})
+    assert r3.status_code == 200, r3.text
+    assert r3.json()["data"]["amount"] == "15.00"
+    assert (await client.delete(f"/api/v1/maintenance/cost-records/{cr['id']}", headers=auth_headers)).status_code == 200
+
+    # reliability metric edit + delete
+    r4 = await client.post("/api/v1/maintenance/assets", headers=auth_headers, json={"asset_code": "AST-DEL", "name": "აქტივი დელ"})
+    asset = r4.json()["data"]
+    r5 = await client.post("/api/v1/maintenance/reliability-metrics", headers=auth_headers, json={
+        "asset_id": asset["id"], "period_start": "2026-08-01", "period_end": "2026-08-31", "failures": 1,
+    })
+    rm = r5.json()["data"]
+    r6 = await client.patch(f"/api/v1/maintenance/reliability-metrics/{rm['id']}", headers=auth_headers, json={"failures": 3, "downtime_hours": "4.5"})
+    assert r6.status_code == 200, r6.text
+    assert r6.json()["data"]["failures"] == 3
+    assert (await client.delete(f"/api/v1/maintenance/reliability-metrics/{rm['id']}", headers=auth_headers)).status_code == 200
+
+    # order delete (creates with asset) — verify 404 after
+    r7 = await client.post("/api/v1/maintenance/orders", headers=auth_headers, json={
+        "order_number": "WO-DEL-1", "title": "წასაშლელი დავალება", "asset_id": asset["id"],
+    })
+    o = r7.json()["data"]
+    assert (await client.delete(f"/api/v1/maintenance/orders/{o['id']}", headers=auth_headers)).status_code == 200
+    r8 = await client.patch(f"/api/v1/maintenance/orders/{o['id']}", headers=auth_headers, json={"priority": "high"})
+    assert r8.status_code == 404

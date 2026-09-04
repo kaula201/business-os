@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { Wrench, CalendarClock, Hammer, Plus, CheckCircle2, ClipboardList, CalendarDays, Boxes, MapPin, Gauge, Users, Handshake, Package, Coins, BarChart3, Settings2, Shield } from 'lucide-react'
+import { Wrench, CalendarClock, Hammer, Plus, CheckCircle2, ClipboardList, CalendarDays, Boxes, MapPin, Gauge, Users, Handshake, Package, Coins, BarChart3, Settings2, Shield, Pencil, Trash2 } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
@@ -227,6 +227,94 @@ export default function MaintenancePage() {
     mutationFn: () => maintenanceApi.createNumberingConfig(form),
     onSuccess: () => { setOpen(false); setForm({}); qc.invalidateQueries({ queryKey: ['maint-numbering'] }) },
   })
+
+  // ── P1 audit: generic edit & delete ──
+  const updateMutation = useMutation({
+    mutationFn: ({ kind, id, data }: { kind: string; id: string; data: Record<string, unknown> }) => {
+      switch (kind) {
+        case 'plan': return maintenanceApi.updatePlan(id, data)
+        case 'order': return maintenanceApi.updateOrder(id, data)
+        case 'request': return maintenanceApi.updateRequest(id, data)
+        case 'meter': return maintenanceApi.updateMeter(id, data)
+        case 'asset': return maintenanceApi.updateAsset(id, data)
+        case 'technician': return maintenanceApi.updateTechnician(id, data)
+        case 'contractor': return maintenanceApi.updateContractor(id, data)
+        case 'sla': return maintenanceApi.updateSla(id, data)
+        case 'part': return maintenanceApi.updatePart(id, data)
+        case 'tool': return maintenanceApi.updateTool(id, data)
+        case 'permit': return maintenanceApi.updateWorkPermit(id, data)
+        case 'incident': return maintenanceApi.updateIncident(id, data)
+        case 'budget': return maintenanceApi.updateBudget(id, data)
+        case 'certificate': return maintenanceApi.updateCertificate(id, data)
+        case 'checklist': return maintenanceApi.updateChecklist(id, data)
+        case 'cost': return maintenanceApi.updateCostRecord(id, data)
+        case 'safety': return maintenanceApi.updateSafetyInstruction(id, data)
+        case 'reliability': return maintenanceApi.updateReliabilityMetric(id, data)
+        case 'location': return maintenanceApi.updateLocation(id, data)
+        case 'work-type': return maintenanceApi.updateWorkType(id, data)
+        case 'priority': return maintenanceApi.updatePriority(id, data)
+        case 'status-config': return maintenanceApi.updateStatusConfig(id, data)
+        case 'numbering': return maintenanceApi.updateNumberingConfig(id, data)
+        default: return Promise.reject(new Error('unknown kind ' + kind))
+      }
+    },
+    onSuccess: () => {
+      setOpen(false); setForm({})
+      qc.invalidateQueries({ queryKey: ['maint-plans'] }); qc.invalidateQueries({ queryKey: ['maint-orders'] })
+      qc.invalidateQueries({ queryKey: ['maint-requests'] }); qc.invalidateQueries({ queryKey: ['maint-meters'] })
+      qc.invalidateQueries({ queryKey: ['maint-assets'] }); qc.invalidateQueries({ queryKey: ['maint-technicians'] })
+      qc.invalidateQueries({ queryKey: ['maint-contractors'] }); qc.invalidateQueries({ queryKey: ['maint-slas'] })
+      qc.invalidateQueries({ queryKey: ['maint-parts'] }); qc.invalidateQueries({ queryKey: ['maint-tools'] })
+      qc.invalidateQueries({ queryKey: ['maint-permits'] }); qc.invalidateQueries({ queryKey: ['maint-incidents'] })
+      qc.invalidateQueries({ queryKey: ['maint-budgets'] }); qc.invalidateQueries({ queryKey: ['maint-certificates'] })
+      qc.invalidateQueries({ queryKey: ['maint-checklists'] }); qc.invalidateQueries({ queryKey: ['maint-costs'] })
+      qc.invalidateQueries({ queryKey: ['maint-safety'] }); qc.invalidateQueries({ queryKey: ['maint-reliability'] })
+      qc.invalidateQueries({ queryKey: ['maint-locations'] }); qc.invalidateQueries({ queryKey: ['maint-work-types'] })
+      qc.invalidateQueries({ queryKey: ['maint-priorities'] }); qc.invalidateQueries({ queryKey: ['maint-status-configs'] })
+      qc.invalidateQueries({ queryKey: ['maint-numbering'] })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ kind, id }: { kind: string; id: string }) => {
+      switch (kind) {
+        case 'plan': return maintenanceApi.deletePlan(id)
+        case 'order': return maintenanceApi.deleteOrder(id)
+        case 'request': return maintenanceApi.deleteRequest(id)
+        case 'meter': return maintenanceApi.deleteMeter(id)
+        case 'asset': return maintenanceApi.deleteAsset(id)
+        case 'technician': return maintenanceApi.deleteTechnician(id)
+        case 'contractor': return maintenanceApi.deleteContractor(id)
+        case 'sla': return maintenanceApi.deleteSla(id)
+        case 'part': return maintenanceApi.deletePart(id)
+        case 'tool': return maintenanceApi.deleteTool(id)
+        case 'budget': return maintenanceApi.deleteBudget(id)
+        case 'certificate': return maintenanceApi.deleteCertificate(id)
+        case 'checklist': return maintenanceApi.deleteChecklist(id)
+        case 'cost': return maintenanceApi.deleteCostRecord(id)
+        case 'safety': return maintenanceApi.deleteSafetyInstruction(id)
+        case 'reliability': return maintenanceApi.deleteReliabilityMetric(id)
+        case 'location': return maintenanceApi.deleteLocation(id)
+        case 'work-type': return maintenanceApi.deleteWorkType(id)
+        case 'priority': return maintenanceApi.deletePriority(id)
+        case 'status-config': return maintenanceApi.deleteStatusConfig(id)
+        case 'numbering': return maintenanceApi.deleteNumberingConfig(id)
+        default: return Promise.reject(new Error('unknown kind ' + kind))
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries()
+    },
+  })
+
+  const editItem = (item: Record<string, any>, kind: string) => {
+    setForm({ ...item, kind, id: item.id })
+    setOpen(true)
+  }
+
+  const removeItem = (id: string, kind: string) => {
+    if (window.confirm(t('წავშალოთ?'))) deleteMutation.mutate({ kind, id })
+  }
 
   const openCreate = (kind: string) => {
     setForm({ kind })
@@ -574,6 +662,16 @@ export default function MaintenancePage() {
   }
 
   const submit = () => {
+    // Edit mode: form.id is set → run update mutation
+    if (form.id) {
+      const { id, kind, items_text, ...data } = form
+      if (kind === 'checklist') {
+        updateMutation.mutate({ kind, id, data: { ...data, items: (items_text || '').split(',').map((s: string) => s.trim()).filter(Boolean) } })
+      } else {
+        updateMutation.mutate({ kind, id, data })
+      }
+      return
+    }
     if (form.kind === 'plan') createPlan.mutate()
     else if (form.kind === 'order') createOrder.mutate()
     else if (form.kind === 'asset') createAsset.mutate()
@@ -641,6 +739,7 @@ export default function MaintenancePage() {
                 <th className="px-4 py-3">{t('ინტერვალი')}</th>
                 <th className="px-4 py-3">{t('შემდეგი ვადა')}</th>
                 <th className="px-4 py-3">{t('აქტიური')}</th>
+                  <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-dark-50">
@@ -652,6 +751,7 @@ export default function MaintenancePage() {
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.interval_days} {t('დღე')}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.next_due_at ? fmtDate(new Date(p.next_due_at)) : '—'}</td>
                   <td className="px-4 py-3">{p.is_active ? <span className="badge badge-success">{t('აქტიური')}</span> : <span className="badge">{t('გაჩერებული')}</span>}</td>
+                  <td className="px-4 py-3"><RowActions item={p} kind="plan" onEdit={editItem} onDelete={removeItem} /></td>
                 </tr>
               ))}
             </tbody>
@@ -670,6 +770,7 @@ export default function MaintenancePage() {
                 <th className="px-4 py-3">{t('სტატუსი')}</th>
                 <th className="px-4 py-3">{t('თარიღი')}</th>
                 <th className="px-4 py-3"></th>
+                  <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-dark-50">
@@ -683,6 +784,7 @@ export default function MaintenancePage() {
                   <td className="px-4 py-3"><span className={`badge ${statusBadge(o.status)}`}>{o.status}</span></td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{o.scheduled_date ? fmtDate(new Date(o.scheduled_date)) : '—'}</td>
                   <td className="px-4 py-3">
+                  <td className="px-4 py-3"><RowActions item={o} kind="order" onEdit={editItem} onDelete={removeItem} /></td>
                     {o.status !== 'completed' && (
                       <button onClick={() => updateOrder.mutate({ id: o.id, data: { status: 'completed' } })} className="btn btn-sm btn-success flex items-center gap-1">
                         <CheckCircle2 size={14} /> {t('დასრულება')}
@@ -706,6 +808,7 @@ export default function MaintenancePage() {
                 <th className="px-4 py-3">{t('სტატუსი')}</th>
                 <th className="px-4 py-3">{t('პრიორიტეტი')}</th>
                 <th className="px-4 py-3"></th>
+                  <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-dark-50">
@@ -718,6 +821,7 @@ export default function MaintenancePage() {
                   <td className="px-4 py-3"><span className={`badge ${statusBadge(r.status)}`}>{r.status}</span></td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.priority}</td>
                   <td className="px-4 py-3">
+                  <td className="px-4 py-3"><RowActions item={r} kind="request" onEdit={editItem} onDelete={removeItem} /></td>
                     {r.status !== 'done' && (
                       <button onClick={() => updateRepair.mutate({ id: r.id, data: { status: 'done' } })} className="btn btn-sm btn-success flex items-center gap-1">
                         <CheckCircle2 size={14} /> {t('დასრულება')}
@@ -747,6 +851,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('სტატუსი')}</th>
                   <th className="px-4 py-3">{t('გარანტია')}</th>
                   <th className="px-4 py-3"></th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -761,6 +866,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3"><span className={`badge ${statusBadge(a.status)}`}>{a.status}</span></td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{a.warranty_until ? fmtDate(new Date(a.warranty_until)) : '—'}</td>
                     <td className="px-4 py-3">
+                  <td className="px-4 py-3"><RowActions item={a} kind="asset" onEdit={editItem} onDelete={removeItem} /></td>
                       <button onClick={() => { if (window.confirm(t('წავშალოთ?'))) deleteAsset.mutate(a.id) }} className="text-xs font-semibold text-red-600 hover:underline">{t('წაშლა')}</button>
                     </td>
                   </tr>
@@ -786,6 +892,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('პრიორიტეტი')}</th>
                   <th className="px-4 py-3">{t('სტატუსი')}</th>
                   <th className="px-4 py-3"></th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -799,6 +906,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.priority}</td>
                     <td className="px-4 py-3"><span className={`badge ${statusBadge(r.status)}`}>{r.status}</span></td>
                     <td className="px-4 py-3">
+                  <td className="px-4 py-3"><RowActions item={r} kind="repair" onEdit={editItem} onDelete={removeItem} /></td>
                       {r.status !== 'completed' && (
                         <button onClick={() => updateRequest.mutate({ id: r.id, data: { status: 'completed' } })} className="btn btn-sm btn-success flex items-center gap-1">
                           <CheckCircle2 size={14} /> {t('დასრულება')}
@@ -827,6 +935,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('ერთეული')}</th>
                   <th className="px-4 py-3">{t('მიმდინარე მნიშვნელობა')}</th>
                   <th className="px-4 py-3">{t('ბოლო წაკითხვა')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -839,6 +948,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{m.unit}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{m.current_value}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{m.last_reading_at ? fmtDate(new Date(m.last_reading_at)) : '—'}</td>
+                  <td className="px-4 py-3"><RowActions item={m} kind="meter" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -858,6 +968,7 @@ export default function MaintenancePage() {
                 <tr>
                   <th className="px-4 py-3">{t('სახელი')}</th>
                   <th className="px-4 py-3">{t('აღწერა')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -867,6 +978,7 @@ export default function MaintenancePage() {
                   <tr key={l.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{l.name}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{l.description || '—'}</td>
+                  <td className="px-4 py-3"><RowActions item={l} kind="location" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -889,6 +1001,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('ტელეფონი')}</th>
                   <th className="px-4 py-3">{t('საათობრივი ტარიფი')}</th>
                   <th className="px-4 py-3">{t('სტატუსი')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -901,6 +1014,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{t.phone || '—'}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{t.hourly_rate} ₾</td>
                     <td className="px-4 py-3">{t.is_active ? <span className="badge badge-success">{t('აქტიური')}</span> : <span className="badge">{t('გაჩერებული')}</span>}</td>
+                  <td className="px-4 py-3"><RowActions item={t} kind="technician" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -922,6 +1036,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('საკონტაქტო პირი')}</th>
                   <th className="px-4 py-3">{t('სპეციალიზაცია')}</th>
                   <th className="px-4 py-3">{t('საათობრივი ტარიფი')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -933,6 +1048,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.contact_person || '—'}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.specialization || '—'}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.hourly_rate} ₾</td>
+                  <td className="px-4 py-3"><RowActions item={c} kind="contractor" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -957,6 +1073,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('მინ. მარაგი')}</th>
                   <th className="px-4 py-3">{t('ფასი')}</th>
                   <th className="px-4 py-3">{t('სტატუსი')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -971,6 +1088,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.reorder_level}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.unit_cost} ₾</td>
                     <td className="px-4 py-3">{p.is_low ? <span className="badge badge-danger">{t('დეფიციტი')}</span> : <span className="badge badge-success">{t('ნორმაში')}</span>}</td>
+                  <td className="px-4 py-3"><RowActions item={p} kind="part" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -988,6 +1106,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('რაოდენობა')}</th>
                   <th className="px-4 py-3">{t('სტატუსი')}</th>
                   <th className="px-4 py-3">{t('მოთხოვნილია')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1001,6 +1120,7 @@ export default function MaintenancePage() {
                       {pr.status === 'issued' ? <span className="badge badge-success">{t('გაცემული')}</span> : pr.status === 'reserved' ? <span className="badge">{t('რეზერვირებული')}</span> : <span className="badge badge-warning">{t('მოთხოვნილი')}</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{pr.requested_at ? fmtDate(new Date(pr.requested_at)) : '—'}</td>
+                  <td className="px-4 py-3"><RowActions item={pr} kind="part-request" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1019,6 +1139,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('კატეგორია')}</th>
                   <th className="px-4 py-3">{t('ხელმისაწვდომი')}</th>
                   <th className="px-4 py-3">{t('სტატუსი')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1031,6 +1152,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tl.category || '—'}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tl.available} / {tl.quantity}</td>
                     <td className="px-4 py-3">{tl.status === 'available' ? <span className="badge badge-success">{t('ხელმისაწვდომი')}</span> : <span className="badge badge-warning">{t('გაცემული')}</span>}</td>
+                  <td className="px-4 py-3"><RowActions item={tl} kind="tool" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1049,6 +1171,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('გაცემულია')}</th>
                   <th className="px-4 py-3">{t('დაბრუნებულია')}</th>
                   <th className="px-4 py-3"></th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1061,6 +1184,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{ti.issued_at ? fmtDate(new Date(ti.issued_at)) : '—'}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{ti.returned_at ? fmtDate(new Date(ti.returned_at)) : <span className="badge badge-warning">{t('გაცემულია')}</span>}</td>
                     <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3"><RowActions item={ti} kind="tool-issue" onEdit={editItem} onDelete={removeItem} /></td>
                       {!ti.returned_at && (
                         <button onClick={() => returnTool.mutate(ti.id)} className="btn btn-sm btn-outline">{t('დაბრუნება')}</button>
                       )}
@@ -1085,6 +1209,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('სათაური')}</th>
                   <th className="px-4 py-3">{t('კატეგორია')}</th>
                   <th className="px-4 py-3">{t('სავალდებულო')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1095,6 +1220,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{s.title}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{s.category || '—'}</td>
                     <td className="px-4 py-3">{s.is_mandatory ? <span className="badge badge-danger">{t('სავალდებულო')}</span> : <span className="badge">{t('რეკომენდებული')}</span>}</td>
+                  <td className="px-4 py-3"><RowActions item={s} kind="safety" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1113,6 +1239,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('რისკი')}</th>
                   <th className="px-4 py-3">{t('სტატუსი')}</th>
                   <th className="px-4 py-3"></th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1129,6 +1256,7 @@ export default function MaintenancePage() {
                       {w.status === 'approved' ? <span className="badge badge-success">{t('დამტკიცებული')}</span> : w.status === 'rejected' ? <span className="badge badge-danger">{t('უარყოფილი')}</span> : <span className="badge badge-warning">{t('ნახაზი')}</span>}
                     </td>
                     <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3"><RowActions item={w} kind="permit" onEdit={editItem} onDelete={removeItem} /></td>
                       {w.status === 'draft' && (
                         <button onClick={() => approveWorkPermit.mutate(w.id)} className="btn btn-sm btn-outline">{t('დამტკიცება')}</button>
                       )}
@@ -1150,6 +1278,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('კატეგორია')}</th>
                   <th className="px-4 py-3">{t('პუნქტები')}</th>
                   <th className="px-4 py-3">{t('სავალდებულო')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1161,6 +1290,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.category || '—'}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.item_count}</td>
                     <td className="px-4 py-3">{c.is_mandatory ? <span className="badge badge-danger">{t('სავალდებულო')}</span> : <span className="badge">{t('რეკომენდებული')}</span>}</td>
+                  <td className="px-4 py-3"><RowActions item={c} kind="checklist" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1179,6 +1309,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('სიმძიმე')}</th>
                   <th className="px-4 py-3">{t('სტატუსი')}</th>
                   <th className="px-4 py-3"></th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1195,6 +1326,7 @@ export default function MaintenancePage() {
                       {i.status === 'resolved' || i.status === 'closed' ? <span className="badge badge-success">{t('მოგვარებული')}</span> : <span className="badge badge-warning">{t('ღია')}</span>}
                     </td>
                     <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3"><RowActions item={i} kind="incident" onEdit={editItem} onDelete={removeItem} /></td>
                       {i.status === 'open' && (
                         <button onClick={() => resolveIncident.mutate(i.id)} className="btn btn-sm btn-outline">{t('მოგვარება')}</button>
                       )}
@@ -1221,6 +1353,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('აქტივი')}</th>
                   <th className="px-4 py-3">{t('თანხა')}</th>
                   <th className="px-4 py-3">{t('თარიღი')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1235,6 +1368,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.asset_name || c.order_number || '—'}</td>
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{c.amount} ₾</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.incurred_at ? fmtDate(new Date(c.incurred_at)) : '—'}</td>
+                  <td className="px-4 py-3"><RowActions item={c} kind="cost" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1253,6 +1387,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('დაგეგმილი')}</th>
                   <th className="px-4 py-3">{t('დახარჯული')}</th>
                   <th className="px-4 py-3">{t('ათვისება')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1269,6 +1404,7 @@ export default function MaintenancePage() {
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{b.planned_amount} ₾</td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{b.spent_amount} ₾</td>
                       <td className="px-4 py-3">
+                  <td className="px-4 py-3"><RowActions item={b} kind="budget" onEdit={editItem} onDelete={removeItem} /></td>
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-100">
                             <div className={`h-full rounded-full ${pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
@@ -1319,6 +1455,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('დაზიანებები')}</th>
                   <th className="px-4 py-3">MTTR</th>
                   <th className="px-4 py-3">MTBF</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1332,6 +1469,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{m.failures}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{m.mttr_hours} სთ</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{m.mtbf_hours} სთ</td>
+                  <td className="px-4 py-3"><RowActions item={m} kind="reliability" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1352,6 +1490,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('სახელი')}</th>
                   <th className="px-4 py-3">{t('კოდი')}</th>
                   <th className="px-4 py-3">{t('სტატუსი')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1362,6 +1501,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{w.name}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{w.code || '—'}</td>
                     <td className="px-4 py-3">{w.is_active ? <span className="badge badge-success">{t('აქტიური')}</span> : <span className="badge">{t('გაჩერებული')}</span>}</td>
+                  <td className="px-4 py-3"><RowActions item={w} kind="work-type" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1378,6 +1518,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('სახელი')}</th>
                   <th className="px-4 py-3">{t('დონე')}</th>
                   <th className="px-4 py-3">{t('ფერი')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1388,6 +1529,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{p.name}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.level}</td>
                     <td className="px-4 py-3">
+                  <td className="px-4 py-3"><RowActions item={p} kind="priority" onEdit={editItem} onDelete={removeItem} /></td>
                       <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: p.color || '#ccc' }} />
                     </td>
                   </tr>
@@ -1406,6 +1548,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('სახელი')}</th>
                   <th className="px-4 py-3">{t('კოდი')}</th>
                   <th className="px-4 py-3">{t('დახურული')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1416,6 +1559,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{s.name}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{s.code}</td>
                     <td className="px-4 py-3">{s.is_closed ? <span className="badge badge-success">{t('დიახ')}</span> : <span className="badge">{t('არა')}</span>}</td>
+                  <td className="px-4 py-3"><RowActions item={s} kind="status-config" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1432,6 +1576,7 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">{t('ერთეული')}</th>
                   <th className="px-4 py-3">{t('პრეფიქსი')}</th>
                   <th className="px-4 py-3">{t('შემდეგი ნომერი')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
@@ -1442,6 +1587,7 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{n.entity}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{n.prefix}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{n.next_number}</td>
+                  <td className="px-4 py-3"><RowActions item={n} kind="numbering" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1463,6 +1609,30 @@ export default function MaintenancePage() {
           </div>
         </div>
       </Modal>
+    </div>
+  )
+}
+
+// ── P1 audit: row action buttons (edit / delete) ────────────────────────────
+
+function RowActions({ item, kind, onEdit, onDelete }: { item: any; kind: string; onEdit: (item: any, kind: string) => void; onDelete: (id: string, kind: string) => void }) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <button
+        onClick={(e) => { e.preventDefault(); onEdit(item, kind) }}
+        title={t('რედაქტირება')}
+        className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30"
+      >
+        <Pencil size={14} />
+      </button>
+      <button
+        onClick={(e) => { e.preventDefault(); onDelete(item.id, kind) }}
+        title={t('წაშლა')}
+        className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30"
+      >
+        <Trash2 size={14} />
+      </button>
     </div>
   )
 }

@@ -4,7 +4,7 @@ from decimal import Decimal
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -92,6 +92,18 @@ from app.schemas.maintenance import (
     MaintenanceIncidentUpdate,
     MaintenanceNumberingConfigCreate,
     MaintenanceNumberingConfigResponse,
+    MaintenanceAssetCategoryUpdate,
+    MaintenanceLocationUpdate,
+    MaintenanceBudgetUpdate,
+    MaintenanceCertificateUpdate,
+    MaintenanceChecklistUpdate,
+    MaintenanceCostRecordUpdate,
+    MaintenanceSafetyInstructionUpdate,
+    MaintenanceReliabilityMetricUpdate,
+    MaintenanceWorkTypeUpdate,
+    MaintenancePriorityUpdate,
+    MaintenanceStatusConfigUpdate,
+    MaintenanceNumberingConfigUpdate,
     MaintenancePriorityCreate,
     MaintenancePriorityResponse,
     MaintenanceReliabilityMetricCreate,
@@ -1459,3 +1471,555 @@ async def create_numbering_config(
     db.add(n)
     await db.flush()
     return ResponseBase(data=MaintenanceNumberingConfigResponse.model_validate(n), message="ნომერაცია დაემატა")
+
+
+# ── P1 Audit: Edit & Delete support ─────────────────────────────────────────────
+
+@router.patch("/asset-categories/{item_id}", response_model=ResponseBase[MaintenanceAssetCategoryResponse])
+async def update_asset_category(
+    item_id: uuid.UUID,
+    data: MaintenanceAssetCategoryUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = (await db.execute(select(MaintenanceAssetCategory).where(MaintenanceAssetCategory.id == item_id, MaintenanceAssetCategory.company_id == current_user.company_id))).scalar_one_or_none()
+    if not c:
+        raise HTTPException(status_code=404, detail="კატეგორია არ მოიძებნა")
+    for f, v in data.model_dump(exclude_unset=True).items():
+        setattr(c, f, v)
+    await db.flush()
+    return ResponseBase(data=MaintenanceAssetCategoryResponse.model_validate(c), message="კატეგორია განახლდა")
+
+
+@router.delete("/asset-categories/{item_id}", response_model=ResponseBase)
+async def delete_asset_category(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = (await db.execute(select(MaintenanceAssetCategory).where(MaintenanceAssetCategory.id == item_id, MaintenanceAssetCategory.company_id == current_user.company_id))).scalar_one_or_none()
+    if not c:
+        raise HTTPException(status_code=404, detail="კატეგორია არ მოიძებნა")
+    await db.delete(c)
+    await db.flush()
+    return ResponseBase(message="კატეგორია წაიშალა")
+
+
+@router.patch("/locations/{item_id}", response_model=ResponseBase[MaintenanceLocationResponse])
+async def update_location(
+    item_id: uuid.UUID,
+    data: MaintenanceLocationUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    l = (await db.execute(select(MaintenanceLocation).where(MaintenanceLocation.id == item_id, MaintenanceLocation.company_id == current_user.company_id))).scalar_one_or_none()
+    if not l:
+        raise HTTPException(status_code=404, detail="მდებარეობა არ მოიძებნა")
+    for f, v in data.model_dump(exclude_unset=True).items():
+        setattr(l, f, v)
+    await db.flush()
+    return ResponseBase(data=MaintenanceLocationResponse.model_validate(l), message="მდებარეობა განახლდა")
+
+
+@router.delete("/locations/{item_id}", response_model=ResponseBase)
+async def delete_location(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    l = (await db.execute(select(MaintenanceLocation).where(MaintenanceLocation.id == item_id, MaintenanceLocation.company_id == current_user.company_id))).scalar_one_or_none()
+    if not l:
+        raise HTTPException(status_code=404, detail="მდებარეობა არ მოიძებნა")
+    await db.delete(l)
+    await db.flush()
+    return ResponseBase(message="მდებარეობა წაიშალა")
+
+
+@router.patch("/budgets/{budget_id}", response_model=ResponseBase[MaintenanceBudgetResponse])
+async def update_budget(
+    budget_id: uuid.UUID,
+    data: MaintenanceBudgetUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    b = (await db.execute(select(MaintenanceBudget).where(MaintenanceBudget.id == budget_id, MaintenanceBudget.company_id == current_user.company_id))).scalar_one_or_none()
+    if not b:
+        raise HTTPException(status_code=404, detail="ბიუჯეტი არ მოიძებნა")
+    for f, v in data.model_dump(exclude_unset=True).items():
+        setattr(b, f, v)
+    await db.flush()
+    await db.refresh(b)
+    spent = (await db.execute(select(func.coalesce(func.sum(MaintenanceCostRecord.amount), 0)).where(
+        MaintenanceCostRecord.company_id == current_user.company_id,
+        MaintenanceCostRecord.incurred_at >= datetime.combine(b.period_start, datetime.min.time()),
+        MaintenanceCostRecord.incurred_at <= datetime.combine(b.period_end, datetime.max.time()),
+    ))).scalar_one()
+    return ResponseBase(data=MaintenanceBudgetResponse.model_validate(b).model_copy(update={"spent_amount": Decimal(str(spent))}), message="ბიუჯეტი განახლდა")
+
+
+@router.delete("/budgets/{budget_id}", response_model=ResponseBase)
+async def delete_budget(
+    budget_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    b = (await db.execute(select(MaintenanceBudget).where(MaintenanceBudget.id == budget_id, MaintenanceBudget.company_id == current_user.company_id))).scalar_one_or_none()
+    if not b:
+        raise HTTPException(status_code=404, detail="ბიუჯეტი არ მოიძებნა")
+    await db.delete(b)
+    await db.flush()
+    return ResponseBase(message="ბიუჯეტი წაიშალა")
+
+
+@router.patch("/certificates/{certificate_id}", response_model=ResponseBase[MaintenanceCertificateResponse])
+async def update_certificate(
+    certificate_id: uuid.UUID,
+    data: MaintenanceCertificateUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = (await db.execute(select(MaintenanceCertificate).where(MaintenanceCertificate.id == certificate_id, MaintenanceCertificate.company_id == current_user.company_id))).scalar_one_or_none()
+    if not c:
+        raise HTTPException(status_code=404, detail="სერტიფიკატი არ მოიძებნა")
+    for f, v in data.model_dump(exclude_unset=True).items():
+        setattr(c, f, v)
+    await db.flush()
+    await db.refresh(c)
+    tech_name = (await db.execute(select(MaintenanceTechnician.name).where(MaintenanceTechnician.id == c.technician_id))).scalar_one_or_none()
+    return ResponseBase(data=MaintenanceCertificateResponse.model_validate(c).model_copy(update={"technician_name": tech_name}), message="სერტიფიკატი განახლდა")
+
+
+@router.delete("/certificates/{certificate_id}", response_model=ResponseBase)
+async def delete_certificate(
+    certificate_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = (await db.execute(select(MaintenanceCertificate).where(MaintenanceCertificate.id == certificate_id, MaintenanceCertificate.company_id == current_user.company_id))).scalar_one_or_none()
+    if not c:
+        raise HTTPException(status_code=404, detail="სერტიფიკატი არ მოიძებნა")
+    await db.delete(c)
+    await db.flush()
+    return ResponseBase(message="სერტიფიკატი წაიშალა")
+
+
+@router.patch("/checklists/{checklist_id}", response_model=ResponseBase[MaintenanceChecklistResponse])
+async def update_checklist(
+    checklist_id: uuid.UUID,
+    data: MaintenanceChecklistUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = (await db.execute(select(MaintenanceChecklist).where(MaintenanceChecklist.id == checklist_id, MaintenanceChecklist.company_id == current_user.company_id))).scalar_one_or_none()
+    if not c:
+        raise HTTPException(status_code=404, detail="ჩეკლისტი არ მოიძებნა")
+    for f, v in data.model_dump(exclude_unset=True).items():
+        setattr(c, f, v)
+    await db.flush()
+    item_count = (await db.execute(select(func.count(MaintenanceChecklistItem.id)).where(MaintenanceChecklistItem.checklist_id == c.id))).scalar_one()
+    return ResponseBase(data=MaintenanceChecklistResponse.model_validate(c).model_copy(update={"item_count": item_count}), message="ჩეკლისტი განახლდა")
+
+
+@router.delete("/checklists/{checklist_id}", response_model=ResponseBase)
+async def delete_checklist(
+    checklist_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = (await db.execute(select(MaintenanceChecklist).where(MaintenanceChecklist.id == checklist_id, MaintenanceChecklist.company_id == current_user.company_id))).scalar_one_or_none()
+    if not c:
+        raise HTTPException(status_code=404, detail="ჩეკლისტი არ მოიძებნა")
+    await db.execute(delete(MaintenanceChecklistItem).where(MaintenanceChecklistItem.checklist_id == c.id))
+    await db.delete(c)
+    await db.flush()
+    return ResponseBase(message="ჩეკლისტი წაიშალა")
+
+
+@router.patch("/cost-records/{record_id}", response_model=ResponseBase[MaintenanceCostRecordResponse])
+async def update_cost_record(
+    record_id: uuid.UUID,
+    data: MaintenanceCostRecordUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = (await db.execute(select(MaintenanceCostRecord).where(MaintenanceCostRecord.id == record_id, MaintenanceCostRecord.company_id == current_user.company_id))).scalar_one_or_none()
+    if not c:
+        raise HTTPException(status_code=404, detail="ხარჯი არ მოიძებნა")
+    for f, v in data.model_dump(exclude_unset=True).items():
+        setattr(c, f, v)
+    await db.flush()
+    await db.refresh(c)
+    order_number = (await db.execute(select(MaintenanceOrder.order_number).where(MaintenanceOrder.id == c.order_id))).scalar_one_or_none() if c.order_id else None
+    asset_name = (await db.execute(select(MaintenanceAsset.name).where(MaintenanceAsset.id == c.asset_id))).scalar_one_or_none() if c.asset_id else None
+    return ResponseBase(data=MaintenanceCostRecordResponse.model_validate(c).model_copy(update={"order_number": order_number, "asset_name": asset_name}), message="ხარჯი განახლდა")
+
+
+@router.delete("/cost-records/{record_id}", response_model=ResponseBase)
+async def delete_cost_record(
+    record_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = (await db.execute(select(MaintenanceCostRecord).where(MaintenanceCostRecord.id == record_id, MaintenanceCostRecord.company_id == current_user.company_id))).scalar_one_or_none()
+    if not c:
+        raise HTTPException(status_code=404, detail="ხარჯი არ მოიძებნა")
+    await db.delete(c)
+    await db.flush()
+    return ResponseBase(message="ხარჯი წაიშალა")
+
+
+@router.patch("/safety-instructions/{instruction_id}", response_model=ResponseBase[MaintenanceSafetyInstructionResponse])
+async def update_safety_instruction(
+    instruction_id: uuid.UUID,
+    data: MaintenanceSafetyInstructionUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    s = (await db.execute(select(MaintenanceSafetyInstruction).where(MaintenanceSafetyInstruction.id == instruction_id, MaintenanceSafetyInstruction.company_id == current_user.company_id))).scalar_one_or_none()
+    if not s:
+        raise HTTPException(status_code=404, detail="ინსტრუქცია არ მოიძებნა")
+    for f, v in data.model_dump(exclude_unset=True).items():
+        setattr(s, f, v)
+    await db.flush()
+    return ResponseBase(data=MaintenanceSafetyInstructionResponse.model_validate(s), message="ინსტრუქცია განახლდა")
+
+
+@router.delete("/safety-instructions/{instruction_id}", response_model=ResponseBase)
+async def delete_safety_instruction(
+    instruction_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    s = (await db.execute(select(MaintenanceSafetyInstruction).where(MaintenanceSafetyInstruction.id == instruction_id, MaintenanceSafetyInstruction.company_id == current_user.company_id))).scalar_one_or_none()
+    if not s:
+        raise HTTPException(status_code=404, detail="ინსტრუქცია არ მოიძებნა")
+    await db.delete(s)
+    await db.flush()
+    return ResponseBase(message="ინსტრუქცია წაიშალა")
+
+
+@router.patch("/reliability-metrics/{metric_id}", response_model=ResponseBase[MaintenanceReliabilityMetricResponse])
+async def update_reliability_metric(
+    metric_id: uuid.UUID,
+    data: MaintenanceReliabilityMetricUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    m = (await db.execute(select(MaintenanceReliabilityMetric).where(MaintenanceReliabilityMetric.id == metric_id, MaintenanceReliabilityMetric.company_id == current_user.company_id))).scalar_one_or_none()
+    if not m:
+        raise HTTPException(status_code=404, detail="მეტრიკა არ მოიძებნა")
+    for f, v in data.model_dump(exclude_unset=True).items():
+        setattr(m, f, v)
+    await db.flush()
+    await db.refresh(m)
+    asset_name = (await db.execute(select(MaintenanceAsset.name).where(MaintenanceAsset.id == m.asset_id))).scalar_one_or_none()
+    return ResponseBase(data=MaintenanceReliabilityMetricResponse.model_validate(m).model_copy(update={"asset_name": asset_name}), message="მეტრიკა განახლდა")
+
+
+@router.delete("/reliability-metrics/{metric_id}", response_model=ResponseBase)
+async def delete_reliability_metric(
+    metric_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    m = (await db.execute(select(MaintenanceReliabilityMetric).where(MaintenanceReliabilityMetric.id == metric_id, MaintenanceReliabilityMetric.company_id == current_user.company_id))).scalar_one_or_none()
+    if not m:
+        raise HTTPException(status_code=404, detail="მეტრიკა არ მოიძებნა")
+    await db.delete(m)
+    await db.flush()
+    return ResponseBase(message="მეტრიკა წაიშალა")
+
+
+@router.patch("/config/work-types/{item_id}", response_model=ResponseBase[MaintenanceWorkTypeResponse])
+async def update_work_type(
+    item_id: uuid.UUID,
+    data: MaintenanceWorkTypeUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    w = (await db.execute(select(MaintenanceWorkType).where(MaintenanceWorkType.id == item_id, MaintenanceWorkType.company_id == current_user.company_id))).scalar_one_or_none()
+    if not w:
+        raise HTTPException(status_code=404, detail="ტიპი არ მოიძებნა")
+    for f, v in data.model_dump(exclude_unset=True).items():
+        setattr(w, f, v)
+    await db.flush()
+    return ResponseBase(data=MaintenanceWorkTypeResponse.model_validate(w), message="ტიპი განახლდა")
+
+
+@router.delete("/config/work-types/{item_id}", response_model=ResponseBase)
+async def delete_work_type(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    w = (await db.execute(select(MaintenanceWorkType).where(MaintenanceWorkType.id == item_id, MaintenanceWorkType.company_id == current_user.company_id))).scalar_one_or_none()
+    if not w:
+        raise HTTPException(status_code=404, detail="ტიპი არ მოიძებნა")
+    await db.delete(w)
+    await db.flush()
+    return ResponseBase(message="ტიპი წაიშალა")
+
+
+@router.patch("/config/priorities/{item_id}", response_model=ResponseBase[MaintenancePriorityResponse])
+async def update_priority(
+    item_id: uuid.UUID,
+    data: MaintenancePriorityUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    p = (await db.execute(select(MaintenancePriority).where(MaintenancePriority.id == item_id, MaintenancePriority.company_id == current_user.company_id))).scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="პრიორიტეტი არ მოიძებნა")
+    for f, v in data.model_dump(exclude_unset=True).items():
+        setattr(p, f, v)
+    await db.flush()
+    return ResponseBase(data=MaintenancePriorityResponse.model_validate(p), message="პრიორიტეტი განახლდა")
+
+
+@router.delete("/config/priorities/{item_id}", response_model=ResponseBase)
+async def delete_priority(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    p = (await db.execute(select(MaintenancePriority).where(MaintenancePriority.id == item_id, MaintenancePriority.company_id == current_user.company_id))).scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="პრიორიტეტი არ მოიძებნა")
+    await db.delete(p)
+    await db.flush()
+    return ResponseBase(message="პრიორიტეტი წაიშალა")
+
+
+@router.patch("/config/statuses/{item_id}", response_model=ResponseBase[MaintenanceStatusConfigResponse])
+async def update_status_config(
+    item_id: uuid.UUID,
+    data: MaintenanceStatusConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    s = (await db.execute(select(MaintenanceStatusConfig).where(MaintenanceStatusConfig.id == item_id, MaintenanceStatusConfig.company_id == current_user.company_id))).scalar_one_or_none()
+    if not s:
+        raise HTTPException(status_code=404, detail="სტატუსი არ მოიძებნა")
+    for f, v in data.model_dump(exclude_unset=True).items():
+        setattr(s, f, v)
+    await db.flush()
+    return ResponseBase(data=MaintenanceStatusConfigResponse.model_validate(s), message="სტატუსი განახლდა")
+
+
+@router.delete("/config/statuses/{item_id}", response_model=ResponseBase)
+async def delete_status_config(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    s = (await db.execute(select(MaintenanceStatusConfig).where(MaintenanceStatusConfig.id == item_id, MaintenanceStatusConfig.company_id == current_user.company_id))).scalar_one_or_none()
+    if not s:
+        raise HTTPException(status_code=404, detail="სტატუსი არ მოიძებნა")
+    await db.delete(s)
+    await db.flush()
+    return ResponseBase(message="სტატუსი წაიშალა")
+
+
+@router.patch("/config/numbering/{item_id}", response_model=ResponseBase[MaintenanceNumberingConfigResponse])
+async def update_numbering_config(
+    item_id: uuid.UUID,
+    data: MaintenanceNumberingConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    n = (await db.execute(select(MaintenanceNumberingConfig).where(MaintenanceNumberingConfig.id == item_id, MaintenanceNumberingConfig.company_id == current_user.company_id))).scalar_one_or_none()
+    if not n:
+        raise HTTPException(status_code=404, detail="ნომერაცია არ მოიძებნა")
+    for f, v in data.model_dump(exclude_unset=True).items():
+        setattr(n, f, v)
+    await db.flush()
+    return ResponseBase(data=MaintenanceNumberingConfigResponse.model_validate(n), message="ნომერაცია განახლდა")
+
+
+@router.delete("/config/numbering/{item_id}", response_model=ResponseBase)
+async def delete_numbering_config(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    n = (await db.execute(select(MaintenanceNumberingConfig).where(MaintenanceNumberingConfig.id == item_id, MaintenanceNumberingConfig.company_id == current_user.company_id))).scalar_one_or_none()
+    if not n:
+        raise HTTPException(status_code=404, detail="ნომერაცია არ მოიძებნა")
+    await db.delete(n)
+    await db.flush()
+    return ResponseBase(message="ნომერაცია წაიშალა")
+
+
+# ── P1 Audit: Delete endpoints (remaining 11 resources) ───────────────────────
+
+@router.delete("/plans/{plan_id}", response_model=ResponseBase)
+async def delete_plan(
+    plan_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    pl = (await db.execute(select(MaintenancePlan).where(MaintenancePlan.id == plan_id, MaintenancePlan.company_id == current_user.company_id))).scalar_one_or_none()
+    if not pl:
+        raise HTTPException(status_code=404, detail="გეგმა არ მოიძებნა")
+    await db.execute(delete(MaintenanceOrder).where(MaintenanceOrder.plan_id == plan_id, MaintenanceOrder.company_id == current_user.company_id))
+    await db.delete(pl)
+    await db.flush()
+    return ResponseBase(message="გეგმა წაიშალა")
+
+
+@router.delete("/orders/{order_id}", response_model=ResponseBase)
+async def delete_order(
+    order_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    o = (await db.execute(select(MaintenanceOrder).where(MaintenanceOrder.id == order_id, MaintenanceOrder.company_id == current_user.company_id))).scalar_one_or_none()
+    if not o:
+        raise HTTPException(status_code=404, detail="დავალება არ მოიძებნა")
+    await db.execute(delete(MaintenancePartRequest).where(MaintenancePartRequest.order_id == order_id))
+    await db.execute(delete(MaintenanceCostRecord).where(MaintenanceCostRecord.order_id == order_id))
+    await db.execute(delete(MaintenanceWorkPermit).where(MaintenanceWorkPermit.order_id == order_id))
+    await db.delete(o)
+    await db.flush()
+    return ResponseBase(message="დავალება წაიშალა")
+
+
+@router.delete("/requests/{request_id}", response_model=ResponseBase)
+async def delete_request(
+    request_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    r = (await db.execute(select(MaintenanceRequest).where(MaintenanceRequest.id == request_id, MaintenanceRequest.company_id == current_user.company_id))).scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="მოთხოვნა არ მოიძებნა")
+    orders = (await db.execute(select(MaintenanceOrder).where(MaintenanceOrder.request_id == request_id))).scalars().all()
+    for o in orders:
+        o.request_id = None
+    await db.delete(r)
+    await db.flush()
+    return ResponseBase(message="მოთხოვნა წაიშალა")
+
+
+@router.delete("/meters/{meter_id}", response_model=ResponseBase)
+async def delete_meter(
+    meter_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    m = (await db.execute(select(MaintenanceMeter).where(MaintenanceMeter.id == meter_id, MaintenanceMeter.company_id == current_user.company_id))).scalar_one_or_none()
+    if not m:
+        raise HTTPException(status_code=404, detail="მრიცხველი არ მოიძებნა")
+    await db.delete(m)
+    await db.flush()
+    return ResponseBase(message="მრიცხველი წაიშალა")
+
+
+@router.delete("/technicians/{technician_id}", response_model=ResponseBase)
+async def delete_technician(
+    technician_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    t = (await db.execute(select(MaintenanceTechnician).where(MaintenanceTechnician.id == technician_id, MaintenanceTechnician.company_id == current_user.company_id))).scalar_one_or_none()
+    if not t:
+        raise HTTPException(status_code=404, detail="ტექნიკოსი არ მოიძებნა")
+    await db.execute(delete(MaintenanceTeamMember).where(MaintenanceTeamMember.technician_id == technician_id))
+    await db.execute(delete(MaintenanceCertificate).where(MaintenanceCertificate.technician_id == technician_id))
+    await db.execute(delete(MaintenanceToolIssue).where(MaintenanceToolIssue.technician_id == technician_id))
+    await db.delete(t)
+    await db.flush()
+    return ResponseBase(message="ტექნიკოსი წაიშალა")
+
+
+@router.delete("/contractors/{contractor_id}", response_model=ResponseBase)
+async def delete_contractor(
+    contractor_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = (await db.execute(select(MaintenanceContractor).where(MaintenanceContractor.id == contractor_id, MaintenanceContractor.company_id == current_user.company_id))).scalar_one_or_none()
+    if not c:
+        raise HTTPException(status_code=404, detail="კონტრაქტორი არ მოიძებნა")
+    await db.execute(delete(MaintenanceSLA).where(MaintenanceSLA.contractor_id == contractor_id))
+    await db.delete(c)
+    await db.flush()
+    return ResponseBase(message="კონტრაქტორი წაიშალა")
+
+
+@router.delete("/slas/{sla_id}", response_model=ResponseBase)
+async def delete_sla(
+    sla_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    s = (await db.execute(select(MaintenanceSLA).where(MaintenanceSLA.id == sla_id, MaintenanceSLA.company_id == current_user.company_id))).scalar_one_or_none()
+    if not s:
+        raise HTTPException(status_code=404, detail="SLA არ მოიძებნა")
+    await db.delete(s)
+    await db.flush()
+    return ResponseBase(message="SLA წაიშალა")
+
+
+@router.delete("/parts/{part_id}", response_model=ResponseBase)
+async def delete_part(
+    part_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    pt = (await db.execute(select(MaintenancePart).where(MaintenancePart.id == part_id, MaintenancePart.company_id == current_user.company_id))).scalar_one_or_none()
+    if not pt:
+        raise HTTPException(status_code=404, detail="ნაწილი არ მოიძებნა")
+    await db.execute(delete(MaintenancePartRequest).where(MaintenancePartRequest.part_id == part_id))
+    await db.delete(pt)
+    await db.flush()
+    return ResponseBase(message="ნაწილი წაიშალა")
+
+
+@router.delete("/part-requests/{request_id}", response_model=ResponseBase)
+async def delete_part_request(
+    request_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    r = (await db.execute(select(MaintenancePartRequest).where(MaintenancePartRequest.id == request_id, MaintenancePartRequest.company_id == current_user.company_id))).scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="მოთხოვნა არ მოიძებნა")
+    await db.delete(r)
+    await db.flush()
+    return ResponseBase(message="მოთხოვნა წაიშალა")
+
+
+@router.delete("/tools/{tool_id}", response_model=ResponseBase)
+async def delete_tool(
+    tool_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    t = (await db.execute(select(MaintenanceTool).where(MaintenanceTool.id == tool_id, MaintenanceTool.company_id == current_user.company_id))).scalar_one_or_none()
+    if not t:
+        raise HTTPException(status_code=404, detail="ხელსაწყო არ მოიძებნა")
+    await db.execute(delete(MaintenanceToolIssue).where(MaintenanceToolIssue.tool_id == tool_id))
+    await db.delete(t)
+    await db.flush()
+    return ResponseBase(message="ხელსაწყო წაიშალა")
+
+
+@router.delete("/tool-issues/{issue_id}", response_model=ResponseBase)
+async def delete_tool_issue(
+    issue_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    i = (await db.execute(select(MaintenanceToolIssue).where(MaintenanceToolIssue.id == issue_id, MaintenanceToolIssue.company_id == current_user.company_id))).scalar_one_or_none()
+    if not i:
+        raise HTTPException(status_code=404, detail="გაცემა არ მოიძებნა")
+    if i.returned_at is None:
+        tool = (await db.execute(select(MaintenanceTool).where(MaintenanceTool.id == i.tool_id))).scalar_one_or_none()
+        if tool:
+            tool.available = tool.available + 1
+            if tool.available > 0:
+                tool.status = "available"
+    await db.delete(i)
+    await db.flush()
+    return ResponseBase(message="გაცემა წაიშალა")
