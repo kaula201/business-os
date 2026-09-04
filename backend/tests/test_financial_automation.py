@@ -43,8 +43,15 @@ async def _seed_deferred(test_company) -> None:
         )
         s.add(sched)
         await s.flush()
-        # two due periods (Jul + Aug, both <= run date ~Aug 19) and one future (Sep)
-        for i, d in enumerate([date(2026, 7, 1), date(2026, 8, 1), date(2026, 9, 1)], start=1):
+        # two due periods (past months) and one future (next month) — date-agnostic
+        # (test was written when today was 2026-08 with Jul/Aug due + Sep future)
+        today = date.today()
+        # past: two months before current month
+        y2, m2 = (today.year - 1, 12) if today.month <= 2 else (today.year, today.month - 2)
+        y1, m1 = (today.year - 1, 12) if today.month == 1 else (today.year, today.month - 1)
+        # future: next month
+        yf, mf = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
+        for i, d in enumerate([date(y2, m2, 1), date(y1, m1, 1), date(yf, mf, 1)], start=1):
             s.add(DeferredRecognition(
                 company_id=test_company.id, schedule_id=sched.id, period_no=i,
                 recognition_date=d, amount=Decimal("100"), status="pending",
@@ -74,7 +81,7 @@ async def test_full_monthly_close(client, auth_headers, test_company, db_session
     result = await run_financial_automation_for_company(db_session, test_company.id)
     assert "depreciation_posted" in result
     assert result["depreciation_posted"] == 1  # 12000/60 = 200
-    assert result["deferred_recognized"] == 2  # Aug + Sep due (run date 2026-08-19)
+    assert result["deferred_recognized"] == 2  # two past periods due
 
     # GL entries created for both
     async with TestSessionLocal() as s:

@@ -64,13 +64,17 @@ async def test_depreciation_schedule(client, auth_headers, test_company, db_sess
     # last period fully depreciates
     assert abs(rows[-1]["accumulated_after"] - 12000.0) < 0.01
 
-    # after a run (uses current date 2026-08), schedule starts the next month
+    # after a run (uses current date), schedule starts the next month
     run = await client.post(f"/api/v1/assets/{asset['id']}/run-depreciation", headers=auth_headers)
     assert run.status_code == 200, run.text
     schedule2 = await client.get(f"/api/v1/assets/{asset['id']}/schedule", headers=auth_headers)
     rows2 = schedule2.json()["data"]
     assert len(rows2) == 59
-    assert rows2[0]["period"] == "2026-09"
+    # next month after today (date-agnostic — test was written when today was 2026-08)
+    today = date.today()
+    y, m = today.year, today.month
+    ny, nm = (y + 1, 1) if m == 12 else (y, m + 1)
+    assert rows2[0]["period"] == f"{ny:04d}-{nm:02d}"
 
 
 async def test_asset_disposal_posts_gain_loss(client, auth_headers, test_company, db_session):
