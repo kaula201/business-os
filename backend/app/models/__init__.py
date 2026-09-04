@@ -1,6 +1,6 @@
 from app.models.company import Company
 from app.models.user import User
-from app.models.client import Client
+from app.models.client import Client, ClientAddress, ClientGroupDef, ClientRelation
 from app.models.contract import Contract
 from app.models.leave import Leave
 from app.models.subscription import Subscription
@@ -124,7 +124,7 @@ from app.models.live_chat import ChatMessage
 from app.models.embedding import Embedding
 
 __all__ = [
-    "Company", "User", "Client", "Contract", "Leave", "Order", "OrderItem", "OrderStatusHistory", "OrderFulfillment",
+    "Company", "User", "Client", "ClientAddress", "ClientGroupDef", "ClientRelation", "Contract", "Leave", "Order", "OrderItem", "OrderStatusHistory", "OrderFulfillment",
  "InventoryReservation", "DocumentSequence",
     "Product", "ProductCategory", "ProductVariant", "ProductImage", "StockMovement", "Task", "TaskComment", "TaskAttachment", "TaskHistory", "TaskReminder", "TaskDependency", "Invoice", "InvoiceItem",
     "CustomerReceivable", "CustomerPayment", "CustomerPaymentReversal", "CustomerCreditNote", "CustomerBankReconciliation", "CustomerBankReconciliationReversal",

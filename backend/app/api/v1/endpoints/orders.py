@@ -540,6 +540,27 @@ async def create_order(
     if not client:
         raise HTTPException(status_code=404, detail="კლიენტი არ მოიძებნა")
 
+    # ── Credit limit enforcement ──────────────────────────────────────────────
+    # If the client has a credit limit set (>0), block orders that would push
+    # outstanding balance + this order above the limit.
+    if client.credit_limit is not None and client.credit_limit > 0:
+        order_total = sum(
+            (item.quantity * item.unit_price) * (1 - (item.discount_percent or 0) / 100)
+            for item in data.items
+        )
+        if data.is_vat_payer:
+            order_total *= 1.18  # VAT 18% — gross exposure
+        outstanding = float(client.balance or 0)
+        limit = float(client.credit_limit)
+        if outstanding + order_total > limit:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"საკრედიტო ლიმიტი გადაჭარბებულია: მიმდინარე ბალანსი {outstanding:,.2f} ₾ + "
+                    f"ახალი შეკვეთა {order_total:,.2f} ₾ > ლიმიტი {limit:,.2f} ₾"
+                ),
+            )
+
     warehouse = None
     if data.warehouse_id:
         warehouse = await _get_active_warehouse(

@@ -35,6 +35,7 @@ class ClientCreate(BaseModel):
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
     notes: Optional[str] = None
+    credit_limit: Optional[float] = Field(default=None, ge=0)
     contacts: List[ContactCreate] = Field(default_factory=list)
 
 
@@ -48,6 +49,7 @@ class ClientUpdate(BaseModel):
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
     status: Optional[ClientStatus] = None
+    credit_limit: Optional[float] = Field(default=None, ge=0)
     notes: Optional[str] = None
 
 
@@ -107,3 +109,86 @@ class InteractionResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Client 2.0: addresses, groups, relations, statement, merge ───────────────
+
+class AddressCreate(BaseModel):
+    address_type: str = "legal"  # legal | delivery | billing
+    address_line: str
+    city: Optional[str] = None
+    region: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = "საქართველო"
+    is_default: bool = False
+
+
+class AddressResponse(BaseModel):
+    id: UUID
+    address_type: str
+    address_line: str
+    city: Optional[str] = None
+    region: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    is_default: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class GroupCreate(BaseModel):
+    name: str = Field(..., min_length=1)
+    description: Optional[str] = None
+    color: Optional[str] = None
+
+
+class GroupResponse(BaseModel):
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    color: Optional[str] = None
+    client_count: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RelationCreate(BaseModel):
+    related_client_id: UUID
+    relation_type: str = "branch"  # parent | subsidiary | branch | partner
+    notes: Optional[str] = None
+
+
+class RelationResponse(BaseModel):
+    id: UUID
+    related_client_id: UUID
+    related_client_name: Optional[str] = None
+    relation_type: str
+    notes: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StatementLine(BaseModel):
+    date: datetime
+    type: str  # invoice | payment | credit_note | opening
+    reference: str
+    description: str
+    debit: float = 0.0
+    credit: float = 0.0
+    balance: float = 0.0
+
+
+class ClientStatement(BaseModel):
+    client_id: UUID
+    client_name: str
+    currency: str = "GEL"
+    opening_balance: float = 0.0
+    lines: List[StatementLine] = []
+    closing_balance: float = 0.0
+    total_invoiced: float = 0.0
+    total_paid: float = 0.0
+
+
+class MergeRequest(BaseModel):
+    source_client_ids: List[UUID] = Field(..., min_length=1)
+    target_client_id: UUID

@@ -76,6 +76,19 @@ export const clientsApi = {
   update: (id: string, data: any) => api.patch(`/clients/${id}`, data),
   delete: (id: string) => api.delete(`/clients/${id}`),
   addInteraction: (id: string, data: any) => api.post(`/clients/${id}/interactions`, data),
+  // Client 2.0
+  listAddresses: (id: string) => api.get(`/clients/${id}/addresses`),
+  createAddress: (id: string, data: any) => api.post(`/clients/${id}/addresses`, data),
+  deleteAddress: (addressId: string) => api.delete(`/clients/addresses/${addressId}`),
+  listGroups: () => api.get('/clients/client-groups'),
+  createGroup: (data: any) => api.post('/clients/client-groups', data),
+  deleteGroup: (groupId: string) => api.delete(`/clients/client-groups/${groupId}`),
+  setClientGroups: (id: string, groupIds: string[]) => api.post(`/clients/${id}/groups`, groupIds),
+  listRelations: (id: string) => api.get(`/clients/${id}/relations`),
+  createRelation: (id: string, data: any) => api.post(`/clients/${id}/relations`, data),
+  deleteRelation: (relationId: string) => api.delete(`/clients/relations/${relationId}`),
+  getStatement: (id: string) => api.get(`/clients/${id}/statement`),
+  merge: (data: any) => api.post('/clients/merge', data),
 }
 
 // CRM API — potential clients, pipeline and follow-up activities

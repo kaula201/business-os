@@ -10,9 +10,13 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.core.time import utc_now
-from app.models.client import Client, ClientStatus, Contact, Interaction
+from app.models.client import Client, ClientStatus, Contact, Interaction, ClientAddress, ClientGroupDef, ClientRelation, client_groups
 from app.models.accounting_controls import FiscalPosition
 from app.models.user import User
+from app.models.invoice import Invoice
+from app.models.order import Order
+from app.models.task import Task
+from app.models.receivable import CustomerPayment, CustomerReceivable, CustomerCreditNote
 from app.schemas.client import (
     ClientCreate,
     ClientListResponse,
@@ -22,6 +26,15 @@ from app.schemas.client import (
     ContactResponse,
     InteractionCreate,
     InteractionResponse,
+    AddressCreate,
+    AddressResponse,
+    GroupCreate,
+    GroupResponse,
+    RelationCreate,
+    RelationResponse,
+    ClientStatement,
+    StatementLine,
+    MergeRequest,
 )
 from app.schemas.common import PaginatedResponse, ResponseBase
 
@@ -143,6 +156,54 @@ async def list_clients(
     )
 
 
+@router.get("/client-groups", response_model=ResponseBase[list[GroupResponse]])
+async def list_groups(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    groups = (await db.execute(
+        select(ClientGroupDef).where(ClientGroupDef.company_id == current_user.company_id)
+        .order_by(ClientGroupDef.name)
+    )).scalars().all()
+    out = []
+    for g in groups:
+        cnt = (await db.execute(
+            select(func.count()).select_from(Client).join(Client.groups).where(ClientGroupDef.id == g.id, Client.deleted_at.is_(None))
+        )).scalar() or 0
+        out.append(GroupResponse(id=g.id, name=g.name, description=g.description, color=g.color, client_count=cnt))
+    return ResponseBase(data=out)
+
+
+
+@router.post("/client-groups", response_model=ResponseBase[GroupResponse])
+async def create_group(
+    data: GroupCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    g = ClientGroupDef(company_id=current_user.company_id, name=data.name, description=data.description, color=data.color)
+    db.add(g)
+    await db.flush()
+    await db.refresh(g)
+    return ResponseBase(data=GroupResponse(id=g.id, name=g.name, description=g.description, color=g.color, client_count=0))
+
+
+
+@router.delete("/client-groups/{group_id}")
+async def delete_group(
+    group_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    g = (await db.execute(select(ClientGroupDef).where(ClientGroupDef.id == group_id, ClientGroupDef.company_id == current_user.company_id))).scalar_one_or_none()
+    if not g:
+        raise HTTPException(status_code=404, detail="ჯგუფი არ მოიძებნა")
+    await db.delete(g)
+    await db.commit()
+    return ResponseBase(data={"ok": True})
+
+
+
 @router.get("/{client_id}", response_model=ResponseBase[ClientResponse])
 async def get_client(
     client_id: UUID,
@@ -193,6 +254,7 @@ async def create_client(
         address=data.address,
         status=ClientStatus.POTENTIAL,
         notes=data.notes,
+        credit_limit=data.credit_limit,
         created_by=current_user.id,
     )
     db.add(client)
@@ -375,3 +437,242 @@ async def add_interaction(
             created_at=interaction.created_at,
         )
     )
+
+
+# ── Client 2.0: addresses, groups, relations, statement, merge ────────────────
+
+
+
+
+@router.post("/{client_id}/groups", response_model=ResponseBase[list[GroupResponse]])
+async def set_client_groups(
+    client_id: UUID,
+    group_ids: list[UUID],
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    client = (await db.execute(
+        select(Client).where(Client.id == client_id, Client.company_id == current_user.company_id, Client.deleted_at.is_(None))
+    )).scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=404, detail="კლიენტი არ მოიძებნა")
+    groups = (await db.execute(
+        select(ClientGroupDef).where(ClientGroupDef.id.in_(group_ids), ClientGroupDef.company_id == current_user.company_id)
+    )).scalars().all()
+    # replace M2M rows directly (avoids async lazy-load on client.groups)
+    await db.execute(client_groups.delete().where(client_groups.c.client_id == client_id))
+    for g in groups:
+        await db.execute(client_groups.insert().values(client_id=client_id, group_id=g.id))
+    await db.commit()
+    return ResponseBase(data=[GroupResponse(id=g.id, name=g.name, description=g.description, color=g.color) for g in groups])
+
+
+@router.get("/{client_id}/addresses", response_model=ResponseBase[list[AddressResponse]])
+async def list_addresses(
+    client_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    client = (await db.execute(
+        select(Client).where(Client.id == client_id, Client.company_id == current_user.company_id, Client.deleted_at.is_(None))
+    )).scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=404, detail="კლიენტი არ მოიძებნა")
+    addrs = (await db.execute(select(ClientAddress).where(ClientAddress.client_id == client_id).order_by(ClientAddress.is_default.desc(), ClientAddress.created_at))).scalars().all()
+    return ResponseBase(data=[AddressResponse.model_validate(a) for a in addrs])
+
+
+@router.post("/{client_id}/addresses", response_model=ResponseBase[AddressResponse])
+async def create_address(
+    client_id: UUID,
+    data: AddressCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    client = (await db.execute(
+        select(Client).where(Client.id == client_id, Client.company_id == current_user.company_id, Client.deleted_at.is_(None))
+    )).scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=404, detail="კლიენტი არ მოიძებნა")
+    if data.is_default:
+        await db.execute(
+            ClientAddress.__table__.update().where(ClientAddress.client_id == client_id).values(is_default=False)
+        )
+    a = ClientAddress(client_id=client_id, **data.model_dump())
+    db.add(a)
+    await db.flush()
+    await db.refresh(a)
+    await db.commit()
+    return ResponseBase(data=AddressResponse.model_validate(a))
+
+
+@router.delete("/addresses/{address_id}")
+async def delete_address(
+    address_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    a = (await db.execute(
+        select(ClientAddress).join(Client).where(
+            ClientAddress.id == address_id, Client.company_id == current_user.company_id
+        )
+    )).scalar_one_or_none()
+    if not a:
+        raise HTTPException(status_code=404, detail="მისამართი არ მოიძებნა")
+    await db.delete(a)
+    await db.commit()
+    return ResponseBase(data={"ok": True})
+
+
+@router.get("/{client_id}/relations", response_model=ResponseBase[list[RelationResponse]])
+async def list_relations(
+    client_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rels = (await db.execute(
+        select(ClientRelation, Client.name).join(Client, Client.id == ClientRelation.related_client_id).where(
+            ClientRelation.client_id == client_id, ClientRelation.company_id == current_user.company_id
+        )
+    )).all()
+    return ResponseBase(data=[RelationResponse(id=r.id, related_client_id=r.related_client_id, related_client_name=name, relation_type=r.relation_type, notes=r.notes) for r, name in rels])
+
+
+@router.post("/{client_id}/relations", response_model=ResponseBase[RelationResponse])
+async def create_relation(
+    client_id: UUID,
+    data: RelationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if data.related_client_id == client_id:
+        raise HTTPException(status_code=400, detail="კლიენტი თავის თავს ვერ დაუკავშირდება")
+    related = (await db.execute(
+        select(Client).where(Client.id == data.related_client_id, Client.company_id == current_user.company_id, Client.deleted_at.is_(None))
+    )).scalar_one_or_none()
+    if not related:
+        raise HTTPException(status_code=404, detail="დაკავშირებული კლიენტი არ მოიძებნა")
+    existing = (await db.execute(
+        select(ClientRelation).where(ClientRelation.client_id == client_id, ClientRelation.related_client_id == data.related_client_id)
+    )).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=400, detail="კავშირი უკვე არსებობს")
+    r = ClientRelation(company_id=current_user.company_id, client_id=client_id, related_client_id=data.related_client_id, relation_type=data.relation_type, notes=data.notes)
+    db.add(r)
+    await db.flush()
+    await db.refresh(r)
+    await db.commit()
+    return ResponseBase(data=RelationResponse(id=r.id, related_client_id=r.related_client_id, related_client_name=related.name, relation_type=r.relation_type, notes=r.notes))
+
+
+@router.delete("/relations/{relation_id}")
+async def delete_relation(
+    relation_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    r = (await db.execute(
+        select(ClientRelation).where(ClientRelation.id == relation_id, ClientRelation.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="კავშირი არ მოიძებნა")
+    await db.delete(r)
+    await db.commit()
+    return ResponseBase(data={"ok": True})
+
+
+@router.get("/{client_id}/statement", response_model=ResponseBase[ClientStatement])
+async def client_statement(
+    client_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Full statement: opening balance, invoices, payments, credit notes, running balance."""
+    client = (await db.execute(
+        select(Client).where(Client.id == client_id, Client.company_id == current_user.company_id, Client.deleted_at.is_(None))
+    )).scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=404, detail="კლიენტი არ მოიძებნა")
+
+    invoices = (await db.execute(
+        select(Invoice).where(Invoice.company_id == current_user.company_id, Invoice.client_id == client_id)
+        .order_by(Invoice.created_at)
+    )).scalars().all()
+    payments = (await db.execute(
+        select(CustomerPayment).join(CustomerReceivable).where(
+            CustomerReceivable.company_id == current_user.company_id,
+            CustomerReceivable.client_id == client_id,
+        ).order_by(CustomerPayment.created_at)
+    )).scalars().all()
+    credit_notes = (await db.execute(
+        select(CustomerCreditNote).join(CustomerReceivable).where(
+            CustomerReceivable.company_id == current_user.company_id,
+            CustomerReceivable.client_id == client_id,
+        ).order_by(CustomerCreditNote.created_at)
+    )).scalars().all()
+
+    lines: list[StatementLine] = []
+    for inv in invoices:
+        lines.append(StatementLine(date=inv.created_at, type="invoice", reference=inv.invoice_number, description=f"ინვოისი {inv.invoice_number}", debit=float(inv.total or 0), credit=0.0))
+    for p in payments:
+        lines.append(StatementLine(date=p.created_at, type="payment", reference=str(p.id)[:8], description="გადახდა", debit=0.0, credit=float(p.amount or 0)))
+    for cn in credit_notes:
+        lines.append(StatementLine(date=cn.created_at, type="credit_note", reference=str(cn.id)[:8], description="საკრედიტო ნოტა", debit=0.0, credit=float(cn.amount or 0)))
+
+    lines.sort(key=lambda l: l.date)
+    balance = 0.0
+    for l in lines:
+        balance += l.debit - l.credit
+        l.balance = round(balance, 2)
+
+    total_invoiced = sum(l.debit for l in lines)
+    total_paid = sum(l.credit for l in lines)
+    return ResponseBase(data=ClientStatement(
+        client_id=client_id, client_name=client.name,
+        opening_balance=0.0, lines=lines, closing_balance=round(balance, 2),
+        total_invoiced=round(total_invoiced, 2), total_paid=round(total_paid, 2),
+    ))
+
+
+@router.post("/merge", response_model=ResponseBase[ClientResponse])
+async def merge_clients(
+    data: MergeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Merge duplicate clients: move orders/invoices/receivables/contacts to target, soft-delete sources."""
+    if data.target_client_id in data.source_client_ids:
+        raise HTTPException(status_code=400, detail="სამიზნე კლიენტი არ შეიძლება იყოს წყაროებში")
+    target = (await db.execute(
+        select(Client).where(Client.id == data.target_client_id, Client.company_id == current_user.company_id, Client.deleted_at.is_(None))
+    )).scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="სამიზნე კლიენტი არ მოიძებნა")
+    sources = (await db.execute(
+        select(Client).where(Client.id.in_(data.source_client_ids), Client.company_id == current_user.company_id, Client.deleted_at.is_(None))
+    )).scalars().all()
+    if len(sources) != len(data.source_client_ids):
+        raise HTTPException(status_code=404, detail="ერთ-ერთი წყარო კლიენტი არ მოიძებნა")
+
+    for src in sources:
+        # move orders
+        await db.execute(Order.__table__.update().where(Order.client_id == src.id).values(client_id=target.id))
+        # move invoices
+        await db.execute(Invoice.__table__.update().where(Invoice.client_id == src.id).values(client_id=target.id))
+        # move receivables
+        await db.execute(CustomerReceivable.__table__.update().where(CustomerReceivable.client_id == src.id).values(client_id=target.id))
+        # move contacts
+        await db.execute(Contact.__table__.update().where(Contact.client_id == src.id).values(client_id=target.id))
+        # move addresses
+        await db.execute(ClientAddress.__table__.update().where(ClientAddress.client_id == src.id).values(client_id=target.id))
+        # move tasks
+        await db.execute(Task.__table__.update().where(Task.client_id == src.id).values(client_id=target.id))
+        # soft delete source
+        src.deleted_at = utc_now()
+
+    await db.commit()
+    # reload with relationships to avoid async lazy-load in response serialization
+    target = (await db.execute(
+        select(Client).options(selectinload(Client.contacts)).where(Client.id == target.id)
+    )).scalar_one()
+    return ResponseBase(data=build_client_response(target))

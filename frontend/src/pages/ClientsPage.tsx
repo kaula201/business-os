@@ -13,6 +13,10 @@ import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const CLIENTS_PAGE_SIZE = 20
 
+const ADDRESS_TYPE_LABELS: Record<string, string> = { legal: 'იურიდიული', delivery: 'მიწოდების', billing: 'ბილინგის' }
+const RELATION_TYPE_LABELS: Record<string, string> = { branch: 'ფილიალი', parent: 'მშობელი', subsidiary: 'შვილობილი', partner: 'პარტნიორი' }
+const STATEMENT_TYPE_LABELS: Record<string, string> = { invoice: 'ინვოისი', payment: 'გადახდა', credit_note: 'ნოტა' }
+
 export default function ClientsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -27,9 +31,16 @@ export default function ClientsPage() {
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importResult, setImportResult] = useState('')
   const [importLoading, setImportLoading] = useState(false)
+  // Client 2.0 — view tabs
+  const [viewTab, setViewTab] = useState<'overview' | 'addresses' | 'groups' | 'relations' | 'statement' | 'merge'>('overview')
+  const [newAddress, setNewAddress] = useState({ address_type: 'legal', address_line: '', city: '', is_default: false })
+  const [newRelation, setNewRelation] = useState({ related_client_id: '', relation_type: 'branch', notes: '' })
+  const [newGroup, setNewGroup] = useState({ name: '', color: '#16A6D4' })
+  const [mergeTarget, setMergeTarget] = useState('')
+  const [mergeSources, setMergeSources] = useState<string[]>([])
   const [form, setForm] = useState<ClientCreate>({
     name: '', client_type: 'legal', identification_code: '',
-    is_vat_payer: true, address: '', phone: '', email: '', notes: '',
+    is_vat_payer: true, address: '', phone: '', email: '', notes: '', credit_limit: undefined,
   })
 
   // Debounce: search იგზავნება server-ზე მხოლოდ აკრეფის შეწყვეტის შემდეგ
@@ -63,9 +74,55 @@ export default function ClientsPage() {
   const total = data?.total || 0
   const totalPages = Math.max(1, Math.ceil(total / CLIENTS_PAGE_SIZE))
 
+  // Client 2.0 queries (enabled only when a client is open)
+  const { data: addresses } = useQuery({
+    queryKey: ['client-addresses', viewClient?.id],
+    queryFn: () => viewClient ? clientsApi.listAddresses(viewClient.id).then(r => r.data.data) : [],
+    enabled: !!viewClient && viewTab === 'addresses',
+  })
+  const { data: groups } = useQuery({
+    queryKey: ['client-groups'],
+    queryFn: () => clientsApi.listGroups().then(r => r.data.data),
+  })
+  const { data: relations } = useQuery({
+    queryKey: ['client-relations', viewClient?.id],
+    queryFn: () => viewClient ? clientsApi.listRelations(viewClient.id).then(r => r.data.data) : [],
+    enabled: !!viewClient && viewTab === 'relations',
+  })
+  const { data: statement } = useQuery({
+    queryKey: ['client-statement', viewClient?.id],
+    queryFn: () => viewClient ? clientsApi.getStatement(viewClient.id).then(r => r.data.data) : null,
+    enabled: !!viewClient && viewTab === 'statement',
+  })
+  const { data: allClients } = useQuery({
+    queryKey: ['clients-all'],
+    queryFn: () => clientsApi.list({ page_size: 100 }).then(r => r.data.data),
+  })
+
+  const addAddressMutation = useMutation({
+    mutationFn: (d: any) => viewClient ? clientsApi.createAddress(viewClient.id, d) : Promise.reject(),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['client-addresses'] }); setNewAddress({ address_type: 'legal', address_line: '', city: '', is_default: false }) },
+  })
+  const addRelationMutation = useMutation({
+    mutationFn: (d: any) => viewClient ? clientsApi.createRelation(viewClient.id, d) : Promise.reject(),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['client-relations'] }); setNewRelation({ related_client_id: '', relation_type: 'branch', notes: '' }) },
+  })
+  const addGroupMutation = useMutation({
+    mutationFn: (d: any) => clientsApi.createGroup(d),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['client-groups'] }),
+  })
+  const mergeMutation = useMutation({
+    mutationFn: (d: any) => clientsApi.merge(d),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      setViewClient(null)
+      setMergeTarget(''); setMergeSources([])
+    },
+  })
+
   function openCreate() {
     setEditClient(null)
-    setForm({ name: '', client_type: 'legal', identification_code: '', is_vat_payer: true, address: '', phone: '', email: '', notes: '' })
+    setForm({ name: '', client_type: 'legal', identification_code: '', is_vat_payer: true, address: '', phone: '', email: '', notes: '', credit_limit: undefined })
     setModalOpen(true)
   }
 
@@ -76,6 +133,7 @@ export default function ClientsPage() {
       identification_code: client.identification_code,
       is_vat_payer: client.is_vat_payer, address: client.address || '',
       phone: client.phone || '', email: client.email || '', notes: client.notes || '',
+      credit_limit: (client as any).credit_limit ?? undefined,
     })
     setModalOpen(true)
   }
@@ -189,6 +247,9 @@ export default function ClientsPage() {
             <FormField label={t('ელფოსტა')}>
               <input type="email" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input" placeholder="info@company.ge" />
             </FormField>
+            <FormField label={t('საკრედიტო ლიმიტი (₾)')}>
+              <input type="number" min={0} step="0.01" value={form.credit_limit ?? ''} onChange={(e) => setForm({ ...form, credit_limit: e.target.value === '' ? undefined : Number(e.target.value) })} className="input" placeholder="0 = შეუზღუდავი" />
+            </FormField>
           </div>
           <FormField label={t('მისამართი')}>
             <input type="text" value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} className="input" />
@@ -205,29 +266,215 @@ export default function ClientsPage() {
         </form>
       </Modal>
 
-      {/* View Client Modal */}
-      <Modal open={!!viewClient} onClose={() => setViewClient(null)} title={t('ოფიციალური კლიენტის ბარათი')} size="lg">
+      {/* View Client Modal — tabs: overview / addresses / groups / relations / statement / merge */}
+      <Modal open={!!viewClient} onClose={() => { setViewClient(null); setViewTab('overview') }} title={t('ოფიციალური კლიენტის ბარათი')} size="lg">
         {viewClient && (
           <div className="space-y-4">
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-4 mb-2">
               <div className="w-14 h-14 bg-primary-100 text-primary-700 rounded-xl flex items-center justify-center">
                 {viewClient.client_type === 'legal' ? <Building2 size={28} /> : <User size={28} />}
               </div>
-              <div>
+              <div className="flex-1">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{viewClient.name}</h3>
                 <StatusBadge status={viewClient.status} map={clientStatusMap} />
               </div>
+              {(viewClient as any).credit_limit != null && (
+                <div className="text-right text-sm">
+                  <span className="text-gray-400 dark:text-gray-500 block">{t('საკრედიტო ლიმიტი')}</span>
+                  <span className="font-bold text-gray-900 dark:text-gray-100">{(viewClient as any).credit_limit} ₾</span>
+                </div>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('კოდი:')}</span> <span className="font-medium">{viewClient.identification_code}</span></div>
-              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('ტიპი:')}</span> <span className="font-medium">{viewClient.client_type === 'legal' ? t('იურ. პირი') : t('ფიზ. პირი')}</span></div>
-              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('დღგ:')}</span> <span className="font-medium">{viewClient.is_vat_payer ? t('გადამხდელი') : t('არ არის')}</span></div>
-              <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('შექმნილი:')}</span> <span className="font-medium">{fmtDate(new Date(viewClient.created_at))}</span></div>
-              {viewClient.phone && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-1"><Phone size={14} className="inline mr-1" />{viewClient.phone}</div>}
-              {viewClient.email && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-1"><Mail size={14} className="inline mr-1" />{viewClient.email}</div>}
-              {viewClient.address && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-2"><MapPin size={14} className="inline mr-1" />{viewClient.address}</div>}
-              {viewClient.notes && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-2"><span className="text-gray-500 dark:text-gray-400">{t('შენიშვნა:')}</span> {viewClient.notes}</div>}
+
+            {/* Tabs */}
+            <div className="flex flex-wrap gap-1 border-b border-gray-200 dark:border-dark-50 pb-2">
+              {(['overview', 'addresses', 'groups', 'relations', 'statement', 'merge'] as const).map(tabKey => (
+                <button
+                  key={tabKey}
+                  onClick={() => setViewTab(tabKey)}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${viewTab === tabKey ? 'bg-primary-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-100'}`}
+                >
+                  {t({ overview: 'მიმოხილვა', addresses: 'მისამართები', groups: 'ჯგუფები', relations: 'კავშირები', statement: 'Statement', merge: 'გაერთიანება' }[tabKey])}
+                </button>
+              ))}
             </div>
+
+            {viewTab === 'overview' && (
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('კოდი:')}</span> <span className="font-medium">{viewClient.identification_code}</span></div>
+                <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('ტიპი:')}</span> <span className="font-medium">{viewClient.client_type === 'legal' ? t('იურ. პირი') : t('ფიზ. პირი')}</span></div>
+                <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('დღგ:')}</span> <span className="font-medium">{viewClient.is_vat_payer ? t('გადამხდელი') : t('არ არის')}</span></div>
+                <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400">{t('შექმნილი:')}</span> <span className="font-medium">{fmtDate(new Date(viewClient.created_at))}</span></div>
+                {viewClient.phone && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-1"><Phone size={14} className="inline mr-1" />{viewClient.phone}</div>}
+                {viewClient.email && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-1"><Mail size={14} className="inline mr-1" />{viewClient.email}</div>}
+                {viewClient.address && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-2"><MapPin size={14} className="inline mr-1" />{viewClient.address}</div>}
+                {viewClient.notes && <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg col-span-2"><span className="text-gray-500 dark:text-gray-400">{t('შენიშვნა:')}</span> {viewClient.notes}</div>}
+              </div>
+            )}
+
+            {viewTab === 'addresses' && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2 items-end">
+                  <select value={newAddress.address_type} onChange={(e) => setNewAddress({ ...newAddress, address_type: e.target.value })} className="input h-9 w-auto text-sm">
+                    <option value="legal">{t('იურიდიული')}</option>
+                    <option value="delivery">{t('მიწოდების')}</option>
+                    <option value="billing">{t('ბილინგის')}</option>
+                  </select>
+                  <input value={newAddress.address_line} onChange={(e) => setNewAddress({ ...newAddress, address_line: e.target.value })} placeholder={t('მისამართი')} className="input h-9 flex-1 min-w-[180px] text-sm" />
+                  <input value={newAddress.city} onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })} placeholder={t('ქალაქი')} className="input h-9 w-28 text-sm" />
+                  <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    <input type="checkbox" checked={newAddress.is_default} onChange={(e) => setNewAddress({ ...newAddress, is_default: e.target.checked })} /> {t('მთავარი')}
+                  </label>
+                  <button onClick={() => addAddressMutation.mutate(newAddress)} disabled={!newAddress.address_line || addAddressMutation.isPending} className="btn-primary h-9 text-sm">
+                    {t('დამატება')}
+                  </button>
+                </div>
+                <div className="divide-y dark:divide-dark-50">
+                  {(addresses || []).map((a: any) => (
+                    <div key={a.id} className="flex items-center justify-between py-2 text-sm">
+                      <div>
+                        <span className="badge mr-2">{t(ADDRESS_TYPE_LABELS[a.address_type] || a.address_type)}</span>
+                        <span className="text-gray-700 dark:text-gray-300">{a.address_line}{a.city ? `, ${a.city}` : ''}</span>
+                        {a.is_default && <span className="ml-2 text-xs text-primary-600">★ {t('მთავარი')}</span>}
+                      </div>
+                      <button onClick={() => clientsApi.deleteAddress(a.id).then(() => queryClient.invalidateQueries({ queryKey: ['client-addresses'] }))} className="p-1.5 text-gray-400 hover:text-red-600" title={t('წაშლა')}>
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  ))}
+                  {(addresses || []).length === 0 && <p className="text-sm text-gray-400 py-4 text-center">{t('მისამართები არ არის')}</p>}
+                </div>
+              </div>
+            )}
+
+            {viewTab === 'groups' && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2 items-end">
+                  <input value={newGroup.name} onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })} placeholder={t('ახალი ჯგუფის სახელი')} className="input h-9 flex-1 min-w-[160px] text-sm" />
+                  <input type="color" value={newGroup.color} onChange={(e) => setNewGroup({ ...newGroup, color: e.target.value })} className="h-9 w-12 rounded border border-gray-200 dark:border-dark-50" />
+                  <button onClick={() => addGroupMutation.mutate(newGroup)} disabled={!newGroup.name} className="btn-primary h-9 text-sm">{t('ჯგუფის შექმნა')}</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(groups || []).map((g: any) => (
+                    <button
+                      key={g.id}
+                      onClick={() => {
+                        const cur = (viewClient as any).group_ids || []
+                        const next = cur.includes(g.id) ? cur.filter((x: string) => x !== g.id) : [...cur, g.id]
+                        clientsApi.setClientGroups(viewClient.id, next).then(() => queryClient.invalidateQueries({ queryKey: ['clients'] }))
+                      }}
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${(viewClient as any).group_ids?.includes(g.id) ? 'bg-primary-50 text-primary-700 border-primary-200' : 'bg-white dark:bg-dark-200 border-gray-200 dark:border-dark-50 text-gray-600 dark:text-gray-400'}`}
+                      style={{ borderLeftColor: g.color, borderLeftWidth: 4 }}
+                    >
+                      {g.name} <span className="text-xs text-gray-400">({g.client_count})</span>
+                    </button>
+                  ))}
+                  {(groups || []).length === 0 && <p className="text-sm text-gray-400 py-2">{t('ჯგუფები არ არის')}</p>}
+                </div>
+              </div>
+            )}
+
+            {viewTab === 'relations' && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2 items-end">
+                  <select value={newRelation.related_client_id} onChange={(e) => setNewRelation({ ...newRelation, related_client_id: e.target.value })} className="input h-9 flex-1 min-w-[180px] text-sm">
+                    <option value="">{t('აირჩიეთ კლიენტი')}</option>
+                    {(allClients?.items || []).filter((c: any) => c.id !== viewClient.id).map((c: any) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <select value={newRelation.relation_type} onChange={(e) => setNewRelation({ ...newRelation, relation_type: e.target.value })} className="input h-9 w-auto text-sm">
+                    <option value="branch">{t('ფილიალი')}</option>
+                    <option value="parent">{t('მშობელი')}</option>
+                    <option value="subsidiary">{t('შვილობილი')}</option>
+                    <option value="partner">{t('პარტნიორი')}</option>
+                  </select>
+                  <button onClick={() => newRelation.related_client_id && addRelationMutation.mutate(newRelation)} disabled={!newRelation.related_client_id} className="btn-primary h-9 text-sm">{t('დაკავშირება')}</button>
+                </div>
+                <div className="divide-y dark:divide-dark-50">
+                  {(relations || []).map((r: any) => (
+                    <div key={r.id} className="flex items-center justify-between py-2 text-sm">
+                      <div>
+                        <span className="badge mr-2">{t(RELATION_TYPE_LABELS[r.relation_type] || r.relation_type)}</span>
+                        <span className="text-gray-700 dark:text-gray-300">{r.related_client_name}</span>
+                      </div>
+                      <button onClick={() => clientsApi.deleteRelation(r.id).then(() => queryClient.invalidateQueries({ queryKey: ['client-relations'] }))} className="p-1.5 text-gray-400 hover:text-red-600" title={t('წაშლა')}>
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  ))}
+                  {(relations || []).length === 0 && <p className="text-sm text-gray-400 py-4 text-center">{t('კავშირები არ არის')}</p>}
+                </div>
+              </div>
+            )}
+
+            {viewTab === 'statement' && (
+              <div className="space-y-3">
+                {statement && (
+                  <>
+                    <div className="grid grid-cols-3 gap-3 text-sm">
+                      <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400 block">{t('ინვოისირებული')}</span><span className="font-bold">{statement.total_invoiced} ₾</span></div>
+                      <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400 block">{t('გადახდილი')}</span><span className="font-bold text-green-600">{statement.total_paid} ₾</span></div>
+                      <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg"><span className="text-gray-500 dark:text-gray-400 block">{t('ნაშთი')}</span><span className={`font-bold ${statement.closing_balance > 0 ? 'text-red-600' : 'text-green-600'}`}>{statement.closing_balance} ₾</span></div>
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead className="text-xs text-gray-400 dark:text-gray-500 border-b dark:border-dark-50">
+                          <tr>
+                            <th className="text-left py-2 pr-2">{t('თარიღი')}</th>
+                            <th className="text-left py-2 pr-2">{t('ტიპი')}</th>
+                            <th className="text-left py-2 pr-2">{t('რეფერენსი')}</th>
+                            <th className="text-right py-2 pr-2">{t('დებეტი')}</th>
+                            <th className="text-right py-2 pr-2">{t('კრედიტი')}</th>
+                            <th className="text-right py-2">{t('ბალანსი')}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y dark:divide-dark-50">
+                          {statement.lines.map((l: any, i: number) => (
+                            <tr key={i}>
+                              <td className="py-1.5 pr-2 text-gray-500">{fmtDate(new Date(l.date))}</td>
+                              <td className="py-1.5 pr-2"><span className="badge">{t(STATEMENT_TYPE_LABELS[l.type] || l.type)}</span></td>
+                              <td className="py-1.5 pr-2 text-gray-600 dark:text-gray-400">{l.reference}</td>
+                              <td className="py-1.5 pr-2 text-right">{l.debit ? `${l.debit} ₾` : ''}</td>
+                              <td className="py-1.5 pr-2 text-right text-green-600">{l.credit ? `${l.credit} ₾` : ''}</td>
+                              <td className="py-1.5 text-right font-medium">{l.balance} ₾</td>
+                            </tr>
+                          ))}
+                          {statement.lines.length === 0 && <tr><td colSpan={6} className="py-4 text-center text-gray-400">{t('ოპერაციები არ არის')}</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {viewTab === 'merge' && (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('აირჩიეთ დუბლიკატი კლიენტები — მათი შეკვეთები, ინვოისები და მოვალეები გადავა მიმდინარე კლიენტზე, წყაროები კი დარჩება ისტორიაში.')}</p>
+                <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
+                  {(allClients?.items || []).filter((c: any) => c.id !== viewClient.id).map((c: any) => (
+                    <label key={c.id} className="flex items-center gap-2 text-sm p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-100 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={mergeSources.includes(c.id)}
+                        onChange={(e) => setMergeSources(prev => e.target.checked ? [...prev, c.id] : prev.filter(x => x !== c.id))}
+                      />
+                      <span className="text-gray-700 dark:text-gray-300">{c.name}</span>
+                      <span className="text-xs text-gray-400">{c.identification_code}</span>
+                    </label>
+                  ))}
+                </div>
+                <button
+                  onClick={() => mergeMutation.mutate({ source_client_ids: mergeSources, target_client_id: viewClient.id })}
+                  disabled={mergeSources.length === 0 || mergeMutation.isPending}
+                  className="btn-primary w-full"
+                >
+                  {mergeMutation.isPending ? t('მიმდინარეობს...') : `${t('გაერთიანება')} (${mergeSources.length})`}
+                </button>
+              </div>
+            )}
+
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-dark-50">
               <button onClick={() => { setViewClient(null); openEdit(viewClient) }} className="btn-primary">{t('რედაქტირება')}</button>
             </div>

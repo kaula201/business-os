@@ -85,6 +85,7 @@ export interface ClientCreate {
   phone?: string
   email?: string
   notes?: string
+  credit_limit?: number | null
 }
 
 // === CRM — Leads, pipeline and activities ===
