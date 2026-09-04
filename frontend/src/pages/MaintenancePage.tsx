@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useIsFetching, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { Wrench, CalendarClock, Hammer, Plus, CheckCircle2, ClipboardList, CalendarDays, Boxes, MapPin, Gauge, Users, Handshake, Package, Coins, BarChart3, Settings2, Shield, Pencil, Trash2, Play, X, Loader2 } from 'lucide-react'
+import { Wrench, CalendarClock, Hammer, Plus, CheckCircle2, ClipboardList, CalendarDays, Boxes, MapPin, Gauge, Users, Handshake, Package, Coins, BarChart3, Settings2, Shield, Pencil, Trash2, Play, X, Loader2, Search } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
@@ -52,6 +52,7 @@ export default function MaintenancePage() {
   }, [searchParams, tab])
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<Record<string, any>>({})
+  const [searchQuery, setSearchQuery] = useState('')
 
   const changeTab = (key: string) => {
     setTab(key)
@@ -361,7 +362,7 @@ export default function MaintenancePage() {
         <FormField label={t('მდებარეობა')}>
           <select className="input" value={form.location_id || ''} onChange={e => setForm({ ...form, location_id: e.target.value || null })}>
             <option value="">—</option>
-            {(locations || []).map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            {filterRows(locations).map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
           </select>
         </FormField>
         <FormField label={t('მწარმოებელი')}><input className="input" value={form.manufacturer || ''} onChange={e => setForm({ ...form, manufacturer: e.target.value })} /></FormField>
@@ -375,7 +376,7 @@ export default function MaintenancePage() {
         <FormField label={t('აქტივი')}>
           <select className="input" value={form.asset_id || ''} onChange={e => setForm({ ...form, asset_id: e.target.value || null })}>
             <option value="">—</option>
-            {(assets || []).map((a: any) => <option key={a.id} value={a.id}>{a.asset_code} — {a.name}</option>)}
+            {filterRows(assets).map((a: any) => <option key={a.id} value={a.id}>{a.asset_code} — {a.name}</option>)}
           </select>
         </FormField>
         <FormField label={t('სათაური')} required><input required className="input" value={form.title || ''} onChange={e => setForm({ ...form, title: e.target.value })} /></FormField>
@@ -392,7 +393,7 @@ export default function MaintenancePage() {
         <FormField label={t('აქტივი')} required>
           <select required className="input" value={form.asset_id || ''} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
             <option value="">—</option>
-            {(assets || []).map((a: any) => <option key={a.id} value={a.id}>{a.asset_code} — {a.name}</option>)}
+            {filterRows(assets).map((a: any) => <option key={a.id} value={a.id}>{a.asset_code} — {a.name}</option>)}
           </select>
         </FormField>
         <FormField label={t('სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
@@ -424,7 +425,7 @@ export default function MaintenancePage() {
         <FormField label={t('ლიდერი')}>
           <select className="input" value={form.leader_id || ''} onChange={e => setForm({ ...form, leader_id: e.target.value || null })}>
             <option value="">—</option>
-            {(technicians || []).map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            {filterRows(technicians).map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </FormField>
         <FormField label={t('აღწერა')}><textarea className="input min-h-[80px]" value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} /></FormField>
@@ -451,7 +452,7 @@ export default function MaintenancePage() {
         <FormField label={t('კონტრაქტორი')}>
           <select className="input" value={form.contractor_id || ''} onChange={e => setForm({ ...form, contractor_id: e.target.value || null })}>
             <option value="">—</option>
-            {(contractors || []).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {filterRows(contractors).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </FormField>
       </>
@@ -461,7 +462,7 @@ export default function MaintenancePage() {
         <FormField label={t('ტექნიკოსი')} required>
           <select required className="input" value={form.technician_id || ''} onChange={e => setForm({ ...form, technician_id: e.target.value })}>
             <option value="">—</option>
-            {(technicians || []).map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            {filterRows(technicians).map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </FormField>
         <FormField label={t('სერტიფიკატის სახელი')} required><input required className="input" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} /></FormField>
@@ -485,7 +486,7 @@ export default function MaintenancePage() {
         <FormField label={t('ნაწილი')} required>
           <select required className="input" value={form.part_id || ''} onChange={e => setForm({ ...form, part_id: e.target.value })}>
             <option value="">—</option>
-            {(parts || []).map((p: any) => <option key={p.id} value={p.id}>{p.part_code} — {p.name}</option>)}
+            {filterRows(parts).map((p: any) => <option key={p.id} value={p.id}>{p.part_code} — {p.name}</option>)}
           </select>
         </FormField>
         <FormField label={t('რაოდენობა')}><input type="number" className="input" value={form.quantity || 1} onChange={e => setForm({ ...form, quantity: e.target.value })} /></FormField>
@@ -510,7 +511,7 @@ export default function MaintenancePage() {
         <FormField label={t('ტექნიკოსი')} required>
           <select required className="input" value={form.technician_id || ''} onChange={e => setForm({ ...form, technician_id: e.target.value })}>
             <option value="">—</option>
-            {(technicians || []).map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            {filterRows(technicians).map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </FormField>
       </>
@@ -580,7 +581,7 @@ export default function MaintenancePage() {
         <FormField label={t('აქტივი')}>
           <select className="input" value={form.asset_id || ''} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
             <option value="">—</option>
-            {(assets || []).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            {filterRows(assets).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </FormField>
         <FormField label={t('აღწერა')}><input className="input" value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} /></FormField>
@@ -600,7 +601,7 @@ export default function MaintenancePage() {
         <FormField label={t('აქტივი')} required>
           <select required className="input" value={form.asset_id || ''} onChange={e => setForm({ ...form, asset_id: e.target.value })}>
             <option value="">—</option>
-            {(assets || []).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            {filterRows(assets).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </FormField>
         <FormField label={t('პერიოდის დასაწყისი')}><input type="date" className="input" value={form.period_start || ''} onChange={e => setForm({ ...form, period_start: e.target.value })} /></FormField>
@@ -709,6 +710,14 @@ export default function MaintenancePage() {
     <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-500 dark:border-dark-50 dark:text-gray-400">{text}</div>
   )
 
+  // Generic client-side filter: matches any string field of the row
+  const filterRows = (rows: any[] | undefined) => {
+    if (!rows) return []
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter((r) => Object.values(r).some((v) => v != null && String(v).toLowerCase().includes(q)))
+  }
+
   return (
     <div className="space-y-6">
       {isFetching > 0 && (
@@ -722,11 +731,22 @@ export default function MaintenancePage() {
           <h1 className="text-2xl font-bold text-brandgray-900 dark:text-gray-100">{t('მოვლა და შეკეთება')}</h1>
           <p className="mt-1 text-sm text-brandgray-500 dark:text-gray-400">{t('მოთხოვნები, სამუშაო დავალებები, გეგმები, აქტივები და ანალიტიკა')}</p>
         </div>
-        {['requests', 'orders', 'plans', 'assets', 'meters', 'locations'].includes(tab) && (
-          <button onClick={() => openCreate(tab === 'plans' ? 'plan' : tab === 'orders' ? 'order' : tab === 'assets' ? 'asset' : tab === 'meters' ? 'meter' : tab === 'locations' ? 'location' : 'request')} className="btn btn-primary flex items-center gap-2">
-            <Plus size={18} /> {t('ახალი')}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('ძებნა…')}
+              className="input pl-9 w-56"
+            />
+          </div>
+          {['requests', 'orders', 'plans', 'assets', 'meters', 'locations'].includes(tab) && (
+            <button onClick={() => openCreate(tab === 'plans' ? 'plan' : tab === 'orders' ? 'order' : tab === 'assets' ? 'asset' : tab === 'meters' ? 'meter' : tab === 'locations' ? 'location' : 'request')} className="btn btn-primary flex items-center gap-2">
+              <Plus size={18} /> {t('ახალი')}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-1 border-b pb-2 dark:border-dark-50">
@@ -750,9 +770,9 @@ export default function MaintenancePage() {
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-dark-50">
-              {(plans || []).length === 0 ? (
+              {filterRows(plans).length === 0 ? (
                 <tr><td colSpan={4} className="p-8 text-center text-gray-500">{t('გეგმები არ არის')}</td></tr>
-              ) : (plans || []).map((p: any) => (
+              ) : filterRows(plans).map((p: any) => (
                 <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                   <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{p.name}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.interval_days} {t('დღე')}</td>
@@ -781,9 +801,9 @@ export default function MaintenancePage() {
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-dark-50">
-              {(orders || []).length === 0 ? (
+              {filterRows(orders).length === 0 ? (
                 <tr><td colSpan={6} className="p-8 text-center text-gray-500">{t('დავალებები არ არის')}</td></tr>
-              ) : (orders || []).map((o: any) => (
+              ) : filterRows(orders).map((o: any) => (
                 <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                   <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{o.order_number}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{o.asset_name || '—'}</td>
@@ -831,9 +851,9 @@ export default function MaintenancePage() {
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-dark-50">
-              {(repairs || []).length === 0 ? (
+              {filterRows(repairs).length === 0 ? (
                 <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('მოთხოვნები არ არის')}</td></tr>
-              ) : (repairs || []).map((r: any) => (
+              ) : filterRows(repairs).map((r: any) => (
                 <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                   <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{r.repair_number}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.equipment_name || '—'}</td>
@@ -876,9 +896,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(assets || []).length === 0 ? (
+                {filterRows(assets).length === 0 ? (
                   <tr><td colSpan={7} className="p-8 text-center text-gray-500">{t('აქტივები არ არის')}</td></tr>
-                ) : (assets || []).map((a: any) => (
+                ) : filterRows(assets).map((a: any) => (
                   <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{a.asset_code}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{a.name}</td>
@@ -918,9 +938,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(requests || []).length === 0 ? (
+                {filterRows(requests).length === 0 ? (
                   <tr><td colSpan={6} className="p-8 text-center text-gray-500">{t('მოთხოვნები არ არის')}</td></tr>
-                ) : (requests || []).map((r: any) => (
+                ) : filterRows(requests).map((r: any) => (
                   <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{r.request_number}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.title}</td>
@@ -963,9 +983,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(meters || []).length === 0 ? (
+                {filterRows(meters).length === 0 ? (
                   <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('მრიცხველები არ არის')}</td></tr>
-                ) : (meters || []).map((m: any) => (
+                ) : filterRows(meters).map((m: any) => (
                   <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{m.name}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{m.asset_name || '—'}</td>
@@ -996,9 +1016,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(locations || []).length === 0 ? (
+                {filterRows(locations).length === 0 ? (
                   <tr><td colSpan={2} className="p-8 text-center text-gray-500">{t('მდებარეობები არ არის')}</td></tr>
-                ) : (locations || []).map((l: any) => (
+                ) : filterRows(locations).map((l: any) => (
                   <tr key={l.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{l.name}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{l.description || '—'}</td>
@@ -1029,9 +1049,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(technicians || []).length === 0 ? (
+                {filterRows(technicians).length === 0 ? (
                   <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('ტექნიკოსები არ არის')}</td></tr>
-                ) : (technicians || []).map((tech: any) => (
+                ) : filterRows(technicians).map((tech: any) => (
                   <tr key={tech.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{tech.name}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tech.specialization || '—'}</td>
@@ -1064,9 +1084,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(contractors || []).length === 0 ? (
+                {filterRows(contractors).length === 0 ? (
                   <tr><td colSpan={4} className="p-8 text-center text-gray-500">{t('კონტრაქტორები არ არის')}</td></tr>
-                ) : (contractors || []).map((c: any) => (
+                ) : filterRows(contractors).map((c: any) => (
                   <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{c.name}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.contact_person || '—'}</td>
@@ -1101,9 +1121,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(parts || []).length === 0 ? (
+                {filterRows(parts).length === 0 ? (
                   <tr><td colSpan={7} className="p-8 text-center text-gray-500">{t('ნაწილები არ არის')}</td></tr>
-                ) : (parts || []).map((p: any) => (
+                ) : filterRows(parts).map((p: any) => (
                   <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{p.part_code}</td>
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{p.name}</td>
@@ -1134,9 +1154,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(partRequests || []).length === 0 ? (
+                {filterRows(partRequests).length === 0 ? (
                   <tr><td colSpan={4} className="p-8 text-center text-gray-500">{t('მოთხოვნები არ არის')}</td></tr>
-                ) : (partRequests || []).map((pr: any) => (
+                ) : filterRows(partRequests).map((pr: any) => (
                   <tr key={pr.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{pr.part_name || pr.part_code}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{pr.quantity}</td>
@@ -1167,9 +1187,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(tools || []).length === 0 ? (
+                {filterRows(tools).length === 0 ? (
                   <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('ხელსაწყოები არ არის')}</td></tr>
-                ) : (tools || []).map((tl: any) => (
+                ) : filterRows(tools).map((tl: any) => (
                   <tr key={tl.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{tl.tool_code}</td>
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{tl.name}</td>
@@ -1199,9 +1219,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(toolIssues || []).length === 0 ? (
+                {filterRows(toolIssues).length === 0 ? (
                   <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('გაცემები არ არის')}</td></tr>
-                ) : (toolIssues || []).map((ti: any) => (
+                ) : filterRows(toolIssues).map((ti: any) => (
                   <tr key={ti.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{ti.tool_name || '—'}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{ti.technician_name || '—'}</td>
@@ -1239,9 +1259,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(safetyInstructions || []).length === 0 ? (
+                {filterRows(safetyInstructions).length === 0 ? (
                   <tr><td colSpan={3} className="p-8 text-center text-gray-500">{t('ინსტრუქციები არ არის')}</td></tr>
-                ) : (safetyInstructions || []).map((s: any) => (
+                ) : filterRows(safetyInstructions).map((s: any) => (
                   <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{s.title}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{s.category || '—'}</td>
@@ -1269,9 +1289,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(workPermits || []).length === 0 ? (
+                {filterRows(workPermits).length === 0 ? (
                   <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('ნებართვები არ არის')}</td></tr>
-                ) : (workPermits || []).map((w: any) => (
+                ) : filterRows(workPermits).map((w: any) => (
                   <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{w.permit_number}</td>
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{w.work_type}</td>
@@ -1310,9 +1330,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(checklists || []).length === 0 ? (
+                {filterRows(checklists).length === 0 ? (
                   <tr><td colSpan={4} className="p-8 text-center text-gray-500">{t('ჩეკლისტები არ არის')}</td></tr>
-                ) : (checklists || []).map((c: any) => (
+                ) : filterRows(checklists).map((c: any) => (
                   <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{c.name}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{c.category || '—'}</td>
@@ -1341,9 +1361,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(incidents || []).length === 0 ? (
+                {filterRows(incidents).length === 0 ? (
                   <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('ინციდენტები არ არის')}</td></tr>
-                ) : (incidents || []).map((i: any) => (
+                ) : filterRows(incidents).map((i: any) => (
                   <tr key={i.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{i.incident_number}</td>
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{i.title}</td>
@@ -1387,9 +1407,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(costRecords || []).length === 0 ? (
+                {filterRows(costRecords).length === 0 ? (
                   <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('ხარჯები არ არის')}</td></tr>
-                ) : (costRecords || []).map((c: any) => (
+                ) : filterRows(costRecords).map((c: any) => (
                   <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3">
                       {c.cost_type === 'labor' ? <span className="badge">{t('შრომა')}</span> : c.cost_type === 'parts' ? <span className="badge badge-warning">{t('ნაწილები')}</span> : c.cost_type === 'contractor' ? <span className="badge badge-info">{t('კონტრაქტორი')}</span> : <span className="badge">{t('სხვა')}</span>}
@@ -1421,9 +1441,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(budgets || []).length === 0 ? (
+                {filterRows(budgets).length === 0 ? (
                   <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('ბიუჯეტები არ არის')}</td></tr>
-                ) : (budgets || []).map((b: any) => {
+                ) : filterRows(budgets).map((b: any) => {
                   const planned = Number(b.planned_amount) || 0
                   const spent = Number(b.spent_amount) || 0
                   const pct = planned > 0 ? Math.round((spent / planned) * 100) : 0
@@ -1489,9 +1509,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(reliabilityMetrics || []).length === 0 ? (
+                {filterRows(reliabilityMetrics).length === 0 ? (
                   <tr><td colSpan={6} className="p-8 text-center text-gray-500">{t('მეტრიკები არ არის')}</td></tr>
-                ) : (reliabilityMetrics || []).map((m: any) => (
+                ) : filterRows(reliabilityMetrics).map((m: any) => (
                   <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{m.asset_name || '—'}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{fmtDate(new Date(m.period_start))} — {fmtDate(new Date(m.period_end))}</td>
@@ -1524,9 +1544,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(workTypes || []).length === 0 ? (
+                {filterRows(workTypes).length === 0 ? (
                   <tr><td colSpan={3} className="p-8 text-center text-gray-500">{t('ტიპები არ არის')}</td></tr>
-                ) : (workTypes || []).map((w: any) => (
+                ) : filterRows(workTypes).map((w: any) => (
                   <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{w.name}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{w.code || '—'}</td>
@@ -1552,9 +1572,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(priorities || []).length === 0 ? (
+                {filterRows(priorities).length === 0 ? (
                   <tr><td colSpan={3} className="p-8 text-center text-gray-500">{t('პრიორიტეტები არ არის')}</td></tr>
-                ) : (priorities || []).map((p: any) => (
+                ) : filterRows(priorities).map((p: any) => (
                   <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{p.name}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.level}</td>
@@ -1582,9 +1602,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(statusConfigs || []).length === 0 ? (
+                {filterRows(statusConfigs).length === 0 ? (
                   <tr><td colSpan={3} className="p-8 text-center text-gray-500">{t('სტატუსები არ არის')}</td></tr>
-                ) : (statusConfigs || []).map((s: any) => (
+                ) : filterRows(statusConfigs).map((s: any) => (
                   <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{s.name}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{s.code}</td>
@@ -1610,9 +1630,9 @@ export default function MaintenancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-dark-50">
-                {(numberingConfigs || []).length === 0 ? (
+                {filterRows(numberingConfigs).length === 0 ? (
                   <tr><td colSpan={3} className="p-8 text-center text-gray-500">{t('ნომერაციები არ არის')}</td></tr>
-                ) : (numberingConfigs || []).map((n: any) => (
+                ) : filterRows(numberingConfigs).map((n: any) => (
                   <tr key={n.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{n.entity}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{n.prefix}</td>

@@ -2192,6 +2192,7 @@ const en: Record<string, string> = {
   'არა': 'No',
   'დღეს': 'Today',
   'მონაცემები იტვირთება…': 'Loading data…',
+  'ძებნა…': 'Search…',
 }
 
 i18n.use(initReactI18next).init({
