@@ -6,6 +6,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -22,6 +23,7 @@ from app.models.order import (
     Order,
     OrderFulfillment,
     OrderItem,
+    OrderReturn,
     OrderStatus,
     OrderStatusHistory,
     PaymentStatus,
@@ -509,6 +511,22 @@ async def list_orders(
             total_pages=(total + page_size - 1) // page_size,
         )
     )
+
+
+@router.get("/order-returns", response_model=ResponseBase[list[dict]])
+async def list_returns(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(OrderReturn).where(OrderReturn.company_id == current_user.company_id).order_by(OrderReturn.created_at.desc())
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(r.id), "return_number": r.return_number, "order_id": str(r.order_id),
+        "status": r.status, "reason": r.reason, "refund_amount": r.refund_amount,
+        "restocked": r.restocked, "items": r.items_snapshot, "created_at": r.created_at,
+    } for r in rows])
+
 
 
 @router.get("/{order_id}", response_model=ResponseBase[OrderResponse])
@@ -1064,3 +1082,187 @@ async def list_order_history(
     return ResponseBase(
         data=[OrderStatusHistoryResponse.model_validate(entry) for entry in history]
     )
+
+
+# ── Order 2.0: backorder, carrier, drop-ship, RMA, serial/lot, picking, credit-limit approval ──
+
+class BackorderUpdate(BaseModel):
+    backorder_status: str = Field(pattern="^(none|partial|full)$")
+    backorder_quantity: float = Field(default=0, ge=0)
+    backorder_eta: datetime | None = None
+
+
+class FulfillmentUpdate(BaseModel):
+    carrier: str | None = None
+    tracking_number: str | None = None
+    shipping_method: str | None = None
+    shipping_cost: float = Field(default=0, ge=0)
+    shipped_at: datetime | None = None
+    delivered_at: datetime | None = None
+    picked_at: datetime | None = None
+    packed_at: datetime | None = None
+
+
+class DropShipUpdate(BaseModel):
+    is_drop_ship: bool = False
+    drop_ship_supplier_id: UUID | None = None
+
+
+class ReturnCreate(BaseModel):
+    reason: str | None = None
+    items: list[dict] = Field(default_factory=list)  # [{product_id, quantity, refund_amount}]
+    refund_amount: float = Field(default=0, ge=0)
+
+
+class ReturnStatusUpdate(BaseModel):
+    status: str = Field(pattern="^(approved|received|restocked|rejected|refunded)$")
+
+
+class SerialLotUpdate(BaseModel):
+    serial_numbers: list[str] | None = None
+    lot_id: UUID | None = None
+
+
+class CreditLimitApproval(BaseModel):
+    approved: bool = True
+
+
+@router.patch("/{order_id}/backorder", response_model=ResponseBase[dict])
+async def update_backorder(
+    order_id: UUID,
+    data: BackorderUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    order = (await db.execute(select(Order).where(Order.id == order_id, Order.company_id == current_user.company_id))).scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+    order.backorder_status = data.backorder_status
+    order.backorder_quantity = data.backorder_quantity
+    order.backorder_eta = data.backorder_eta
+    await db.commit()
+    return ResponseBase(data={"backorder_status": order.backorder_status, "backorder_quantity": order.backorder_quantity})
+
+
+@router.patch("/{order_id}/fulfillment", response_model=ResponseBase[dict])
+async def update_fulfillment(
+    order_id: UUID,
+    data: FulfillmentUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    order = (await db.execute(
+        select(Order).options(selectinload(Order.fulfillment)).where(Order.id == order_id, Order.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+    f = order.fulfillment
+    if not f:
+        raise HTTPException(status_code=400, detail="შეკვეთას fulfillment არ აქვს — ჯერ საწყობი მიანიჭეთ")
+    for field in ("carrier", "tracking_number", "shipping_method", "shipping_cost", "shipped_at", "delivered_at", "picked_at", "packed_at"):
+        val = getattr(data, field)
+        if val is not None:
+            setattr(f, field, val)
+    # auto status transitions
+    if data.shipped_at and order.status not in ("shipping", "completed", "cancelled"):
+        order.status = "shipping"
+    if data.delivered_at and order.status not in ("completed", "cancelled"):
+        order.status = "completed"
+    await db.commit()
+    return ResponseBase(data={"carrier": f.carrier, "tracking_number": f.tracking_number, "shipped_at": str(f.shipped_at) if f.shipped_at else None, "delivered_at": str(f.delivered_at) if f.delivered_at else None})
+
+
+@router.patch("/{order_id}/drop-ship", response_model=ResponseBase[dict])
+async def update_drop_ship(
+    order_id: UUID,
+    data: DropShipUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    order = (await db.execute(select(Order).where(Order.id == order_id, Order.company_id == current_user.company_id))).scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+    order.is_drop_ship = data.is_drop_ship
+    order.drop_ship_supplier_id = data.drop_ship_supplier_id
+    await db.commit()
+    return ResponseBase(data={"is_drop_ship": order.is_drop_ship, "drop_ship_supplier_id": str(order.drop_ship_supplier_id) if order.drop_ship_supplier_id else None})
+
+
+@router.post("/{order_id}/returns", response_model=ResponseBase[dict])
+async def create_return(
+    order_id: UUID,
+    data: ReturnCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    order = (await db.execute(select(Order).where(Order.id == order_id, Order.company_id == current_user.company_id))).scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+    prefix = f"RMA-{order.order_number}"
+    same = (await db.execute(select(func.count(OrderReturn.id)).where(OrderReturn.company_id == current_user.company_id, OrderReturn.return_number.like(f"{prefix}-%")))).scalar_one()
+    ret = OrderReturn(
+        company_id=current_user.company_id, order_id=order.id,
+        return_number=f"{prefix}-{same + 1:03d}", reason=data.reason,
+        items_snapshot=data.items, refund_amount=data.refund_amount,
+        created_by=current_user.id,
+    )
+    db.add(ret)
+    await db.commit()
+    return ResponseBase(data={"return_number": ret.return_number, "status": ret.status, "id": str(ret.id)})
+
+
+
+@router.patch("/returns/{return_id}", response_model=ResponseBase[dict])
+async def update_return_status(
+    return_id: UUID,
+    data: ReturnStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ret = (await db.execute(select(OrderReturn).where(OrderReturn.id == return_id, OrderReturn.company_id == current_user.company_id))).scalar_one_or_none()
+    if not ret:
+        raise HTTPException(status_code=404, detail="დაბრუნება არ მოიძებნა")
+    ret.status = data.status
+    if data.status == "restocked":
+        ret.restocked = True
+    await db.commit()
+    return ResponseBase(data={"return_number": ret.return_number, "status": ret.status, "restocked": ret.restocked})
+
+
+@router.patch("/items/{item_id}/serial-lot", response_model=ResponseBase[dict])
+async def update_item_serial_lot(
+    item_id: UUID,
+    data: SerialLotUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = (await db.execute(
+        select(OrderItem).join(Order).where(OrderItem.id == item_id, Order.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="შეკვეთის ხაზი არ მოიძებნა")
+    if data.serial_numbers is not None:
+        item.serial_numbers = data.serial_numbers
+    if data.lot_id is not None:
+        item.lot_id = data.lot_id
+    await db.commit()
+    return ResponseBase(data={"serial_numbers": item.serial_numbers, "lot_id": str(item.lot_id) if item.lot_id else None})
+
+
+@router.post("/{order_id}/credit-limit-approval", response_model=ResponseBase[dict])
+async def approve_credit_limit(
+    order_id: UUID,
+    data: CreditLimitApproval,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    order = (await db.execute(select(Order).where(Order.id == order_id, Order.company_id == current_user.company_id))).scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+    if not data.approved:
+        raise HTTPException(status_code=400, detail="უარყოფისას შეკვეთა გააუქმეთ")
+    order.credit_limit_approved = True
+    order.credit_limit_approved_by = current_user.id
+    order.credit_limit_approved_at = utc_now()
+    await db.commit()
+    return ResponseBase(data={"credit_limit_approved": True, "approved_by": str(current_user.id)})

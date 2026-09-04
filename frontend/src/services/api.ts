@@ -135,6 +135,15 @@ export const ordersApi = {
     api.patch(`/orders/${id}/status`, data),
   history: (id: string) => api.get(`/orders/${id}/history`),
   reservations: (id: string) => api.get(`/orders/${id}/reservations`),
+  // Order 2.0
+  updateBackorder: (id: string, data: any) => api.patch(`/orders/${id}/backorder`, data),
+  updateFulfillment: (id: string, data: any) => api.patch(`/orders/${id}/fulfillment`, data),
+  updateDropShip: (id: string, data: any) => api.patch(`/orders/${id}/drop-ship`, data),
+  createReturn: (id: string, data: any) => api.post(`/orders/${id}/returns`, data),
+  listReturns: () => api.get('/orders/order-returns'),
+  updateReturnStatus: (id: string, data: any) => api.patch(`/orders/returns/${id}`, data),
+  updateItemSerialLot: (itemId: string, data: any) => api.patch(`/orders/items/${itemId}/serial-lot`, data),
+  approveCreditLimit: (id: string, data: any) => api.post(`/orders/${id}/credit-limit-approval`, data),
 }
 
 // Products API

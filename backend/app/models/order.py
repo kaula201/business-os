@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import String, DateTime, ForeignKey, Float, Numeric, Text, UniqueConstraint, func
+from sqlalchemy import String, DateTime, ForeignKey, Float, Numeric, Text, UniqueConstraint, func, Boolean, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
@@ -49,6 +49,19 @@ class Order(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    # ── Order 2.0 ────────────────────────────────────────────────────────────
+    # Backorder management
+    backorder_status: Mapped[str] = mapped_column(String(20), default="none", nullable=False)  # none | partial | full
+    backorder_quantity: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    backorder_eta: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Drop-shipping
+    is_drop_ship: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    drop_ship_supplier_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=True)
+    # Credit-limit approval
+    credit_limit_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    credit_limit_approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    credit_limit_approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     company = relationship("Company", back_populates="orders")
     client = relationship("Client", back_populates="orders")
     items = relationship("OrderItem", back_populates="order")
@@ -73,6 +86,11 @@ class OrderItem(Base):
     unit_price: Mapped[float] = mapped_column(Float, nullable=False, default=0)
     discount_percent: Mapped[float] = mapped_column(Float, default=0)
     total: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+
+    # ── Order 2.0 ────────────────────────────────────────────────────────────
+    fulfilled_quantity: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    serial_numbers: Mapped[list | None] = mapped_column(JSON, nullable=True)  # sold serials
+    lot_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("product_batches.id"), nullable=True)
 
     order = relationship("Order", back_populates="items")
     product = relationship("Product", back_populates="order_items")
@@ -107,8 +125,39 @@ class OrderFulfillment(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
+    # ── Order 2.0: carrier / route / picking ──────────────────────────────────
+    carrier: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    tracking_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    shipping_method: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    shipping_cost: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    shipped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    picked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    packed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    picked_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
     order = relationship("Order", back_populates="fulfillment")
     warehouse = relationship("Warehouse")
+
+
+class OrderReturn(Base):
+    """RMA — customer returns / refunds."""
+    __tablename__ = "order_returns"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    order_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("orders.id"), nullable=False, index=True)
+    return_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="requested", nullable=False)  # requested | approved | received | restocked | rejected | refunded
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    items_snapshot: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    refund_amount: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    restocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    order = relationship("Order")
 
 
 class InventoryReservation(Base):

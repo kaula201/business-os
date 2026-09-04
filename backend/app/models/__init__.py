@@ -12,6 +12,7 @@ from app.models.order import (
     Order,
     OrderFulfillment,
     OrderItem,
+    OrderReturn,
     OrderStatusHistory,
 )
 from app.models.product import Product, ProductCategory, ProductVariant, ProductImage, StockMovement
@@ -124,7 +125,7 @@ from app.models.live_chat import ChatMessage
 from app.models.embedding import Embedding
 
 __all__ = [
-    "Company", "User", "Client", "ClientAddress", "ClientGroupDef", "ClientRelation", "Contract", "Leave", "Order", "OrderItem", "OrderStatusHistory", "OrderFulfillment",
+    "Company", "User", "Client", "ClientAddress", "ClientGroupDef", "ClientRelation", "Contract", "Leave", "Order", "OrderItem", "OrderStatusHistory", "OrderFulfillment", "OrderReturn",
  "InventoryReservation", "DocumentSequence",
     "Product", "ProductCategory", "ProductVariant", "ProductImage", "StockMovement", "Task", "TaskComment", "TaskAttachment", "TaskHistory", "TaskReminder", "TaskDependency", "Invoice", "InvoiceItem",
     "CustomerReceivable", "CustomerPayment", "CustomerPaymentReversal", "CustomerCreditNote", "CustomerBankReconciliation", "CustomerBankReconciliationReversal",

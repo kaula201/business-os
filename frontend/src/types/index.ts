@@ -224,6 +224,13 @@ export interface Order {
   items: OrderItem[]
   created_at: string
   updated_at: string
+  // Order 2.0
+  backorder_status?: 'none' | 'partial' | 'full'
+  backorder_quantity?: number
+  is_drop_ship?: boolean
+  credit_limit_approved?: boolean
+  credit_limit_approved_by?: string
+  credit_limit_approved_at?: string
 }
 
 export interface OrderItem {

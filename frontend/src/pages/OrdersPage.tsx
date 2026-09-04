@@ -4,7 +4,7 @@ import i18n from '../i18n'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ordersApi, clientsApi, productsApi, warehousesApi } from '../services/api'
-import { ArrowRight, Eye, FileText, PackageCheck, Plus, Search, UserPlus, X } from 'lucide-react'
+import { ArrowRight, Eye, FileText, PackageCheck, Plus, Search, Truck, Undo2, ShieldCheck, Link2, UserPlus, X } from 'lucide-react'
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import FormField, { Select } from '../components/ui/FormField'
@@ -60,6 +60,13 @@ export default function OrdersPage() {
   const [actionError, setActionError] = useState('')
   const [clientPanelOpen, setClientPanelOpen] = useState(false)
   const [clientError, setClientError] = useState('')
+  // Order 2.0
+  const [carrierForm, setCarrierForm] = useState({ carrier: '', tracking_number: '', shipping_method: '' })
+  const [backorderForm, setBackorderForm] = useState({ backorder_status: 'none', backorder_quantity: '0', backorder_eta: '' })
+  const [rmaOpen, setRmaOpen] = useState(false)
+  const [rmaReason, setRmaReason] = useState('')
+  const [rmaRefund, setRmaRefund] = useState('0')
+  const [serialInput, setSerialInput] = useState('')
   const [clientForm, setClientForm] = useState<ClientCreate>({
     name: '', client_type: 'legal', identification_code: '', is_vat_payer: true,
     address: '', phone: '', email: '', notes: '',
@@ -89,6 +96,38 @@ export default function OrdersPage() {
     queryKey: ['order-reservations', viewOrderId],
     queryFn: () => ordersApi.reservations(viewOrderId!).then(r => r.data.data),
     enabled: !!viewOrderId,
+  })
+
+  // Order 2.0 mutations
+  const updateBackorder = useMutation({
+    mutationFn: (data: any) => ordersApi.updateBackorder(viewOrderId!, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['order-detail', viewOrderId] }); setActionError('') },
+    onError: (e: any) => setActionError(e?.response?.data?.detail || t('შეცდომა')),
+  })
+  const updateFulfillment = useMutation({
+    mutationFn: (data: any) => ordersApi.updateFulfillment(viewOrderId!, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['order-detail', viewOrderId] }); setActionError('') },
+    onError: (e: any) => setActionError(e?.response?.data?.detail || t('შეცდომა')),
+  })
+  const updateDropShip = useMutation({
+    mutationFn: (data: any) => ordersApi.updateDropShip(viewOrderId!, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['order-detail', viewOrderId] }); setActionError('') },
+    onError: (e: any) => setActionError(e?.response?.data?.detail || t('შეცდომა')),
+  })
+  const createReturn = useMutation({
+    mutationFn: (data: any) => ordersApi.createReturn(viewOrderId!, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['orders'] }); setRmaOpen(false); setRmaReason(''); setActionError('') },
+    onError: (e: any) => setActionError(e?.response?.data?.detail || t('შეცდომა')),
+  })
+  const updateSerialLot = useMutation({
+    mutationFn: ({ itemId, data }: { itemId: string; data: any }) => ordersApi.updateItemSerialLot(itemId, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['order-detail', viewOrderId] }); setSerialInput(''); setActionError('') },
+    onError: (e: any) => setActionError(e?.response?.data?.detail || t('შეცდომა')),
+  })
+  const approveCreditLimit = useMutation({
+    mutationFn: () => ordersApi.approveCreditLimit(viewOrderId!, { approved: true }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['order-detail', viewOrderId] }); setActionError('') },
+    onError: (e: any) => setActionError(e?.response?.data?.detail || t('შეცდომა')),
   })
   const { data: clientsData } = useQuery({ queryKey: ['clients-select'], queryFn: () => clientsApi.list({ page_size: 100 }).then(r => r.data.data) })
   const { data: productsData } = useQuery({ queryKey: ['products-select'], queryFn: () => productsApi.list({ page_size: 100 }).then(r => r.data.data) })
@@ -444,6 +483,87 @@ export default function OrdersPage() {
             {viewOrder.notes && (
               <div className="p-3 bg-gray-50 dark:bg-dark-100 rounded-lg text-sm"><span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">{t('შენიშვნა:')}</span> {viewOrder.notes}</div>
             )}
+
+            {/* Order 2.0 — backorder / carrier / drop-ship / serial / credit-limit */}
+            <div className="rounded-lg border border-gray-200 dark:border-dark-50 p-4 space-y-4">
+              <h4 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-200">
+                <Truck size={17} /> {t('მიწოდება და backorder')}
+              </h4>
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('Backorder სტატუსი')}</label>
+                  <select value={backorderForm.backorder_status} onChange={e => setBackorderForm({ ...backorderForm, backorder_status: e.target.value })} className="input h-9 w-32 text-sm">
+                    <option value="none">None</option>
+                    <option value="partial">{t('ნაწილობრივი')}</option>
+                    <option value="full">{t('სრული')}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ოდენობა')}</label>
+                  <input type="number" min="0" className="input h-9 w-24 text-sm" value={backorderForm.backorder_quantity} onChange={e => setBackorderForm({ ...backorderForm, backorder_quantity: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">ETA</label>
+                  <input type="date" className="input h-9 w-36 text-sm" value={backorderForm.backorder_eta} onChange={e => setBackorderForm({ ...backorderForm, backorder_eta: e.target.value })} />
+                </div>
+                <button onClick={() => updateBackorder.mutate({ backorder_status: backorderForm.backorder_status, backorder_quantity: Number(backorderForm.backorder_quantity), backorder_eta: backorderForm.backorder_eta || null })} className="btn-secondary h-9 text-sm">{t('შენახვა')}</button>
+              </div>
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('Carrier')}</label>
+                  <input className="input h-9 w-40 text-sm" placeholder="Georgian Post" value={carrierForm.carrier} onChange={e => setCarrierForm({ ...carrierForm, carrier: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('Tracking')}</label>
+                  <input className="input h-9 w-40 text-sm" placeholder="GP-123" value={carrierForm.tracking_number} onChange={e => setCarrierForm({ ...carrierForm, tracking_number: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('მეთოდი')}</label>
+                  <input className="input h-9 w-32 text-sm" placeholder="standard" value={carrierForm.shipping_method} onChange={e => setCarrierForm({ ...carrierForm, shipping_method: e.target.value })} />
+                </div>
+                <button onClick={() => updateFulfillment.mutate({ carrier: carrierForm.carrier, tracking_number: carrierForm.tracking_number, shipping_method: carrierForm.shipping_method })} className="btn-secondary h-9 text-sm">{t('შეკვრა')}</button>
+                <button onClick={() => updateFulfillment.mutate({ shipped_at: new Date().toISOString() })} className="btn-secondary h-9 text-sm border-blue-200 text-blue-700 hover:bg-blue-50">🚚 {t('გაგზავნა')}</button>
+                <button onClick={() => updateFulfillment.mutate({ delivered_at: new Date().toISOString() })} className="btn-secondary h-9 text-sm border-emerald-200 text-emerald-700 hover:bg-emerald-50">✓ {t('მიწოდება')}</button>
+                <button onClick={() => updateDropShip.mutate({ is_drop_ship: true })} className="btn-secondary h-9 text-sm border-purple-200 text-purple-700 hover:bg-purple-50">
+                  <Link2 size={14} className="inline mr-1" /> {t('Drop-ship')}
+                </button>
+              </div>
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('სერიული ნომრები (მძიმით)')}</label>
+                  <input className="input h-9 text-sm" placeholder="SN-001, SN-002" value={serialInput} onChange={e => setSerialInput(e.target.value)} />
+                </div>
+                <button onClick={() => viewOrder.items[0] && updateSerialLot.mutate({ itemId: viewOrder.items[0].id, data: { serial_numbers: serialInput.split(',').map((s: string) => s.trim()).filter(Boolean) } })} className="btn-secondary h-9 text-sm">{t('მინიჭება')}</button>
+                {!viewOrder.credit_limit_approved && (
+                  <button onClick={() => approveCreditLimit.mutate()} className="btn-secondary h-9 text-sm border-amber-200 text-amber-700 hover:bg-amber-50">
+                    <ShieldCheck size={14} className="inline mr-1" /> {t('ლიმიტის დამტკიცება')}
+                  </button>
+                )}
+                <button onClick={() => setRmaOpen(true)} className="btn-secondary h-9 text-sm border-red-200 text-red-600 hover:bg-red-50">
+                  <Undo2 size={14} className="inline mr-1" /> {t('დაბრუნება / RMA')}
+                </button>
+              </div>
+            </div>
+
+            {/* RMA modal */}
+            <Modal open={rmaOpen} onClose={() => setRmaOpen(false)} title={t('დაბრუნება / RMA')}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('მიზეზი')}</label>
+                  <textarea className="input" rows={3} value={rmaReason} onChange={e => setRmaReason(e.target.value)} placeholder={t('დეფექტი, შეცვლა...')} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('დასაბრუნებელი თანხა')}</label>
+                  <input type="number" min="0" step="0.01" className="input" value={rmaRefund} onChange={e => setRmaRefund(e.target.value)} />
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button onClick={() => setRmaOpen(false)} className="btn-secondary">{t('გაუქმება')}</button>
+                  <button onClick={() => createReturn.mutate({ reason: rmaReason, refund_amount: Number(rmaRefund), items: viewOrder.items.map((i: any) => ({ product_id: i.product_id, quantity: i.quantity, refund_amount: i.total })) })} className="btn-primary" disabled={createReturn.isPending}>
+                    {t('დაბრუნების შექმნა')}
+                  </button>
+                </div>
+              </div>
+            </Modal>
 
             {reservations.length > 0 && (
               <div className="rounded-lg border border-gray-200 dark:border-dark-50 p-4">
