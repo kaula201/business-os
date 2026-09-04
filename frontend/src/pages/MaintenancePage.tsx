@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { Wrench, CalendarClock, Hammer, Plus, CheckCircle2, ClipboardList, CalendarDays, Boxes, MapPin, Gauge, Users, Handshake, Package, Coins, BarChart3, Settings2, Shield, Pencil, Trash2 } from 'lucide-react'
+import { Wrench, CalendarClock, Hammer, Plus, CheckCircle2, ClipboardList, CalendarDays, Boxes, MapPin, Gauge, Users, Handshake, Package, Coins, BarChart3, Settings2, Shield, Pencil, Trash2, Play, X } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
@@ -784,12 +784,24 @@ export default function MaintenancePage() {
                   <td className="px-4 py-3"><span className={`badge ${statusBadge(o.status)}`}>{o.status}</span></td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{o.scheduled_date ? fmtDate(new Date(o.scheduled_date)) : '—'}</td>
                   <td className="px-4 py-3">
-                  <td className="px-4 py-3"><RowActions item={o} kind="order" onEdit={editItem} onDelete={removeItem} /></td>
-                    {o.status !== 'completed' && (
-                      <button onClick={() => updateOrder.mutate({ id: o.id, data: { status: 'completed' } })} className="btn btn-sm btn-success flex items-center gap-1">
-                        <CheckCircle2 size={14} /> {t('დასრულება')}
-                      </button>
-                    )}
+                    <div className="flex items-center justify-end gap-1">
+                      {o.status !== 'completed' && o.status !== 'cancelled' && (
+                        <>
+                          {o.status === 'scheduled' || o.status === 'draft' ? (
+                            <button onClick={() => updateOrder.mutate({ id: o.id, data: { status: 'in_progress' } })} className="btn btn-sm btn-outline flex items-center gap-1">
+                              <Play size={14} /> {t('დაწყება')}
+                            </button>
+                          ) : null}
+                          <button onClick={() => updateOrder.mutate({ id: o.id, data: { status: 'completed' } })} className="btn btn-sm btn-success flex items-center gap-1">
+                            <CheckCircle2 size={14} /> {t('დასრულება')}
+                          </button>
+                          <button onClick={() => updateOrder.mutate({ id: o.id, data: { status: 'cancelled' } })} className="btn btn-sm btn-outline text-red-600 flex items-center gap-1">
+                            <X size={14} /> {t('გაუქმება')}
+                          </button>
+                        </>
+                      )}
+                      <RowActions item={o} kind="order" onEdit={editItem} onDelete={removeItem} />
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -821,12 +833,14 @@ export default function MaintenancePage() {
                   <td className="px-4 py-3"><span className={`badge ${statusBadge(r.status)}`}>{r.status}</span></td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.priority}</td>
                   <td className="px-4 py-3">
-                  <td className="px-4 py-3"><RowActions item={r} kind="request" onEdit={editItem} onDelete={removeItem} /></td>
-                    {r.status !== 'done' && (
-                      <button onClick={() => updateRepair.mutate({ id: r.id, data: { status: 'done' } })} className="btn btn-sm btn-success flex items-center gap-1">
-                        <CheckCircle2 size={14} /> {t('დასრულება')}
-                      </button>
-                    )}
+                    <div className="flex items-center justify-end gap-1">
+                      {r.status !== 'done' && r.status !== 'cancelled' && (
+                        <button onClick={() => updateRepair.mutate({ id: r.id, data: { status: 'done' } })} className="btn btn-sm btn-success flex items-center gap-1">
+                          <CheckCircle2 size={14} /> {t('დასრულება')}
+                        </button>
+                      )}
+                      <RowActions item={r} kind="request" onEdit={editItem} onDelete={removeItem} />
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -866,8 +880,9 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3"><span className={`badge ${statusBadge(a.status)}`}>{a.status}</span></td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{a.warranty_until ? fmtDate(new Date(a.warranty_until)) : '—'}</td>
                     <td className="px-4 py-3">
-                  <td className="px-4 py-3"><RowActions item={a} kind="asset" onEdit={editItem} onDelete={removeItem} /></td>
-                      <button onClick={() => { if (window.confirm(t('წავშალოთ?'))) deleteAsset.mutate(a.id) }} className="text-xs font-semibold text-red-600 hover:underline">{t('წაშლა')}</button>
+                      <div className="flex items-center justify-end gap-1">
+                        <RowActions item={a} kind="asset" onEdit={editItem} onDelete={removeItem} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -906,12 +921,14 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.priority}</td>
                     <td className="px-4 py-3"><span className={`badge ${statusBadge(r.status)}`}>{r.status}</span></td>
                     <td className="px-4 py-3">
-                  <td className="px-4 py-3"><RowActions item={r} kind="repair" onEdit={editItem} onDelete={removeItem} /></td>
-                      {r.status !== 'completed' && (
-                        <button onClick={() => updateRequest.mutate({ id: r.id, data: { status: 'completed' } })} className="btn btn-sm btn-success flex items-center gap-1">
-                          <CheckCircle2 size={14} /> {t('დასრულება')}
-                        </button>
-                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        {r.status !== 'completed' && r.status !== 'cancelled' && (
+                          <button onClick={() => updateRequest.mutate({ id: r.id, data: { status: 'completed' } })} className="btn btn-sm btn-success flex items-center gap-1">
+                            <CheckCircle2 size={14} /> {t('დასრულება')}
+                          </button>
+                        )}
+                        <RowActions item={r} kind="repair" onEdit={editItem} onDelete={removeItem} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1007,14 +1024,14 @@ export default function MaintenancePage() {
               <tbody className="divide-y dark:divide-dark-50">
                 {(technicians || []).length === 0 ? (
                   <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('ტექნიკოსები არ არის')}</td></tr>
-                ) : (technicians || []).map((t: any) => (
-                  <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
-                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{t.name}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{t.specialization || '—'}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{t.phone || '—'}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{t.hourly_rate} ₾</td>
-                    <td className="px-4 py-3">{t.is_active ? <span className="badge badge-success">{t('აქტიური')}</span> : <span className="badge">{t('გაჩერებული')}</span>}</td>
-                  <td className="px-4 py-3"><RowActions item={t} kind="technician" onEdit={editItem} onDelete={removeItem} /></td>
+                ) : (technicians || []).map((tech: any) => (
+                  <tr key={tech.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
+                    <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{tech.name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tech.specialization || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tech.phone || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{tech.hourly_rate} ₾</td>
+                    <td className="px-4 py-3">{tech.is_active ? <span className="badge badge-success">{t('აქტიური')}</span> : <span className="badge">{t('გაჩერებული')}</span>}</td>
+                  <td className="px-4 py-3"><RowActions item={tech} kind="technician" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1184,10 +1201,12 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{ti.issued_at ? fmtDate(new Date(ti.issued_at)) : '—'}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{ti.returned_at ? fmtDate(new Date(ti.returned_at)) : <span className="badge badge-warning">{t('გაცემულია')}</span>}</td>
                     <td className="px-4 py-3 text-right">
-                  <td className="px-4 py-3"><RowActions item={ti} kind="tool-issue" onEdit={editItem} onDelete={removeItem} /></td>
-                      {!ti.returned_at && (
-                        <button onClick={() => returnTool.mutate(ti.id)} className="btn btn-sm btn-outline">{t('დაბრუნება')}</button>
-                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        {!ti.returned_at && (
+                          <button onClick={() => returnTool.mutate(ti.id)} className="btn btn-sm btn-outline">{t('დაბრუნება')}</button>
+                        )}
+                        <RowActions item={ti} kind="tool-issue" onEdit={editItem} onDelete={removeItem} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1256,10 +1275,12 @@ export default function MaintenancePage() {
                       {w.status === 'approved' ? <span className="badge badge-success">{t('დამტკიცებული')}</span> : w.status === 'rejected' ? <span className="badge badge-danger">{t('უარყოფილი')}</span> : <span className="badge badge-warning">{t('ნახაზი')}</span>}
                     </td>
                     <td className="px-4 py-3 text-right">
-                  <td className="px-4 py-3"><RowActions item={w} kind="permit" onEdit={editItem} onDelete={removeItem} /></td>
-                      {w.status === 'draft' && (
-                        <button onClick={() => approveWorkPermit.mutate(w.id)} className="btn btn-sm btn-outline">{t('დამტკიცება')}</button>
-                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        {w.status === 'draft' && (
+                          <button onClick={() => approveWorkPermit.mutate(w.id)} className="btn btn-sm btn-outline">{t('დამტკიცება')}</button>
+                        )}
+                        <RowActions item={w} kind="permit" onEdit={editItem} onDelete={removeItem} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1326,10 +1347,12 @@ export default function MaintenancePage() {
                       {i.status === 'resolved' || i.status === 'closed' ? <span className="badge badge-success">{t('მოგვარებული')}</span> : <span className="badge badge-warning">{t('ღია')}</span>}
                     </td>
                     <td className="px-4 py-3 text-right">
-                  <td className="px-4 py-3"><RowActions item={i} kind="incident" onEdit={editItem} onDelete={removeItem} /></td>
-                      {i.status === 'open' && (
-                        <button onClick={() => resolveIncident.mutate(i.id)} className="btn btn-sm btn-outline">{t('მოგვარება')}</button>
-                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        {i.status === 'open' && (
+                          <button onClick={() => resolveIncident.mutate(i.id)} className="btn btn-sm btn-outline">{t('მოგვარება')}</button>
+                        )}
+                        <RowActions item={i} kind="incident" onEdit={editItem} onDelete={removeItem} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1404,7 +1427,6 @@ export default function MaintenancePage() {
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{b.planned_amount} ₾</td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{b.spent_amount} ₾</td>
                       <td className="px-4 py-3">
-                  <td className="px-4 py-3"><RowActions item={b} kind="budget" onEdit={editItem} onDelete={removeItem} /></td>
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-100">
                             <div className={`h-full rounded-full ${pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
@@ -1412,6 +1434,7 @@ export default function MaintenancePage() {
                           <span className="text-xs text-gray-500">{pct}%</span>
                         </div>
                       </td>
+                      <td className="px-4 py-3"><RowActions item={b} kind="budget" onEdit={editItem} onDelete={removeItem} /></td>
                     </tr>
                   )
                 })}
@@ -1529,9 +1552,9 @@ export default function MaintenancePage() {
                     <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{p.name}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.level}</td>
                     <td className="px-4 py-3">
-                  <td className="px-4 py-3"><RowActions item={p} kind="priority" onEdit={editItem} onDelete={removeItem} /></td>
                       <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: p.color || '#ccc' }} />
                     </td>
+                    <td className="px-4 py-3"><RowActions item={p} kind="priority" onEdit={editItem} onDelete={removeItem} /></td>
                   </tr>
                 ))}
               </tbody>
