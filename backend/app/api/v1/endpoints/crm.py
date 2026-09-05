@@ -11,7 +11,11 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.time import utc_now
 from app.models.client import Client, ClientStatus, Contact
-from app.models.crm import CRMActivity, CRMLead, CRMOpportunity, CRMPipelineStage
+from app.models.crm import (
+    CRMActivity, CRMCampaignAttribution, CRMContact, CRMEmailMessage, CRMEmailThread,
+    CRMGdprConsent, CRMLead, CRMOpportunity, CRMPipelineStage, CRMRoutingRule,
+    CRMSLA, CRMTelephonyCall, CRMTerritory,
+)
 from app.models.sales_team import SalesTeam
 from app.models.user import User
 from app.schemas.common import PaginatedResponse, ResponseBase
@@ -936,3 +940,351 @@ async def send_quotation_email(
     })
     await db.commit()
     return ResponseBase(data={"to_email": to_email, "status": status_value})
+
+
+# ── CRM 2.0 — enterprise: contacts / email threads / telephony / attribution / routing / SLA / territory / GDPR ──
+
+
+@router.get("/contacts", response_model=ResponseBase[list[dict]])
+async def list_contacts(
+    client_id: UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    filters = [CRMContact.company_id == current_user.company_id]
+    if client_id:
+        filters.append(CRMContact.client_id == client_id)
+    rows = (await db.execute(
+        select(CRMContact).where(*filters).order_by(CRMContact.last_name, CRMContact.first_name)
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(c.id), "client_id": str(c.client_id), "first_name": c.first_name,
+        "last_name": c.last_name, "email": c.email, "phone": c.phone, "mobile": c.mobile,
+        "job_title": c.job_title, "department": c.department, "is_primary": c.is_primary,
+        "is_active": c.is_active,
+    } for c in rows])
+
+
+@router.post("/contacts", response_model=ResponseBase[dict], status_code=201)
+async def create_contact(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    client = (await db.execute(select(Client).where(
+        Client.id == data.get("client_id"), Client.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=404, detail="კლიენტი არ მოიძებნა")
+    c = CRMContact(
+        company_id=current_user.company_id, client_id=data["client_id"],
+        first_name=data["first_name"], last_name=data["last_name"],
+        email=data.get("email"), phone=data.get("phone"), mobile=data.get("mobile"),
+        job_title=data.get("job_title"), department=data.get("department"),
+        is_primary=data.get("is_primary", False),
+    )
+    db.add(c)
+    await db.flush()
+    await db.commit()
+    return ResponseBase(data={"id": str(c.id)}, message="კონტაქტი შეიქმნა")
+
+
+@router.post("/email-threads", response_model=ResponseBase[dict], status_code=201)
+async def create_email_thread(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Full email thread: create thread + first message."""
+    thread = CRMEmailThread(
+        company_id=current_user.company_id, lead_id=data.get("lead_id"),
+        client_id=data.get("client_id"), subject=data["subject"],
+    )
+    db.add(thread)
+    await db.flush()
+    db.add(CRMEmailMessage(
+        thread_id=thread.id, direction=data.get("direction", "inbound"),
+        from_email=data["from_email"], to_email=data["to_email"],
+        subject=data["subject"], body=data.get("body"), message_id=data.get("message_id"),
+    ))
+    await db.commit()
+    return ResponseBase(data={"id": str(thread.id)}, message="ელ.ფოსტის thread შეიქმნა")
+
+
+@router.get("/email-threads/{thread_id}/messages", response_model=ResponseBase[list[dict]])
+async def list_email_messages(
+    thread_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    thread = (await db.execute(select(CRMEmailThread).where(
+        CRMEmailThread.id == thread_id, CRMEmailThread.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread არ მოიძებნა")
+    rows = (await db.execute(
+        select(CRMEmailMessage).where(CRMEmailMessage.thread_id == thread.id).order_by(CRMEmailMessage.sent_at)
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(m.id), "direction": m.direction, "from_email": m.from_email,
+        "to_email": m.to_email, "subject": m.subject, "body": m.body,
+        "sent_at": m.sent_at.isoformat(),
+    } for m in rows])
+
+
+@router.post("/telephony/calls", response_model=ResponseBase[dict], status_code=201)
+async def log_telephony_call(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Telephony: log a call (inbound/outbound) with duration and recording."""
+    call = CRMTelephonyCall(
+        company_id=current_user.company_id, lead_id=data.get("lead_id"),
+        client_id=data.get("client_id"), contact_id=data.get("contact_id"),
+        direction=data.get("direction", "inbound"), phone_number=data["phone_number"],
+        duration_seconds=int(data.get("duration_seconds", 0)),
+        status=data.get("status", "completed"), recording_url=data.get("recording_url"),
+        notes=data.get("notes"),
+    )
+    db.add(call)
+    await db.flush()
+    await db.commit()
+    return ResponseBase(data={"id": str(call.id)}, message="ზარი დაფიქსირდა")
+
+
+@router.get("/telephony/calls", response_model=ResponseBase[list[dict]])
+async def list_telephony_calls(
+    lead_id: UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    filters = [CRMTelephonyCall.company_id == current_user.company_id]
+    if lead_id:
+        filters.append(CRMTelephonyCall.lead_id == lead_id)
+    rows = (await db.execute(
+        select(CRMTelephonyCall).where(*filters).order_by(CRMTelephonyCall.started_at.desc())
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(c.id), "lead_id": str(c.lead_id) if c.lead_id else None,
+        "direction": c.direction, "phone_number": c.phone_number,
+        "duration_seconds": c.duration_seconds, "status": c.status,
+        "recording_url": c.recording_url, "notes": c.notes,
+        "started_at": c.started_at.isoformat(),
+    } for c in rows])
+
+
+@router.post("/attribution", response_model=ResponseBase[dict], status_code=201)
+async def create_attribution(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Marketing campaign attribution: lead/opportunity → campaign."""
+    att = CRMCampaignAttribution(
+        company_id=current_user.company_id, lead_id=data.get("lead_id"),
+        opportunity_id=data.get("opportunity_id"), campaign=data["campaign"],
+        channel=data.get("channel", "email"),
+    )
+    db.add(att)
+    await db.flush()
+    await db.commit()
+    return ResponseBase(data={"id": str(att.id)}, message="ატრიბუცია დაფიქსირდა")
+
+
+@router.get("/attribution/analytics", response_model=ResponseBase[dict])
+async def attribution_analytics(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Campaign attribution analytics: leads per campaign/channel."""
+    rows = (await db.execute(
+        select(CRMCampaignAttribution).where(CRMCampaignAttribution.company_id == current_user.company_id)
+    )).scalars().all()
+    by_campaign: dict[str, int] = {}
+    by_channel: dict[str, int] = {}
+    for a in rows:
+        by_campaign[a.campaign] = by_campaign.get(a.campaign, 0) + 1
+        by_channel[a.channel] = by_channel.get(a.channel, 0) + 1
+    return ResponseBase(data={
+        "by_campaign": by_campaign, "by_channel": by_channel, "total": len(rows),
+    })
+
+
+@router.post("/routing/run", response_model=ResponseBase[dict])
+async def run_lead_routing(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lead routing: assign a new lead to an owner by strategy (round_robin | least_loaded | territory)."""
+    lead_id = data.get("lead_id")
+    lead = (await db.execute(select(CRMLead).where(
+        CRMLead.id == lead_id, CRMLead.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="ლიდი არ მოიძებნა")
+    if lead.owner_id:
+        return ResponseBase(data={"lead_id": str(lead.id), "owner_id": str(lead.owner_id), "strategy": "already_assigned"})
+
+    rules = (await db.execute(
+        select(CRMRoutingRule).where(
+            CRMRoutingRule.company_id == current_user.company_id, CRMRoutingRule.is_active.is_(True),
+        )
+    )).scalars().all()
+    if not rules:
+        raise HTTPException(status_code=400, detail="როუტინგის წესი არ არის კონფიგურირებული")
+    rule = rules[0]
+
+    from app.models.user import User as CRMUser
+    users = (await db.execute(
+        select(CRMUser).where(CRMUser.company_id == current_user.company_id, CRMUser.is_active.is_(True))
+    )).scalars().all()
+    if not users:
+        raise HTTPException(status_code=400, detail="აქტიური მომხმარებელი არ არის")
+
+    if rule.strategy == "least_loaded":
+        counts: dict[uuid.UUID, int] = {}
+        for u in users:
+            n = (await db.execute(select(func.count(CRMLead.id)).where(
+                CRMLead.owner_id == u.id, CRMLead.status.notin_(["converted", "lost"]),
+            ))).scalar_one()
+            counts[u.id] = n
+        owner = min(users, key=lambda u: counts[u.id])
+    elif rule.strategy == "territory" and rule.territory_id:
+        terr = (await db.execute(select(CRMTerritory).where(CRMTerritory.id == rule.territory_id))).scalar_one_or_none()
+        owner = next((u for u in users if u.id == (terr.owner_id if terr else None)), users[0])
+    else:  # round_robin
+        last = (await db.execute(
+            select(CRMLead.owner_id).where(CRMLead.company_id == current_user.company_id, CRMLead.owner_id.isnot(None))
+            .order_by(CRMLead.created_at.desc()).limit(1)
+        )).scalar_one_or_none()
+        idx = 0
+        if last:
+            for i, u in enumerate(users):
+                if u.id == last:
+                    idx = (i + 1) % len(users)
+                    break
+        owner = users[idx]
+
+    lead.owner_id = owner.id
+    await db.commit()
+    return ResponseBase(data={"lead_id": str(lead.id), "owner_id": str(owner.id), "strategy": rule.strategy})
+
+
+@router.get("/territories", response_model=ResponseBase[list[dict]])
+async def list_territories(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(CRMTerritory).where(CRMTerritory.company_id == current_user.company_id).order_by(CRMTerritory.name)
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(t.id), "name": t.name, "region": t.region,
+        "owner_id": str(t.owner_id) if t.owner_id else None, "is_active": t.is_active,
+    } for t in rows])
+
+
+@router.post("/territories", response_model=ResponseBase[dict], status_code=201)
+async def create_territory(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    t = CRMTerritory(
+        company_id=current_user.company_id, name=data["name"],
+        region=data.get("region"), owner_id=data.get("owner_id"),
+    )
+    db.add(t)
+    await db.flush()
+    await db.commit()
+    return ResponseBase(data={"id": str(t.id)}, message="ტერიტორია შეიქმნა")
+
+
+@router.get("/slas", response_model=ResponseBase[list[dict]])
+async def list_slas(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(CRMSLA).where(CRMSLA.company_id == current_user.company_id).order_by(CRMSLA.priority)
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(s.id), "name": s.name, "priority": s.priority,
+        "response_hours": s.response_hours, "resolution_hours": s.resolution_hours,
+        "is_active": s.is_active,
+    } for s in rows])
+
+
+@router.post("/slas", response_model=ResponseBase[dict], status_code=201)
+async def create_sla(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    sla = CRMSLA(
+        company_id=current_user.company_id, name=data["name"],
+        priority=data.get("priority", "normal"),
+        response_hours=int(data.get("response_hours", 24)),
+        resolution_hours=int(data.get("resolution_hours", 72)),
+    )
+    db.add(sla)
+    await db.flush()
+    await db.commit()
+    return ResponseBase(data={"id": str(sla.id)}, message="SLA შეიქმნა")
+
+
+@router.post("/gdpr/consents", response_model=ResponseBase[dict], status_code=201)
+async def set_gdpr_consent(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """GDPR/თანხმობების მართვა: grant/revoke consent for a lead or contact."""
+    from app.core.time import utc_now
+    existing = (await db.execute(select(CRMGdprConsent).where(
+        CRMGdprConsent.company_id == current_user.company_id,
+        CRMGdprConsent.consent_type == data["consent_type"],
+        CRMGdprConsent.lead_id == data.get("lead_id"),
+        CRMGdprConsent.contact_id == data.get("contact_id"),
+    ))).scalar_one_or_none()
+    granted = bool(data.get("granted", True))
+    now = utc_now()
+    if existing:
+        existing.granted = granted
+        existing.granted_at = now if granted else existing.granted_at
+        existing.revoked_at = None if granted else now
+    else:
+        existing = CRMGdprConsent(
+            company_id=current_user.company_id, lead_id=data.get("lead_id"),
+            contact_id=data.get("contact_id"), consent_type=data["consent_type"],
+            granted=granted, granted_at=now if granted else None,
+            revoked_at=None if granted else now, source=data.get("source"),
+        )
+        db.add(existing)
+    await db.flush()
+    await db.commit()
+    return ResponseBase(data={"id": str(existing.id), "granted": granted}, message="თანხმობა განახლდა")
+
+
+@router.get("/gdpr/consents", response_model=ResponseBase[list[dict]])
+async def list_gdpr_consents(
+    lead_id: UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    filters = [CRMGdprConsent.company_id == current_user.company_id]
+    if lead_id:
+        filters.append(CRMGdprConsent.lead_id == lead_id)
+    rows = (await db.execute(
+        select(CRMGdprConsent).where(*filters).order_by(CRMGdprConsent.created_at.desc())
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(c.id), "lead_id": str(c.lead_id) if c.lead_id else None,
+        "contact_id": str(c.contact_id) if c.contact_id else None,
+        "consent_type": c.consent_type, "granted": c.granted,
+        "granted_at": c.granted_at.isoformat() if c.granted_at else None,
+        "revoked_at": c.revoked_at.isoformat() if c.revoked_at else None,
+        "source": c.source,
+    } for c in rows])

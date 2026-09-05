@@ -124,6 +124,22 @@ export const crmApi = {
   // ── CRM → Quotation + email ──
   createQuotationFromOpportunity: (id: string) => api.post(`/crm/opportunities/${id}/quotation`),
   sendQuotationEmail: (id: string) => api.post(`/crm/quotations/${id}/send-email`),
+  // ── CRM 2.0 — enterprise ──
+  listContacts: (params?: Record<string, unknown>) => api.get('/crm/contacts', { params }),
+  createContact: (data: Record<string, unknown>) => api.post('/crm/contacts', data),
+  createEmailThread: (data: Record<string, unknown>) => api.post('/crm/email-threads', data),
+  listEmailMessages: (threadId: string) => api.get(`/crm/email-threads/${threadId}/messages`),
+  logCall: (data: Record<string, unknown>) => api.post('/crm/telephony/calls', data),
+  listCalls: (params?: Record<string, unknown>) => api.get('/crm/telephony/calls', { params }),
+  createAttribution: (data: Record<string, unknown>) => api.post('/crm/attribution', data),
+  attributionAnalytics: () => api.get('/crm/attribution/analytics'),
+  runRouting: (leadId: string) => api.post('/crm/routing/run', { lead_id: leadId }),
+  listTerritories: () => api.get('/crm/territories'),
+  createTerritory: (data: Record<string, unknown>) => api.post('/crm/territories', data),
+  listSlas: () => api.get('/crm/slas'),
+  createSla: (data: Record<string, unknown>) => api.post('/crm/slas', data),
+  setGdprConsent: (data: Record<string, unknown>) => api.post('/crm/gdpr/consents', data),
+  listGdprConsents: (params?: Record<string, unknown>) => api.get('/crm/gdpr/consents', { params }),
 }
 
 // Orders API

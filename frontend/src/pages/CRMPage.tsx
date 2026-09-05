@@ -22,6 +22,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
+import CrmEnterpriseView from '../components/crm/CrmEnterpriseView'
 import { authApi, crmApi, salesOrgApi } from '../services/api'
 import type {
   CRMActivity,
@@ -35,7 +36,7 @@ import type {
   CRMPipelineStage,
 } from '../types'
 
-type CRMView = 'overview' | 'leads' | 'pipeline' | 'activities'
+type CRMView = 'overview' | 'leads' | 'pipeline' | 'activities' | 'enterprise'
 
 const leadStatusLabels: Record<CRMLeadStatus, string> = {
   new: 'ახალი',
@@ -112,7 +113,7 @@ export default function CRMPage() {
   const [quotationMsg, setQuotationMsg] = useState('')
 
   useEffect(() => {
-    if (requestedView && ['overview', 'leads', 'pipeline', 'activities'].includes(requestedView)) setView(requestedView)
+    if (requestedView && ['overview', 'leads', 'pipeline', 'activities', 'enterprise'].includes(requestedView)) setView(requestedView)
   }, [requestedView])
 
   const changeView = (next: CRMView) => {
@@ -370,6 +371,7 @@ export default function CRMPage() {
           ['leads', t('ლიდები')],
           ['pipeline', t('გაყიდვების pipeline')],
           ['activities', t('აქტივობები და follow-up')],
+          ['enterprise', t('Enterprise (CRM 2.0)')],
         ] as [CRMView, string][]).map(([key, label]) => (
           <button key={key} onClick={() => changeView(key)} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold ${view === key ? 'bg-primary-700 text-white' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-dark-100'}`}>
             {t(label)}
@@ -516,6 +518,8 @@ export default function CRMPage() {
       {!busy && view === 'activities' && (
         <div className="rounded-xl border border-gray-200 bg-white dark:border-dark-50 dark:bg-dark-200"><div className="border-b border-gray-200 p-5 dark:border-dark-50"><h2 className="font-semibold text-gray-900 dark:text-gray-100">{t('აქტივობები და follow-up')}</h2><p className="text-sm text-gray-500 dark:text-gray-400">{t('ზარები, შეხვედრები, ელფოსტა და შემდეგი მოქმედებები.')}</p></div><div className="divide-y divide-gray-100 dark:divide-dark-50">{activities.map((item) => <ActivityRow key={item.id} activity={item} onComplete={() => completeActivityMutation.mutate(item.id)} />)}{!activities.length && <Empty text="CRM აქტივობები ჯერ არ არის დამატებული." />}</div></div>
       )}
+
+      {!busy && view === 'enterprise' && <CrmEnterpriseView />}
 
       <Modal open={newLeadOpen} onClose={() => setNewLeadOpen(false)} title={t('ახალი ლიდი — პოტენციური გაყიდვა')} size="lg"><form onSubmit={(e) => { e.preventDefault(); createLeadMutation.mutate() }} className="space-y-4"><p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{t('ეს ჩანაწერი ჯერ კლიენტი არ არის. კვალიფიკაციის შემდეგ შეძლებთ მის კლიენტების რეესტრში გადაყვანას.')}</p><div className="grid gap-4 sm:grid-cols-2"><Field label={t('კომპანია ან პირის დასახელება')} required><input required value={leadForm.company_name} onChange={(e) => setLeadForm({ ...leadForm, company_name: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100" /></Field><Field label={t('საკონტაქტო პირი')}><input value={leadForm.contact_name} onChange={(e) => setLeadForm({ ...leadForm, contact_name: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100" /></Field><Field label={t('ტელეფონი')}><input value={leadForm.phone} onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100" /></Field><Field label={t('ელფოსტა')}><input type="email" value={leadForm.email} onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100" /></Field><Field label={t('ლიდის წყარო')}><select value={leadForm.source} onChange={(e) => setLeadForm({ ...leadForm, source: e.target.value as CRMLeadSource })} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100">{Object.entries(sourceLabels).map(([key, label]) => <option key={key} value={key}>{t(label)}</option>)}</select></Field><Field label={t('სავარაუდო გაყიდვის ღირებულება')}><input type="number" min="0" value={leadForm.estimated_value || ''} onChange={(e) => setLeadForm({ ...leadForm, estimated_value: Number(e.target.value) })} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100" /></Field><Field label={t('გაყიდვების გუნდი')}><select value={leadForm.team_id || ''} onChange={(e) => setLeadForm({ ...leadForm, team_id: e.target.value || undefined })} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100"><option value="">{t('არ არის მინიჭებული')}</option>{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></Field></div><Field label={t('ინტერესი / შენიშვნა')}><textarea value={leadForm.notes} onChange={(e) => setLeadForm({ ...leadForm, notes: e.target.value })} className="min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-dark-50 dark:bg-dark-100" /></Field><FormError error={createLeadMutation.error} /><Actions busy={createLeadMutation.isPending} onCancel={() => setNewLeadOpen(false)} primary="ლიდის დამატება" /></form></Modal>
 

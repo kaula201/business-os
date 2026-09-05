@@ -62,7 +62,11 @@ from app.models.analytic import AnalyticAccount, AnalyticEntry
 from app.models.approval import ApprovalRequest
 from app.models.deferred import DeferredSchedule, DeferredRecognition
 from app.models.accounting_period import AccountingPeriod, AccountingPeriodEvent
-from app.models.crm import CRMActivity, CRMLead, CRMOpportunity, CRMPipelineStage  # noqa: F401
+from app.models.crm import (  # noqa: F401
+    CRMActivity, CRMCampaignAttribution, CRMContact, CRMEmailMessage, CRMEmailThread,
+    CRMGdprConsent, CRMLead, CRMOpportunity, CRMPipelineStage, CRMRoutingRule,
+    CRMSLA, CRMTelephonyCall, CRMTerritory,
+)
 from app.models.banking import (
     BankAccount,
     BankStatementImport,
@@ -169,7 +173,9 @@ __all__ = [
     "EcomProduct", "EcomPromotion", "EcomReturn", "EcomShippingRule",
     "GLAccount", "JournalEntry", "JournalEntryLine",
     "Vehicle", "FuelLog", "ServiceRecord", "DriverAssignment", "OdometerReading",
-    "CRMLead", "CRMOpportunity", "CRMActivity",
+    "CRMLead", "CRMOpportunity", "CRMActivity", "CRMPipelineStage",
+    "CRMContact", "CRMEmailThread", "CRMEmailMessage", "CRMTelephonyCall",
+    "CRMCampaignAttribution", "CRMRoutingRule", "CRMTerritory", "CRMSLA", "CRMGdprConsent",
     "ApprovalRequest",
     "JobPosting",
     "EmailCampaign",
