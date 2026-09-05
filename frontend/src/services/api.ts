@@ -398,6 +398,20 @@ export const ecommerceApi = {
   getCart: (cartId: string) => api.get(`/ecommerce/cart/${cartId}`),
   checkout: (cartId: string, data: Record<string, unknown>) => api.post(`/ecommerce/cart/${cartId}/checkout`, data),
   orders: () => api.get('/ecommerce/orders'),
+  // eCommerce 2.0
+  listPromotions: () => api.get('/ecommerce/promotions'),
+  createPromotion: (data: Record<string, unknown>) => api.post('/ecommerce/promotions', data),
+  validatePromo: (data: Record<string, unknown>) => api.post('/ecommerce/promotions/validate', data),
+  listShippingRules: () => api.get('/ecommerce/shipping-rules'),
+  createShippingRule: (data: Record<string, unknown>) => api.post('/ecommerce/shipping-rules', data),
+  calculateShipping: (data: Record<string, unknown>) => api.post('/ecommerce/shipping/calculate', data),
+  addTracking: (orderId: string, data: Record<string, unknown>) => api.post(`/ecommerce/orders/${orderId}/tracking`, data),
+  getTracking: (orderId: string) => api.get(`/ecommerce/orders/${orderId}/tracking`),
+  requestReturn: (orderId: string, data: Record<string, unknown>) => api.post(`/ecommerce/orders/${orderId}/return`, data),
+  listReturns: () => api.get('/ecommerce/returns'),
+  approveReturn: (returnId: string, data: Record<string, unknown>) => api.post(`/ecommerce/returns/${returnId}/approve`, data),
+  listContentPages: () => api.get('/ecommerce/content-pages'),
+  createContentPage: (data: Record<string, unknown>) => api.post('/ecommerce/content-pages', data),
 }
 
 // E-signature API

@@ -41,6 +41,7 @@ class EcomProductCreate(BaseModel):
     image_urls: Optional[list[str]] = None
     is_published: bool = False
     is_featured: bool = False
+    stock_quantity: int = 0
     seo_title: Optional[str] = None
     seo_description: Optional[str] = None
 

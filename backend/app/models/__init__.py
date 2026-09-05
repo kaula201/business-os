@@ -90,7 +90,10 @@ from app.models.pos import POSSession, POSOrder, POSOrderItem
 from app.models.pos import POSRefund, POSLoyaltyAccount, POSLoyaltyTransaction, POSOfflineQueue, POSFiscalDevice
 from app.models.pos_extended import GiftCard, GiftCardTransaction, POSCashMovement, POSZReport, POSPayment
 from app.models.pos_restaurant import RestaurantTable, POSOrderType, SelfOrderSession
-from app.models.ecommerce import EcomCategory, EcomProduct
+from app.models.ecommerce import (
+    EcomCategory, EcomContentPage, EcomOrder, EcomOrderItem, EcomOrderTracking,
+    EcomProduct, EcomPromotion, EcomReturn, EcomShippingRule,
+)
 from app.models.purchase import (
     GoodsReceipt,
     GoodsReceiptItem,
@@ -162,7 +165,8 @@ __all__ = [
     "HelpdeskTicket",
     "POSSession", "POSOrder", "POSOrderItem",
     "POSRefund", "POSLoyaltyAccount", "POSLoyaltyTransaction", "POSOfflineQueue", "POSFiscalDevice",
-    "EcomCategory", "EcomProduct",
+    "EcomCategory", "EcomContentPage", "EcomOrder", "EcomOrderItem", "EcomOrderTracking",
+    "EcomProduct", "EcomPromotion", "EcomReturn", "EcomShippingRule",
     "GLAccount", "JournalEntry", "JournalEntryLine",
     "Vehicle", "FuelLog", "ServiceRecord", "DriverAssignment", "OdometerReading",
     "CRMLead", "CRMOpportunity", "CRMActivity",
