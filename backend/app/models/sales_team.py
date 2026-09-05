@@ -86,7 +86,7 @@ class CommissionAccrual(Base):
 
     __tablename__ = "commission_accruals"
     __table_args__ = (
-        UniqueConstraint("company_id", "rule_id", "order_id", name="uq_commission_rule_order"),
+        UniqueConstraint("company_id", "rule_id", "order_id", "adjustment_of", name="uq_commission_rule_order"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -98,8 +98,15 @@ class CommissionAccrual(Base):
     base_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     commission_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="accrued", nullable=False, index=True)
-    # accrued | paid
+    # accrued | approved | paid | adjusted | cancelled
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Sales Teams 2.0 — payroll link + return adjustment
+    payslip_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("payslips.id"), nullable=True, index=True)
+    return_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("order_returns.id"), nullable=True, index=True)
+    adjustment_of: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("commission_accruals.id"), nullable=True, comment="რომელი დარიცხვის კორექტირებაა")
+    adjustment_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     rule = relationship("CommissionRule", back_populates="accruals")

@@ -118,3 +118,24 @@ class CommissionAccrualResponse(BaseModel):
     status: str
     paid_at: datetime | None
     created_at: datetime
+    # Sales Teams 2.0
+    approved_at: datetime | None = None
+    approved_by: UUID | None = None
+    payslip_id: UUID | None = None
+    return_id: UUID | None = None
+    adjustment_of: UUID | None = None
+    adjustment_reason: str | None = None
+
+
+class CommissionApproveRequest(BaseModel):
+    approve: bool = True
+    reason: str | None = None
+
+
+class CommissionAdjustRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=255)
+    amount: Decimal | None = Field(default=None, ge=0, description="ახალი საკომისიო თანხა (None = ავტო-გამოთვლა დაბრუნებიდან)")
+
+
+class CommissionPayrollLinkRequest(BaseModel):
+    payslip_id: UUID

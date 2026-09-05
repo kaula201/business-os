@@ -458,6 +458,7 @@ const en: Record<string, string> = {
   'გაუქმების ჩანაწერი': 'Cancellation record',
   'გაყიდვებისა და ფინანსური დოკუმენტებისთვის გამოყენებული ოფიციალური კლიენტები': 'Official clients used for sales and financial documents',
   'გაყიდვის ინვოისები': 'Sales invoices',
+  'კორექტირებული': 'Adjusted',
   'ფასის გამოთვლა (rule engine)': 'Price calculator (rule engine)',
   'წესები (rule engine)': 'Rules (rule engine)',
   'მოქმედებს დან': 'Valid from',

@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.endpoints.purchase_orders import add_audit
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.models.hr import Payslip
 from app.models.sales_team import (
     CommissionAccrual,
     CommissionRule,
@@ -21,6 +22,9 @@ from app.models.user import User
 from app.schemas.common import PaginatedResponse, ResponseBase
 from app.schemas.sales_team import (
     CommissionAccrualResponse,
+    CommissionAdjustRequest,
+    CommissionApproveRequest,
+    CommissionPayrollLinkRequest,
     CommissionRuleCreate,
     CommissionRuleResponse,
     CommissionRuleUpdate,
@@ -423,4 +427,123 @@ async def mark_commission_paid(
         order_id=accrual.order_id, owner_id=accrual.owner_id, team_id=accrual.team_id,
         base_amount=float(accrual.base_amount), commission_amount=float(accrual.commission_amount),
         status=accrual.status, paid_at=accrual.paid_at, created_at=accrual.created_at,
+        approved_at=accrual.approved_at, approved_by=accrual.approved_by,
+        payslip_id=accrual.payslip_id, return_id=accrual.return_id,
+        adjustment_of=accrual.adjustment_of, adjustment_reason=accrual.adjustment_reason,
     ))
+
+
+# ── Sales Teams 2.0 — approval / return adjustment / payroll link ─────────────
+
+def _accrual_response(a: CommissionAccrual) -> CommissionAccrualResponse:
+    return CommissionAccrualResponse(
+        id=a.id, company_id=a.company_id, rule_id=a.rule_id, order_id=a.order_id,
+        owner_id=a.owner_id, team_id=a.team_id, base_amount=float(a.base_amount),
+        commission_amount=float(a.commission_amount), status=a.status,
+        paid_at=a.paid_at, created_at=a.created_at,
+        approved_at=a.approved_at, approved_by=a.approved_by,
+        payslip_id=a.payslip_id, return_id=a.return_id,
+        adjustment_of=a.adjustment_of, adjustment_reason=a.adjustment_reason,
+    )
+
+
+@router.post("/commissions/{accrual_id}/approve", response_model=ResponseBase[CommissionAccrualResponse])
+async def approve_commission(
+    accrual_id: uuid.UUID,
+    data: CommissionApproveRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """საკომისიოს დადასტურება (approve) ან უარყოფა (reject)."""
+    accrual = (await db.execute(select(CommissionAccrual).where(
+        CommissionAccrual.id == accrual_id,
+        CommissionAccrual.company_id == current_user.company_id,
+    ).with_for_update())).scalar_one_or_none()
+    if not accrual:
+        raise HTTPException(status_code=404, detail="დარიცხვა ვერ მოიძებნა")
+    if accrual.status not in ("accrued", "adjusted"):
+        raise HTTPException(status_code=400, detail=f"სტატუსი {accrual.status} — დადასტურება შეუძლებელია")
+    from app.core.time import utc_now
+    if data.approve:
+        accrual.status = "approved"
+        accrual.approved_at = utc_now()
+        accrual.approved_by = current_user.id
+        add_audit(db, current_user, "commission.approved", "commission_accrual", accrual.id,
+                  {"reason": data.reason})
+    else:
+        accrual.status = "cancelled"
+        add_audit(db, current_user, "commission.rejected", "commission_accrual", accrual.id,
+                  {"reason": data.reason})
+    await db.commit()
+    await db.refresh(accrual)
+    return ResponseBase(data=_accrual_response(accrual))
+
+
+@router.post("/commissions/{accrual_id}/adjust", response_model=ResponseBase[CommissionAccrualResponse])
+async def adjust_commission(
+    accrual_id: uuid.UUID,
+    data: CommissionAdjustRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """დაბრუნებისას საკომისიოს კორექტირება: ძველი დარიცხვა იხურება, ახალი იქმნება."""
+    accrual = (await db.execute(select(CommissionAccrual).where(
+        CommissionAccrual.id == accrual_id,
+        CommissionAccrual.company_id == current_user.company_id,
+    ).with_for_update())).scalar_one_or_none()
+    if not accrual:
+        raise HTTPException(status_code=404, detail="დარიცხვა ვერ მოიძებნა")
+    if accrual.status == "paid":
+        raise HTTPException(status_code=400, detail="გადახდილი საკომისიოს კორექტირება შეუძლებელია — ჯერ payroll-ში უკუგება გააკეთეთ")
+
+    from app.core.time import utc_now
+    # close the original
+    accrual.status = "cancelled"
+    accrual.adjustment_reason = data.reason
+    # new adjusted accrual (negative commission = clawback)
+    new_amount = data.amount if data.amount is not None else -accrual.commission_amount
+    new_accrual = CommissionAccrual(
+        company_id=accrual.company_id, rule_id=accrual.rule_id, order_id=accrual.order_id,
+        owner_id=accrual.owner_id, team_id=accrual.team_id,
+        base_amount=accrual.base_amount, commission_amount=new_amount,
+        status="adjusted", adjustment_of=accrual.id, adjustment_reason=data.reason,
+        return_id=accrual.return_id,
+    )
+    db.add(new_accrual)
+    await db.flush()
+    add_audit(db, current_user, "commission.adjusted", "commission_accrual", new_accrual.id,
+              {"original": str(accrual.id), "reason": data.reason, "amount": str(new_amount)})
+    await db.commit()
+    await db.refresh(new_accrual)
+    return ResponseBase(data=_accrual_response(new_accrual))
+
+
+@router.post("/commissions/{accrual_id}/link-payslip", response_model=ResponseBase[CommissionAccrualResponse])
+async def link_commission_to_payslip(
+    accrual_id: uuid.UUID,
+    data: CommissionPayrollLinkRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """სახელფასო მოდულთან კავშირი: დარიცხვა ებმება payslip-ს."""
+    accrual = (await db.execute(select(CommissionAccrual).where(
+        CommissionAccrual.id == accrual_id,
+        CommissionAccrual.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not accrual:
+        raise HTTPException(status_code=404, detail="დარიცხვა ვერ მოიძებნა")
+    payslip = (await db.execute(select(Payslip).where(
+        Payslip.id == data.payslip_id, Payslip.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not payslip:
+        raise HTTPException(status_code=404, detail="Payslip ვერ მოიძებნა")
+    accrual.payslip_id = data.payslip_id
+    if accrual.status == "approved":
+        accrual.status = "paid"
+        from app.core.time import utc_now
+        accrual.paid_at = utc_now()
+    add_audit(db, current_user, "commission.linked_payslip", "commission_accrual", accrual.id,
+              {"payslip_id": str(data.payslip_id)})
+    await db.commit()
+    await db.refresh(accrual)
+    return ResponseBase(data=_accrual_response(accrual))

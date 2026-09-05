@@ -41,6 +41,12 @@ interface Accrual {
   commission_amount: number
   status: string
   paid_at: string | null
+  approved_at: string | null
+  approved_by: string | null
+  payslip_id: string | null
+  return_id: string | null
+  adjustment_of: string | null
+  adjustment_reason: string | null
 }
 
 function money(v: number) {
@@ -120,6 +126,19 @@ export default function SalesTeamsPage() {
     mutationFn: (id: string) => salesOrgApi.markCommissionPaid(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sales-commissions'] }),
   })
+  // Sales Teams 2.0
+  const approve = useMutation({
+    mutationFn: (id: string) => salesOrgApi.approveCommission(id, { approve: true }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sales-commissions'] }),
+  })
+  const reject = useMutation({
+    mutationFn: (id: string) => salesOrgApi.approveCommission(id, { approve: false, reason: 'უარყოფილია' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sales-commissions'] }),
+  })
+  const adjust = useMutation({
+    mutationFn: (id: string) => salesOrgApi.adjustCommission(id, { reason: 'შეკვეთა დაბრუნდა' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sales-commissions'] }),
+  })
 
   const teamColumns = [
     { key: 'name', label: 'დასახელება', priority: true, render: (tm: Team) => (
@@ -160,12 +179,33 @@ export default function SalesTeamsPage() {
     { key: 'order_id', label: 'შეკვეთა', priority: true, render: (a: Accrual) => (
       <span className="font-mono text-xs text-gray-900 dark:text-gray-100">{a.order_id.slice(0, 8)}...</span>) },
     { key: 'base_amount', label: 'ბაზა', render: (a: Accrual) => money(a.base_amount) },
-    { key: 'commission_amount', label: 'საკომისიო', render: (a: Accrual) => <span className="font-semibold text-primary-700 dark:text-primary-400">{money(a.commission_amount)}</span> },
-    { key: 'status', label: 'სტატუსი', render: (a: Accrual) => a.status === 'paid'
-      ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">{t('გადახდილი')}</span>
-      : <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">{t('დარიცხული')}</span> },
-    { key: 'actions', label: '', render: (a: Accrual) => a.status === 'accrued' && (
-      <button onClick={() => markPaid.mutate(a.id)} className="text-xs font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400">{t('გადახდა')}</button>) },
+    { key: 'commission_amount', label: 'საკომისიო', render: (a: Accrual) => (
+      <span className={`font-semibold ${a.commission_amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-primary-700 dark:text-primary-400'}`}>{money(a.commission_amount)}</span>) },
+    { key: 'status', label: 'სტატუსი', render: (a: Accrual) => {
+      const map: Record<string, { label: string; cls: string }> = {
+        paid: { label: t('გადახდილი'), cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
+        approved: { label: t('დადასტურებული'), cls: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+        adjusted: { label: t('კორექტირებული'), cls: 'bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300' },
+        cancelled: { label: t('გაუქმებული'), cls: 'bg-gray-100 text-gray-600 dark:bg-dark-100 dark:text-gray-400' },
+        accrued: { label: t('დარიცხული'), cls: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+      }
+      const s = map[a.status] || map.accrued
+      return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${s.cls}`}>{s.label}</span>
+    } },
+    { key: 'actions', label: '', render: (a: Accrual) => (
+      <div className="flex items-center gap-1.5">
+        {a.status === 'accrued' && (
+          <>
+            <button onClick={() => approve.mutate(a.id)} className="text-xs font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">{t('დადასტურება')}</button>
+            <button onClick={() => reject.mutate(a.id)} className="text-xs font-medium text-red-500 hover:text-red-600 dark:text-red-400">{t('უარყოფა')}</button>
+            <button onClick={() => adjust.mutate(a.id)} className="text-xs font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400">{t('დაბრუნება')}</button>
+          </>
+        )}
+        {a.status === 'approved' && (
+          <button onClick={() => markPaid.mutate(a.id)} className="text-xs font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400">{t('გადახდა')}</button>
+        )}
+        {a.adjustment_reason && <span className="text-[10px] text-gray-400" title={a.adjustment_reason}>↩</span>}
+      </div>) },
   ]
 
   const tabs = [

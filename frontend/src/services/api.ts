@@ -933,6 +933,9 @@ export const salesOrgApi = {
   deleteRule: (id: string) => api.delete(`/sales/commission-rules/${id}`),
   listCommissions: (params?: Record<string, unknown>) => api.get('/sales/commissions/', { params }),
   markCommissionPaid: (id: string) => api.post(`/sales/commissions/${id}/mark-paid`),
+  approveCommission: (id: string, data: Record<string, unknown>) => api.post(`/sales/commissions/${id}/approve`, data),
+  adjustCommission: (id: string, data: Record<string, unknown>) => api.post(`/sales/commissions/${id}/adjust`, data),
+  linkCommissionToPayslip: (id: string, data: Record<string, unknown>) => api.post(`/sales/commissions/${id}/link-payslip`, data),
 }
 
 // Communication API — email tracking, e-signature, subscriptions, portal
