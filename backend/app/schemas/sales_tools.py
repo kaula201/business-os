@@ -12,6 +12,8 @@ class PriceListItemCreate(BaseModel):
     product_id: UUID
     price: Decimal = Field(ge=0)
     min_quantity: Decimal = Field(default=Decimal("1"), ge=0)
+    currency: str | None = Field(default=None, max_length=3, description="ვალუტის მიხედვით ფასი (override)")
+    margin_percent: Decimal | None = Field(default=None, ge=0, le=100, description="item-ის მარჟა")
 
 
 class PriceListCreate(BaseModel):
@@ -20,6 +22,14 @@ class PriceListCreate(BaseModel):
     is_default: bool = False
     description: str | None = None
     items: list[PriceListItemCreate] = []
+    # PriceList 2.0 — rule engine
+    valid_from: date | None = None
+    valid_until: date | None = None
+    segment_id: UUID | None = None
+    pricing_method: str = Field(default="fixed", pattern="^(fixed|cost_plus_markup)$")
+    markup_percent: Decimal = Field(default=Decimal("0"), ge=0)
+    min_margin_percent: Decimal | None = Field(default=None, ge=0, le=100)
+    approval_required: bool = False
 
 
 class PriceListUpdate(BaseModel):
@@ -28,6 +38,13 @@ class PriceListUpdate(BaseModel):
     is_default: bool | None = None
     description: str | None = None
     is_active: bool | None = None
+    valid_from: date | None = None
+    valid_until: date | None = None
+    segment_id: UUID | None = None
+    pricing_method: str | None = Field(default=None, pattern="^(fixed|cost_plus_markup)$")
+    markup_percent: Decimal | None = Field(default=None, ge=0)
+    min_margin_percent: Decimal | None = Field(default=None, ge=0, le=100)
+    approval_required: bool | None = None
 
 
 class PriceListItemResponse(BaseModel):
@@ -35,6 +52,8 @@ class PriceListItemResponse(BaseModel):
     product_id: UUID
     price: float
     min_quantity: float
+    currency: str | None = None
+    margin_percent: float | None = None
 
 
 class PriceListResponse(BaseModel):
@@ -48,6 +67,15 @@ class PriceListResponse(BaseModel):
     items: list[PriceListItemResponse] = []
     created_at: datetime
     updated_at: datetime
+    # PriceList 2.0 — rule engine
+    valid_from: date | None = None
+    valid_until: date | None = None
+    segment_id: UUID | None = None
+    segment_name: str | None = None
+    pricing_method: str = "fixed"
+    markup_percent: float = 0
+    min_margin_percent: float | None = None
+    approval_required: bool = False
 
 
 # ── Quotations ───────────────────────────────────────────────────────────────

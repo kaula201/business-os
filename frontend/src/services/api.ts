@@ -908,6 +908,7 @@ export const salesToolsApi = {
   createPriceList: (data: Record<string, unknown>) => api.post('/price-lists/', data),
   updatePriceList: (id: string, data: Record<string, unknown>) => api.patch(`/price-lists/${id}`, data),
   deletePriceList: (id: string) => api.delete(`/price-lists/${id}`),
+  resolvePrice: (params: Record<string, unknown>) => api.get('/price-lists/resolve', { params }),
   listPaymentTerms: (params?: Record<string, unknown>) => api.get('/payment-terms/', { params }),
   createPaymentTerm: (data: Record<string, unknown>) => api.post('/payment-terms/', data),
   updatePaymentTerm: (id: string, data: Record<string, unknown>) => api.patch(`/payment-terms/${id}`, data),
