@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func, Boolean, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,9 +48,29 @@ class Invoice(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
+    # ── Invoice 2.0 ──────────────────────────────────────────────────────────
+    # Reversal workflow
+    reversed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reversed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    reversal_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reversal_invoice_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id"), nullable=True)
+    # Recurring invoices
+    is_recurring: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    recurring_frequency: Mapped[str | None] = mapped_column(String(20), nullable=True)  # monthly | quarterly | yearly
+    recurring_next_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    recurring_parent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id"), nullable=True)
+    # Installment schedule
+    installment_count: Mapped[int] = mapped_column(default=1, nullable=False)
+    # Fiscal status sync
+    fiscal_status: Mapped[str | None] = mapped_column(String(30), nullable=True)  # pending | sent | accepted | rejected
+    fiscal_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    fiscal_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     order = relationship("Order")
     client = relationship("Client")
     items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan", order_by="InvoiceItem.line_number")
+    installments = relationship("InvoiceInstallment", back_populates="invoice", cascade="all, delete-orphan", order_by="InvoiceInstallment.installment_number")
+    allocations = relationship("PaymentAllocation", back_populates="invoice", cascade="all, delete-orphan")
 
 
 class InvoiceItem(Base):
@@ -75,3 +95,53 @@ class InvoiceItem(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     invoice = relationship("Invoice", back_populates="items")
+
+
+class InvoiceInstallment(Base):
+    """Installment schedule — split an invoice into N payments."""
+    __tablename__ = "invoice_installments"
+    __table_args__ = (
+        UniqueConstraint("invoice_id", "installment_number", name="uq_invoice_installment_number"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    invoice_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    installment_number: Mapped[int] = mapped_column(nullable=False)
+    due_date: Mapped[date] = mapped_column(Date, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    paid_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)  # pending | partial | paid | overdue
+
+    invoice = relationship("Invoice", back_populates="installments")
+
+
+class PaymentAllocation(Base):
+    """Payment allocation across multiple invoices."""
+    __tablename__ = "payment_allocations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    invoice_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    payment_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("customer_payments.id", ondelete="CASCADE"), nullable=False, index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    invoice = relationship("Invoice", back_populates="allocations")
+
+
+class InvoiceNote(Base):
+    """Credit / debit note linked to an invoice."""
+    __tablename__ = "invoice_notes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    invoice_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    note_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    note_type: Mapped[str] = mapped_column(String(20), nullable=False)  # credit | debit
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="issued", nullable=False)  # issued | applied | void
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    invoice = relationship("Invoice")

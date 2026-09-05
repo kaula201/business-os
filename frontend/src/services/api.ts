@@ -652,6 +652,15 @@ export const invoicesApi = {
   download: (id: string) => api.get(`/invoices/${id}/download`, { responseType: 'blob' }),
   downloadWord: (id: string) => api.get(`/invoices/${id}/download-word`, { responseType: 'blob' }),
   downloadExcel: (id: string) => api.get(`/invoices/${id}/download-excel`, { responseType: 'blob' }),
+  // Invoice 2.0
+  createNote: (id: string, data: any) => api.post(`/invoices/${id}/notes`, data),
+  listNotes: (id: string) => api.get(`/invoices/${id}/notes`),
+  reverse: (id: string, data: any) => api.post(`/invoices/${id}/reversal`, data),
+  setRecurring: (id: string, data: any) => api.post(`/invoices/${id}/recurring`, data),
+  createInstallments: (id: string, data: any) => api.post(`/invoices/${id}/installments`, data),
+  listInstallments: (id: string) => api.get(`/invoices/${id}/installments`),
+  allocate: (id: string, data: any) => api.post(`/invoices/${id}/allocate`, data),
+  syncFiscalStatus: (id: string, data: any) => api.patch(`/invoices/${id}/fiscal-status`, data),
 }
 
 // Suppliers API

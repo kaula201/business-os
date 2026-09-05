@@ -14,8 +14,9 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.endpoints.purchase_orders import add_audit, allocate_document_number
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
-from app.models.invoice import Invoice, InvoiceItem
-from app.models.receivable import CustomerReceivable
+from app.core.time import utc_now
+from app.models.invoice import Invoice, InvoiceItem, InvoiceInstallment, PaymentAllocation, InvoiceNote
+from app.models.receivable import CustomerReceivable, CustomerPayment
 from app.models.order import Order
 from app.models.user import User
 from app.schemas.common import PaginatedResponse, ResponseBase
@@ -734,3 +735,215 @@ async def download_invoice_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{invoice.invoice_number}.xlsx"'},
     )
+
+
+# ── Invoice 2.0: notes, reversal, recurring, installments, allocation, fiscal sync ──
+
+from pydantic import BaseModel, Field
+
+
+class NoteCreate(BaseModel):
+    note_type: str = Field(pattern="^(credit|debit)$")
+    amount: Decimal = Field(gt=0)
+    reason: str | None = None
+
+
+class ReversalRequest(BaseModel):
+    reason: str = Field(min_length=3)
+
+
+class RecurringRequest(BaseModel):
+    frequency: str = Field(pattern="^(monthly|quarterly|yearly)$")
+    next_date: date | None = None
+
+
+class InstallmentRequest(BaseModel):
+    count: int = Field(ge=2, le=12)
+    first_due_date: date
+
+
+class AllocationRequest(BaseModel):
+    payment_id: UUID
+    amount: Decimal = Field(gt=0)
+
+
+class FiscalSyncRequest(BaseModel):
+    status: str = Field(pattern="^(pending|sent|accepted|rejected)$")
+    error: str | None = None
+
+
+@router.post("/{invoice_id}/notes", response_model=ResponseBase[dict])
+async def create_note(
+    invoice_id: UUID,
+    data: NoteCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    inv = (await db.execute(select(Invoice).where(Invoice.id == invoice_id, Invoice.company_id == current_user.company_id))).scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="ინვოისი არ მოიძებნა")
+    if inv.status != "issued":
+        raise HTTPException(status_code=400, detail="ნოტა მხოლოდ issued ინვოისზე შეიძლება")
+    prefix = f"CN-{inv.invoice_number}" if data.note_type == "credit" else f"DN-{inv.invoice_number}"
+    same = (await db.execute(select(func.count(InvoiceNote.id)).where(InvoiceNote.company_id == current_user.company_id, InvoiceNote.note_number.like(f"{prefix}-%")))).scalar_one()
+    note = InvoiceNote(
+        company_id=current_user.company_id, invoice_id=inv.id,
+        note_number=f"{prefix}-{same + 1:03d}", note_type=data.note_type,
+        amount=data.amount, reason=data.reason, created_by=current_user.id,
+    )
+    db.add(note)
+    await db.commit()
+    return ResponseBase(data={"note_number": note.note_number, "note_type": note.note_type, "amount": float(note.amount), "status": note.status})
+
+
+@router.get("/{invoice_id}/notes", response_model=ResponseBase[list[dict]])
+async def list_notes(
+    invoice_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    notes = (await db.execute(
+        select(InvoiceNote).join(Invoice).where(Invoice.id == invoice_id, Invoice.company_id == current_user.company_id)
+        .order_by(InvoiceNote.created_at.desc())
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(n.id), "note_number": n.note_number, "note_type": n.note_type,
+        "amount": float(n.amount), "reason": n.reason, "status": n.status, "created_at": n.created_at,
+    } for n in notes])
+
+
+@router.post("/{invoice_id}/reversal", response_model=ResponseBase[dict])
+async def reverse_invoice(
+    invoice_id: UUID,
+    data: ReversalRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Strict reversal: only issued invoices, creates a negative credit note, marks reversed."""
+    inv = (await db.execute(select(Invoice).where(Invoice.id == invoice_id, Invoice.company_id == current_user.company_id))).scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="ინვოისი არ მოიძებნა")
+    if inv.status != "issued":
+        raise HTTPException(status_code=400, detail="მხოლოდ issued ინვოისის გაუქმება შეიძლება")
+    if inv.reversed_at:
+        raise HTTPException(status_code=400, detail="ინვოისი უკვე გაუქმებულია")
+
+    # create credit note for the full amount
+    prefix = f"CN-{inv.invoice_number}"
+    same = (await db.execute(select(func.count(InvoiceNote.id)).where(InvoiceNote.company_id == current_user.company_id, InvoiceNote.note_number.like(f"{prefix}-%")))).scalar_one()
+    note = InvoiceNote(
+        company_id=current_user.company_id, invoice_id=inv.id,
+        note_number=f"{prefix}-{same + 1:03d}", note_type="credit",
+        amount=inv.total, reason=f"გაუქმება: {data.reason}", created_by=current_user.id,
+    )
+    db.add(note)
+    inv.status = "cancelled"
+    inv.reversed_at = utc_now()
+    inv.reversed_by = current_user.id
+    inv.reversal_reason = data.reason
+    add_audit(db, current_user, "invoice.reversed", "invoice", inv.id, {"reason": data.reason})
+    await db.commit()
+    return ResponseBase(data={"invoice_number": inv.invoice_number, "status": inv.status, "credit_note": note.note_number})
+
+
+@router.post("/{invoice_id}/recurring", response_model=ResponseBase[dict])
+async def set_recurring(
+    invoice_id: UUID,
+    data: RecurringRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    inv = (await db.execute(select(Invoice).where(Invoice.id == invoice_id, Invoice.company_id == current_user.company_id))).scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="ინვოისი არ მოიძებნა")
+    inv.is_recurring = True
+    inv.recurring_frequency = data.frequency
+    inv.recurring_next_date = data.next_date or (inv.due_date + timedelta(days=30))
+    await db.commit()
+    return ResponseBase(data={"is_recurring": True, "frequency": inv.recurring_frequency, "next_date": str(inv.recurring_next_date)})
+
+
+@router.post("/{invoice_id}/installments", response_model=ResponseBase[list[dict]])
+async def create_installments(
+    invoice_id: UUID,
+    data: InstallmentRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    inv = (await db.execute(select(Invoice).where(Invoice.id == invoice_id, Invoice.company_id == current_user.company_id))).scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="ინვოისი არ მოიძებნა")
+    # remove existing
+    await db.execute(InvoiceInstallment.__table__.delete().where(InvoiceInstallment.invoice_id == inv.id))
+    per = (inv.total / data.count).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    remainder = inv.total - per * data.count
+    rows = []
+    for i in range(1, data.count + 1):
+        amount = per + remainder if i == data.count else per
+        due = data.first_due_date + timedelta(days=30 * (i - 1))
+        db.add(InvoiceInstallment(invoice_id=inv.id, installment_number=i, due_date=due, amount=amount))
+        rows.append({"installment_number": i, "due_date": str(due), "amount": float(amount)})
+    inv.installment_count = data.count
+    await db.commit()
+    return ResponseBase(data=rows)
+
+
+@router.get("/{invoice_id}/installments", response_model=ResponseBase[list[dict]])
+async def list_installments(
+    invoice_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(InvoiceInstallment).join(Invoice).where(Invoice.id == invoice_id, Invoice.company_id == current_user.company_id)
+        .order_by(InvoiceInstallment.installment_number)
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "installment_number": r.installment_number, "due_date": str(r.due_date),
+        "amount": float(r.amount), "paid_amount": float(r.paid_amount), "status": r.status,
+    } for r in rows])
+
+
+@router.post("/{invoice_id}/allocate", response_model=ResponseBase[dict])
+async def allocate_payment(
+    invoice_id: UUID,
+    data: AllocationRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Allocate a payment to this invoice (multi-invoice allocation supported)."""
+    inv = (await db.execute(select(Invoice).where(Invoice.id == invoice_id, Invoice.company_id == current_user.company_id))).scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="ინვოისი არ მოიძებნა")
+    pay = (await db.execute(select(CustomerPayment).where(CustomerPayment.id == data.payment_id))).scalar_one_or_none()
+    if not pay:
+        raise HTTPException(status_code=404, detail="გადახდა არ მოიძებნა")
+    alloc = PaymentAllocation(company_id=current_user.company_id, invoice_id=inv.id, payment_id=pay.id, amount=data.amount)
+    db.add(alloc)
+    # update receivable paid amount
+    rec = (await db.execute(select(CustomerReceivable).where(CustomerReceivable.invoice_id == inv.id))).scalar_one_or_none()
+    if rec:
+        rec.paid_amount = Decimal(str(rec.paid_amount)) + data.amount
+        rec.outstanding_amount = max(Decimal("0"), rec.outstanding_amount - data.amount)
+        if rec.outstanding_amount == 0:
+            rec.status = "paid"
+    await db.commit()
+    return ResponseBase(data={"invoice_id": str(inv.id), "allocated": float(data.amount), "payment_id": str(pay.id)})
+
+
+@router.patch("/{invoice_id}/fiscal-status", response_model=ResponseBase[dict])
+async def sync_fiscal_status(
+    invoice_id: UUID,
+    data: FiscalSyncRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Reliable fiscal document status sync (RS.ge / fiscal device)."""
+    inv = (await db.execute(select(Invoice).where(Invoice.id == invoice_id, Invoice.company_id == current_user.company_id))).scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="ინვოისი არ მოიძებნა")
+    inv.fiscal_status = data.status
+    inv.fiscal_synced_at = utc_now()
+    inv.fiscal_error = data.error
+    await db.commit()
+    return ResponseBase(data={"invoice_number": inv.invoice_number, "fiscal_status": inv.fiscal_status, "synced_at": str(inv.fiscal_synced_at)})

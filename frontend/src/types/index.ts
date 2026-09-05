@@ -319,6 +319,12 @@ export interface CustomerInvoice extends CustomerInvoiceSummary {
   notes?: string
   items: CustomerInvoiceItem[]
   updated_at: string
+  // Invoice 2.0
+  fiscal_status?: string | null
+  is_recurring?: boolean
+  recurring_frequency?: string | null
+  installment_count?: number
+  reversed_at?: string | null
 }
 
 export interface CustomerInvoiceGenerate {

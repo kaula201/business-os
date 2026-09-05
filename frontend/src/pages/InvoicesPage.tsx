@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import {
   Check, CheckCircle2, ChevronRight, Download, Eye, FileSpreadsheet,
-  FileText, Pencil, Plus, Printer, Search, ShieldCheck, Trash2,
+  FileText, Pencil, Plus, Printer, Search, ShieldCheck, Trash2, Undo2, Repeat, CalendarRange, Wallet, Radio,
 } from 'lucide-react'
 
 import DataTable from '../components/ui/DataTable'
@@ -114,6 +114,13 @@ export default function InvoicesPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewNumber, setPreviewNumber] = useState('')
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null)
+  // Invoice 2.0
+  const [noteForm, setNoteForm] = useState({ note_type: 'credit', amount: '', reason: '' })
+  const [reversalReason, setReversalReason] = useState('')
+  const [recurringForm, setRecurringForm] = useState({ frequency: 'monthly', next_date: '' })
+  const [installmentForm, setInstallmentForm] = useState({ count: '3', first_due_date: '' })
+  const [fiscalForm, setFiscalForm] = useState({ status: 'sent', error: '' })
+  const [actionMsg, setActionMsg] = useState('')
 
   useEffect(() => () => {
     if (previewUrl) window.URL.revokeObjectURL(previewUrl)
@@ -145,6 +152,43 @@ export default function InvoicesPage() {
     queryKey: ['customer-invoice', selectedId],
     queryFn: () => invoicesApi.get(selectedId!).then(response => response.data.data),
     enabled: !!selectedId,
+  })
+  // Invoice 2.0 queries
+  const { data: notes } = useQuery({
+    queryKey: ['invoice-notes', selectedId],
+    queryFn: () => selectedId ? invoicesApi.listNotes(selectedId).then(r => r.data.data) : [],
+    enabled: !!selectedId && !!detailQuery.data && detailQuery.data.status === 'issued',
+  })
+  const { data: installments } = useQuery({
+    queryKey: ['invoice-installments', selectedId],
+    queryFn: () => selectedId ? invoicesApi.listInstallments(selectedId).then(r => r.data.data) : [],
+    enabled: !!selectedId && !!detailQuery.data && detailQuery.data.status === 'issued',
+  })
+  // Invoice 2.0 mutations
+  const createNote = useMutation({
+    mutationFn: (data: any) => invoicesApi.createNote(selectedId!, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['invoice-notes'] }); setNoteForm({ note_type: 'credit', amount: '', reason: '' }); setActionMsg(t('ნოტა შექმნილია')) },
+    onError: (e: any) => setError(errorText(e)),
+  })
+  const reverse = useMutation({
+    mutationFn: (data: any) => invoicesApi.reverse(selectedId!, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['customer-invoice', selectedId] }); setReversalReason(''); setActionMsg(t('ინვოისი გაუქმებულია')) },
+    onError: (e: any) => setError(errorText(e)),
+  })
+  const setRecurring = useMutation({
+    mutationFn: (data: any) => invoicesApi.setRecurring(selectedId!, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['customer-invoice', selectedId] }); setActionMsg(t('განმეორება დაყენებულია')) },
+    onError: (e: any) => setError(errorText(e)),
+  })
+  const createInstallments = useMutation({
+    mutationFn: (data: any) => invoicesApi.createInstallments(selectedId!, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['invoice-installments'] }); setActionMsg(t('განვადებები შექმნილია')) },
+    onError: (e: any) => setError(errorText(e)),
+  })
+  const syncFiscal = useMutation({
+    mutationFn: (data: any) => invoicesApi.syncFiscalStatus(selectedId!, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['customer-invoice', selectedId] }); setActionMsg(t('ფისკალური სტატუსი განახლდა')) },
+    onError: (e: any) => setError(errorText(e)),
   })
   const allInvoices: CustomerInvoiceSummary[] = listQuery.data?.items || []
   const invoices = allInvoices
@@ -314,6 +358,93 @@ export default function InvoicesPage() {
           <div className="grid grid-cols-2 gap-3 rounded-xl border border-gray-200 p-4 text-sm md:grid-cols-4 dark:border-dark-50"><div><div className="text-gray-500 dark:text-gray-400">{t('თარიღი')}</div><div className="mt-1 font-medium">{fmtDate(new Date(selected.invoice_date))}</div></div><div><div className="text-gray-500 dark:text-gray-400">{t('გადახდის ვადა')}</div><div className="mt-1 font-medium">{fmtDate(new Date(selected.due_date))}</div></div><div><div className="text-gray-500 dark:text-gray-400">{t('ვალუტა')}</div><div className="mt-1 font-medium">{selected.currency}</div></div><div><div className="text-gray-500 dark:text-gray-400">{t('საბოლოო თანხა')}</div><div className="mt-1 text-lg font-bold">{money(selected.total, selected.currency)}</div></div></div>
           <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-dark-50"><table className="w-full text-sm"><thead className="bg-gray-50 dark:bg-dark-100"><tr><th className="px-4 py-3 text-left">{t('დასახელება')}</th><th className="px-4 py-3 text-right">{t('რაოდენობა')}</th><th className="px-4 py-3 text-right">{t('ფასი')}</th><th className="px-4 py-3 text-right">{t('ფასდაკლება')}</th><th className="px-4 py-3 text-right">{t('დღგ')}</th><th className="px-4 py-3 text-right">{t('სულ')}</th></tr></thead><tbody className="divide-y dark:divide-dark-50">{selected.items.map(item => <tr key={item.id}><td className="px-4 py-3 font-medium">{item.product_name}</td><td className="px-4 py-3 text-right">{item.quantity}</td><td className="px-4 py-3 text-right">{money(item.unit_price, selected.currency)}</td><td className="px-4 py-3 text-right">{item.discount_percent}%</td><td className="px-4 py-3 text-right">{item.vat_rate}%</td><td className="px-4 py-3 text-right font-semibold">{money(item.line_total, selected.currency)}</td></tr>)}</tbody></table></div>
           {selected.status === 'issued' && <div className="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-900/50 dark:bg-green-900/20"><div className="flex items-center gap-2 font-semibold text-green-800 dark:text-green-300"><ShieldCheck size={19} /> {t('დადასტურებული დოკუმენტი')}</div><p className="mt-1 text-sm text-green-700 dark:text-green-400">{t('ფინანსური მონაცემები დაფიქსირებულია. აირჩიეთ სასურველი ფორმატი.')}</p><div className="mt-4 grid gap-2 sm:grid-cols-3"><button onClick={() => void handleExport(selected, 'pdf')} className="btn-primary flex items-center justify-center gap-2"><Download size={17} /> {t('PDF ჩამოტვირთვა')}</button><button onClick={() => void handleExport(selected, 'word')} className="btn-secondary flex items-center justify-center gap-2"><FileText size={17} /> {t('Word ჩამოტვირთვა')}</button><button onClick={() => void handleExport(selected, 'excel')} className="btn-secondary flex items-center justify-center gap-2"><FileSpreadsheet size={17} /> {t('Excel ჩამოტვირთვა')}</button></div></div>}
+
+          {/* Invoice 2.0 — notes / reversal / recurring / installments / fiscal */}
+          {selected.status === 'issued' && (
+            <div className="space-y-4 rounded-xl border border-gray-200 p-4 dark:border-dark-50">
+              <h4 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-gray-100">
+                <Wallet size={17} /> {t('ინვოისის მართვა')}
+              </h4>
+              {actionMsg && <div className="rounded-lg border border-green-200 bg-green-50 p-2 text-sm text-green-700 dark:border-green-900/50 dark:bg-green-900/20 dark:text-green-300">{actionMsg}</div>}
+
+              {/* Credit / debit note */}
+              <div className="flex flex-wrap items-end gap-2">
+                <select value={noteForm.note_type} onChange={e => setNoteForm({ ...noteForm, note_type: e.target.value })} className="input h-9 w-28 text-sm">
+                  <option value="credit">{t('Credit note')}</option>
+                  <option value="debit">{t('Debit note')}</option>
+                </select>
+                <input type="number" min="0" step="0.01" className="input h-9 w-28 text-sm" placeholder={t('თანხა')} value={noteForm.amount} onChange={e => setNoteForm({ ...noteForm, amount: e.target.value })} />
+                <input className="input h-9 flex-1 min-w-[140px] text-sm" placeholder={t('მიზეზი')} value={noteForm.reason} onChange={e => setNoteForm({ ...noteForm, reason: e.target.value })} />
+                <button onClick={() => noteForm.amount && createNote.mutate({ note_type: noteForm.note_type, amount: Number(noteForm.amount), reason: noteForm.reason })} disabled={!noteForm.amount || createNote.isPending} className="btn-secondary h-9 text-sm">{t('ნოტის შექმნა')}</button>
+              </div>
+              {(notes || []).length > 0 && (
+                <div className="space-y-1">
+                  {(notes || []).map((n: any) => (
+                    <div key={n.id} className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-dark-100 px-3 py-1.5 text-sm">
+                      <span><span className="badge mr-2">{n.note_type === 'credit' ? 'CN' : 'DN'}</span>{n.note_number}</span>
+                      <span className="text-gray-500 dark:text-gray-400">{n.reason}</span>
+                      <span className="font-semibold">{money(n.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Reversal */}
+              <div className="flex flex-wrap items-end gap-2 border-t border-gray-100 dark:border-dark-50 pt-3">
+                <input className="input h-9 flex-1 min-w-[160px] text-sm" placeholder={t('გაუქმების მიზეზი')} value={reversalReason} onChange={e => setReversalReason(e.target.value)} />
+                <button onClick={() => reversalReason && reverse.mutate({ reason: reversalReason })} disabled={!reversalReason || reverse.isPending} className="btn-secondary h-9 text-sm border-red-200 text-red-600 hover:bg-red-50">
+                  <Undo2 size={14} className="inline mr-1" /> {t('ინვოისის გაუქმება')}
+                </button>
+              </div>
+
+              {/* Recurring */}
+              <div className="flex flex-wrap items-end gap-2 border-t border-gray-100 dark:border-dark-50 pt-3">
+                <select value={recurringForm.frequency} onChange={e => setRecurringForm({ ...recurringForm, frequency: e.target.value })} className="input h-9 w-32 text-sm">
+                  <option value="monthly">{t('ყოველთვიური')}</option>
+                  <option value="quarterly">{t('კვარტალური')}</option>
+                  <option value="yearly">{t('წლიური')}</option>
+                </select>
+                <input type="date" className="input h-9 w-36 text-sm" value={recurringForm.next_date} onChange={e => setRecurringForm({ ...recurringForm, next_date: e.target.value })} />
+                <button onClick={() => setRecurring.mutate({ frequency: recurringForm.frequency, next_date: recurringForm.next_date || null })} className="btn-secondary h-9 text-sm">
+                  <Repeat size={14} className="inline mr-1" /> {t('განმეორება')}
+                </button>
+              </div>
+
+              {/* Installments */}
+              <div className="flex flex-wrap items-end gap-2 border-t border-gray-100 dark:border-dark-50 pt-3">
+                <input type="number" min="2" max="12" className="input h-9 w-20 text-sm" value={installmentForm.count} onChange={e => setInstallmentForm({ ...installmentForm, count: e.target.value })} />
+                <input type="date" className="input h-9 w-36 text-sm" value={installmentForm.first_due_date} onChange={e => setInstallmentForm({ ...installmentForm, first_due_date: e.target.value })} />
+                <button onClick={() => installmentForm.first_due_date && createInstallments.mutate({ count: Number(installmentForm.count), first_due_date: installmentForm.first_due_date })} disabled={!installmentForm.first_due_date} className="btn-secondary h-9 text-sm">
+                  <CalendarRange size={14} className="inline mr-1" /> {t('განვადებები')}
+                </button>
+              </div>
+              {(installments || []).length > 0 && (
+                <div className="space-y-1">
+                  {(installments || []).map((ins: any) => (
+                    <div key={ins.installment_number} className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-dark-100 px-3 py-1.5 text-sm">
+                      <span className="font-medium">{ins.installment_number}. {fmtDate(new Date(ins.due_date))}</span>
+                      <span className="text-gray-500 dark:text-gray-400">{ins.status}</span>
+                      <span className="font-semibold">{money(ins.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Fiscal status sync */}
+              <div className="flex flex-wrap items-end gap-2 border-t border-gray-100 dark:border-dark-50 pt-3">
+                <select value={fiscalForm.status} onChange={e => setFiscalForm({ ...fiscalForm, status: e.target.value })} className="input h-9 w-32 text-sm">
+                  <option value="pending">Pending</option>
+                  <option value="sent">Sent</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <button onClick={() => syncFiscal.mutate({ status: fiscalForm.status, error: fiscalForm.error || null })} className="btn-secondary h-9 text-sm">
+                  <Radio size={14} className="inline mr-1" /> {t('ფისკალური სინქრონიზაცია')}
+                </button>
+                {selected.fiscal_status && <span className="text-xs text-gray-400">{t('სტატუსი:')} {selected.fiscal_status}</span>}
+              </div>
+            </div>
+          )}
         </div>}
       </Modal>
 
