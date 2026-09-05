@@ -951,6 +951,30 @@
    },
    {
     "method": "GET",
+    "path": "/client-groups",
+    "full_path": "/clients/client-groups",
+    "function": "list_groups",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/client-groups",
+    "full_path": "/clients/client-groups",
+    "function": "create_group",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/client-groups/{group_id}",
+    "full_path": "/clients/client-groups/{group_id}",
+    "function": "delete_group",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
     "path": "/{client_id}",
     "full_path": "/clients/{client_id}",
     "function": "get_client",
@@ -987,6 +1011,78 @@
     "full_path": "/clients/{client_id}/interactions",
     "function": "add_interaction",
     "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{client_id}/groups",
+    "full_path": "/clients/{client_id}/groups",
+    "function": "set_client_groups",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{client_id}/addresses",
+    "full_path": "/clients/{client_id}/addresses",
+    "function": "list_addresses",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{client_id}/addresses",
+    "full_path": "/clients/{client_id}/addresses",
+    "function": "create_address",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/addresses/{address_id}",
+    "full_path": "/clients/addresses/{address_id}",
+    "function": "delete_address",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{client_id}/relations",
+    "full_path": "/clients/{client_id}/relations",
+    "function": "list_relations",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{client_id}/relations",
+    "full_path": "/clients/{client_id}/relations",
+    "function": "create_relation",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/relations/{relation_id}",
+    "full_path": "/clients/relations/{relation_id}",
+    "function": "delete_relation",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{client_id}/statement",
+    "full_path": "/clients/{client_id}/statement",
+    "function": "client_statement",
+    "doc": "Full statement: opening balance, invoices, payments, credit notes, running balance.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/merge",
+    "full_path": "/clients/merge",
+    "function": "merge_clients",
+    "doc": "Merge duplicate clients: move orders/invoices/receivables/contacts to target, soft-delete sources.",
     "auth": false
    }
   ]
@@ -1665,6 +1761,30 @@
     "full_path": "/dashboard/drill-down/{entity}",
     "function": "drill_down",
     "doc": "Drill-down rows for AR or AP in one explicitly selected currency.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/role-views",
+    "full_path": "/dashboard/role-views",
+    "function": "role_views",
+    "doc": "Role-based dashboard layouts. Admin → director, accountant → finance, manager → sales, employee → default.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/kpi-definitions",
+    "full_path": "/dashboard/kpi-definitions",
+    "function": "kpi_definitions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/kpi-detail/{kpi_key}",
+    "full_path": "/dashboard/kpi-detail/{kpi_key}",
+    "function": "kpi_drill_down",
+    "doc": "Latest rows behind each KPI — click a card to see what makes up the number.",
     "auth": false
    }
   ]
@@ -4468,6 +4588,414 @@
     "function": "update_incident",
     "doc": "",
     "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/cost-records",
+    "full_path": "/maintenance/cost-records",
+    "function": "list_cost_records",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/cost-records",
+    "full_path": "/maintenance/cost-records",
+    "function": "create_cost_record",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/budgets",
+    "full_path": "/maintenance/budgets",
+    "function": "list_budgets",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/budgets",
+    "full_path": "/maintenance/budgets",
+    "function": "create_budget",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/reliability-metrics",
+    "full_path": "/maintenance/reliability-metrics",
+    "function": "list_reliability_metrics",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/reliability-metrics",
+    "full_path": "/maintenance/reliability-metrics",
+    "function": "create_reliability_metric",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/analytics/summary",
+    "full_path": "/maintenance/analytics/summary",
+    "function": "analytics_summary",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/config/work-types",
+    "full_path": "/maintenance/config/work-types",
+    "function": "list_work_types",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/config/work-types",
+    "full_path": "/maintenance/config/work-types",
+    "function": "create_work_type",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/config/priorities",
+    "full_path": "/maintenance/config/priorities",
+    "function": "list_priorities",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/config/priorities",
+    "full_path": "/maintenance/config/priorities",
+    "function": "create_priority",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/config/statuses",
+    "full_path": "/maintenance/config/statuses",
+    "function": "list_status_configs",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/config/statuses",
+    "full_path": "/maintenance/config/statuses",
+    "function": "create_status_config",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/config/numbering",
+    "full_path": "/maintenance/config/numbering",
+    "function": "list_numbering_configs",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/config/numbering",
+    "full_path": "/maintenance/config/numbering",
+    "function": "create_numbering_config",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/asset-categories/{item_id}",
+    "full_path": "/maintenance/asset-categories/{item_id}",
+    "function": "update_asset_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/asset-categories/{item_id}",
+    "full_path": "/maintenance/asset-categories/{item_id}",
+    "function": "delete_asset_category",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/locations/{item_id}",
+    "full_path": "/maintenance/locations/{item_id}",
+    "function": "update_location",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/locations/{item_id}",
+    "full_path": "/maintenance/locations/{item_id}",
+    "function": "delete_location",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/budgets/{budget_id}",
+    "full_path": "/maintenance/budgets/{budget_id}",
+    "function": "update_budget",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/budgets/{budget_id}",
+    "full_path": "/maintenance/budgets/{budget_id}",
+    "function": "delete_budget",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/certificates/{certificate_id}",
+    "full_path": "/maintenance/certificates/{certificate_id}",
+    "function": "update_certificate",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/certificates/{certificate_id}",
+    "full_path": "/maintenance/certificates/{certificate_id}",
+    "function": "delete_certificate",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/checklists/{checklist_id}",
+    "full_path": "/maintenance/checklists/{checklist_id}",
+    "function": "update_checklist",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/checklists/{checklist_id}",
+    "full_path": "/maintenance/checklists/{checklist_id}",
+    "function": "delete_checklist",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/cost-records/{record_id}",
+    "full_path": "/maintenance/cost-records/{record_id}",
+    "function": "update_cost_record",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/cost-records/{record_id}",
+    "full_path": "/maintenance/cost-records/{record_id}",
+    "function": "delete_cost_record",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/safety-instructions/{instruction_id}",
+    "full_path": "/maintenance/safety-instructions/{instruction_id}",
+    "function": "update_safety_instruction",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/safety-instructions/{instruction_id}",
+    "full_path": "/maintenance/safety-instructions/{instruction_id}",
+    "function": "delete_safety_instruction",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/reliability-metrics/{metric_id}",
+    "full_path": "/maintenance/reliability-metrics/{metric_id}",
+    "function": "update_reliability_metric",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/reliability-metrics/{metric_id}",
+    "full_path": "/maintenance/reliability-metrics/{metric_id}",
+    "function": "delete_reliability_metric",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/config/work-types/{item_id}",
+    "full_path": "/maintenance/config/work-types/{item_id}",
+    "function": "update_work_type",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/config/work-types/{item_id}",
+    "full_path": "/maintenance/config/work-types/{item_id}",
+    "function": "delete_work_type",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/config/priorities/{item_id}",
+    "full_path": "/maintenance/config/priorities/{item_id}",
+    "function": "update_priority",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/config/priorities/{item_id}",
+    "full_path": "/maintenance/config/priorities/{item_id}",
+    "function": "delete_priority",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/config/statuses/{item_id}",
+    "full_path": "/maintenance/config/statuses/{item_id}",
+    "function": "update_status_config",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/config/statuses/{item_id}",
+    "full_path": "/maintenance/config/statuses/{item_id}",
+    "function": "delete_status_config",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/config/numbering/{item_id}",
+    "full_path": "/maintenance/config/numbering/{item_id}",
+    "function": "update_numbering_config",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/config/numbering/{item_id}",
+    "full_path": "/maintenance/config/numbering/{item_id}",
+    "function": "delete_numbering_config",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/plans/{plan_id}",
+    "full_path": "/maintenance/plans/{plan_id}",
+    "function": "delete_plan",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/orders/{order_id}",
+    "full_path": "/maintenance/orders/{order_id}",
+    "function": "delete_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/requests/{request_id}",
+    "full_path": "/maintenance/requests/{request_id}",
+    "function": "delete_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/meters/{meter_id}",
+    "full_path": "/maintenance/meters/{meter_id}",
+    "function": "delete_meter",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/technicians/{technician_id}",
+    "full_path": "/maintenance/technicians/{technician_id}",
+    "function": "delete_technician",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/contractors/{contractor_id}",
+    "full_path": "/maintenance/contractors/{contractor_id}",
+    "function": "delete_contractor",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/slas/{sla_id}",
+    "full_path": "/maintenance/slas/{sla_id}",
+    "function": "delete_sla",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/parts/{part_id}",
+    "full_path": "/maintenance/parts/{part_id}",
+    "function": "delete_part",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/part-requests/{request_id}",
+    "full_path": "/maintenance/part-requests/{request_id}",
+    "function": "delete_part_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/tools/{tool_id}",
+    "full_path": "/maintenance/tools/{tool_id}",
+    "function": "delete_tool",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/tool-issues/{issue_id}",
+    "full_path": "/maintenance/tool-issues/{issue_id}",
+    "function": "delete_tool_issue",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/repairs/{repair_id}",
+    "full_path": "/maintenance/repairs/{repair_id}",
+    "function": "delete_repair",
+    "doc": "",
+    "auth": false
    }
   ]
  },
@@ -4711,6 +5239,14 @@
    },
    {
     "method": "GET",
+    "path": "/order-returns",
+    "full_path": "/orders/order-returns",
+    "function": "list_returns",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
     "path": "/{order_id}",
     "full_path": "/orders/{order_id}",
     "function": "get_order",
@@ -4746,6 +5282,62 @@
     "path": "/{order_id}/history",
     "full_path": "/orders/{order_id}/history",
     "function": "list_order_history",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{order_id}/backorder",
+    "full_path": "/orders/{order_id}/backorder",
+    "function": "update_backorder",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{order_id}/fulfillment",
+    "full_path": "/orders/{order_id}/fulfillment",
+    "function": "update_fulfillment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{order_id}/drop-ship",
+    "full_path": "/orders/{order_id}/drop-ship",
+    "function": "update_drop_ship",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{order_id}/returns",
+    "full_path": "/orders/{order_id}/returns",
+    "function": "create_return",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/returns/{return_id}",
+    "full_path": "/orders/returns/{return_id}",
+    "function": "update_return_status",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/items/{item_id}/serial-lot",
+    "full_path": "/orders/items/{item_id}/serial-lot",
+    "function": "update_item_serial_lot",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{order_id}/credit-limit-approval",
+    "full_path": "/orders/{order_id}/credit-limit-approval",
+    "function": "approve_credit_limit",
     "doc": "",
     "auth": false
    }
@@ -6767,6 +7359,54 @@
     "full_path": "/quotations/{quotation_id}",
     "function": "delete_quotation",
     "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{quotation_id}/versions",
+    "full_path": "/quotations/{quotation_id}/versions",
+    "function": "list_versions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/{quotation_id}",
+    "full_path": "/quotations/{quotation_id}",
+    "function": "update_quotation",
+    "doc": "Full revision — bumps version_number and snapshots the previous state.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{quotation_id}/approval",
+    "full_path": "/quotations/{quotation_id}/approval",
+    "function": "request_approval",
+    "doc": "Create an approval request when discount or amount exceeds thresholds.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{quotation_id}/sign",
+    "full_path": "/quotations/{quotation_id}/sign",
+    "function": "sign_quotation",
+    "doc": "Electronic signature — records signer, timestamp and content hash.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{quotation_id}/portal-token",
+    "full_path": "/quotations/{quotation_id}/portal-token",
+    "function": "generate_portal_token",
+    "doc": "Generate a client portal access token for accept/reject.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/portal/{portal_token}",
+    "full_path": "/quotations/portal/{portal_token}",
+    "function": "portal_respond",
+    "doc": "Client-facing endpoint — no auth, token-based. Accept or reject a quotation.",
     "auth": false
    }
   ]

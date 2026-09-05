@@ -823,7 +823,7 @@
  {
   "module_code": "Clients",
   "file": "frontend/src/pages/ClientsPage.tsx",
-  "lines": 295,
+  "lines": 542,
   "buttons": [
    {
     "label": "Excel იმპორტი",
@@ -843,6 +843,36 @@
    {
     "label": "განახლება",
     "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "[tabKey])}",
+    "on_click": "() => setViewTab(tabKey)",
+    "disabled": false
+   },
+   {
+    "label": "დამატება",
+    "on_click": "() => addAddressMutation.mutate(newAddress)",
+    "disabled": true
+   },
+   {
+    "label": "ჯგუფის შექმნა",
+    "on_click": "() => addGroupMutation.mutate(newGroup)",
+    "disabled": true
+   },
+   {
+    "label": "( )",
+    "on_click": "() => { const cur = (viewClient as any).group_ids || [] const next = cur.includes(g.id) ? cur.filter((x: string) => x !=",
+    "disabled": false
+   },
+   {
+    "label": "დაკავშირება",
+    "on_click": "() => newRelation.related_client_id && addRelationMutation.mutate(newRelation)",
+    "disabled": true
+   },
+   {
+    "label": "მიმდინარეობს...",
+    "on_click": "() => mergeMutation.mutate({ source_client_ids: mergeSources, target_client_id: viewClient.id })",
     "disabled": true
    },
    {
@@ -866,7 +896,55 @@
     "disabled": true
    }
   ],
-  "selects": [],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "legal",
+      "label": ""
+     },
+     {
+      "value": "delivery",
+      "label": ""
+     },
+     {
+      "value": "billing",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "branch",
+      "label": ""
+     },
+     {
+      "value": "parent",
+      "label": ""
+     },
+     {
+      "value": "subsidiary",
+      "label": ""
+     },
+     {
+      "value": "partner",
+      "label": ""
+     }
+    ]
+   }
+  ],
   "inputs": [],
   "api_calls": [
    {
@@ -882,6 +960,11 @@
    {
     "method": "DELETE",
     "path": "id",
+    "client": "clientsApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
     "client": "clientsApi"
    },
    {
@@ -1071,11 +1154,21 @@
  {
   "module_code": "Dashboard",
   "file": "frontend/src/pages/DashboardPage.tsx",
-  "lines": 386,
+  "lines": 598,
   "buttons": [
    {
     "label": "მორგება",
     "on_click": "() => setShowCustomize(!showCustomize)",
+    "disabled": false
+   },
+   {
+    "label": "className=\"inline mr-1\" /> })() : null}",
+    "on_click": "() => toggleViewKpi(k)",
+    "disabled": false
+   },
+   {
+    "label": "ნაგულისხმები აღდგენა",
+    "on_click": "() => persistLayout(effectiveView, roleView?.kpis || KPI_ORDER)",
     "disabled": false
    }
   ],
@@ -2791,7 +2884,7 @@
  {
   "module_code": "Maintenance",
   "file": "frontend/src/pages/MaintenancePage.tsx",
-  "lines": 1157,
+  "lines": 1849,
   "buttons": [
    {
     "label": "ახალი",
@@ -2799,8 +2892,18 @@
     "disabled": false
    },
    {
+    "label": "დაწყება",
+    "on_click": "() => updateOrder.mutate({ id: o.id, data: { status: 'in_progress' } })",
+    "disabled": false
+   },
+   {
     "label": "დასრულება",
     "on_click": "() => updateOrder.mutate({ id: o.id, data: { status: 'completed' } })",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => updateOrder.mutate({ id: o.id, data: { status: 'cancelled' } })",
     "disabled": false
    },
    {
@@ -2811,11 +2914,6 @@
    {
     "label": "ახალი აქტივი",
     "on_click": "() => openCreate('asset')",
-    "disabled": false
-   },
-   {
-    "label": "წაშლა",
-    "on_click": "() => { if (window.confirm(t('წავშალოთ?'))) deleteAsset.mutate(a.id) }",
     "disabled": false
    },
    {
@@ -2904,13 +3002,38 @@
     "disabled": false
    },
    {
-    "label": "ახალი SLA",
-    "on_click": "() => openCreate('sla')",
+    "label": "ახალი ხარჯი",
+    "on_click": "() => openCreate('cost')",
     "disabled": false
    },
    {
-    "label": "ახალი სერტიფიკატი",
-    "on_click": "() => openCreate('certificate')",
+    "label": "ახალი ბიუჯეტი",
+    "on_click": "() => openCreate('budget')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი მეტრიკა",
+    "on_click": "() => openCreate('reliability')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ტიპი",
+    "on_click": "() => openCreate('work-type')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი პრიორიტეტი",
+    "on_click": "() => openCreate('priority')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი სტატუსი",
+    "on_click": "() => openCreate('status-config')",
+    "disabled": false
+   },
+   {
+    "label": "ახალი ნომერაცია",
+    "on_click": "() => openCreate('numbering')",
     "disabled": false
    },
    {
@@ -2921,6 +3044,31 @@
    {
     "label": "შექმნა",
     "on_click": "submit",
+    "disabled": false
+   },
+   {
+    "label": "←",
+    "on_click": "() => onPage(Math.max(1, page - 1))",
+    "disabled": true
+   },
+   {
+    "label": "→",
+    "on_click": "() => onPage(Math.min(pages, page + 1))",
+    "disabled": true
+   },
+   {
+    "label": "←",
+    "on_click": "() => setMonthOffset(monthOffset - 1)",
+    "disabled": false
+   },
+   {
+    "label": "დღეს",
+    "on_click": "() => setMonthOffset(0)",
+    "disabled": false
+   },
+   {
+    "label": "→",
+    "on_click": "() => setMonthOffset(monthOffset + 1)",
     "disabled": false
    }
   ],
@@ -3162,6 +3310,70 @@
     "label": null,
     "options": [
      {
+      "value": "labor",
+      "label": ""
+     },
+     {
+      "value": "parts",
+      "label": ""
+     },
+     {
+      "value": "contractor",
+      "label": ""
+     },
+     {
+      "value": "other",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "order",
+      "label": "order"
+     },
+     {
+      "value": "request",
+      "label": "request"
+     },
+     {
+      "value": "permit",
+      "label": "permit"
+     },
+     {
+      "value": "incident",
+      "label": "incident"
+     },
+     {
+      "value": "repair",
+      "label": "repair"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
       "value": "low",
       "label": "Low"
      },
@@ -3178,6 +3390,10 @@
       "label": "Urgent"
      }
     ]
+   },
+   {
+    "label": null,
+    "options": []
    }
   ],
   "inputs": [],
@@ -3267,7 +3483,7 @@
  {
   "module_code": "Orders",
   "file": "frontend/src/pages/OrdersPage.tsx",
-  "lines": 512,
+  "lines": 632,
   "buttons": [
    {
     "label": "ახალი გაყიდვის შეკვეთა",
@@ -3310,13 +3526,98 @@
     "disabled": true
    },
    {
+    "label": "შენახვა",
+    "on_click": "() => updateBackorder.mutate({ backorder_status: backorderForm.backorder_status, backorder_quantity: Number(backorderFor",
+    "disabled": false
+   },
+   {
+    "label": "შეკვრა",
+    "on_click": "() => updateFulfillment.mutate({ carrier: carrierForm.carrier, tracking_number: carrierForm.tracking_number, shipping_me",
+    "disabled": false
+   },
+   {
+    "label": "გაგზავნა",
+    "on_click": "() => updateFulfillment.mutate({ shipped_at: new Date().toISOString() })",
+    "disabled": false
+   },
+   {
+    "label": "მიწოდება",
+    "on_click": "() => updateFulfillment.mutate({ delivered_at: new Date().toISOString() })",
+    "disabled": false
+   },
+   {
+    "label": "Drop-ship",
+    "on_click": "() => updateDropShip.mutate({ is_drop_ship: true })",
+    "disabled": false
+   },
+   {
+    "label": "მინიჭება",
+    "on_click": "() => viewOrder.items[0] && updateSerialLot.mutate({ itemId: viewOrder.items[0].id, data: { serial_numbers: serialInput.",
+    "disabled": false
+   },
+   {
+    "label": "ლიმიტის დამტკიცება",
+    "on_click": "() => approveCreditLimit.mutate()",
+    "disabled": false
+   },
+   {
+    "label": "დაბრუნება / RMA",
+    "on_click": "() => setRmaOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setRmaOpen(false)",
+    "disabled": false
+   },
+   {
+    "label": "დაბრუნების შექმნა",
+    "on_click": "() => createReturn.mutate({ reason: rmaReason, refund_amount: Number(rmaRefund), items: viewOrder.items.map((i: any) => ",
+    "disabled": true
+   },
+   {
     "label": "ინვოისის გახსნა",
     "on_click": "() => { setViewOrderId(null) navigate(`/invoices?search=${encodeURIComponent(viewOrder.order_number)}`) }",
     "disabled": false
    }
   ],
-  "selects": [],
-  "inputs": [],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "none",
+      "label": "None"
+     },
+     {
+      "value": "partial",
+      "label": ""
+     },
+     {
+      "value": "full",
+      "label": ""
+     }
+    ]
+   }
+  ],
+  "inputs": [
+   {
+    "placeholder": "Georgian Post",
+    "type": "text"
+   },
+   {
+    "placeholder": "GP-123",
+    "type": "text"
+   },
+   {
+    "placeholder": "standard",
+    "type": "text"
+   },
+   {
+    "placeholder": "SN-001, SN-002",
+    "type": "text"
+   }
+  ],
   "api_calls": [
    {
     "method": "LIST",
@@ -4684,7 +4985,7 @@
  {
   "module_code": "Quotations",
   "file": "frontend/src/pages/QuotationsPage.tsx",
-  "lines": 252,
+  "lines": 355,
   "buttons": [
    {
     "label": "ახალი შემოთავაზება",
@@ -4693,12 +4994,37 @@
    },
    {
     "label": "სტრიქონის დამატება",
-    "on_click": "() => setLines([...lines, { product_id: '', description: '', quantity: '1', unit_price: '' }])",
+    "on_click": "() => setLines([...lines, { product_id: '', description: '', quantity: '1', unit_price: '', is_optional: false }])",
     "disabled": false
    },
    {
     "label": "შენახვა",
     "on_click": "() => create.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "მიმოხილვა",
+    "on_click": "() => setDetailTab('overview')",
+    "disabled": false
+   },
+   {
+    "label": "ვერსიები",
+    "on_click": "() => setDetailTab('versions')",
+    "disabled": false
+   },
+   {
+    "label": "ხელმოწერა",
+    "on_click": "() => signerName && sign.mutate({ id: detail.id, name: signerName })",
+    "disabled": true
+   },
+   {
+    "label": "Portal ბმული",
+    "on_click": "() => portal.mutate(detail.id)",
+    "disabled": true
+   },
+   {
+    "label": "დამტკიცების მოთხოვნა",
+    "on_click": "() => requestApproval.mutate(detail.id)",
     "disabled": true
    }
   ],
