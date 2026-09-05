@@ -55,6 +55,15 @@ class Settings(BaseSettings):
     # attempted; otherwise the checkout falls back to sandbox (demo) mode.
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
+    # POS payment terminals — TBC Pay / BOG Pay merchant credentials.
+    # When set, terminal charges hit the real provider API; otherwise sandbox.
+    TBC_MERCHANT_ID: str = ""
+    TBC_SECRET_KEY: str = ""
+    BOG_CLIENT_ID: str = ""
+    BOG_SECRET_KEY: str = ""
+    # Certified fiscal device (Georgia fiscal receipt printer).
+    FISCAL_DEVICE_URL: str = ""
+    FISCAL_DEVICE_TOKEN: str = ""
     
     # SMTP (real email sending; falls back to sandbox when unset)
     SMTP_HOST: str = ""

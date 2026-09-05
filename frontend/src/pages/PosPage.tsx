@@ -103,7 +103,7 @@ export default function PosPage() {
     queryKey: ['products-all-pos'],
     queryFn: async () => {
       try {
-        const resp = await productsApi.list({ page_size: 200 })
+        const resp = await productsApi.list({ page_size: 100 })
         const items = resp.data.data.items
         cacheCatalog('products', items) // cache for cold-start offline
         return items
@@ -120,7 +120,7 @@ export default function PosPage() {
     queryKey: ['clients-all-pos'],
     queryFn: async () => {
       try {
-        const resp = await clientsApi.list({ page_size: 200 })
+        const resp = await clientsApi.list({ page_size: 100 })
         const items = resp.data.data.items
         cacheCatalog('clients', items)
         return items
@@ -1302,6 +1302,16 @@ export default function PosPage() {
           >
             <QrCode size={14} className="inline mr-1" /> {t('QR გადახდა')}
           </button>
+          {chargeTerm.data?.data && (
+            <div className="rounded-lg bg-gray-50 dark:bg-dark-100 p-3 text-xs space-y-1">
+              <div className="flex justify-between"><span className="text-gray-500">{t('სტატუსი')}</span><span className="font-semibold text-emerald-600">{chargeTerm.data.data.status}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">{t('რეფერენსი')}</span><span className="font-mono">{chargeTerm.data.data.reference}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">{t('გადამხდელი')}</span><span className="font-semibold">{chargeTerm.data.data.gateway === 'live' ? 'Live' : 'Sandbox'}</span></div>
+              {chargeTerm.data.data.fiscal_number && (
+                <div className="flex justify-between"><span className="text-gray-500">{t('ფისკალური ნომერი')}</span><span className="font-mono">{chargeTerm.data.data.fiscal_number}</span></div>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
 

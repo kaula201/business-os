@@ -165,7 +165,12 @@ async def terminal_charge(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Card charge via TBC/BOG terminal — real integration hooks to the provider SDK."""
+    """Card charge via TBC/BOG terminal — real provider integration when
+    merchant credentials are configured, sandbox otherwise. The transaction
+    is recorded in payment_transactions and a fiscal receipt is issued."""
+    from app.models.payment import PaymentTransaction
+    from app.services.payment_providers import FiscalDevice, PaymentProviderError, get_provider
+
     terminal = (await db.execute(
         select(POSPaymentTerminal).where(
             POSPaymentTerminal.id == terminal_id,
@@ -178,14 +183,122 @@ async def terminal_charge(
     amount = Decimal(str(data.get("amount", 0)))
     if amount <= 0:
         raise HTTPException(status_code=422, detail="თანხა დადებითი უნდა იყოს")
-    # TODO: TBC/BOG SDK charge call — production requires merchant credentials.
+
+    provider = get_provider(terminal.provider)
+    reference = data.get("reference") or f"{terminal.provider}-{uuid.uuid4().hex[:12].upper()}"
+    try:
+        result = await provider.charge(amount, currency=data.get("currency", "GEL"), reference=reference)
+    except PaymentProviderError as e:
+        # record failed transaction
+        tx = PaymentTransaction(
+            company_id=current_user.company_id, provider=terminal.provider,
+            amount=amount, status="failed", error_message=str(e),
+        )
+        db.add(tx)
+        await db.flush()
+        await db.commit()
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    tx = PaymentTransaction(
+        company_id=current_user.company_id, provider=terminal.provider,
+        amount=amount, status="succeeded" if result["status"] == "authorized" else "pending",
+        provider_ref=result.get("provider_ref"),
+    )
+    db.add(tx)
+    await db.flush()
+
+    # fiscal receipt (certified device when configured, sandbox otherwise)
+    fiscal = FiscalDevice()
+    receipt = {
+        "transaction_id": str(tx.id), "amount": float(amount),
+        "currency": data.get("currency", "GEL"), "provider": terminal.provider,
+        "terminal": terminal.name, "items": data.get("items", []),
+    }
+    try:
+        fiscal_result = await fiscal.print_receipt(receipt)
+    except PaymentProviderError:
+        fiscal_result = {"status": "failed", "fiscal_number": None}
+
+    await db.commit()
     return ResponseBase(data={
-        "transaction_id": f"{terminal.provider}-{uuid.uuid4().hex[:12].upper()}",
+        "transaction_id": str(tx.id),
         "provider": terminal.provider,
         "amount": float(amount),
-        "status": "authorized",
-        "reference": data.get("reference"),
+        "status": result["status"],
+        "reference": result.get("provider_ref"),
+        "gateway": "live" if not provider.sandbox else "sandbox",
+        "fiscal_number": fiscal_result.get("fiscal_number"),
     }, message=f"{terminal.provider.upper()} ტერმინალი — თანხა ჩარიცხულია")
+
+
+@router.post("/terminals/{terminal_id}/refund", response_model=ResponseBase[dict])
+async def terminal_refund(
+    terminal_id: uuid.UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Refund a terminal charge via the provider."""
+    from app.models.payment import PaymentTransaction
+    from app.services.payment_providers import PaymentProviderError, get_provider
+
+    terminal = (await db.execute(
+        select(POSPaymentTerminal).where(
+            POSPaymentTerminal.id == terminal_id,
+            POSPaymentTerminal.company_id == current_user.company_id,
+        )
+    )).scalar_one_or_none()
+    if not terminal:
+        raise HTTPException(status_code=404, detail="ტერმინალი არ მოიძებნა")
+    provider_ref = data.get("provider_ref")
+    if not provider_ref:
+        raise HTTPException(status_code=422, detail="provider_ref აუცილებელია")
+    amount = Decimal(str(data.get("amount", 0)))
+
+    provider = get_provider(terminal.provider)
+    try:
+        result = await provider.refund(provider_ref, amount)
+    except PaymentProviderError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    tx = PaymentTransaction(
+        company_id=current_user.company_id, provider=terminal.provider,
+        amount=amount, status="refunded", provider_ref=provider_ref,
+    )
+    db.add(tx)
+    await db.flush()
+    await db.commit()
+    return ResponseBase(data={
+        "transaction_id": str(tx.id), "provider": terminal.provider,
+        "amount": float(amount), "status": result["status"],
+        "reference": provider_ref,
+    }, message="თანხა დაბრუნდა")
+
+
+@router.get("/terminals/{terminal_id}/status/{provider_ref}", response_model=ResponseBase[dict])
+async def terminal_status(
+    terminal_id: uuid.UUID,
+    provider_ref: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Check a terminal charge status with the provider."""
+    from app.services.payment_providers import PaymentProviderError, get_provider
+
+    terminal = (await db.execute(
+        select(POSPaymentTerminal).where(
+            POSPaymentTerminal.id == terminal_id,
+            POSPaymentTerminal.company_id == current_user.company_id,
+        )
+    )).scalar_one_or_none()
+    if not terminal:
+        raise HTTPException(status_code=404, detail="ტერმინალი არ მოიძებნა")
+    provider = get_provider(terminal.provider)
+    try:
+        result = await provider.check_status(provider_ref)
+    except PaymentProviderError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return ResponseBase(data=result)
 
 
 # ── Customer credit / deposit ────────────────────────────────────────

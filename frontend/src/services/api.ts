@@ -1138,6 +1138,10 @@ export const posApi = {
   createTerminal: (data: Record<string, unknown>) => api.post('/pos/terminals', data),
   terminalCharge: (terminalId: string, amount: number, reference?: string) =>
     api.post(`/pos/terminals/${terminalId}/charge`, { amount, reference }),
+  terminalRefund: (terminalId: string, providerRef: string, amount: number) =>
+    api.post(`/pos/terminals/${terminalId}/refund`, { provider_ref: providerRef, amount }),
+  terminalStatus: (terminalId: string, providerRef: string) =>
+    api.get(`/pos/terminals/${terminalId}/status/${providerRef}`),
   qrPay: (amount: number) => api.post('/pos/qr/pay', { amount }),
   customerBalance: (clientId: string) => api.get(`/pos/customer-balance/${clientId}`),
   customerDeposit: (clientId: string, amount: number) =>

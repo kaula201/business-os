@@ -458,6 +458,7 @@ const en: Record<string, string> = {
   'გაუქმების ჩანაწერი': 'Cancellation record',
   'გაყიდვებისა და ფინანსური დოკუმენტებისთვის გამოყენებული ოფიციალური კლიენტები': 'Official clients used for sales and financial documents',
   'გაყიდვის ინვოისები': 'Sales invoices',
+  'ფისკალური ნომერი': 'Fiscal number',
   'eCommerce': 'eCommerce',
   'მარკეტინგი, პრომოციები, მიწოდება, დაბრუნებები, SEO': 'Marketing, promotions, shipping, returns, SEO',
   'პრომოციები': 'Promotions',
