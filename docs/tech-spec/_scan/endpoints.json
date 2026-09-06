@@ -1408,6 +1408,126 @@
     "function": "send_quotation_email",
     "doc": "Send a quotation to the client's email (SMTP or sandbox email_messages).",
     "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/contacts",
+    "full_path": "/crm/contacts",
+    "function": "list_contacts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/contacts",
+    "full_path": "/crm/contacts",
+    "function": "create_contact",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/email-threads",
+    "full_path": "/crm/email-threads",
+    "function": "create_email_thread",
+    "doc": "Full email thread: create thread + first message.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/email-threads/{thread_id}/messages",
+    "full_path": "/crm/email-threads/{thread_id}/messages",
+    "function": "list_email_messages",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/telephony/calls",
+    "full_path": "/crm/telephony/calls",
+    "function": "log_telephony_call",
+    "doc": "Telephony: log a call (inbound/outbound) with duration and recording.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/telephony/calls",
+    "full_path": "/crm/telephony/calls",
+    "function": "list_telephony_calls",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/attribution",
+    "full_path": "/crm/attribution",
+    "function": "create_attribution",
+    "doc": "Marketing campaign attribution: lead/opportunity → campaign.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/attribution/analytics",
+    "full_path": "/crm/attribution/analytics",
+    "function": "attribution_analytics",
+    "doc": "Campaign attribution analytics: leads per campaign/channel.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/routing/run",
+    "full_path": "/crm/routing/run",
+    "function": "run_lead_routing",
+    "doc": "Lead routing: assign a new lead to an owner by strategy (round_robin | least_loaded | territory).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/territories",
+    "full_path": "/crm/territories",
+    "function": "list_territories",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/territories",
+    "full_path": "/crm/territories",
+    "function": "create_territory",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/slas",
+    "full_path": "/crm/slas",
+    "function": "list_slas",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/slas",
+    "full_path": "/crm/slas",
+    "function": "create_sla",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/gdpr/consents",
+    "full_path": "/crm/gdpr/consents",
+    "function": "set_gdpr_consent",
+    "doc": "GDPR/თანხმობების მართვა: grant/revoke consent for a lead or contact.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/gdpr/consents",
+    "full_path": "/crm/gdpr/consents",
+    "function": "list_gdpr_consents",
+    "doc": "",
+    "auth": false
    }
   ]
  },
@@ -2158,18 +2278,122 @@
     "auth": false
    },
    {
-    "method": "POST",
-    "path": "/cart/{cart_id}/checkout",
-    "full_path": "/ecommerce/cart/{cart_id}/checkout",
-    "function": "checkout",
-    "doc": "Convert cart to an e-commerce order. When Stripe is configured the charge is attempted for real; otherwise the order is created as 'paid' in sandbox (demo) mode.",
-    "auth": false
-   },
-   {
     "method": "GET",
     "path": "/orders",
     "full_path": "/ecommerce/orders",
     "function": "list_orders",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/promotions",
+    "full_path": "/ecommerce/promotions",
+    "function": "list_promotions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/promotions",
+    "full_path": "/ecommerce/promotions",
+    "function": "create_promotion",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/shipping-rules",
+    "full_path": "/ecommerce/shipping-rules",
+    "function": "list_shipping_rules",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/shipping-rules",
+    "full_path": "/ecommerce/shipping-rules",
+    "function": "create_shipping_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/shipping/calculate",
+    "full_path": "/ecommerce/shipping/calculate",
+    "function": "calculate_shipping",
+    "doc": "Shipping calculation: flat rate, free above threshold, weight-based.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/promotions/validate",
+    "full_path": "/ecommerce/promotions/validate",
+    "function": "validate_promo",
+    "doc": "Validate a promo code against subtotal; returns discount amount.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/cart/{cart_id}/checkout",
+    "full_path": "/ecommerce/cart/{cart_id}/checkout",
+    "function": "checkout",
+    "doc": "Convert cart to an e-commerce order. When Stripe is configured the charge is attempted for real; otherwise the order is created as 'paid' in sandbox (demo) mode. Stock is reserved at checkout.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/orders/{order_id}/tracking",
+    "full_path": "/ecommerce/orders/{order_id}/tracking",
+    "function": "add_tracking",
+    "doc": "Order tracking: add a status event + optional carrier/tracking number.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/orders/{order_id}/tracking",
+    "full_path": "/ecommerce/orders/{order_id}/tracking",
+    "function": "get_tracking",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/orders/{order_id}/return",
+    "full_path": "/ecommerce/orders/{order_id}/return",
+    "function": "request_return",
+    "doc": "დაბრუნება: client requests a return/refund.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/returns",
+    "full_path": "/ecommerce/returns",
+    "function": "list_returns",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/returns/{return_id}/approve",
+    "full_path": "/ecommerce/returns/{return_id}/approve",
+    "function": "approve_return",
+    "doc": "Approve a return → refund (sandbox: marks refunded).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/content-pages",
+    "full_path": "/ecommerce/content-pages",
+    "function": "list_content_pages",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/content-pages",
+    "full_path": "/ecommerce/content-pages",
+    "function": "create_content_page",
     "doc": "",
     "auth": false
    }
@@ -3963,6 +4187,70 @@
     "full_path": "/invoices/{invoice_id}/download-excel",
     "function": "download_invoice_excel",
     "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{invoice_id}/notes",
+    "full_path": "/invoices/{invoice_id}/notes",
+    "function": "create_note",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{invoice_id}/notes",
+    "full_path": "/invoices/{invoice_id}/notes",
+    "function": "list_notes",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{invoice_id}/reversal",
+    "full_path": "/invoices/{invoice_id}/reversal",
+    "function": "reverse_invoice",
+    "doc": "Strict reversal: only issued invoices, creates a negative credit note, marks reversed.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{invoice_id}/recurring",
+    "full_path": "/invoices/{invoice_id}/recurring",
+    "function": "set_recurring",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{invoice_id}/installments",
+    "full_path": "/invoices/{invoice_id}/installments",
+    "function": "create_installments",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{invoice_id}/installments",
+    "full_path": "/invoices/{invoice_id}/installments",
+    "function": "list_installments",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{invoice_id}/allocate",
+    "full_path": "/invoices/{invoice_id}/allocate",
+    "function": "allocate_payment",
+    "doc": "Allocate a payment to this invoice (multi-invoice allocation supported).",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/{invoice_id}/fiscal-status",
+    "full_path": "/invoices/{invoice_id}/fiscal-status",
+    "function": "sync_fiscal_status",
+    "doc": "Reliable fiscal document status sync (RS.ge / fiscal device).",
     "auth": false
    }
   ]
@@ -6204,7 +6492,23 @@
     "path": "/terminals/{terminal_id}/charge",
     "full_path": "/pos/terminals/{terminal_id}/charge",
     "function": "terminal_charge",
-    "doc": "Card charge via TBC/BOG terminal — real integration hooks to the provider SDK.",
+    "doc": "Card charge via TBC/BOG terminal — real provider integration when merchant credentials are configured, sandbox otherwise. The transaction is recorded in payment_transactions and a fiscal receipt is is",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/terminals/{terminal_id}/refund",
+    "full_path": "/pos/terminals/{terminal_id}/refund",
+    "function": "terminal_refund",
+    "doc": "Refund a terminal charge via the provider.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/terminals/{terminal_id}/status/{provider_ref}",
+    "full_path": "/pos/terminals/{terminal_id}/status/{provider_ref}",
+    "function": "terminal_status",
+    "doc": "Check a terminal charge status with the provider.",
     "auth": false
    },
    {
@@ -6315,6 +6619,14 @@
   "file": "backend/app/api/v1/endpoints/price_lists.py",
   "prefix": "",
   "routes": [
+   {
+    "method": "GET",
+    "path": "/price-lists/resolve",
+    "full_path": "/price-lists/resolve",
+    "function": "resolve_price",
+    "doc": "Rule engine: find the best price for a product. Priority: client segment match → date-valid lists → quantity tiers → currency override → cost+markup formula. Returns price + applied rule.",
+    "auth": false
+   },
    {
     "method": "GET",
     "path": "/price-lists/",
@@ -7752,6 +8064,30 @@
     "function": "mark_commission_paid",
     "doc": "",
     "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/commissions/{accrual_id}/approve",
+    "full_path": "/sales/commissions/{accrual_id}/approve",
+    "function": "approve_commission",
+    "doc": "საკომისიოს დადასტურება (approve) ან უარყოფა (reject).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/commissions/{accrual_id}/adjust",
+    "full_path": "/sales/commissions/{accrual_id}/adjust",
+    "function": "adjust_commission",
+    "doc": "დაბრუნებისას საკომისიოს კორექტირება: ძველი დარიცხვა იხურება, ახალი იქმნება.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/commissions/{accrual_id}/link-payslip",
+    "full_path": "/sales/commissions/{accrual_id}/link-payslip",
+    "function": "link_commission_to_payslip",
+    "doc": "სახელფასო მოდულთან კავშირი: დარიცხვა ებმება payslip-ს.",
+    "auth": false
    }
   ]
  },
@@ -7961,6 +8297,30 @@
   "routes": [
    {
     "method": "GET",
+    "path": "/plans/",
+    "full_path": "/subscriptions/plans/",
+    "function": "list_plans",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/plans/",
+    "full_path": "/subscriptions/plans/",
+    "function": "create_plan",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/plans/{plan_id}",
+    "full_path": "/subscriptions/plans/{plan_id}",
+    "function": "update_plan",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
     "path": "/",
     "full_path": "/subscriptions/",
     "function": "list_subscriptions",
@@ -8005,6 +8365,62 @@
     "full_path": "/subscriptions/{subscription_id}",
     "function": "delete_subscription",
     "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/billing/run",
+    "full_path": "/subscriptions/billing/run",
+    "function": "run_billing_scheduler",
+    "doc": "Automatic billing scheduler: bill all active subscriptions due today.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{subscription_id}/retry",
+    "full_path": "/subscriptions/{subscription_id}/retry",
+    "function": "retry_billing",
+    "doc": "Failed payment retry: re-attempt billing for a past_due subscription.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{subscription_id}/pause",
+    "full_path": "/subscriptions/{subscription_id}/pause",
+    "function": "pause_subscription",
+    "doc": "Pause/resume: pause an active subscription.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{subscription_id}/resume",
+    "full_path": "/subscriptions/{subscription_id}/resume",
+    "function": "resume_subscription",
+    "doc": "Pause/resume: resume a paused subscription (optionally prorated).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{subscription_id}/cancel",
+    "full_path": "/subscriptions/{subscription_id}/cancel",
+    "function": "cancel_subscription",
+    "doc": "Cancel a subscription (churn).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{subscription_id}/change-plan",
+    "full_path": "/subscriptions/{subscription_id}/change-plan",
+    "function": "change_plan",
+    "doc": "Plan/version management: switch plan with proration of the remaining cycle.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/analytics/overview",
+    "full_path": "/subscriptions/analytics/overview",
+    "function": "subscription_analytics",
+    "doc": "MRR, ARR, churn and cohort analytics.",
     "auth": false
    }
   ]

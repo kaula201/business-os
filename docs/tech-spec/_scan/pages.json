@@ -535,7 +535,7 @@
  {
   "module_code": "CRM",
   "file": "frontend/src/pages/CRMPage.tsx",
-  "lines": 597,
+  "lines": 601,
   "buttons": [
    {
     "label": "CRM OS",
@@ -1316,12 +1316,37 @@
  {
   "module_code": "Ecommerce",
   "file": "frontend/src/pages/EcommercePage.tsx",
-  "lines": 121,
+  "lines": 349,
   "buttons": [
    {
     "label": "ახალი კამპანია",
     "on_click": "() => setOpen(true)",
     "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createPromo.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createShip.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "მოთხოვნა",
+    "on_click": "() => requestReturn.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "დამტკიცება",
+    "on_click": "() => approveReturn.mutate(r.id)",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createContent.mutate()",
+    "disabled": true
    },
    {
     "label": "გაუქმება",
@@ -1334,7 +1359,30 @@
     "disabled": true
    }
   ],
-  "selects": [],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "percent",
+      "label": "%"
+     },
+     {
+      "value": "fixed",
+      "label": "₾"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   }
+  ],
   "inputs": [],
   "api_calls": [
    {
@@ -2693,7 +2741,7 @@
  {
   "module_code": "Invoices",
   "file": "frontend/src/pages/InvoicesPage.tsx",
-  "lines": 349,
+  "lines": 480,
   "buttons": [
    {
     "label": "შევსება",
@@ -2723,6 +2771,31 @@
    {
     "label": "Excel ჩამოტვირთვა",
     "on_click": "() => void handleExport(selected, 'excel')",
+    "disabled": false
+   },
+   {
+    "label": "ნოტის შექმნა",
+    "on_click": "() => noteForm.amount && createNote.mutate({ note_type: noteForm.note_type, amount: Number(noteForm.amount), reason: not",
+    "disabled": true
+   },
+   {
+    "label": "ინვოისის გაუქმება",
+    "on_click": "() => reversalReason && reverse.mutate({ reason: reversalReason })",
+    "disabled": true
+   },
+   {
+    "label": "განმეორება",
+    "on_click": "() => setRecurring.mutate({ frequency: recurringForm.frequency, next_date: recurringForm.next_date || null })",
+    "disabled": false
+   },
+   {
+    "label": "განვადებები",
+    "on_click": "() => installmentForm.first_due_date && createInstallments.mutate({ count: Number(installmentForm.count), first_due_date",
+    "disabled": true
+   },
+   {
+    "label": "ფისკალური სინქრონიზაცია",
+    "on_click": "() => syncFiscal.mutate({ status: fiscalForm.status, error: fiscalForm.error || null })",
     "disabled": false
    },
    {
@@ -2761,7 +2834,59 @@
     "disabled": false
    }
   ],
-  "selects": [],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "credit",
+      "label": ""
+     },
+     {
+      "value": "debit",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "monthly",
+      "label": ""
+     },
+     {
+      "value": "quarterly",
+      "label": ""
+     },
+     {
+      "value": "yearly",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "pending",
+      "label": "Pending"
+     },
+     {
+      "value": "sent",
+      "label": "Sent"
+     },
+     {
+      "value": "accepted",
+      "label": "Accepted"
+     },
+     {
+      "value": "rejected",
+      "label": "Rejected"
+     }
+    ]
+   }
+  ],
   "inputs": [],
   "api_calls": [
    {
@@ -3968,7 +4093,7 @@
  {
   "module_code": "Pos",
   "file": "frontend/src/pages/PosPage.tsx",
-  "lines": 1329,
+  "lines": 1339,
   "buttons": [
    {
     "label": "Offline",
@@ -4292,12 +4417,12 @@
   "api_calls": [
    {
     "method": "LIST",
-    "path": "{ page_size: 200 ",
+    "path": "{ page_size: 100 ",
     "client": "productsApi"
    },
    {
     "method": "LIST",
-    "path": "{ page_size: 200 ",
+    "path": "{ page_size: 100 ",
     "client": "clientsApi"
    }
   ]
@@ -4305,7 +4430,7 @@
  {
   "module_code": "PriceLists",
   "file": "frontend/src/pages/PriceListsPage.tsx",
-  "lines": 190,
+  "lines": 328,
   "buttons": [
    {
     "label": "ახალი ფასების სია",
@@ -4323,8 +4448,13 @@
     "disabled": false
    },
    {
+    "label": "გამოთვლა",
+    "on_click": "() => resolveForm.product_id && resolvePrice.mutate()",
+    "disabled": true
+   },
+   {
     "label": "სტრიქონის დამატება",
-    "on_click": "() => setItems([...items, { product_id: '', price: '' }])",
+    "on_click": "() => setItems([...items, { product_id: '', price: '', min_quantity: '1', currency: '', margin_percent: '' }])",
     "disabled": false
    },
    {
@@ -4336,7 +4466,65 @@
   "selects": [
    {
     "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
     "options": []
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "fixed",
+      "label": ""
+     },
+     {
+      "value": "cost_plus_markup",
+      "label": "cost + markup"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": "—"
+     }
+    ]
    },
    {
     "label": null,
@@ -4354,6 +4542,11 @@
     "method": "LIST",
     "path": "{ page_size: 100 ",
     "client": "productsApi"
+   },
+   {
+    "method": "LIST",
+    "path": "{ page_size: 100 ",
+    "client": "clientsApi"
    }
   ]
  },
@@ -5237,8 +5430,23 @@
  {
   "module_code": "SalesTeams",
   "file": "frontend/src/pages/SalesTeamsPage.tsx",
-  "lines": 259,
+  "lines": 299,
   "buttons": [
+   {
+    "label": "დადასტურება",
+    "on_click": "() => approve.mutate(a.id)",
+    "disabled": false
+   },
+   {
+    "label": "უარყოფა",
+    "on_click": "() => reject.mutate(a.id)",
+    "disabled": false
+   },
+   {
+    "label": "დაბრუნება",
+    "on_click": "() => adjust.mutate(a.id)",
+    "disabled": false
+   },
    {
     "label": "გადახდა",
     "on_click": "() => markPaid.mutate(a.id)",
@@ -5708,8 +5916,18 @@
  {
   "module_code": "Subscriptions",
   "file": "frontend/src/pages/SubscriptionsPage.tsx",
-  "lines": 144,
+  "lines": 297,
   "buttons": [
+   {
+    "label": "ბილინგის გაშვება",
+    "on_click": "() => runBilling.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "ახალი პლანი",
+    "on_click": "() => setPlanOpen(true)",
+    "disabled": false
+   },
    {
     "label": "ახალი გამოწერა",
     "on_click": "() => setOpen(true)",
@@ -5719,9 +5937,23 @@
     "label": "შენახვა",
     "on_click": "() => create.mutate()",
     "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createPlan.mutate()",
+    "disabled": true
    }
   ],
   "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
    {
     "label": null,
     "options": [
@@ -5745,6 +5977,19 @@
      {
       "value": "one_time",
       "label": "ერთჯერადი"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "monthly",
+      "label": "თვიური"
+     },
+     {
+      "value": "yearly",
+      "label": "წლიური"
      }
     ]
    }
