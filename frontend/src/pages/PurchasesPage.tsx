@@ -14,6 +14,12 @@ import {
   Trash2,
   Truck,
   XCircle,
+  FilePlus2,
+  CalendarClock,
+  Undo2,
+  GitBranch,
+  BadgeDollarSign,
+  ShieldCheck,
 } from 'lucide-react'
 
 import ConfirmDialog from '../components/ui/ConfirmDialog'
@@ -94,6 +100,16 @@ export default function PurchasesPage() {
   const [qualityStatus, setQualityStatus] = useState('passed')
   const [qualityNotes, setQualityNotes] = useState('')
   const [threeWay, setThreeWay] = useState<any>(null)
+  // PO 2.0
+  const [po2Open, setPo2Open] = useState(false)
+  const [schedOpen, setSchedOpen] = useState(false)
+  const [returnOpen, setReturnOpen] = useState(false)
+  const [amendOpen, setAmendOpen] = useState(false)
+  const [po2Data, setPo2Data] = useState<any>(null)
+  const [schedForm, setSchedForm] = useState({ scheduled_date: '', quantity: '', note: '' })
+  const [returnForm, setReturnForm] = useState({ reason: '', return_date: '', items: [] as any[] })
+  const [amendForm, setAmendForm] = useState({ note: '', quantity: '', unit_price: '' })
+  const [po2Error, setPo2Error] = useState('')
   const [form, setForm] = useState<PurchaseOrderCreate>({
     supplier_id: '',
     warehouse_id: '',
@@ -207,6 +223,58 @@ export default function PurchasesPage() {
     },
     onError: (error: any) => setReceiptError(error.response?.data?.detail || t('საქონლის მიღება ვერ შესრულდა')),
   })
+
+  // PO 2.0 mutations
+  const invMutation = useMutation({
+    mutationFn: (id: string) => purchaseOrdersApi.createSupplierInvoice(id),
+    onSuccess: (r: any) => {
+      setPo2Error('')
+      setPo2Data((d: any) => ({ ...d, invoice: r.data.data }))
+      refreshPurchases()
+    },
+    onError: (e: any) => setPo2Error(e.response?.data?.detail || 'ინვოისის შექმნა ვერ მოხერხდა'),
+  })
+  const schedMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: any }) => purchaseOrdersApi.createScheduledDelivery(id, payload),
+    onSuccess: () => { setSchedOpen(false); setSchedForm({ scheduled_date: '', quantity: '', note: '' }); loadPo2(selectedId) },
+    onError: (e: any) => setPo2Error(e.response?.data?.detail || 'Scheduled delivery ვერ დაემატა'),
+  })
+  const returnMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: any }) => purchaseOrdersApi.createReturn(id, payload),
+    onSuccess: () => { setReturnOpen(false); setReturnForm({ reason: '', return_date: '', items: [] }); loadPo2(selectedId) },
+    onError: (e: any) => setPo2Error(e.response?.data?.detail || 'დაბრუნება ვერ შეიქმნა'),
+  })
+  const amendMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: any }) => purchaseOrdersApi.createAmendment(id, payload),
+    onSuccess: () => { setAmendOpen(false); setAmendForm({ note: '', quantity: '', unit_price: '' }); loadPo2(selectedId) },
+    onError: (e: any) => setPo2Error(e.response?.data?.detail || 'Amendment ვერ შეიქმნა'),
+  })
+  const amendApproveMutation = useMutation({
+    mutationFn: (amendmentId: string) => purchaseOrdersApi.approveAmendment(amendmentId),
+    onSuccess: () => { loadPo2(selectedId); refreshPurchases() },
+    onError: (e: any) => setPo2Error(e.response?.data?.detail || 'Amendment ვერ დამტკიცდა'),
+  })
+  const validateMutation = useMutation({
+    mutationFn: (id: string) => purchaseOrdersApi.validatePrices(id),
+    onSuccess: (r: any) => setPo2Data((d: any) => ({ ...d, priceValidation: r.data.data })),
+    onError: (e: any) => setPo2Error(e.response?.data?.detail || 'ფასების შემოწმება ვერ მოხერხდა'),
+  })
+
+  async function loadPo2(id: string | null) {
+    if (!id) return
+    try {
+      const [sched, back, rets, amends, landed] = await Promise.all([
+        purchaseOrdersApi.listScheduledDeliveries(id).then((r: any) => r.data.data),
+        purchaseOrdersApi.getBackorder(id).then((r: any) => r.data.data),
+        purchaseOrdersApi.listReturns(id).then((r: any) => r.data.data),
+        purchaseOrdersApi.listAmendments(id).then((r: any) => r.data.data),
+        purchaseOrdersApi.listLandedCosts(id).then((r: any) => r.data.data),
+      ])
+      setPo2Data({ scheduled: sched, backorder: back, returns: rets, amendments: amends, landedCosts: landed })
+    } catch (e: any) {
+      setPo2Error(e.response?.data?.detail || 'PO 2.0 მონაცემების ჩატვირთვა ვერ მოხერხდა')
+    }
+  }
 
   function openCreate() {
     const defaultWarehouse = warehouses.find((warehouse) => warehouse.is_default && warehouse.is_active)
@@ -398,7 +466,104 @@ export default function PurchasesPage() {
               {selected.status === 'approved' && <><button className="btn-secondary text-red-600" onClick={() => setAction('cancelled')}>{t('გაუქმება')}</button><button className="btn-primary" onClick={openReceipt}><Truck size={17} className="inline mr-2" />{t('საქონლის მიღება')}</button></>}
               {selected.status === 'partially_received' && <button className="btn-primary" onClick={openReceipt}><ArrowRight size={17} className="inline mr-2" />{t('მიღების გაგრძელება')}</button>}
               {['partially_received', 'received'].includes(selected.status) && <button className="btn-secondary" onClick={() => navigate(`/supplier-finance?purchase_order_id=${selected.id}`)}><FileText size={17} className="inline mr-2" />{t('მომწოდებლის ინვოისი')}</button>}
+              <button className="btn-secondary" onClick={() => { setPo2Error(''); setPo2Data(null); loadPo2(selected.id); setPo2Open(true) }}><GitBranch size={17} className="inline mr-2" />{t('PO 2.0 მართვა')}</button>
             </div>
+
+            {po2Open && (
+              <div className="rounded-xl border border-brandgray-200 dark:border-dark-50 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold flex items-center gap-2"><GitBranch size={18} /> {t('PO 2.0 — მოწინავე მართვა')}</h3>
+                  <button onClick={() => setPo2Open(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={18} /></button>
+                </div>
+                {po2Error && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{po2Error}</div>}
+
+                <div className="flex flex-wrap gap-2">
+                  <button className="btn-primary text-sm" onClick={() => invMutation.mutate(selected.id)} disabled={invMutation.isPending}>
+                    <FilePlus2 size={15} className="inline mr-1" /> {t('ინვოისი PO-დან')}
+                  </button>
+                  <button className="btn-secondary text-sm" onClick={() => setSchedOpen(true)}>
+                    <CalendarClock size={15} className="inline mr-1" /> {t('Scheduled delivery')}
+                  </button>
+                  <button className="btn-secondary text-sm" onClick={() => setReturnOpen(true)}>
+                    <Undo2 size={15} className="inline mr-1" /> {t('დაბრუნება')}
+                  </button>
+                  <button className="btn-secondary text-sm" onClick={() => setAmendOpen(true)}>
+                    <GitBranch size={15} className="inline mr-1" /> {t('Amendment')}
+                  </button>
+                  <button className="btn-secondary text-sm" onClick={() => validateMutation.mutate(selected.id)} disabled={validateMutation.isPending}>
+                    <ShieldCheck size={15} className="inline mr-1" /> {t('ფასების შემოწმება')}
+                  </button>
+                </div>
+
+                {po2Data?.invoice && (
+                  <div className="p-3 rounded-lg bg-emerald-50 text-emerald-800 text-sm">
+                    {t('ინვოისი შექმნილია')}: <strong>{po2Data.invoice.supplier_invoice_number}</strong> — {po2Data.invoice.total.toLocaleString('ka-GE')} ₾
+                  </div>
+                )}
+
+                {po2Data?.priceValidation && po2Data.priceValidation.length > 0 && (
+                  <div className="space-y-1">
+                    {po2Data.priceValidation.map((v: any, i: number) => (
+                      <div key={i} className={`flex justify-between text-sm p-2 rounded-lg ${v.status === 'ok' ? 'bg-emerald-50 text-emerald-700' : v.status === 'above_list' ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-600'}`}>
+                        <span>{v.product_name}</span>
+                        <span className="font-mono">{v.po_unit_price} ₾ {v.supplier_list_price != null ? `→ ${v.supplier_list_price} ₾` : ''} {v.note ? `(${v.note})` : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="font-medium mb-2 flex items-center gap-1"><CalendarClock size={14} /> {t('Scheduled deliveries')}</p>
+                    {po2Data?.scheduled?.length ? po2Data.scheduled.map((s: any) => (
+                      <div key={s.id} className="flex justify-between p-2 border-b dark:border-dark-50">
+                        <span>{s.scheduled_date}</span><span className="font-mono">{s.quantity} — {s.status}</span>
+                      </div>
+                    )) : <p className="text-gray-500">{t('არ არის')}</p>}
+                  </div>
+                  <div>
+                    <p className="font-medium mb-2 flex items-center gap-1"><Undo2 size={14} /> {t('Backorder')}</p>
+                    {po2Data?.backorder?.length ? po2Data.backorder.map((b: any, i: number) => (
+                      <div key={i} className="flex justify-between p-2 border-b dark:border-dark-50">
+                        <span>{b.product_name}</span><span className="font-mono text-amber-600">{b.backorder_quantity}</span>
+                      </div>
+                    )) : <p className="text-gray-500">{t('არ არის')}</p>}
+                  </div>
+                  <div>
+                    <p className="font-medium mb-2 flex items-center gap-1"><Undo2 size={14} /> {t('დაბრუნებები')}</p>
+                    {po2Data?.returns?.length ? po2Data.returns.map((r: any) => (
+                      <div key={r.id} className="flex justify-between p-2 border-b dark:border-dark-50">
+                        <span className="font-mono">{r.return_number}</span><span>{r.status} — {r.total.toLocaleString('ka-GE')} ₾</span>
+                      </div>
+                    )) : <p className="text-gray-500">{t('არ არის')}</p>}
+                  </div>
+                  <div>
+                    <p className="font-medium mb-2 flex items-center gap-1"><BadgeDollarSign size={14} /> {t('Landed costs')}</p>
+                    {po2Data?.landedCosts?.length ? po2Data.landedCosts.map((l: any) => (
+                      <div key={l.id} className="flex justify-between p-2 border-b dark:border-dark-50">
+                        <span>{l.description}</span><span className="font-mono">{l.total_amount.toLocaleString('ka-GE')} {l.currency}</span>
+                      </div>
+                    )) : <p className="text-gray-500">{t('არ არის')}</p>}
+                  </div>
+                </div>
+
+                {po2Data?.amendments?.length > 0 && (
+                  <div>
+                    <p className="font-medium mb-2 flex items-center gap-1"><GitBranch size={14} /> {t('Amendments')}</p>
+                    {po2Data.amendments.map((a: any) => (
+                      <div key={a.id} className="flex justify-between items-center p-2 border-b dark:border-dark-50">
+                        <span>v{a.version} — {a.status} {a.note ? `(${a.note})` : ''}</span>
+                        {a.status === 'pending' && (
+                          <button className="text-xs font-medium text-emerald-600 hover:text-emerald-700" onClick={() => amendApproveMutation.mutate(a.id)}>
+                            {t('დამტკიცება')}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </Modal>
@@ -414,6 +579,115 @@ export default function PurchasesPage() {
       </Modal>
 
       <ConfirmDialog open={Boolean(action && selected)} onClose={() => setAction(null)} onConfirm={() => selected && action && statusMutation.mutate({ id: selected.id, target: action })} title={action === 'approved' ? t('შესყიდვის შეკვეთის დამტკიცება') : t('შესყიდვის შეკვეთის გაუქმება')} message={action === 'approved' ? t('დამტკიცების შემდეგ შესაძლებელი გახდება საქონლის მიღება. მარაგი ამ ეტაპზე ჯერ არ შეიცვლება.') : t('გაუქმებული შესყიდვის შეკვეთის აღდგენა შეუძლებელი იქნება.')} confirmLabel={action === 'approved' ? t('დამტკიცება') : t('გაუქმება')} variant={action === 'approved' ? 'warning' : 'danger'} loading={statusMutation.isPending} />
+
+      {/* PO 2.0: scheduled delivery modal */}
+      <Modal open={schedOpen} onClose={() => setSchedOpen(false)} title={t('Scheduled delivery')}>
+        <div className="space-y-4">
+          {po2Error && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{po2Error}</div>}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('თარიღი')}</label>
+            <input type="date" className="input" value={schedForm.scheduled_date} onChange={e => setSchedForm({ ...schedForm, scheduled_date: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('რაოდენობა')}</label>
+            <input type="number" min="0.001" step="0.001" className="input" value={schedForm.quantity} onChange={e => setSchedForm({ ...schedForm, quantity: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('შენიშვნა')}</label>
+            <input className="input" value={schedForm.note} onChange={e => setSchedForm({ ...schedForm, note: e.target.value })} />
+          </div>
+          <button className="btn-primary w-full" disabled={!schedForm.scheduled_date || !schedForm.quantity || schedMutation.isPending}
+            onClick={() => selected && schedMutation.mutate({ id: selected.id, payload: { scheduled_date: schedForm.scheduled_date, quantity: Number(schedForm.quantity), note: schedForm.note || undefined } })}>
+            {t('დამატება')}
+          </button>
+        </div>
+      </Modal>
+
+      {/* PO 2.0: purchase return modal */}
+      <Modal open={returnOpen} onClose={() => setReturnOpen(false)} title={t('დაბრუნება (RMA)')} size="lg">
+        {selected && (
+          <div className="space-y-4">
+            {po2Error && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{po2Error}</div>}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('მიზეზი')}</label>
+                <input className="input" value={returnForm.reason} onChange={e => setReturnForm({ ...returnForm, reason: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('დაბრუნების თარიღი')}</label>
+                <input type="date" className="input" value={returnForm.return_date} onChange={e => setReturnForm({ ...returnForm, return_date: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">{t('ნივთები')}</p>
+              {selected.items.filter(i => i.received_quantity > 0).map(item => (
+                <div key={item.id} className="flex items-center justify-between p-2 border rounded-lg">
+                  <span className="text-sm">{item.product_name} <span className="text-gray-500">(მიღებული: {item.received_quantity})</span></span>
+                  <input type="number" min="0" max={item.received_quantity} step="0.001" className="input w-24 text-right"
+                    value={returnForm.items.find(i => i.purchase_order_item_id === item.id)?.quantity || ''}
+                    onChange={e => {
+                      const qty = Number(e.target.value)
+                      setReturnForm({
+                        ...returnForm,
+                        items: [
+                          ...returnForm.items.filter(i => i.purchase_order_item_id !== item.id),
+                          ...(qty > 0 ? [{ purchase_order_item_id: item.id, quantity: qty }] : []),
+                        ],
+                      })
+                    }} />
+                </div>
+              ))}
+            </div>
+            <button className="btn-primary w-full" disabled={!returnForm.items.length || returnMutation.isPending}
+              onClick={() => selected && returnMutation.mutate({ id: selected.id, payload: { reason: returnForm.reason || undefined, return_date: returnForm.return_date || undefined, items: returnForm.items } })}>
+              {t('დაბრუნების შექმნა')}
+            </button>
+          </div>
+        )}
+      </Modal>
+
+      {/* PO 2.0: amendment modal */}
+      <Modal open={amendOpen} onClose={() => setAmendOpen(false)} title={t('Amendment / ვერსია')}>
+        {selected && (
+          <div className="space-y-4">
+            {po2Error && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{po2Error}</div>}
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {selected.items.map(item => (
+                <div key={item.id} className="p-2 border rounded-lg text-sm">
+                  <p className="font-medium">{item.product_name}</p>
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    <div>
+                      <label className="text-xs text-gray-500">{t('რაოდენობა')}</label>
+                      <input type="number" min="0.001" step="0.001" className="input" defaultValue={item.quantity}
+                        onChange={e => setAmendForm({ ...amendForm, quantity: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">{t('ფასი')}</label>
+                      <input type="number" min="0" step="0.01" className="input" defaultValue={item.unit_price}
+                        onChange={e => setAmendForm({ ...amendForm, unit_price: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('შენიშვნა')}</label>
+              <input className="input" value={amendForm.note} onChange={e => setAmendForm({ ...amendForm, note: e.target.value })} />
+            </div>
+            <button className="btn-primary w-full" disabled={(!amendForm.quantity && !amendForm.unit_price) || amendMutation.isPending}
+              onClick={() => {
+                const firstItem = selected.items[0]
+                if (!firstItem) return
+                const changes: any = { items: [] }
+                if (amendForm.quantity) changes.items.push({ purchase_order_item_id: firstItem.id, quantity: Number(amendForm.quantity) })
+                if (amendForm.unit_price) changes.items.push({ purchase_order_item_id: firstItem.id, unit_price: Number(amendForm.unit_price) })
+                amendMutation.mutate({ id: selected.id, payload: { changes, note: amendForm.note || undefined } })
+              }}>
+              {t('Amendment-ის წარდგენა')}
+            </button>
+          </div>
+        )}
+      </Modal>
 
       {/* Quality check modal (P1.9) */}
       <Modal open={!!qualityFor} onClose={() => setQualityFor(null)} title={t('ხარისხის შემოწმება')}>

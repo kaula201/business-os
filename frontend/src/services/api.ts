@@ -717,6 +717,18 @@ export const purchaseOrdersApi = {
   qualityCheck: (poId: string, receiptId: string, data: any) =>
     api.post(`/purchase-orders/${poId}/receipts/${receiptId}/quality-check`, data),
   threeWayMatch: (id: string) => api.get(`/purchase-orders/${id}/three-way-match`),
+  // PO 2.0
+  createSupplierInvoice: (poId: string) => api.post(`/purchase-orders/${poId}/create-supplier-invoice`),
+  listScheduledDeliveries: (poId: string) => api.get(`/purchase-orders/${poId}/scheduled-deliveries`),
+  createScheduledDelivery: (poId: string, data: any) => api.post(`/purchase-orders/${poId}/scheduled-deliveries`, data),
+  getBackorder: (poId: string) => api.get(`/purchase-orders/${poId}/backorder`),
+  listReturns: (poId: string) => api.get(`/purchase-orders/${poId}/returns`),
+  createReturn: (poId: string, data: any) => api.post(`/purchase-orders/${poId}/returns`, data),
+  listAmendments: (poId: string) => api.get(`/purchase-orders/${poId}/amendments`),
+  createAmendment: (poId: string, data: any) => api.post(`/purchase-orders/${poId}/amendments`, data),
+  approveAmendment: (amendmentId: string) => api.post(`/purchase-orders/amendments/${amendmentId}/approve`),
+  listLandedCosts: (poId: string) => api.get(`/purchase-orders/${poId}/landed-costs`),
+  validatePrices: (poId: string) => api.post(`/purchase-orders/${poId}/validate-prices`),
 }
 
 export const purchaseCostsApi = {

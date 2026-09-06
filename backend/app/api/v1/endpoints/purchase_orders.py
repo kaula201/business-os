@@ -23,7 +23,14 @@ from app.models.purchase import (
     PurchaseOrderStatusHistory,
     PurchaseCostHistory,
     PurchaseApprovalPolicy,
+    ScheduledDelivery,
+    PurchaseOrderBackorder,
+    PurchaseReturn,
+    PurchaseReturnItem,
+    PurchaseOrderAmendment,
     Supplier,
+    SupplierInvoice,
+    SupplierInvoiceItem,
 )
 from app.models.user import User
 from app.models.warehouse import InventoryBalance, InventoryMovement, Warehouse
@@ -1149,3 +1156,696 @@ async def get_approval_limit_info(
             po_count_total=total_count,
         )
     )
+
+
+# ---------- PO 2.0 ----------
+
+
+@router.post(
+    "/{purchase_order_id}/create-supplier-invoice",
+    response_model=ResponseBase,
+)
+async def create_supplier_invoice_from_po(
+    purchase_order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """One-click supplier invoice from a PO — uses billed quantities/PO prices."""
+    import uuid as _uuid
+
+    po = (
+        await db.execute(
+            select(PurchaseOrder)
+            .where(
+                PurchaseOrder.id == purchase_order_id,
+                PurchaseOrder.company_id == current_user.company_id,
+            )
+            .options(selectinload(PurchaseOrder.items))
+        )
+    ).scalars().first()
+    if not po:
+        raise HTTPException(status_code=404, detail="PO არ მოიძებნა")
+    if po.status not in ("approved", "received", "partially_received"):
+        raise HTTPException(status_code=400, detail="PO-დან ინვოისი მხოლოდ approved/received სტატუსზე იქმნება")
+
+    # supplier invoice already exists for this PO?
+    existing = (
+        await db.execute(
+            select(SupplierInvoice).where(
+                SupplierInvoice.purchase_order_id == po.id,
+                SupplierInvoice.company_id == current_user.company_id,
+            )
+        )
+    ).scalars().first()
+    if existing:
+        raise HTTPException(status_code=409, detail="ამ PO-სთვის ინვოისი უკვე შექმნილია")
+
+    # allocate invoice number via canonical sequence helper
+    inv_number = await allocate_document_number(db, current_user.company_id, "supplier_invoice", "SINV")
+
+    subtotal = Decimal("0")
+    vat_total = Decimal("0")
+    inv_items = []
+    for po_item in po.items:
+        qty = po_item.quantity  # bill full ordered qty (or received if partial)
+        price = po_item.unit_price
+        line_sub = (qty * price).quantize(Decimal("0.01"))
+        line_vat = (line_sub * po_item.vat_rate / Decimal("100")).quantize(Decimal("0.01"))
+        subtotal += line_sub
+        vat_total += line_vat
+        inv_items.append(
+            SupplierInvoiceItem(
+                id=_uuid.uuid4(),
+                supplier_invoice_id=None,  # set below
+                purchase_order_item_id=po_item.id,
+                product_id=po_item.product_id,
+                product_name=po_item.product_name,
+                quantity=qty,
+                unit_price=price,
+                discount_percent=po_item.discount_percent,
+                vat_rate=po_item.vat_rate,
+                line_subtotal=line_sub,
+                vat_amount=line_vat,
+                line_total=line_sub + line_vat,
+                matching_status="unmatched",
+                match_issue=None,
+            )
+        )
+
+    inv = SupplierInvoice(
+        id=_uuid.uuid4(),
+        company_id=current_user.company_id,
+        supplier_id=po.supplier_id,
+        purchase_order_id=po.id,
+        fiscal_position_id=po.fiscal_position_id,
+        tax_account_code=None,
+        internal_invoice_number=inv_number,
+        supplier_invoice_number=inv_number,
+        invoice_date=date.today(),
+        due_date=date.today(),
+        status="draft",
+        matching_status="unmatched",
+        match_issues="[]",
+        subtotal=subtotal,
+        vat_amount=vat_total,
+        total=subtotal + vat_total,
+        notes=f"ავტომატურად PO-დან: {po.purchase_order_number}",
+        created_by=current_user.id,
+    )
+    db.add(inv)
+    await db.flush()
+    for it in inv_items:
+        it.supplier_invoice_id = inv.id
+        db.add(it)
+
+    # record history
+    db.add(
+        PurchaseOrderStatusHistory(
+            id=_uuid.uuid4(),
+            purchase_order_id=po.id,
+            status=po.status,
+            notes=f"Supplier invoice {inv_number} ავტომატურად შექმნილი",
+            changed_by=current_user.id,
+        )
+    )
+    await db.commit()
+
+    return ResponseBase(
+        data={
+            "supplier_invoice_id": str(inv.id),
+            "supplier_invoice_number": inv_number,
+            "total": float(inv.total),
+            "status": "draft",
+        },
+        message="Supplier invoice წარმატებით შექმნილია PO-დან",
+    )
+
+
+@router.post(
+    "/{purchase_order_id}/scheduled-deliveries",
+    response_model=ResponseBase,
+)
+async def create_scheduled_delivery(
+    purchase_order_id: UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Add a scheduled delivery (date + qty) to an approved PO."""
+    import uuid as _uuid
+
+    po = (
+        await db.execute(
+            select(PurchaseOrder).where(
+                PurchaseOrder.id == purchase_order_id,
+                PurchaseOrder.company_id == current_user.company_id,
+            )
+        )
+    ).scalars().first()
+    if not po:
+        raise HTTPException(status_code=404, detail="PO არ მოიძებნა")
+
+    sched_date = payload.get("scheduled_date")
+    qty = payload.get("quantity")
+    if not sched_date or not qty:
+        raise HTTPException(status_code=400, detail="scheduled_date და quantity სავალდებულოა")
+
+    sd = ScheduledDelivery(
+        id=_uuid.uuid4(),
+        company_id=current_user.company_id,
+        purchase_order_id=po.id,
+        scheduled_date=date.fromisoformat(sched_date),
+        quantity=Decimal(str(qty)),
+        status=payload.get("status", "planned"),
+        note=payload.get("note"),
+    )
+    db.add(sd)
+    await db.commit()
+    return ResponseBase(
+        data={
+            "scheduled_delivery_id": str(sd.id),
+            "scheduled_date": sched_date,
+            "quantity": float(sd.quantity),
+            "status": sd.status,
+        },
+        message="Scheduled delivery დამატებულია",
+    )
+
+
+@router.get(
+    "/{purchase_order_id}/scheduled-deliveries",
+    response_model=ResponseBase,
+)
+async def list_scheduled_deliveries(
+    purchase_order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all scheduled deliveries for a PO."""
+    rows = (
+        await db.execute(
+            select(ScheduledDelivery)
+            .where(
+                ScheduledDelivery.purchase_order_id == purchase_order_id,
+                ScheduledDelivery.company_id == current_user.company_id,
+            )
+            .order_by(ScheduledDelivery.scheduled_date)
+        )
+    ).scalars().all()
+    return ResponseBase(
+        data=[
+            {
+                "id": str(r.id),
+                "scheduled_date": r.scheduled_date.isoformat(),
+                "quantity": float(r.quantity),
+                "status": r.status,
+                "note": r.note,
+            }
+            for r in rows
+        ],
+        message="Scheduled deliveries",
+    )
+
+
+@router.get(
+    "/{purchase_order_id}/backorder",
+    response_model=ResponseBase,
+)
+async def get_backorder(
+    purchase_order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Backorder: quantities still owed = ordered - received, per item."""
+    items = (
+        await db.execute(
+            select(PurchaseOrderItem).where(
+                PurchaseOrderItem.purchase_order_id == purchase_order_id,
+            )
+        )
+    ).scalars().all()
+
+    rows = []
+    for it in items:
+        owed = it.quantity - it.received_quantity
+        if owed > 0:
+            rows.append(
+                {
+                    "purchase_order_item_id": str(it.id),
+                    "product_id": str(it.product_id),
+                    "product_name": it.product_name,
+                    "ordered_quantity": float(it.quantity),
+                    "received_quantity": float(it.received_quantity),
+                    "backorder_quantity": float(owed),
+                    "expected_date": None,
+                }
+            )
+    # include persisted backorder records if any
+    persisted = (
+        await db.execute(
+            select(PurchaseOrderBackorder).where(
+                PurchaseOrderBackorder.purchase_order_id == purchase_order_id,
+            )
+        )
+    ).scalars().all()
+    for b in persisted:
+        if b.status == "open":
+            rows.append(
+                {
+                    "purchase_order_item_id": str(b.purchase_order_item_id),
+                    "product_id": str(b.product_id),
+                    "product_name": "—",
+                    "ordered_quantity": float(b.quantity),
+                    "received_quantity": float(b.fulfilled_quantity),
+                    "backorder_quantity": float(b.quantity - b.fulfilled_quantity),
+                    "expected_date": b.expected_date.isoformat() if b.expected_date else None,
+                    "backorder_id": str(b.id),
+                }
+            )
+    return ResponseBase(data=rows, message="Backorder ინფორმაცია")
+
+
+@router.get(
+    "/{purchase_order_id}/returns",
+    response_model=ResponseBase,
+)
+async def list_purchase_returns(
+    purchase_order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List purchase returns for a PO."""
+    rows = (
+        await db.execute(
+            select(PurchaseReturn)
+            .where(
+                PurchaseReturn.purchase_order_id == purchase_order_id,
+                PurchaseReturn.company_id == current_user.company_id,
+            )
+            .order_by(PurchaseReturn.created_at.desc())
+        )
+    ).scalars().all()
+    return ResponseBase(
+        data=[
+            {
+                "id": str(r.id),
+                "return_number": r.return_number,
+                "status": r.status,
+                "return_date": r.return_date.isoformat() if r.return_date else None,
+                "reason": r.reason,
+                "total": float(r.total),
+                "restock_warehouse": r.restock_warehouse,
+            }
+            for r in rows
+        ],
+        message="Purchase returns",
+    )
+
+
+@router.post(
+    "/{purchase_order_id}/returns",
+    response_model=ResponseBase,
+)
+async def create_purchase_return(
+    purchase_order_id: UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a purchase return (RMA) with items and reason."""
+    import uuid as _uuid
+
+    po = (
+        await db.execute(
+            select(PurchaseOrder).where(
+                PurchaseOrder.id == purchase_order_id,
+                PurchaseOrder.company_id == current_user.company_id,
+            )
+        )
+    ).scalars().first()
+    if not po:
+        raise HTTPException(status_code=404, detail="PO არ მოიძებნა")
+
+    items_data = payload.get("items", [])
+    if not items_data:
+        raise HTTPException(status_code=400, detail="დასაბრუნებელი ნივთები აუცილებელია")
+
+    ret_number = await allocate_document_number(db, current_user.company_id, "purchase_return", "RET")
+
+    total = Decimal("0")
+    ret_items = []
+    for it in items_data:
+        po_item = (
+            await db.execute(
+                select(PurchaseOrderItem).where(
+                    PurchaseOrderItem.id == it["purchase_order_item_id"],
+                    PurchaseOrderItem.purchase_order_id == po.id,
+                )
+            )
+        ).scalars().first()
+        if not po_item:
+            raise HTTPException(status_code=404, detail="PO item არ მოიძებნა")
+        qty = Decimal(str(it["quantity"]))
+        if qty > po_item.received_quantity:
+            raise HTTPException(status_code=400, detail="დასაბრუნებელი რაოდენობა აღემატება მიღებულს")
+        price = po_item.unit_price
+        line_total = (qty * price).quantize(Decimal("0.01"))
+        total += line_total
+        ret_items.append(
+            PurchaseReturnItem(
+                id=_uuid.uuid4(),
+                purchase_order_item_id=po_item.id,
+                product_id=po_item.product_id,
+                product_name=po_item.product_name,
+                quantity=qty,
+                unit_price=price,
+                line_total=line_total,
+                reason=it.get("reason"),
+            )
+        )
+
+    ret = PurchaseReturn(
+        id=_uuid.uuid4(),
+        company_id=current_user.company_id,
+        purchase_order_id=po.id,
+        supplier_id=po.supplier_id,
+        return_number=ret_number,
+        status="draft",
+        return_date=date.fromisoformat(payload["return_date"]) if payload.get("return_date") else None,
+        reason=payload.get("reason"),
+        total=total,
+        restock_warehouse=payload.get("restock_warehouse", True),
+        notes=payload.get("notes"),
+        created_by=current_user.id,
+    )
+    db.add(ret)
+    await db.flush()
+    for ri in ret_items:
+        ri.purchase_return_id = ret.id
+        db.add(ri)
+
+    # stock back
+    if payload.get("restock_warehouse", True):
+        for ri in ret_items:
+            # reduce received qty on PO item
+            po_item = (
+                await db.execute(
+                    select(PurchaseOrderItem).where(PurchaseOrderItem.id == ri.purchase_order_item_id)
+                )
+            ).scalars().first()
+            if po_item:
+                po_item.received_quantity = max(Decimal("0"), po_item.received_quantity - ri.quantity)
+    await db.commit()
+
+    return ResponseBase(
+        data={
+            "return_id": str(ret.id),
+            "return_number": ret_number,
+            "status": "draft",
+            "total": float(total),
+            "item_count": len(ret_items),
+        },
+        message="Purchase return შექმნილია",
+    )
+
+
+@router.post(
+    "/{purchase_order_id}/amendments",
+    response_model=ResponseBase,
+)
+async def create_po_amendment(
+    purchase_order_id: UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Propose an amendment (version bump) to an approved PO; pending until approved."""
+    import uuid as _uuid
+
+    po = (
+        await db.execute(
+            select(PurchaseOrder).where(
+                PurchaseOrder.id == purchase_order_id,
+                PurchaseOrder.company_id == current_user.company_id,
+            )
+        )
+    ).scalars().first()
+    if not po:
+        raise HTTPException(status_code=404, detail="PO არ მოიძებნა")
+
+    changes = payload.get("changes", {})
+    if not changes:
+        raise HTTPException(status_code=400, detail="changes ველი აუცილებელია (JSON)")
+
+    version = po.version + 1
+    amend = PurchaseOrderAmendment(
+        id=_uuid.uuid4(),
+        company_id=current_user.company_id,
+        purchase_order_id=po.id,
+        version=version,
+        status="pending",
+        changes=json.dumps(changes, ensure_ascii=False, default=str),
+        proposed_by=current_user.id,
+        note=payload.get("note"),
+    )
+    db.add(amend)
+    await db.commit()
+    return ResponseBase(
+        data={
+            "amendment_id": str(amend.id),
+            "version": version,
+            "status": "pending",
+        },
+        message="Amendment წარდგენილია დასამტკიცებლად",
+    )
+
+
+@router.post(
+    "/amendments/{amendment_id}/approve",
+    response_model=ResponseBase,
+)
+async def approve_po_amendment(
+    amendment_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Approve a pending PO amendment — applies changes and bumps PO version."""
+    import uuid as _uuid
+
+    amend = (
+        await db.execute(
+            select(PurchaseOrderAmendment).where(
+                PurchaseOrderAmendment.id == amendment_id,
+                PurchaseOrderAmendment.company_id == current_user.company_id,
+            )
+        )
+    ).scalars().first()
+    if not amend:
+        raise HTTPException(status_code=404, detail="Amendment არ მოიძებნა")
+    if amend.status != "pending":
+        raise HTTPException(status_code=409, detail="Amendment უკვე დამუშავებულია")
+
+    po = (
+        await db.execute(
+            select(PurchaseOrder).where(PurchaseOrder.id == amend.purchase_order_id)
+        )
+    ).scalars().first()
+    if not po:
+        raise HTTPException(status_code=404, detail="PO არ მოიძებნა")
+
+    # apply changes
+    try:
+        ch = json.loads(amend.changes)
+    except Exception:
+        ch = {}
+    if "expected_delivery_date" in ch:
+        po.expected_delivery_date = date.fromisoformat(str(ch["expected_delivery_date"]))
+    if "notes" in ch:
+        po.notes = str(ch["notes"])
+    # item price/qty adjustments
+    item_changes = ch.get("items", [])
+    for ic in item_changes:
+        if "purchase_order_item_id" not in ic:
+            continue
+        po_item = (
+            await db.execute(
+                select(PurchaseOrderItem).where(
+                    PurchaseOrderItem.id == ic["purchase_order_item_id"],
+                    PurchaseOrderItem.purchase_order_id == po.id,
+                )
+            )
+        ).scalars().first()
+        if not po_item:
+            continue
+        if "quantity" in ic:
+            po_item.quantity = Decimal(str(ic["quantity"]))
+        if "unit_price" in ic:
+            po_item.unit_price = Decimal(str(ic["unit_price"]))
+            po_item.line_subtotal = (po_item.quantity * po_item.unit_price).quantize(Decimal("0.01"))
+            po_item.vat_amount = (po_item.line_subtotal * po_item.vat_rate / Decimal("100")).quantize(Decimal("0.01"))
+            po_item.line_total = po_item.line_subtotal + po_item.vat_amount
+
+    po.version = amend.version
+    amend.status = "approved"
+    amend.approved_by = current_user.id
+    amend.approved_at = utc_now()
+    db.add(
+        PurchaseOrderStatusHistory(
+            id=_uuid.uuid4(),
+            purchase_order_id=po.id,
+            status=po.status,
+            notes=f"Amendment v{amend.version} დამტკიცდა",
+            changed_by=current_user.id,
+        )
+    )
+    await db.commit()
+    return ResponseBase(
+        data={
+            "amendment_id": str(amend.id),
+            "po_version": po.version,
+            "status": "approved",
+        },
+        message="Amendment დამტკიცებულია, PO ვერსია განახლდა",
+    )
+
+
+@router.get(
+    "/{purchase_order_id}/amendments",
+    response_model=ResponseBase,
+)
+async def list_po_amendments(
+    purchase_order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List amendments for a PO."""
+    rows = (
+        await db.execute(
+            select(PurchaseOrderAmendment)
+            .where(
+                PurchaseOrderAmendment.purchase_order_id == purchase_order_id,
+                PurchaseOrderAmendment.company_id == current_user.company_id,
+            )
+            .order_by(PurchaseOrderAmendment.version.desc())
+        )
+    ).scalars().all()
+    return ResponseBase(
+        data=[
+            {
+                "id": str(r.id),
+                "version": r.version,
+                "status": r.status,
+                "proposed_by": str(r.proposed_by) if r.proposed_by else None,
+                "approved_by": str(r.approved_by) if r.approved_by else None,
+                "note": r.note,
+                "changes": json.loads(r.changes) if r.changes else {},
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "approved_at": r.approved_at.isoformat() if r.approved_at else None,
+            }
+            for r in rows
+        ],
+        message="PO amendments",
+    )
+
+
+@router.get(
+    "/{purchase_order_id}/landed-costs",
+    response_model=ResponseBase,
+)
+async def list_po_landed_costs(
+    purchase_order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Landed costs linked to this PO (WMS module)."""
+    from app.models.wms_ops import LandedCost
+
+    rows = (
+        await db.execute(
+            select(LandedCost)
+            .where(
+                LandedCost.purchase_order_id == purchase_order_id,
+                LandedCost.company_id == current_user.company_id,
+            )
+            .order_by(LandedCost.created_at.desc())
+        )
+    ).scalars().all()
+    return ResponseBase(
+        data=[
+            {
+                "id": str(r.id),
+                "description": r.description,
+                "total_amount": float(r.total_amount),
+                "currency": r.currency,
+                "allocated": r.allocated,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
+        message="Landed costs",
+    )
+
+
+@router.post(
+    "/{purchase_order_id}/validate-prices",
+    response_model=ResponseBase,
+)
+async def validate_po_prices_against_supplier_list(
+    purchase_order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Supplier pricelist validation: compare PO unit prices vs supplier_price_lists."""
+    po = (
+        await db.execute(
+            select(PurchaseOrder).where(
+                PurchaseOrder.id == purchase_order_id,
+                PurchaseOrder.company_id == current_user.company_id,
+            )
+        )
+    ).scalars().first()
+    if not po:
+        raise HTTPException(status_code=404, detail="PO არ მოიძებნა")
+
+    items = (
+        await db.execute(
+            select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == po.id)
+        )
+    ).scalars().all()
+    from app.models.procurement import SupplierPriceList as SPL
+
+    results = []
+    for it in items:
+        spl = (
+            await db.execute(
+                select(SPL)
+                .where(
+                    SPL.supplier_id == po.supplier_id,
+                    SPL.product_id == it.product_id,
+                    SPL.company_id == current_user.company_id,
+                )
+                .order_by(SPL.priority.asc())
+            )
+        ).scalars().first()
+        po_price = it.unit_price
+        list_price = spl.price if spl else None
+        status = "ok"
+        note = None
+        if list_price is None:
+            status = "no_list"
+            note = "მომწოდებლის ფასთა სიაში არ არის"
+        elif list_price < po_price:
+            status = "above_list"
+            note = f"PO ფასი ({po_price}) აღემატება სიის ფასს ({list_price})"
+        results.append(
+            {
+                "purchase_order_item_id": str(it.id),
+                "product_id": str(it.product_id),
+                "product_name": it.product_name,
+                "po_unit_price": float(po_price),
+                "supplier_list_price": float(list_price) if list_price is not None else None,
+                "status": status,
+                "note": note,
+            }
+        )
+    return ResponseBase(data=results, message="Supplier pricelist validation")
