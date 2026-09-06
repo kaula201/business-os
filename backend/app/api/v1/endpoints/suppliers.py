@@ -16,6 +16,9 @@ from app.models.purchase import (
     SupplierRatingHistory,
     SupplierPayable,
     PurchaseOrder,
+    SupplierCurrencyTerm,
+    SupplierOnboardingStep,
+    SupplierRiskEvent,
 )
 from app.models.user import User
 from app.schemas.common import PaginatedResponse, ResponseBase
@@ -228,6 +231,11 @@ async def create_supplier(
         bank_account=data.bank_account,
         payment_terms_days=data.payment_terms_days,
         notes=data.notes,
+        category=data.category,
+        risk_level=data.risk_level,
+        risk_score=data.risk_score,
+        is_blacklisted=data.is_blacklisted,
+        blacklist_reason=data.blacklist_reason,
         created_by=current_user.id,
     )
     db.add(supplier)
@@ -452,6 +460,7 @@ async def create_supplier_bank_detail(
             bd.is_primary = False
 
     bank_detail = SupplierBankDetail(
+        company_id=current_user.company_id,
         supplier_id=supplier.id,
         bank_name=data.bank_name.strip(),
         account_name=data.account_name.strip(),
@@ -750,4 +759,312 @@ async def seed_demo_suppliers(
             "supplier_ids": created_ids,
             "message": "5 დემო მომწოდებელი წარმატებით დაემატა",
         }
+    )
+
+
+# ---------- Supplier 2.0 ----------
+
+ONBOARDING_STEPS = [
+    ("documents", "დოკუმენტები (სარეგისტრაციო, ლიცენზიები)"),
+    ("bank_account", "საბანკო ანგარიშის დამატება"),
+    ("bank_approval", "საბანკო ანგარიშის დამტკიცება"),
+    ("terms", "პირობები (ფასები, ვალუტა, გადახდა)"),
+    ("approval", "საბოლოო დამტკიცება"),
+]
+
+
+@router.post("/{supplier_id}/onboarding/start", response_model=ResponseBase)
+async def start_supplier_onboarding(
+    supplier_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Vendor onboarding workflow: create default checklist steps."""
+    import uuid as _uuid
+    supplier = await get_company_supplier(db, supplier_id, current_user.company_id)
+    existing = (
+        await db.execute(
+            select(SupplierOnboardingStep).where(
+                SupplierOnboardingStep.supplier_id == supplier.id,
+                SupplierOnboardingStep.company_id == current_user.company_id,
+            )
+        )
+    ).scalars().all()
+    if existing:
+        return ResponseBase(data={"steps": len(existing)}, message="Onboarding უკვე დაწყებულია")
+
+    for key, name in ONBOARDING_STEPS:
+        db.add(SupplierOnboardingStep(
+            id=_uuid.uuid4(), company_id=current_user.company_id,
+            supplier_id=supplier.id, step_key=key, step_name=name, status="pending",
+        ))
+    supplier.onboarding_status = "in_progress"
+    await db.commit()
+    return ResponseBase(data={"steps": len(ONBOARDING_STEPS)}, message="Onboarding დაწყებულია")
+
+
+@router.get("/{supplier_id}/onboarding", response_model=ResponseBase)
+async def get_supplier_onboarding(
+    supplier_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List onboarding steps for a supplier."""
+    supplier = await get_company_supplier(db, supplier_id, current_user.company_id)
+    steps = (
+        await db.execute(
+            select(SupplierOnboardingStep)
+            .where(
+                SupplierOnboardingStep.supplier_id == supplier.id,
+                SupplierOnboardingStep.company_id == current_user.company_id,
+            )
+            .order_by(SupplierOnboardingStep.created_at)
+        )
+    ).scalars().all()
+    return ResponseBase(
+        data={
+            "onboarding_status": supplier.onboarding_status,
+            "steps": [
+                {
+                    "id": str(s.id), "step_key": s.step_key, "step_name": s.step_name,
+                    "status": s.status, "note": s.note,
+                    "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+                }
+                for s in steps
+            ],
+        },
+        message="Onboarding steps",
+    )
+
+
+@router.post("/{supplier_id}/onboarding/{step_id}/complete", response_model=ResponseBase)
+async def complete_onboarding_step(
+    supplier_id: UUID,
+    step_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mark an onboarding step done; when all done → supplier onboarding_status=completed."""
+    import uuid as _uuid
+    from app.core.time import utc_now
+    supplier = await get_company_supplier(db, supplier_id, current_user.company_id)
+    step = (
+        await db.execute(
+            select(SupplierOnboardingStep).where(
+                SupplierOnboardingStep.id == step_id,
+                SupplierOnboardingStep.supplier_id == supplier.id,
+                SupplierOnboardingStep.company_id == current_user.company_id,
+            )
+        )
+    ).scalars().first()
+    if not step:
+        raise HTTPException(status_code=404, detail="Onboarding step არ მოიძებნა")
+    step.status = "done"
+    step.completed_by = current_user.id
+    step.completed_at = utc_now()
+
+    remaining = (
+        await db.execute(
+            select(func.count()).select_from(SupplierOnboardingStep).where(
+                SupplierOnboardingStep.supplier_id == supplier.id,
+                SupplierOnboardingStep.company_id == current_user.company_id,
+                SupplierOnboardingStep.status != "done",
+            )
+        )
+    ).scalar_one()
+    if remaining == 0:
+        supplier.onboarding_status = "completed"
+    await db.commit()
+    return ResponseBase(
+        data={"step_key": step.step_key, "remaining": remaining, "onboarding_status": supplier.onboarding_status},
+        message="Onboarding step დასრულდა",
+    )
+
+
+@router.post("/{supplier_id}/risk", response_model=ResponseBase)
+async def set_supplier_risk(
+    supplier_id: UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Blacklist/risk: set risk level, blacklist flag, audit event."""
+    import uuid as _uuid
+    supplier = await get_company_supplier(db, supplier_id, current_user.company_id)
+
+    new_level = payload.get("risk_level", supplier.risk_level)
+    blacklist = payload.get("is_blacklisted", supplier.is_blacklisted)
+    reason = payload.get("blacklist_reason")
+
+    supplier.risk_level = new_level
+    supplier.is_blacklisted = blacklist
+    if blacklist:
+        supplier.blacklist_reason = reason
+    if payload.get("risk_score") is not None:
+        supplier.risk_score = int(payload["risk_score"])
+
+    event_type = "blacklist" if blacklist else ("unblacklist" if not blacklist and supplier.blacklist_reason else "risk_change")
+    db.add(SupplierRiskEvent(
+        id=_uuid.uuid4(), company_id=current_user.company_id, supplier_id=supplier.id,
+        event_type=event_type, risk_level=new_level,
+        description=reason or payload.get("note"), created_by=current_user.id,
+    ))
+    await db.commit()
+    return ResponseBase(
+        data={
+            "risk_level": supplier.risk_level, "risk_score": supplier.risk_score,
+            "is_blacklisted": supplier.is_blacklisted, "blacklist_reason": supplier.blacklist_reason,
+        },
+        message="რისკის სტატუსი განახლდა",
+    )
+
+
+@router.get("/{supplier_id}/risk-events", response_model=ResponseBase)
+async def list_supplier_risk_events(
+    supplier_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Risk/blacklist audit trail."""
+    supplier = await get_company_supplier(db, supplier_id, current_user.company_id)
+    events = (
+        await db.execute(
+            select(SupplierRiskEvent)
+            .where(
+                SupplierRiskEvent.supplier_id == supplier.id,
+                SupplierRiskEvent.company_id == current_user.company_id,
+            )
+            .order_by(SupplierRiskEvent.created_at.desc())
+        )
+    ).scalars().all()
+    return ResponseBase(
+        data=[
+            {
+                "id": str(e.id), "event_type": e.event_type, "risk_level": e.risk_level,
+                "description": e.description,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+            }
+            for e in events
+        ],
+        message="Risk events",
+    )
+
+
+@router.post("/{supplier_id}/currency-terms", response_model=ResponseBase)
+async def upsert_supplier_currency_term(
+    supplier_id: UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Multi-currency terms: payment days, exchange rate policy, default flag."""
+    import uuid as _uuid
+    supplier = await get_company_supplier(db, supplier_id, current_user.company_id)
+    currency = payload.get("currency", "GEL")
+
+    term = (
+        await db.execute(
+            select(SupplierCurrencyTerm).where(
+                SupplierCurrencyTerm.supplier_id == supplier.id,
+                SupplierCurrencyTerm.currency == currency,
+                SupplierCurrencyTerm.company_id == current_user.company_id,
+            )
+        )
+    ).scalars().first()
+    if term is None:
+        term = SupplierCurrencyTerm(
+            id=_uuid.uuid4(), company_id=current_user.company_id,
+            supplier_id=supplier.id, currency=currency,
+        )
+        db.add(term)
+    term.payment_terms_days = int(payload.get("payment_terms_days", term.payment_terms_days))
+    term.exchange_rate_policy = payload.get("exchange_rate_policy", term.exchange_rate_policy)
+    if payload.get("fixed_rate") is not None:
+        from decimal import Decimal
+        term.fixed_rate = Decimal(str(payload["fixed_rate"]))
+    if payload.get("is_default"):
+        # unset others
+        others = (
+            await db.execute(
+                select(SupplierCurrencyTerm).where(
+                    SupplierCurrencyTerm.supplier_id == supplier.id,
+                    SupplierCurrencyTerm.company_id == current_user.company_id,
+                    SupplierCurrencyTerm.id != term.id,
+                )
+            )
+        ).scalars().all()
+        for o in others:
+            o.is_default = False
+        term.is_default = True
+    await db.commit()
+    return ResponseBase(
+        data={
+            "id": str(term.id), "currency": term.currency,
+            "payment_terms_days": term.payment_terms_days,
+            "exchange_rate_policy": term.exchange_rate_policy,
+            "fixed_rate": float(term.fixed_rate) if term.fixed_rate else None,
+            "is_default": term.is_default,
+        },
+        message="ვალუტის პირობები შენახულია",
+    )
+
+
+@router.get("/{supplier_id}/currency-terms", response_model=ResponseBase)
+async def list_supplier_currency_terms(
+    supplier_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List multi-currency terms for a supplier."""
+    supplier = await get_company_supplier(db, supplier_id, current_user.company_id)
+    terms = (
+        await db.execute(
+            select(SupplierCurrencyTerm)
+            .where(
+                SupplierCurrencyTerm.supplier_id == supplier.id,
+                SupplierCurrencyTerm.company_id == current_user.company_id,
+            )
+            .order_by(SupplierCurrencyTerm.is_default.desc())
+        )
+    ).scalars().all()
+    return ResponseBase(
+        data=[
+            {
+                "id": str(t.id), "currency": t.currency,
+                "payment_terms_days": t.payment_terms_days,
+                "exchange_rate_policy": t.exchange_rate_policy,
+                "fixed_rate": float(t.fixed_rate) if t.fixed_rate else None,
+                "is_default": t.is_default,
+            }
+            for t in terms
+        ],
+        message="Currency terms",
+    )
+
+
+@router.post("/bank-details/{bank_detail_id}/approve", response_model=ResponseBase)
+async def approve_supplier_bank_detail(
+    bank_detail_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bank-account approval: pending → approved (finance/admin)."""
+    from app.core.time import utc_now
+    bank = (
+        await db.execute(
+            select(SupplierBankDetail).where(
+                SupplierBankDetail.id == bank_detail_id,
+                SupplierBankDetail.company_id == current_user.company_id,
+            )
+        )
+    ).scalars().first()
+    if not bank:
+        raise HTTPException(status_code=404, detail="საბანკო ანგარიში არ მოიძებნა")
+    bank.approval_status = "approved"
+    bank.approved_by = current_user.id
+    bank.approved_at = utc_now()
+    await db.commit()
+    return ResponseBase(
+        data={"bank_detail_id": str(bank.id), "approval_status": "approved"},
+        message="საბანკო ანგარიში დამტკიცებულია",
     )

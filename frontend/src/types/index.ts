@@ -372,6 +372,21 @@ export interface Supplier {
   payment_terms_days: number
   notes?: string
   is_active: boolean
+  category?: string
+  risk_level?: string
+  risk_score?: number
+  is_blacklisted?: boolean
+  blacklist_reason?: string
+  onboarding_status?: string
+  bank_details?: Array<{
+    id: string
+    bank_name: string
+    account_name: string
+    iban_masked: string
+    currency: string
+    is_primary: boolean
+    approval_status?: string
+  }>
   created_at: string
   updated_at: string
 }
@@ -388,6 +403,11 @@ export interface SupplierCreate {
   bank_account?: string
   payment_terms_days?: number
   notes?: string
+  category?: string
+  risk_level?: string
+  risk_score?: number
+  is_blacklisted?: boolean
+  blacklist_reason?: string
 }
 
 export type PurchaseOrderStatus = 'draft' | 'approved' | 'partially_received' | 'received' | 'cancelled'

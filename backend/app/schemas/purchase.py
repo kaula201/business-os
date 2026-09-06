@@ -21,6 +21,11 @@ class SupplierCreate(BaseModel):
     bank_account: str | None = Field(default=None, max_length=100)
     payment_terms_days: int = Field(default=0, ge=0, le=3650)
     notes: str | None = None
+    category: str | None = Field(default=None, max_length=100)
+    risk_level: str = Field(default="low", max_length=20)
+    risk_score: int | None = Field(default=None, ge=0, le=100)
+    is_blacklisted: bool = False
+    blacklist_reason: str | None = None
 
 
 class SupplierUpdate(BaseModel):
@@ -38,6 +43,11 @@ class SupplierUpdate(BaseModel):
     notes: str | None = None
     is_active: bool | None = None
     rating: float | None = Field(default=None, ge=0, le=5)
+    category: str | None = Field(default=None, max_length=100)
+    risk_level: str | None = Field(default=None, max_length=20)
+    risk_score: int | None = Field(default=None, ge=0, le=100)
+    is_blacklisted: bool | None = None
+    blacklist_reason: str | None = None
 
 
 class SupplierBankDetailCreate(BaseModel):
@@ -64,11 +74,12 @@ class SupplierBankDetailResponse(BaseModel):
     supplier_id: UUID
     bank_name: str
     account_name: str
-    iban_masked: str
+    iban_masked: str = "****"
     currency: str
     is_primary: bool
     is_active: bool
     notes: str | None
+    approval_status: str = "pending"
     created_at: datetime
     updated_at: datetime
 
@@ -119,6 +130,12 @@ class SupplierResponse(BaseModel):
     rating: float | None
     total_purchase_amount: float
     last_purchase_date: date | None
+    category: str | None = None
+    risk_level: str = "low"
+    risk_score: int | None = None
+    is_blacklisted: bool = False
+    blacklist_reason: str | None = None
+    onboarding_status: str = "pending"
     purchase_order_count: int = 0
     outstanding_payable_count: int = 0
     outstanding_payable_amount: float = 0

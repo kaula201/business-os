@@ -695,12 +695,21 @@ export const invoicesApi = {
 
 // Suppliers API
 export const suppliersApi = {
-  list: (params?: { page?: number; page_size?: number; search?: string; include_inactive?: boolean }) =>
+  list: (params?: { page?: number; page_size?: number; search?: string; include_inactive?: boolean; category?: string }) =>
     api.get('/suppliers/', { params }),
   get: (id: string) => api.get(`/suppliers/${id}`),
   create: (data: any) => api.post('/suppliers/', data),
   update: (id: string, data: any) => api.patch(`/suppliers/${id}`, data),
   archive: (id: string) => api.post(`/suppliers/${id}/archive`),
+  // Supplier 2.0
+  startOnboarding: (id: string) => api.post(`/suppliers/${id}/onboarding/start`),
+  getOnboarding: (id: string) => api.get(`/suppliers/${id}/onboarding`),
+  completeOnboardingStep: (id: string, stepId: string) => api.post(`/suppliers/${id}/onboarding/${stepId}/complete`),
+  setRisk: (id: string, data: any) => api.post(`/suppliers/${id}/risk`, data),
+  listRiskEvents: (id: string) => api.get(`/suppliers/${id}/risk-events`),
+  upsertCurrencyTerm: (id: string, data: any) => api.post(`/suppliers/${id}/currency-terms`, data),
+  listCurrencyTerms: (id: string) => api.get(`/suppliers/${id}/currency-terms`),
+  approveBankDetail: (bankDetailId: string) => api.post(`/suppliers/bank-details/${bankDetailId}/approve`),
 }
 
 // Purchase Orders & Goods Receipts API

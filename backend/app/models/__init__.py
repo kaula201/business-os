@@ -124,6 +124,9 @@ from app.models.purchase import (
     PurchaseReturn,
     PurchaseReturnItem,
     PurchaseOrderAmendment,
+    SupplierCurrencyTerm,
+    SupplierOnboardingStep,
+    SupplierRiskEvent,
 )
 from app.models.recruitment import JobPosting
 from app.models.email_marketing import EmailCampaign
@@ -165,6 +168,7 @@ __all__ = [
     "SupplierCreditNote", "SupplierPaymentReversal",
     "PurchaseCostHistory", "PurchaseApprovalPolicy",
     "ScheduledDelivery", "PurchaseOrderBackorder", "PurchaseReturn", "PurchaseReturnItem", "PurchaseOrderAmendment",
+    "SupplierCurrencyTerm", "SupplierOnboardingStep", "SupplierRiskEvent",
     "BankAccount", "BankStatementImport", "BankTransaction", "BankReconciliation",
     "AppModule", "CompanyModule", "ModulePermission",
     "Department", "Employee", "PayrollEntry", "Timesheet",

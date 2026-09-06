@@ -41,6 +41,13 @@ class Supplier(Base):
         Numeric(18, 2), default=Decimal("0"), nullable=False
     )
     last_purchase_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Supplier 2.0: categorization & risk
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    risk_level: Mapped[str] = mapped_column(String(20), default="low", nullable=False)
+    risk_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_blacklisted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    blacklist_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    onboarding_status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
@@ -68,6 +75,9 @@ class SupplierBankDetail(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True
+    )
     supplier_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=False, index=True
     )
@@ -78,6 +88,10 @@ class SupplierBankDetail(Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Supplier 2.0: bank-account approval
+    approval_status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False)
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
@@ -623,3 +637,57 @@ class PurchaseOrderAmendment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     purchase_order = relationship("PurchaseOrder")
+
+
+class SupplierCurrencyTerm(Base):
+    """Supplier 2.0: multi-currency terms — payment currency, credit days, exchange rate policy per supplier."""
+    __tablename__ = "supplier_currency_terms"
+    __table_args__ = (
+        UniqueConstraint("supplier_id", "currency", name="uq_supplier_currency_term"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    supplier_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=False, index=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    payment_terms_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    exchange_rate_policy: Mapped[str] = mapped_column(String(30), default="daily", nullable=False)  # daily / fixed / invoice
+    fixed_rate: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    supplier = relationship("Supplier")
+
+
+class SupplierOnboardingStep(Base):
+    """Supplier 2.0: vendor onboarding workflow — checklist steps with status."""
+    __tablename__ = "supplier_onboarding_steps"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    supplier_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=False, index=True)
+    step_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    step_name: Mapped[str] = mapped_column(String(150), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False)  # pending / in_progress / done / skipped
+    completed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    supplier = relationship("Supplier")
+
+
+class SupplierRiskEvent(Base):
+    """Supplier 2.0: risk/blacklist events — audit trail of risk changes."""
+    __tablename__ = "supplier_risk_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    supplier_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)  # blacklist / unblacklist / risk_change / note
+    risk_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    supplier = relationship("Supplier")
