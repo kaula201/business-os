@@ -1079,6 +1079,16 @@ export const procurementApi = {
     api.post('/procurement/auto-replenish', null, { params: warehouseId ? { warehouse_id: warehouseId } : {} }),
   autoCalculateScorecards: (period: string) =>
     api.post('/procurement/scorecards/auto-calculate', null, { params: { period } }),
+  // Procurement 2.0
+  listRequisitions: (params?: Record<string, unknown>) => api.get('/procurement/requisitions', { params }),
+  createRequisition: (data: Record<string, unknown>) => api.post('/procurement/requisitions', data),
+  submitRequisition: (id: string) => api.post(`/procurement/requisitions/${id}/submit`),
+  approveRequisition: (id: string, level: number) => api.post(`/procurement/requisitions/${id}/approve`, { level }),
+  requisitionBudgetCheck: (id: string) => api.post(`/procurement/requisitions/${id}/budget-check`),
+  createPoFromRfq: (rfqId: string, data: Record<string, unknown>) => api.post(`/procurement/rfqs/${rfqId}/create-po`, data),
+  listSupplierProducts: (params?: Record<string, unknown>) => api.get('/procurement/supplier-products', { params }),
+  createSupplierProduct: (data: Record<string, unknown>) => api.post('/procurement/supplier-products', data),
+  autoSelectPrice: (data: Record<string, unknown>) => api.post('/procurement/price/auto-select', data),
   // Tenders
   listTenders: (params?: { status?: string; limit?: number }) => api.get('/procurement/tenders', { params }),
   createTender: (data: Record<string, unknown>) => api.post('/procurement/tenders', data),

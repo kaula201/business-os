@@ -126,12 +126,62 @@ class SupplierPriceList(Base):
     valid_from: Mapped[date | None] = mapped_column(Date, nullable=True)
     valid_to: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Procurement 2.0 — supplier-product terms
+    min_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 3), default=Decimal("1"), nullable=False)
+    lead_time_days: Mapped[int | None] = mapped_column(nullable=True)
+    priority: Mapped[int] = mapped_column(default=0, nullable=False)  # lower = preferred
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
     supplier = relationship("Supplier")
+    product = relationship("Product")
+
+
+class PurchaseRequisition(Base):
+    """Purchase Requisition — department request that flows into procurement."""
+
+    __tablename__ = "purchase_requisitions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True
+    )
+    requisition_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    department: Mapped[str] = mapped_column(String(150), nullable=False)
+    requested_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False, index=True)
+    # draft, submitted, approved, rejected, converted
+    priority: Mapped[str] = mapped_column(String(20), default="normal", nullable=False)
+    needed_by: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    budget_check: Mapped[str | None] = mapped_column(String(20), nullable=True)  # ok | over_budget | no_budget
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    converted_po_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("purchase_orders.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    lines = relationship("PurchaseRequisitionLine", back_populates="requisition", cascade="all, delete-orphan")
+
+
+class PurchaseRequisitionLine(Base):
+    __tablename__ = "purchase_requisition_lines"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    requisition_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("purchase_requisitions.id"), nullable=False, index=True
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True
+    )
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 3), nullable=False)
+    estimated_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
+
+    requisition = relationship("PurchaseRequisition", back_populates="lines")
     product = relationship("Product")
 
 

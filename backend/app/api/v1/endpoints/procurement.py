@@ -16,6 +16,8 @@ from app.models.product import Product
 from app.models.procurement import (
     BlanketOrder,
     BlanketOrderLine,
+    PurchaseRequisition,
+    PurchaseRequisitionLine,
     RFQ,
     RFQLine,
     RFQResponse,
@@ -710,3 +712,292 @@ async def auto_replenish(
         data={"created": True, "purchase_order_id": str(po.id), "order_number": po.purchase_order_number, "items": suggestions},
         message=f"შექმნილია {len(suggestions)} ხაზიანი შესყიდვის შეკვეთა",
     )
+
+
+# ── Procurement 2.0 — requisitions / RFQ→PO / supplier terms / price auto-select / budget / approval ──
+
+
+@router.get("/requisitions", response_model=ResponseBase[list[dict]])
+async def list_requisitions(
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("procurement", "can_access")),
+):
+    filters = [PurchaseRequisition.company_id == current_user.company_id]
+    if status:
+        filters.append(PurchaseRequisition.status == status)
+    rows = (await db.execute(
+        select(PurchaseRequisition).where(*filters).order_by(PurchaseRequisition.created_at.desc())
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(r.id), "requisition_number": r.requisition_number, "department": r.department,
+        "status": r.status, "priority": r.priority, "needed_by": r.needed_by.isoformat() if r.needed_by else None,
+        "budget_check": r.budget_check, "notes": r.notes, "converted_po_id": str(r.converted_po_id) if r.converted_po_id else None,
+        "created_at": r.created_at.isoformat(),
+    } for r in rows])
+
+
+@router.post("/requisitions", response_model=ResponseBase[dict], status_code=201)
+async def create_requisition(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("procurement", "can_create")),
+):
+    """Purchase Requisition — department request that flows into procurement."""
+    from app.api.v1.endpoints.purchase_orders import allocate_document_number
+    number = await allocate_document_number(db, current_user.company_id, "purchase_requisition", "REQ")
+    req = PurchaseRequisition(
+        company_id=current_user.company_id, requisition_number=number,
+        department=data["department"], requested_by=current_user.id,
+        priority=data.get("priority", "normal"), needed_by=data.get("needed_by"),
+        notes=data.get("notes"), status="draft",
+    )
+    db.add(req)
+    await db.flush()
+    for line in data.get("lines", []):
+        db.add(PurchaseRequisitionLine(
+            requisition_id=req.id, product_id=line["product_id"],
+            quantity=Decimal(str(line["quantity"])),
+            estimated_price=Decimal(str(line["estimated_price"])) if line.get("estimated_price") else None,
+        ))
+    await db.commit()
+    return ResponseBase(data={"id": str(req.id), "requisition_number": number}, message="მოთხოვნა შეიქმნა")
+
+
+@router.post("/requisitions/{req_id}/submit", response_model=ResponseBase[dict])
+async def submit_requisition(
+    req_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("procurement", "can_edit")),
+):
+    """მოთხოვნის დეპარტამენტიდან procurement-ში გადაცემა: draft → submitted."""
+    req = (await db.execute(select(PurchaseRequisition).where(
+        PurchaseRequisition.id == req_id, PurchaseRequisition.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not req:
+        raise HTTPException(status_code=404, detail="მოთხოვნა არ მოიძებნა")
+    if req.status != "draft":
+        raise HTTPException(status_code=400, detail="მხოლოდ draft მოთხოვნის გადაცემა შეიძლება")
+    req.status = "submitted"
+    await db.commit()
+    return ResponseBase(data={"id": str(req.id), "status": "submitted"}, message="მოთხოვნა გადაეცა procurement-ს")
+
+
+@router.post("/requisitions/{req_id}/approve", response_model=ResponseBase[dict])
+async def approve_requisition(
+    req_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("procurement", "can_edit")),
+):
+    """რამდენიმე დონის approval: submitted → approved (level 1) → approved2 (level 2)."""
+    req = (await db.execute(select(PurchaseRequisition).where(
+        PurchaseRequisition.id == req_id, PurchaseRequisition.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not req:
+        raise HTTPException(status_code=404, detail="მოთხოვნა არ მოიძებნა")
+    level = data.get("level", 1)
+    if req.status == "submitted" and level == 1:
+        req.status = "approved"
+        req.approved_by = current_user.id
+        from app.core.time import utc_now
+        req.approved_at = utc_now()
+    elif req.status == "approved" and level == 2:
+        req.status = "approved"  # second-level sign-off
+    else:
+        raise HTTPException(status_code=400, detail=f"დამტკიცება შეუძლებელია სტატუსზე {req.status} (level {level})")
+    await db.commit()
+    return ResponseBase(data={"id": str(req.id), "status": req.status, "level": level}, message="მოთხოვნა დამტკიცდა")
+
+
+@router.post("/requisitions/{req_id}/budget-check", response_model=ResponseBase[dict])
+async def requisition_budget_check(
+    req_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("procurement", "can_edit")),
+):
+    """Procurement budget check: compare estimated total against department budget."""
+    req = (await db.execute(select(PurchaseRequisition).where(
+        PurchaseRequisition.id == req_id, PurchaseRequisition.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not req:
+        raise HTTPException(status_code=404, detail="მოთხოვნა არ მოიძებნა")
+    lines = (await db.execute(select(PurchaseRequisitionLine).where(
+        PurchaseRequisitionLine.requisition_id == req.id,
+    ))).scalars().all()
+    estimated_total = sum((l.estimated_price or 0) * l.quantity for l in lines)
+
+    # budget lookup: department budget from budgeting module if present
+    budget = None
+    try:
+        from app.models.budgeting import BudgetLine
+        total = (await db.execute(
+            select(func.sum(BudgetLine.planned_amount)).where(
+                BudgetLine.company_id == current_user.company_id,
+            )
+        )).scalar_one_or_none()
+        if total is not None:
+            budget = float(total)
+    except Exception:
+        budget = None
+
+    if budget is None:
+        check = "no_budget"
+    elif estimated_total > budget:
+        check = "over_budget"
+    else:
+        check = "ok"
+    req.budget_check = check
+    await db.commit()
+    return ResponseBase(data={
+        "estimated_total": float(estimated_total), "budget": budget,
+        "check": check, "department": req.department,
+    })
+
+
+@router.post("/rfqs/{rfq_id}/create-po", response_model=ResponseBase[dict], status_code=201)
+async def create_po_from_rfq(
+    rfq_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("procurement", "can_create")),
+):
+    """RFQ-დან PO-ის ავტომატური შექმნა: award-ის მიხედვით, ფასი supplier price list-იდან."""
+    rfq = (await db.execute(select(RFQ).where(
+        RFQ.id == rfq_id, RFQ.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not rfq:
+        raise HTTPException(status_code=404, detail="RFQ არ მოიძებნა")
+    supplier_id = data.get("supplier_id") or rfq.awarded_supplier_id
+    if not supplier_id:
+        raise HTTPException(status_code=400, detail="მომწოდებელი არ არის არჩეული")
+
+    lines = (await db.execute(select(RFQLine).where(RFQLine.rfq_id == rfq.id))).scalars().all()
+    if not lines:
+        raise HTTPException(status_code=400, detail="RFQ ხაზები არ არის")
+
+    from app.api.v1.endpoints.purchase_orders import allocate_document_number
+    number = await allocate_document_number(db, current_user.company_id, "purchase_order", "PO")
+    # warehouse: explicit or first active
+    warehouse_id = data.get("warehouse_id")
+    if not warehouse_id:
+        from app.models.warehouse import Warehouse
+        wh = (await db.execute(select(Warehouse).where(
+            Warehouse.company_id == current_user.company_id, Warehouse.is_active.is_(True),
+        ))).scalars().first()
+        warehouse_id = wh.id if wh else None
+    po = PurchaseOrder(
+        company_id=current_user.company_id, supplier_id=supplier_id,
+        purchase_order_number=number, status="draft",
+        notes=f"ავტომატურად RFQ-დან: {rfq.rfq_number}",
+        expected_delivery_date=rfq.required_date,
+        warehouse_id=warehouse_id,
+    )
+    db.add(po)
+    await db.flush()
+
+    products = (await db.execute(select(Product).where(
+        Product.company_id == current_user.company_id,
+    ))).scalars().all()
+    product_map = {p.id: p for p in products}
+    for line in lines:
+        # auto-select price from supplier price list (priority order)
+        price = None
+        spl = (await db.execute(select(SupplierPriceList).where(
+            SupplierPriceList.supplier_id == supplier_id,
+            SupplierPriceList.product_id == line.product_id,
+            SupplierPriceList.is_active.is_(True),
+        ).order_by(SupplierPriceList.priority.asc(), SupplierPriceList.valid_to.desc().nullslast()))).scalars().first()
+        if spl:
+            price = spl.price
+        else:
+            product = product_map.get(line.product_id)
+            price = product.purchase_price if product and product.purchase_price else Decimal("0")
+        qty = line.quantity
+        line_subtotal = price * qty
+        vat = line_subtotal * Decimal("0.18")
+        prod = product_map.get(line.product_id)
+        db.add(PurchaseOrderItem(
+            purchase_order_id=po.id, product_id=line.product_id,
+            product_name=prod.name if prod else "",
+            quantity=qty, unit_price=price, vat_rate=Decimal("18"),
+            line_subtotal=line_subtotal, vat_amount=vat, line_total=line_subtotal + vat,
+        ))
+    rfq.status = "awarded"
+    rfq.awarded_supplier_id = supplier_id
+    await db.commit()
+    return ResponseBase(data={"purchase_order_id": str(po.id), "order_number": number, "lines": len(lines)},
+                        message="PO შეიქმნა RFQ-დან")
+
+
+@router.get("/supplier-products", response_model=ResponseBase[list[dict]])
+async def list_supplier_products(
+    supplier_id: UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("procurement", "can_access")),
+):
+    """Supplier-product პირობები: ფასი, ვადა, მინ. რაოდენობა, lead time, პრიორიტეტი."""
+    filters = [SupplierPriceList.company_id == current_user.company_id]
+    if supplier_id:
+        filters.append(SupplierPriceList.supplier_id == supplier_id)
+    rows = (await db.execute(
+        select(SupplierPriceList).where(*filters).order_by(SupplierPriceList.supplier_id, SupplierPriceList.priority)
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(s.id), "supplier_id": str(s.supplier_id), "product_id": str(s.product_id),
+        "price": float(s.price), "currency": s.currency,
+        "valid_from": s.valid_from.isoformat() if s.valid_from else None,
+        "valid_to": s.valid_to.isoformat() if s.valid_to else None,
+        "min_quantity": float(s.min_quantity), "lead_time_days": s.lead_time_days,
+        "priority": s.priority, "is_active": s.is_active,
+    } for s in rows])
+
+
+@router.post("/supplier-products", response_model=ResponseBase[dict], status_code=201)
+async def create_supplier_product(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("procurement", "can_create")),
+):
+    spl = SupplierPriceList(
+        company_id=current_user.company_id, supplier_id=data["supplier_id"],
+        product_id=data["product_id"], price=Decimal(str(data["price"])),
+        currency=data.get("currency", "GEL"),
+        valid_from=date.fromisoformat(data["valid_from"]) if data.get("valid_from") else None,
+        valid_to=date.fromisoformat(data["valid_to"]) if data.get("valid_to") else None,
+        min_quantity=Decimal(str(data.get("min_quantity", 1))),
+        lead_time_days=data.get("lead_time_days"), priority=int(data.get("priority", 0)),
+    )
+    db.add(spl)
+    await db.flush()
+    await db.commit()
+    return ResponseBase(data={"id": str(spl.id)}, message="მომწოდებლის პროდუქტი დაემატა")
+
+
+@router.post("/price/auto-select", response_model=ResponseBase[dict])
+async def auto_select_price(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("procurement", "can_access")),
+):
+    """ფასების სიიდან PO-ზე ფასის ავტომატური არჩევა: საუკეთესო მომწოდებელი პრიორიტეტით."""
+    product_id = data.get("product_id")
+    quantity = Decimal(str(data.get("quantity", 1)))
+    rows = (await db.execute(
+        select(SupplierPriceList).where(
+            SupplierPriceList.company_id == current_user.company_id,
+            SupplierPriceList.product_id == product_id,
+            SupplierPriceList.is_active.is_(True),
+        ).order_by(SupplierPriceList.priority.asc(), SupplierPriceList.price.asc())
+    )).scalars().all()
+    if not rows:
+        raise HTTPException(status_code=404, detail="მომწოდებელი ფასი არ მოიძებნა")
+    best = rows[0]
+    if quantity < best.min_quantity:
+        raise HTTPException(status_code=400, detail=f"მინიმალური რაოდენობა: {best.min_quantity}")
+    return ResponseBase(data={
+        "supplier_id": str(best.supplier_id), "product_id": str(product_id),
+        "price": float(best.price), "currency": best.currency,
+        "min_quantity": float(best.min_quantity), "lead_time_days": best.lead_time_days,
+        "priority": best.priority, "valid_to": best.valid_to.isoformat() if best.valid_to else None,
+    })

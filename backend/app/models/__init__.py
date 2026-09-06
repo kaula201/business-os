@@ -49,6 +49,7 @@ from app.models.tender import Tender, TenderLine, TenderBid, TenderBidLine
 from app.models.procurement import (
     RFQ, RFQLine, RFQResponse, RFQResponseLine,
     SupplierPriceList, SupplierPriceHistory, BlanketOrder, BlanketOrderLine, SupplierScorecard,
+    PurchaseRequisition, PurchaseRequisitionLine,
 )
 from app.models.audit import AuditLog
 from app.models.gl import GLAccount, JournalEntry, JournalEntryLine
@@ -152,6 +153,7 @@ __all__ = [
     "ConsolidationElimination",
     "Tender", "TenderLine", "TenderBid", "TenderBidLine",
     "RFQ", "RFQLine", "RFQResponse", "RFQResponseLine", "SupplierPriceList", "SupplierPriceHistory", "BlanketOrder", "BlanketOrderLine", "SupplierScorecard",
+    "PurchaseRequisition", "PurchaseRequisitionLine",
     "Supplier", "SupplierBankDetail", "SupplierRatingHistory", "PurchaseOrder", "PurchaseOrderItem", "PurchaseOrderStatusHistory",
     "GoodsReceipt", "GoodsReceiptItem",
     "SupplierInvoice", "SupplierInvoiceItem", "SupplierPayable", "SupplierPayment",

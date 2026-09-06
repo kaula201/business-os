@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Scale, Award, Zap, FileText, Gavel, BarChart3, Send } from 'lucide-react'
+import { Plus, Scale, Award, Zap, FileText, Gavel, BarChart3, Send, ClipboardList } from 'lucide-react'
 
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
+import RequisitionsTab from '../components/procurement/RequisitionsTab'
 import { productsApi, procurementApi, suppliersApi, contractsApi } from '../services/api'
 import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
@@ -13,7 +14,7 @@ const inputCls = 'w-full rounded-lg border border-brandgray-200 bg-white px-3 py
 export default function ProcurementPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'rfq' | 'compare' | 'pricelist' | 'blanket' | 'scorecard' | 'contracts' | 'tender' | 'analytics'>('rfq')
+  const [tab, setTab] = useState<'rfq' | 'compare' | 'pricelist' | 'blanket' | 'scorecard' | 'contracts' | 'tender' | 'analytics' | 'requisitions'>('rfq')
   const [rfqOpen, setRfqOpen] = useState(false)
   const [priceOpen, setPriceOpen] = useState(false)
   const [blanketOpen, setBlanketOpen] = useState(false)
@@ -100,11 +101,11 @@ export default function ProcurementPage() {
 
   const { data: products } = useQuery({
     queryKey: ['products-all-proc'],
-    queryFn: () => productsApi.list({ page_size: 200 }).then(r => r.data.data.items),
+    queryFn: () => productsApi.list({ page_size: 100 }).then(r => r.data.data.items),
   })
   const { data: suppliers } = useQuery({
     queryKey: ['suppliers-all-proc'],
-    queryFn: () => suppliersApi.list({ page_size: 200 }).then(r => r.data.data.items),
+    queryFn: () => suppliersApi.list({ page_size: 100 }).then(r => r.data.data.items),
   })
 
   const productName = (id: string) => (products || []).find((p: any) => p.id === id)?.name || '—'
@@ -296,6 +297,9 @@ export default function ProcurementPage() {
           <button onClick={() => setTab('analytics')} className={`px-3 py-2 rounded-lg text-sm font-medium ${tab === 'analytics' ? 'bg-brandgray-800 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400'}`}>
             <BarChart3 size={14} className="inline mr-1" /> {t('Vendor ანალიტიკა')}
           </button>
+          <button onClick={() => setTab('requisitions')} className={`px-3 py-2 rounded-lg text-sm font-medium ${tab === 'requisitions' ? 'bg-brandgray-800 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400'}`}>
+            <ClipboardList size={14} className="inline mr-1" /> {t('მოთხოვნები')}
+          </button>
           <button onClick={() => autoReplenish.mutate()} disabled={autoReplenish.isPending}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50">
             <Zap size={15} /> {t('ავტო-შევსება')}
@@ -448,6 +452,8 @@ export default function ProcurementPage() {
           ]}
           data={analytics} isLoading={analyticsLoading} emptyMessage={t('Vendor ანალიტიკა არ არის')} />
       )}
+
+      {tab === 'requisitions' && <RequisitionsTab />}
 
       <Modal open={compareFor !== null} onClose={() => setCompareFor(null)} title={t('შეთავაზებების შედარება')}>
         <div className="space-y-4">
