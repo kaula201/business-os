@@ -1895,6 +1895,7 @@ const en: Record<string, string> = {
   'ფასის ისტორია': 'Price history',
   'ავტომატური გამოთვლა': 'Auto-calculate',
   'შესყიდვები — Procurement': 'Purchasing — Procurement',
+  'Procurement (RFQ/ტენდერები)': 'Procurement (RFQ/Tenders)',
   'RFQ, შედარება, vendor ფასები, ჩარჩო შეთანხმებები, სკორკარდები': 'RFQ, comparison, vendor prices, blanket orders, scorecards',
   'ახალი ხელშეკრულება': 'New contract',
   'მიწოდების დღეები': 'Delivery days',
