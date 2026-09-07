@@ -21,6 +21,9 @@ class PickList(Base):
     order_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("orders.id"), nullable=True, index=True
     )
+    wave_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("wave_picks.id"), nullable=True, index=True
+    )
     warehouse_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=False, index=True
     )
@@ -39,6 +42,7 @@ class PickList(Base):
 
     lines = relationship("PickListItem", back_populates="pick_list", cascade="all, delete-orphan")
     packing_slips = relationship("PackingSlip", back_populates="pick_list")
+    wave = relationship("WavePick", back_populates="pick_lists")
 
 
 class PickListItem(Base):
@@ -208,3 +212,110 @@ class BatchTraceEvent(Base):
     batch = relationship("ProductBatch")
     serial = relationship("ProductSerial")
     product = relationship("Product")
+
+
+# ── WMS 2.0 ───────────────────────────────────────────────────────────────────
+
+class WavePick(Base):
+    """Wave/batch picking: group multiple pick lists into one wave."""
+    __tablename__ = "wave_picks"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    wave_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(30), default="planned", nullable=False)  # planned / picking / completed / cancelled
+    warehouse_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=False, index=True)
+    picker_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    warehouse = relationship("Warehouse")
+    pick_lists = relationship("PickList", back_populates="wave")
+
+
+class CrossDockOrder(Base):
+    """Cross-docking: inbound goods routed directly to outbound without storage."""
+    __tablename__ = "cross_dock_orders"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    cross_dock_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(30), default="planned", nullable=False)  # planned / in_transit / completed / cancelled
+    source_warehouse_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=False, index=True)
+    destination_warehouse_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=False, index=True)
+    scheduled_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    source_warehouse = relationship("Warehouse", foreign_keys=[source_warehouse_id])
+    destination_warehouse = relationship("Warehouse", foreign_keys=[destination_warehouse_id])
+
+
+class CrossDockItem(Base):
+    __tablename__ = "cross_dock_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    cross_dock_order_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cross_dock_orders.id"), nullable=False, index=True)
+    product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 3), nullable=False)
+    received_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 3), default=Decimal("0"), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    cross_dock_order = relationship("CrossDockOrder")
+    product = relationship("Product")
+
+
+class Shipment(Base):
+    """Shipping/carrier: outbound shipment with carrier + tracking."""
+    __tablename__ = "shipments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    shipment_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(30), default="draft", nullable=False)  # draft / ready / shipped / delivered / cancelled
+    carrier: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    tracking_number: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
+    warehouse_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=False, index=True)
+    shipped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    warehouse = relationship("Warehouse")
+
+
+class ShipmentItem(Base):
+    __tablename__ = "shipment_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    shipment_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("shipments.id"), nullable=False, index=True)
+    product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 3), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    shipment = relationship("Shipment")
+    product = relationship("Product")
+
+
+class LotZoneBalance(Base):
+    """Lot-level zone balances: batch quantity per zone."""
+    __tablename__ = "lot_zone_balances"
+    __table_args__ = (
+        UniqueConstraint("batch_id", "zone_id", name="uq_lot_zone_balance"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    batch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("product_batches.id"), nullable=False, index=True)
+    zone_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouse_zones.id"), nullable=False, index=True)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 3), default=Decimal("0"), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    batch = relationship("ProductBatch")
+    zone = relationship("WarehouseZone")

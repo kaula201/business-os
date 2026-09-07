@@ -26,10 +26,15 @@ from app.models.receivable import (
     CustomerBankReconciliation,
     CustomerBankReconciliationReversal,
 )
-from app.models.warehouse import Warehouse, InventoryBalance, InventoryMovement, WarehouseZone, ZoneBalance, InventoryCount, InventoryCountLine
+from app.models.warehouse import (
+    Warehouse, InventoryBalance, InventoryMovement, WarehouseZone, ZoneBalance,
+    InventoryCount, InventoryCountLine, ProductBatch, ProductSerial,
+    UoM, UoMConversion, WarehouseReorderRule, PutawayStrategy, CycleCountSchedule, ConsignmentStock,
+)
 from app.models.wms_ops import (
     PickList, PickListItem, PackingSlip, ReplenishmentRule,
     LandedCost, LandedCostAllocation, BatchTraceEvent,
+    WavePick, CrossDockOrder, CrossDockItem, Shipment, ShipmentItem, LotZoneBalance,
 )
 from app.models.helpdesk_ext import (
     HelpdeskQueue, HelpdeskSla, HelpdeskEscalation, CannedReply, KnowledgeArticle, FieldServiceJob, EmailIntakeRule,
@@ -146,7 +151,9 @@ __all__ = [
     "Product", "ProductCategory", "ProductVariant", "ProductImage", "StockMovement", "Task", "TaskComment", "TaskAttachment", "TaskHistory", "TaskReminder", "TaskDependency", "Invoice", "InvoiceItem", "InvoiceInstallment", "PaymentAllocation", "InvoiceNote",
     "CustomerReceivable", "CustomerPayment", "CustomerPaymentReversal", "CustomerCreditNote", "CustomerBankReconciliation", "CustomerBankReconciliationReversal",
     "Warehouse", "InventoryBalance", "InventoryMovement", "WarehouseZone", "ZoneBalance", "InventoryCount", "InventoryCountLine", "AuditLog",
+    "ProductBatch", "ProductSerial", "UoM", "UoMConversion", "WarehouseReorderRule", "PutawayStrategy", "CycleCountSchedule", "ConsignmentStock",
     "PickList", "PickListItem", "PackingSlip", "ReplenishmentRule", "LandedCost", "LandedCostAllocation", "BatchTraceEvent",
+    "WavePick", "CrossDockOrder", "CrossDockItem", "Shipment", "ShipmentItem", "LotZoneBalance",
     "HelpdeskQueue", "HelpdeskSla", "HelpdeskEscalation", "CannedReply", "KnowledgeArticle", "FieldServiceJob", "EmailIntakeRule",
     "SavedReport", "ReportSchedule", "ReportDimension",
     "ApiKey", "Webhook", "WebhookEvent",

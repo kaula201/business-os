@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, ArrowRightLeft, PackagePlus, Trash2, ScanBarcode, ClipboardList, Boxes, Truck, History, Camera } from 'lucide-react'
+import { Plus, ArrowRightLeft, PackagePlus, Trash2, ScanBarcode, ClipboardList, Boxes, Truck, History, Camera, Sparkles } from 'lucide-react'
 import { useRef } from 'react'
 
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
+import Wms2Tab from '../components/wms/Wms2Tab'
 import { productsApi, warehousesApi, wmsApi, wmsOpsApi } from '../services/api'
 import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
@@ -39,7 +40,7 @@ const inputCls = 'w-full rounded-lg border border-brandgray-200 bg-white px-3 py
 export default function WmsPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'batches' | 'serials' | 'picking' | 'replenishment' | 'landed' | 'zones' | 'counts'>('batches')
+  const [tab, setTab] = useState<'batches' | 'serials' | 'picking' | 'replenishment' | 'landed' | 'zones' | 'counts' | 'wms2'>('batches')
   const [open, setOpen] = useState(false)
   const [serialOpen, setSerialOpen] = useState(false)
   const [pickOpen, setPickOpen] = useState(false)
@@ -393,6 +394,10 @@ export default function WmsPage() {
             className={`px-3 py-2 rounded-lg text-sm font-medium ${tab === 'counts' ? 'bg-brandgray-800 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400'}`}>
             {t('ინვენტარიზაცია')}
           </button>
+          <button onClick={() => setTab('wms2')}
+            className={`px-3 py-2 rounded-lg text-sm font-medium ${tab === 'wms2' ? 'bg-brandgray-800 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-brandgray-100 text-brandgray-600 dark:bg-dark-100 dark:text-gray-400'}`}>
+            <Sparkles size={14} className="inline mr-1" /> {t('WMS 2.0')}
+          </button>
           <button onClick={() => {
             if (tab === 'batches') setOpen(true)
             else if (tab === 'serials') setSerialOpen(true)
@@ -592,6 +597,8 @@ export default function WmsPage() {
           ]}
           data={counts} isLoading={countsLoading} emptyMessage={t('ინვენტარიზაციები არ არის')} />
       )}
+
+      {tab === 'wms2' && <Wms2Tab />}
 
       <Modal open={open} onClose={() => setOpen(false)} title={t('ახალი პარტია')}>
         <div className="space-y-4">

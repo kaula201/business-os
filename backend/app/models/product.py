@@ -33,6 +33,11 @@ class Product(Base):
     conversion_factor: Mapped[float] = mapped_column(Float, default=1.0)
     min_stock: Mapped[float] = mapped_column(Float, default=0)
     current_stock: Mapped[float] = mapped_column(Float, default=0)
+    # Warehouse 2.0: ABC/XYZ classification + quarantine
+    abc_class: Mapped[str | None] = mapped_column(String(5), nullable=True, index=True)  # A / B / C
+    xyz_class: Mapped[str | None] = mapped_column(String(5), nullable=True, index=True)  # X / Y / Z
+    is_quarantine: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    quarantine_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
