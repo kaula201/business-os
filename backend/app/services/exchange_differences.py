@@ -139,11 +139,11 @@ async def run_revaluation(
         await db.execute(
             select(GLAccount).where(
                 GLAccount.company_id == company_id,
-                GLAccount.code.in_(["2110", "2100"]),
+                GLAccount.code.in_(["2100", "2110"]),
             )
         )
     ).scalars().all()
-    ap_account_id = next((a.id for a in ap_accounts if a.code == "2110"), None) or (
+    ap_account_id = next((a.id for a in ap_accounts if a.code == "2100"), None) or (
         ap_accounts[0].id if ap_accounts else None
     )
     cash_accounts = (

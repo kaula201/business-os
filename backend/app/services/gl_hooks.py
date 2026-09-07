@@ -342,7 +342,7 @@ async def post_supplier_payment_reversal_gl(
         reversed_entry_id=payment_id,
         lines=[
             ("1410", amount, Decimal("0")),            # Dr ბანკი
-            ("2110", Decimal("0"), amount),             # Cr ვალდებულებები
+            ("2100", Decimal("0"), amount),             # Cr ვალდებულებები მომწოდებლების მიმართ (AP)
         ],
     )
 
@@ -358,7 +358,7 @@ async def post_supplier_credit_note_gl(
     credit_date: date,
     amount: Decimal,
 ) -> None:
-    """Supplier credit note: Dr AP (2110) / Cr COGS (5100)."""
+    """Supplier credit note: Dr AP (2100) / Cr COGS (5100)."""
     await post_journal_entry(
         db, company_id, current_user,
         entry_date=credit_date,
@@ -366,7 +366,7 @@ async def post_supplier_credit_note_gl(
         reference_type="supplier_credit_note",
         reference_id=credit_note_id,
         lines=[
-            ("2110", amount, Decimal("0")),            # Dr ვალდებულებები
+            ("2100", amount, Decimal("0")),            # Dr ვალდებულებები მომწოდებლების მიმართ (AP)
             ("5100", Decimal("0"), amount),             # Cr გაყიდული საქონლის ღირებულება
         ],
     )
@@ -383,7 +383,7 @@ async def post_supplier_bank_reconciliation_gl(
     reconciliation_date: date,
     amount: Decimal,
 ) -> None:
-    """Supplier bank reconciliation: Dr AP (2110) / Cr Bank (1410)."""
+    """Supplier bank reconciliation: Dr AP (2100) / Cr Bank (1410)."""
     await post_journal_entry(
         db, company_id, current_user,
         entry_date=reconciliation_date,
@@ -391,7 +391,7 @@ async def post_supplier_bank_reconciliation_gl(
         reference_type="supplier_bank_reconciliation",
         reference_id=reconciliation_id,
         lines=[
-            ("2110", amount, Decimal("0")),            # Dr ვალდებულებები
+            ("2100", amount, Decimal("0")),            # Dr ვალდებულებები მომწოდებლების მიმართ (AP)
             ("1410", Decimal("0"), amount),             # Cr ბანკი
         ],
     )
@@ -408,7 +408,7 @@ async def post_supplier_bank_reconciliation_reversal_gl(
     reversal_date: date,
     amount: Decimal,
 ) -> None:
-    """Reverse supplier bank reconciliation: Dr Bank (1410) / Cr AP (2110)."""
+    """Reverse supplier bank reconciliation: Dr Bank (1410) / Cr AP (2100)."""
     await post_journal_entry(
         db, company_id, current_user,
         entry_date=reversal_date,
@@ -419,6 +419,6 @@ async def post_supplier_bank_reconciliation_reversal_gl(
         reversed_entry_id=reconciliation_id,
         lines=[
             ("1410", amount, Decimal("0")),            # Dr ბანკი
-            ("2110", Decimal("0"), amount),             # Cr ვალდებულებები
+            ("2100", Decimal("0"), amount),             # Cr ვალდებულებები მომწოდებლების მიმართ (AP)
         ],
     )
