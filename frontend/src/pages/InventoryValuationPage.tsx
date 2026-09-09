@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Calculator, Layers } from 'lucide-react'
+import { Calculator, Layers, Truck, Factory, ShieldAlert, RefreshCcw, MapPin, FileCheck2 } from 'lucide-react'
 
 import Modal from '../components/ui/Modal'
-import { productsApi, inventoryValuationApi } from '../services/api'
+import { productsApi, inventoryValuationApi, wmsOpsApi, warehousesApi } from '../services/api'
 
 interface Valuation {
   product_id: string
@@ -69,6 +69,14 @@ export default function InventoryValuationPage() {
   })
   const [methodForm, setMethodForm] = useState({ product_id: '', method: 'avco', standard_cost: '' })
   const [methodOpen, setMethodOpen] = useState(false)
+  // Inventory Valuation 2.0
+  const [negForm, setNegForm] = useState({ product_id: '', negative_stock_allowed: false })
+  const [prodForm, setProdForm] = useState({ product_id: '', quantity: '', unit_cost: '' })
+  const [adjGlForm, setAdjGlForm] = useState({ product_id: '', quantity_delta: '', unit_cost: '', note: '' })
+  const [lcForm, setLcForm] = useState({ landed_cost_id: '' })
+  const [recForm, setRecForm] = useState({ warehouse_id: '', product_id: '', counted_quantity: '' })
+  const [locForm, setLocForm] = useState({ warehouse_id: '', product_id: '', quantity: '', unit_cost: '' })
+  const [v2Error, setV2Error] = useState('')
   const setMethod = useMutation({
     mutationFn: () => inventoryValuationApi.setMethod({
       product_id: methodForm.product_id,
@@ -91,6 +99,51 @@ export default function InventoryValuationPage() {
       setOpen(false)
     },
   })
+
+  // Inventory Valuation 2.0 mutations
+  const negMut = useMutation({
+    mutationFn: () => inventoryValuationApi.setNegativeStock(negForm),
+    onSuccess: () => { setV2Error(''); setNegForm({ product_id: '', negative_stock_allowed: false }) },
+    onError: (e: any) => setV2Error(e.response?.data?.detail || 'პოლიტიკა ვერ შეინახა'),
+  })
+  const prodMut = useMutation({
+    mutationFn: () => inventoryValuationApi.applyProductionCost(prodForm),
+    onSuccess: () => { setV2Error(''); setProdForm({ product_id: '', quantity: '', unit_cost: '' }); qc.invalidateQueries({ queryKey: ['inventory-valuation'] }) },
+    onError: (e: any) => setV2Error(e.response?.data?.detail || 'წარმოების ღირებულება ვერ აისახა'),
+  })
+  const adjGlMut = useMutation({
+    mutationFn: () => inventoryValuationApi.adjustToGl(adjGlForm),
+    onSuccess: () => { setV2Error(''); setAdjGlForm({ product_id: '', quantity_delta: '', unit_cost: '', note: '' }) },
+    onError: (e: any) => setV2Error(e.response?.data?.detail || 'GL კორექტირება ვერ მოხერხდა'),
+  })
+  const lcMut = useMutation({
+    mutationFn: () => inventoryValuationApi.applyLandedCost(lcForm.landed_cost_id),
+    onSuccess: () => { setV2Error(''); setLcForm({ landed_cost_id: '' }); qc.invalidateQueries({ queryKey: ['inventory-valuation'] }) },
+    onError: (e: any) => setV2Error(e.response?.data?.detail || 'Landed cost ვერ აისახა'),
+  })
+  const recCreateMut = useMutation({
+    mutationFn: () => inventoryValuationApi.createReconciliation({
+      warehouse_id: recForm.warehouse_id, period_end: new Date().toISOString().slice(0, 10),
+      lines: [{ product_id: recForm.product_id, counted_quantity: Number(recForm.counted_quantity) }],
+    }),
+    onSuccess: () => { setV2Error(''); setRecForm({ warehouse_id: '', product_id: '', counted_quantity: '' }); qc.invalidateQueries({ queryKey: ['val2-recs'] }) },
+    onError: (e: any) => setV2Error(e.response?.data?.detail || 'რეკონსილაცია ვერ შეიქმნა'),
+  })
+  const recPostMut = useMutation({
+    mutationFn: (id: string) => inventoryValuationApi.postReconciliation(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['val2-recs'] }),
+    onError: (e: any) => setV2Error(e.response?.data?.detail || 'რეკონსილაცია ვერ დაპოსტდა'),
+  })
+  const locMut = useMutation({
+    mutationFn: () => inventoryValuationApi.upsertLocationValuation(locForm),
+    onSuccess: () => { setV2Error(''); setLocForm({ warehouse_id: '', product_id: '', quantity: '', unit_cost: '' }); qc.invalidateQueries({ queryKey: ['val2-locs'] }) },
+    onError: (e: any) => setV2Error(e.response?.data?.detail || 'მდებარეობის შეფასება ვერ შეინახა'),
+  })
+
+  const { data: recs } = useQuery({ queryKey: ['val2-recs'], queryFn: () => inventoryValuationApi.listReconciliations().then((r: any) => r.data.data) })
+  const { data: locs } = useQuery({ queryKey: ['val2-locs'], queryFn: () => inventoryValuationApi.listLocationValuations().then((r: any) => r.data.data) })
+  const { data: landedCosts } = useQuery({ queryKey: ['val2-lcs'], queryFn: () => wmsOpsApi.listLandedCosts().then((r: any) => r.data.data) })
+  const { data: warehouses } = useQuery({ queryKey: ['val2-wh'], queryFn: () => warehousesApi.list().then((r: any) => r.data.data) })
 
   const v: Valuation | null = valuation || null
 
@@ -235,6 +288,128 @@ export default function InventoryValuationPage() {
           </button>
         </div>
       </Modal>
+
+      {/* Inventory Valuation 2.0 */}
+      <div className="rounded-xl bg-white border border-brandgray-100 shadow-sm dark:bg-dark-200 dark:border-dark-50">
+        <div className="px-5 py-3.5 border-b border-brandgray-100 dark:border-dark-50 flex items-center justify-between">
+          <h2 className="font-semibold text-brandgray-800 dark:text-gray-100">{t('მარაგების შეფასება 2.0')}</h2>
+        </div>
+        {v2Error && <div className="mx-5 mt-3 p-3 rounded-lg bg-red-50 text-red-700 text-sm">{v2Error}</div>}
+        <div className="p-5 grid md:grid-cols-2 gap-4">
+          {/* Landed cost → valuation */}
+          <div className="rounded-lg border border-brandgray-100 p-4 dark:border-dark-50">
+            <h3 className="font-semibold flex items-center gap-2 text-sm mb-3"><Truck size={15} /> {t('Landed cost → valuation')}</h3>
+            <div className="flex gap-2">
+              <select className={inputCls} value={lcForm.landed_cost_id} onChange={e => setLcForm({ landed_cost_id: e.target.value })}>
+                <option value="">{t('აირჩიეთ landed cost')}</option>
+                {(landedCosts || []).filter((l: any) => !l.allocated).map((l: any) => (
+                  <option key={l.id} value={l.id}>{l.description} — {l.total_amount} {l.currency}</option>
+                ))}
+              </select>
+              <button className="btn-primary text-sm whitespace-nowrap" onClick={() => lcMut.mutate()} disabled={!lcForm.landed_cost_id}>{t('ჩარიცხვა')}</button>
+            </div>
+          </div>
+          {/* Production cost → valuation */}
+          <div className="rounded-lg border border-brandgray-100 p-4 dark:border-dark-50">
+            <h3 className="font-semibold flex items-center gap-2 text-sm mb-3"><Factory size={15} /> {t('Production cost → valuation')}</h3>
+            <div className="grid grid-cols-3 gap-2">
+              <select className={`${inputCls} col-span-1`} value={prodForm.product_id} onChange={e => setProdForm({ ...prodForm, product_id: e.target.value })}>
+                <option value="">{t('პროდუქტი')}</option>
+                {(products || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <input className={inputCls} placeholder={t('რაოდენობა')} type="number" value={prodForm.quantity} onChange={e => setProdForm({ ...prodForm, quantity: e.target.value })} />
+              <input className={inputCls} placeholder={t('თვითღირებულება')} type="number" value={prodForm.unit_cost} onChange={e => setProdForm({ ...prodForm, unit_cost: e.target.value })} />
+            </div>
+            <button className="btn-primary text-sm w-full mt-2" onClick={() => prodMut.mutate()} disabled={!prodForm.product_id || !prodForm.quantity}>{t('ჩარიცხვა')}</button>
+          </div>
+          {/* Adjustment → GL */}
+          <div className="rounded-lg border border-brandgray-100 p-4 dark:border-dark-50">
+            <h3 className="font-semibold flex items-center gap-2 text-sm mb-3"><RefreshCcw size={15} /> {t('Stock adjustment → GL')}</h3>
+            <div className="grid grid-cols-3 gap-2">
+              <select className={`${inputCls} col-span-1`} value={adjGlForm.product_id} onChange={e => setAdjGlForm({ ...adjGlForm, product_id: e.target.value })}>
+                <option value="">{t('პროდუქტი')}</option>
+                {(products || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <input className={inputCls} placeholder={t('Δ რაოდენობა')} type="number" value={adjGlForm.quantity_delta} onChange={e => setAdjGlForm({ ...adjGlForm, quantity_delta: e.target.value })} />
+              <input className={inputCls} placeholder={t('ფასი')} type="number" value={adjGlForm.unit_cost} onChange={e => setAdjGlForm({ ...adjGlForm, unit_cost: e.target.value })} />
+            </div>
+            <input className={`${inputCls} mt-2`} placeholder={t('შენიშვნა')} value={adjGlForm.note} onChange={e => setAdjGlForm({ ...adjGlForm, note: e.target.value })} />
+            <button className="btn-primary text-sm w-full mt-2" onClick={() => adjGlMut.mutate()} disabled={!adjGlForm.product_id || !adjGlForm.quantity_delta}>{t('GL-ში ასახვა')}</button>
+          </div>
+          {/* Negative stock policy */}
+          <div className="rounded-lg border border-brandgray-100 p-4 dark:border-dark-50">
+            <h3 className="font-semibold flex items-center gap-2 text-sm mb-3"><ShieldAlert size={15} /> {t('Negative stock policy')}</h3>
+            <div className="flex gap-2 items-end">
+              <select className={inputCls} value={negForm.product_id} onChange={e => setNegForm({ ...negForm, product_id: e.target.value })}>
+                <option value="">{t('პროდუქტი')}</option>
+                {(products || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <label className="flex items-center gap-2 text-sm pb-2 whitespace-nowrap">
+                <input type="checkbox" checked={negForm.negative_stock_allowed} onChange={e => setNegForm({ ...negForm, negative_stock_allowed: e.target.checked })} /> {t('ნებადართულია')}
+              </label>
+              <button className="btn-primary text-sm" onClick={() => negMut.mutate()} disabled={!negForm.product_id}>{t('შენახვა')}</button>
+            </div>
+          </div>
+          {/* Reconciliation */}
+          <div className="rounded-lg border border-brandgray-100 p-4 dark:border-dark-50">
+            <h3 className="font-semibold flex items-center gap-2 text-sm mb-3"><FileCheck2 size={15} /> {t('Period-end reconciliation')}</h3>
+            <div className="grid grid-cols-3 gap-2">
+              <select className={inputCls} value={recForm.warehouse_id} onChange={e => setRecForm({ ...recForm, warehouse_id: e.target.value })}>
+                <option value="">{t('საწყობი')}</option>
+                {(warehouses || []).map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+              <select className={inputCls} value={recForm.product_id} onChange={e => setRecForm({ ...recForm, product_id: e.target.value })}>
+                <option value="">{t('პროდუქტი')}</option>
+                {(products || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <input className={inputCls} placeholder={t('დათვლილი რაოდ.')} type="number" value={recForm.counted_quantity} onChange={e => setRecForm({ ...recForm, counted_quantity: e.target.value })} />
+            </div>
+            <button className="btn-primary text-sm w-full mt-2" onClick={() => recCreateMut.mutate()} disabled={!recForm.warehouse_id || !recForm.product_id}>{t('რეკონსილაციის შექმნა')}</button>
+            {(recs || []).length > 0 && (
+              <div className="mt-3 space-y-1 text-xs">
+                {(recs || []).map((r: any) => (
+                  <div key={r.id} className="flex justify-between items-center p-1.5 border-b dark:border-dark-50">
+                    <span className="font-mono font-semibold">{r.reconciliation_number}</span>
+                    <span className="text-gray-500">{r.status} · {r.total_adjustment.toLocaleString('ka-GE')} ₾</span>
+                    {r.status === 'draft' && (
+                      <button className="text-emerald-600 font-medium" onClick={() => recPostMut.mutate(r.id)}>{t('დაპოსტვა')}</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Location valuation */}
+          <div className="rounded-lg border border-brandgray-100 p-4 dark:border-dark-50">
+            <h3 className="font-semibold flex items-center gap-2 text-sm mb-3"><MapPin size={15} /> {t('თითო მდებარეობის ღირებულება')}</h3>
+            <div className="grid grid-cols-3 gap-2">
+              <select className={inputCls} value={locForm.warehouse_id} onChange={e => setLocForm({ ...locForm, warehouse_id: e.target.value })}>
+                <option value="">{t('საწყობი')}</option>
+                {(warehouses || []).map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+              <select className={inputCls} value={locForm.product_id} onChange={e => setLocForm({ ...locForm, product_id: e.target.value })}>
+                <option value="">{t('პროდუქტი')}</option>
+                {(products || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <div className="flex gap-1">
+                <input className={inputCls} placeholder={t('რაოდ.')} type="number" value={locForm.quantity} onChange={e => setLocForm({ ...locForm, quantity: e.target.value })} />
+                <input className={inputCls} placeholder={t('ფასი')} type="number" value={locForm.unit_cost} onChange={e => setLocForm({ ...locForm, unit_cost: e.target.value })} />
+              </div>
+            </div>
+            <button className="btn-primary text-sm w-full mt-2" onClick={() => locMut.mutate()} disabled={!locForm.warehouse_id || !locForm.product_id}>{t('შენახვა')}</button>
+            {(locs || []).length > 0 && (
+              <div className="mt-3 space-y-1 text-xs">
+                {(locs || []).map((l: any) => (
+                  <div key={l.id} className="flex justify-between p-1.5 border-b dark:border-dark-50">
+                    <span>{l.product_id.slice(0, 8)}</span>
+                    <span className="font-mono">{l.quantity} × {l.unit_cost} = {l.total_value} ₾</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

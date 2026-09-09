@@ -813,6 +813,16 @@ export const inventoryValuationApi = {
   methods: () => api.get('/inventory/valuation/methods'),
   setMethod: (data: { product_id: string; method: 'standard' | 'avco' | 'fifo'; standard_cost?: number }) =>
     api.post('/inventory/valuation/methods', data),
+  // Inventory Valuation 2.0
+  setNegativeStock: (data: any) => api.post('/inventory/valuation/methods/negative-stock', data),
+  applyLandedCost: (landedCostId: string) => api.post('/inventory/valuation/apply-landed-cost', { landed_cost_id: landedCostId }),
+  applyProductionCost: (data: any) => api.post('/inventory/valuation/apply-production-cost', data),
+  adjustToGl: (data: any) => api.post('/inventory/valuation/adjust-to-gl', data),
+  listReconciliations: () => api.get('/inventory/valuation/reconciliations'),
+  createReconciliation: (data: any) => api.post('/inventory/valuation/reconciliations', data),
+  postReconciliation: (id: string) => api.post(`/inventory/valuation/reconciliations/${id}/post`),
+  listLocationValuations: () => api.get('/inventory/valuation/locations'),
+  upsertLocationValuation: (data: any) => api.post('/inventory/valuation/locations', data),
 }
 
 export const customerFinanceApi = {
