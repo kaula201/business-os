@@ -4110,6 +4110,78 @@
     "function": "set_valuation_method",
     "doc": "Set a product's valuation method (standard/avco/fifo) + standard cost.",
     "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/methods/negative-stock",
+    "full_path": "/inventory/valuation/methods/negative-stock",
+    "function": "set_negative_stock_policy",
+    "doc": "Negative stock policy: allow/forbid negative quantities per product.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/apply-landed-cost",
+    "full_path": "/inventory/valuation/apply-landed-cost",
+    "function": "apply_landed_cost_to_valuation",
+    "doc": "Landed cost → valuation layer: bump cost layers by allocated amounts.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/apply-production-cost",
+    "full_path": "/inventory/valuation/apply-production-cost",
+    "function": "apply_production_cost_to_valuation",
+    "doc": "Production cost → valuation: inject production output at its cost.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/adjust-to-gl",
+    "full_path": "/inventory/valuation/adjust-to-gl",
+    "function": "post_adjustment_to_gl",
+    "doc": "Stock adjustment → GL: create journal entry for adjustment value.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/reconciliations",
+    "full_path": "/inventory/valuation/reconciliations",
+    "function": "list_reconciliations",
+    "doc": "Period-end inventory reconciliations.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/reconciliations",
+    "full_path": "/inventory/valuation/reconciliations",
+    "function": "create_reconciliation",
+    "doc": "Create period-end reconciliation: compare book vs counted value.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/reconciliations/{reconciliation_id}/post",
+    "full_path": "/inventory/valuation/reconciliations/{reconciliation_id}/post",
+    "function": "post_reconciliation",
+    "doc": "Post reconciliation → GL: adjustment journal entry for the difference.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/locations",
+    "full_path": "/inventory/valuation/locations",
+    "function": "list_location_valuations",
+    "doc": "Per-location inventory value.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/locations",
+    "full_path": "/inventory/valuation/locations",
+    "function": "upsert_location_valuation",
+    "doc": "Create/update per-location valuation row.",
+    "auth": false
    }
   ]
  },
@@ -6824,6 +6896,78 @@
     "function": "auto_replenish",
     "doc": "Generate a draft purchase order from replenishment suggestions.",
     "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/requisitions",
+    "full_path": "/procurement/requisitions",
+    "function": "list_requisitions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/requisitions",
+    "full_path": "/procurement/requisitions",
+    "function": "create_requisition",
+    "doc": "Purchase Requisition — department request that flows into procurement.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/requisitions/{req_id}/submit",
+    "full_path": "/procurement/requisitions/{req_id}/submit",
+    "function": "submit_requisition",
+    "doc": "მოთხოვნის დეპარტამენტიდან procurement-ში გადაცემა: draft → submitted.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/requisitions/{req_id}/approve",
+    "full_path": "/procurement/requisitions/{req_id}/approve",
+    "function": "approve_requisition",
+    "doc": "რამდენიმე დონის approval: submitted → approved (level 1) → approved2 (level 2).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/requisitions/{req_id}/budget-check",
+    "full_path": "/procurement/requisitions/{req_id}/budget-check",
+    "function": "requisition_budget_check",
+    "doc": "Procurement budget check: compare estimated total against department budget.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/rfqs/{rfq_id}/create-po",
+    "full_path": "/procurement/rfqs/{rfq_id}/create-po",
+    "function": "create_po_from_rfq",
+    "doc": "RFQ-დან PO-ის ავტომატური შექმნა: award-ის მიხედვით, ფასი supplier price list-იდან.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/supplier-products",
+    "full_path": "/procurement/supplier-products",
+    "function": "list_supplier_products",
+    "doc": "Supplier-product პირობები: ფასი, ვადა, მინ. რაოდენობა, lead time, პრიორიტეტი.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/supplier-products",
+    "full_path": "/procurement/supplier-products",
+    "function": "create_supplier_product",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/price/auto-select",
+    "full_path": "/procurement/price/auto-select",
+    "function": "auto_select_price",
+    "doc": "ფასების სიიდან PO-ზე ფასის ავტომატური არჩევა: საუკეთესო მომწოდებელი პრიორიტეტით.",
+    "auth": false
    }
   ]
  },
@@ -7491,6 +7635,94 @@
     "full_path": "/purchase-orders/approval-limits",
     "function": "get_approval_limit_info",
     "doc": "Show approval limit vs current PO totals for visualization.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{purchase_order_id}/create-supplier-invoice",
+    "full_path": "/purchase-orders/{purchase_order_id}/create-supplier-invoice",
+    "function": "create_supplier_invoice_from_po",
+    "doc": "One-click supplier invoice from a PO — uses billed quantities/PO prices.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{purchase_order_id}/scheduled-deliveries",
+    "full_path": "/purchase-orders/{purchase_order_id}/scheduled-deliveries",
+    "function": "create_scheduled_delivery",
+    "doc": "Add a scheduled delivery (date + qty) to an approved PO.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{purchase_order_id}/scheduled-deliveries",
+    "full_path": "/purchase-orders/{purchase_order_id}/scheduled-deliveries",
+    "function": "list_scheduled_deliveries",
+    "doc": "List all scheduled deliveries for a PO.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{purchase_order_id}/backorder",
+    "full_path": "/purchase-orders/{purchase_order_id}/backorder",
+    "function": "get_backorder",
+    "doc": "Backorder: quantities still owed = ordered - received, per item.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{purchase_order_id}/returns",
+    "full_path": "/purchase-orders/{purchase_order_id}/returns",
+    "function": "list_purchase_returns",
+    "doc": "List purchase returns for a PO.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{purchase_order_id}/returns",
+    "full_path": "/purchase-orders/{purchase_order_id}/returns",
+    "function": "create_purchase_return",
+    "doc": "Create a purchase return (RMA) with items and reason.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{purchase_order_id}/amendments",
+    "full_path": "/purchase-orders/{purchase_order_id}/amendments",
+    "function": "create_po_amendment",
+    "doc": "Propose an amendment (version bump) to an approved PO; pending until approved.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/amendments/{amendment_id}/approve",
+    "full_path": "/purchase-orders/amendments/{amendment_id}/approve",
+    "function": "approve_po_amendment",
+    "doc": "Approve a pending PO amendment — applies changes and bumps PO version.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{purchase_order_id}/amendments",
+    "full_path": "/purchase-orders/{purchase_order_id}/amendments",
+    "function": "list_po_amendments",
+    "doc": "List amendments for a PO.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{purchase_order_id}/landed-costs",
+    "full_path": "/purchase-orders/{purchase_order_id}/landed-costs",
+    "function": "list_po_landed_costs",
+    "doc": "Landed costs linked to this PO (WMS module).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{purchase_order_id}/validate-prices",
+    "full_path": "/purchase-orders/{purchase_order_id}/validate-prices",
+    "function": "validate_po_prices_against_supplier_list",
+    "doc": "Supplier pricelist validation: compare PO unit prices vs supplier_price_lists.",
     "auth": false
    }
   ]
@@ -8650,6 +8882,70 @@
     "function": "seed_demo_suppliers",
     "doc": "Seed demo supplier data for testing and onboarding.",
     "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{supplier_id}/onboarding/start",
+    "full_path": "/suppliers/{supplier_id}/onboarding/start",
+    "function": "start_supplier_onboarding",
+    "doc": "Vendor onboarding workflow: create default checklist steps.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{supplier_id}/onboarding",
+    "full_path": "/suppliers/{supplier_id}/onboarding",
+    "function": "get_supplier_onboarding",
+    "doc": "List onboarding steps for a supplier.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{supplier_id}/onboarding/{step_id}/complete",
+    "full_path": "/suppliers/{supplier_id}/onboarding/{step_id}/complete",
+    "function": "complete_onboarding_step",
+    "doc": "Mark an onboarding step done; when all done → supplier onboarding_status=completed.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{supplier_id}/risk",
+    "full_path": "/suppliers/{supplier_id}/risk",
+    "function": "set_supplier_risk",
+    "doc": "Blacklist/risk: set risk level, blacklist flag, audit event.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{supplier_id}/risk-events",
+    "full_path": "/suppliers/{supplier_id}/risk-events",
+    "function": "list_supplier_risk_events",
+    "doc": "Risk/blacklist audit trail.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/{supplier_id}/currency-terms",
+    "full_path": "/suppliers/{supplier_id}/currency-terms",
+    "function": "upsert_supplier_currency_term",
+    "doc": "Multi-currency terms: payment days, exchange rate policy, default flag.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/{supplier_id}/currency-terms",
+    "full_path": "/suppliers/{supplier_id}/currency-terms",
+    "function": "list_supplier_currency_terms",
+    "doc": "List multi-currency terms for a supplier.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/bank-details/{bank_detail_id}/approve",
+    "full_path": "/suppliers/bank-details/{bank_detail_id}/approve",
+    "function": "approve_supplier_bank_detail",
+    "doc": "Bank-account approval: pending → approved (finance/admin).",
+    "auth": false
    }
   ]
  },
@@ -9537,6 +9833,246 @@
     "full_path": "/wms-ops/allocation/{product_id}",
     "function": "allocation_suggestion",
     "doc": "Suggest which batches to consume first for a product. FIFO — oldest production date first (first in, first out). FEFO — earliest expiry date first (first expiry, first out).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/uoms",
+    "full_path": "/wms-ops/uoms",
+    "function": "list_uoms",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/uoms",
+    "full_path": "/wms-ops/uoms",
+    "function": "create_uom",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/uom-conversions",
+    "full_path": "/wms-ops/uom-conversions",
+    "function": "create_uom_conversion",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/uom-conversions",
+    "full_path": "/wms-ops/uom-conversions",
+    "function": "list_uom_conversions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/uom/convert",
+    "full_path": "/wms-ops/uom/convert",
+    "function": "convert_uom",
+    "doc": "Convert quantity between UoMs using stored conversion factors.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/reorder-rules",
+    "full_path": "/wms-ops/reorder-rules",
+    "function": "list_reorder_rules",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/reorder-rules",
+    "full_path": "/wms-ops/reorder-rules",
+    "function": "upsert_reorder_rule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/reorder/suggestions",
+    "full_path": "/wms-ops/reorder/suggestions",
+    "function": "reorder_suggestions",
+    "doc": "Warehouse-specific reorder suggestions: balance < min → suggest reorder qty.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/putaway-strategies",
+    "full_path": "/wms-ops/putaway-strategies",
+    "function": "list_putaway_strategies",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/putaway-strategies",
+    "full_path": "/wms-ops/putaway-strategies",
+    "function": "create_putaway_strategy",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/putaway/suggest",
+    "full_path": "/wms-ops/putaway/suggest",
+    "function": "suggest_putaway",
+    "doc": "Directed putaway: find best zone for a product on receipt.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/cycle-count-schedules",
+    "full_path": "/wms-ops/cycle-count-schedules",
+    "function": "list_cycle_count_schedules",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/cycle-count-schedules",
+    "full_path": "/wms-ops/cycle-count-schedules",
+    "function": "create_cycle_count_schedule",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/consignment-stock",
+    "full_path": "/wms-ops/consignment-stock",
+    "function": "list_consignment_stock",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/consignment-stock",
+    "full_path": "/wms-ops/consignment-stock",
+    "function": "upsert_consignment_stock",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/stock-aging",
+    "full_path": "/wms-ops/stock-aging",
+    "function": "stock_aging",
+    "doc": "Stock aging: days since last movement per product+warehouse.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/expiry-alerts",
+    "full_path": "/wms-ops/expiry-alerts",
+    "function": "expiry_alerts",
+    "doc": "Expiry alerts: batches expiring within N days (default 30).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/abc-xyz",
+    "full_path": "/wms-ops/abc-xyz",
+    "function": "abc_xyz_classification",
+    "doc": "ABC/XYZ classification: list products with their classes.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/abc-xyz",
+    "full_path": "/wms-ops/abc-xyz",
+    "function": "set_abc_xyz",
+    "doc": "Set ABC/XYZ class + quarantine for a product.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/waves",
+    "full_path": "/wms-ops/waves",
+    "function": "create_wave",
+    "doc": "Wave/batch picking: create wave, optionally attach pick lists.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/waves",
+    "full_path": "/wms-ops/waves",
+    "function": "list_waves",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/waves/{wave_id}/complete",
+    "full_path": "/wms-ops/waves/{wave_id}/complete",
+    "function": "complete_wave",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/cross-dock-orders",
+    "full_path": "/wms-ops/cross-dock-orders",
+    "function": "create_cross_dock_order",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/cross-dock-orders",
+    "full_path": "/wms-ops/cross-dock-orders",
+    "function": "list_cross_dock_orders",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/shipments",
+    "full_path": "/wms-ops/shipments",
+    "function": "create_shipment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/shipments",
+    "full_path": "/wms-ops/shipments",
+    "function": "list_shipments",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/shipments/{shipment_id}/ship",
+    "full_path": "/wms-ops/shipments/{shipment_id}/ship",
+    "function": "ship_shipment",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/lot-zone-balances",
+    "full_path": "/wms-ops/lot-zone-balances",
+    "function": "list_lot_zone_balances",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/lot-zone-balances",
+    "full_path": "/wms-ops/lot-zone-balances",
+    "function": "upsert_lot_zone_balance",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/gs1/parse",
+    "full_path": "/wms-ops/gs1/parse",
+    "function": "parse_gs1_barcode",
+    "doc": "GS1 barcode parsing: (01)GTIN(10)batch(17)expiry(21)serial — FNC1-separated.",
     "auth": false
    }
   ]

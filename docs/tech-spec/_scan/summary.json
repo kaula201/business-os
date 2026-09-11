@@ -1,9 +1,9 @@
 {
- "generated_at": "2026-09-06T02:44:44.880739+00:00",
+ "generated_at": "2026-09-11T03:05:10.435364+00:00",
  "pages": 73,
- "buttons": 592,
- "selects": 165,
+ "buttons": 616,
+ "selects": 176,
  "inputs": 10,
  "endpoint_files": 101,
- "routes": 1117
+ "routes": 1184
 }

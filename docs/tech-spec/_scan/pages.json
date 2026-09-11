@@ -2664,7 +2664,7 @@
  {
   "module_code": "InventoryValuation",
   "file": "frontend/src/pages/InventoryValuationPage.tsx",
-  "lines": 241,
+  "lines": 416,
   "buttons": [
    {
     "label": "კორექტირება",
@@ -2684,6 +2684,41 @@
    {
     "label": "შენახვა",
     "on_click": "() => setMethod.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "ჩარიცხვა",
+    "on_click": "() => lcMut.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "ჩარიცხვა",
+    "on_click": "() => prodMut.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "GL-ში ასახვა",
+    "on_click": "() => adjGlMut.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => negMut.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "რეკონსილაციის შექმნა",
+    "on_click": "() => recCreateMut.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "დაპოსტვა",
+    "on_click": "() => recPostMut.mutate(r.id)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => locMut.mutate()",
     "disabled": true
    }
   ],
@@ -2722,6 +2757,78 @@
       "label": "Standard —"
      }
     ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
    }
   ],
   "inputs": [],
@@ -2735,6 +2842,11 @@
     "method": "GET",
     "path": "selectedId!",
     "client": "inventoryValuationApi"
+   },
+   {
+    "method": "LIST",
+    "path": "",
+    "client": "warehousesApi"
    }
   ]
  },
@@ -4553,7 +4665,7 @@
  {
   "module_code": "Procurement",
   "file": "frontend/src/pages/ProcurementPage.tsx",
-  "lines": 789,
+  "lines": 795,
   "buttons": [
    {
     "label": "RFQ",
@@ -4588,6 +4700,11 @@
    {
     "label": "Vendor ანალიტიკა",
     "on_click": "() => setTab('analytics')",
+    "disabled": false
+   },
+   {
+    "label": "მოთხოვნები",
+    "on_click": "() => setTab('requisitions')",
     "disabled": false
    },
    {
@@ -4770,12 +4887,12 @@
    },
    {
     "method": "LIST",
-    "path": "{ page_size: 200 ",
+    "path": "{ page_size: 100 ",
     "client": "productsApi"
    },
    {
     "method": "LIST",
-    "path": "{ page_size: 200 ",
+    "path": "{ page_size: 100 ",
     "client": "suppliersApi"
    },
    {
@@ -4962,7 +5079,7 @@
  {
   "module_code": "Purchases",
   "file": "frontend/src/pages/PurchasesPage.tsx",
-  "lines": 449,
+  "lines": 723,
   "buttons": [
    {
     "label": "ახალი შესყიდვის შეკვეთა",
@@ -5025,6 +5142,41 @@
     "disabled": false
    },
    {
+    "label": "PO 2.0 მართვა",
+    "on_click": "() => { setPo2Error(''); setPo2Data(null); loadPo2(selected.id); setPo2Open(true) }",
+    "disabled": false
+   },
+   {
+    "label": "ინვოისი PO-დან",
+    "on_click": "() => invMutation.mutate(selected.id)",
+    "disabled": true
+   },
+   {
+    "label": "Scheduled delivery",
+    "on_click": "() => setSchedOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "დაბრუნება",
+    "on_click": "() => setReturnOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "Amendment",
+    "on_click": "() => setAmendOpen(true)",
+    "disabled": false
+   },
+   {
+    "label": "ფასების შემოწმება",
+    "on_click": "() => validateMutation.mutate(selected.id)",
+    "disabled": true
+   },
+   {
+    "label": "დამტკიცება",
+    "on_click": "() => amendApproveMutation.mutate(a.id)",
+    "disabled": false
+   },
+   {
     "label": "გაუქმება",
     "on_click": "() => setReceiptOpen(false)",
     "disabled": false
@@ -5032,6 +5184,21 @@
    {
     "label": "მიღება მუშავდება...",
     "on_click": null,
+    "disabled": true
+   },
+   {
+    "label": "დამატება",
+    "on_click": "() => selected && schedMutation.mutate({ id: selected.id, payload: { scheduled_date: schedForm.scheduled_date, quantity:",
+    "disabled": true
+   },
+   {
+    "label": "დაბრუნების შექმნა",
+    "on_click": "() => selected && returnMutation.mutate({ id: selected.id, payload: { reason: returnForm.reason || undefined, return_dat",
+    "disabled": true
+   },
+   {
+    "label": "Amendment-ის წარდგენა",
+    "on_click": "() => { const firstItem = selected.items[0] if (!firstItem) return const changes: any = { items: [] } if (amendForm.quan",
     "disabled": true
    },
    {
@@ -6112,7 +6279,7 @@
  {
   "module_code": "Suppliers",
   "file": "frontend/src/pages/SuppliersPage.tsx",
-  "lines": 209,
+  "lines": 399,
   "buttons": [
    {
     "label": "ახალი მომწოდებელი",
@@ -6128,9 +6295,86 @@
     "label": "ინახება...",
     "on_click": null,
     "disabled": true
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => riskMutation.mutate({ id: advFor.id, payload: { risk_level: riskForm.risk_level, risk_score: riskForm.risk_score ?",
+    "disabled": true
+   },
+   {
+    "label": "პირობების დამატება",
+    "on_click": "() => curMutation.mutate({ id: advFor.id, payload: { currency: curForm.currency, payment_terms_days: Number(curForm.paym",
+    "disabled": true
+   },
+   {
+    "label": "Onboarding-ის დაწყება",
+    "on_click": "() => onboardingMutation.mutate(advFor.id)",
+    "disabled": false
+   },
+   {
+    "label": "დასრულება",
+    "on_click": "() => stepMutation.mutate({ id: advFor.id, stepId: s.id })",
+    "disabled": false
+   },
+   {
+    "label": "დამტკიცება",
+    "on_click": "() => bankApproveMutation.mutate(b.id)",
+    "disabled": false
    }
   ],
-  "selects": [],
+  "selects": [
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "low",
+      "label": "Low"
+     },
+     {
+      "value": "medium",
+      "label": "Medium"
+     },
+     {
+      "value": "high",
+      "label": "High"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "GEL",
+      "label": "GEL"
+     },
+     {
+      "value": "USD",
+      "label": "USD"
+     },
+     {
+      "value": "EUR",
+      "label": "EUR"
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "daily",
+      "label": "Daily"
+     },
+     {
+      "value": "fixed",
+      "label": "Fixed"
+     },
+     {
+      "value": "invoice",
+      "label": "Invoice"
+     }
+    ]
+   }
+  ],
   "inputs": [],
   "api_calls": [
    {
@@ -6366,7 +6610,7 @@
  {
   "module_code": "Wms",
   "file": "frontend/src/pages/WmsPage.tsx",
-  "lines": 873,
+  "lines": 880,
   "buttons": [
    {
     "label": "პარტიები",
@@ -6401,6 +6645,11 @@
    {
     "label": "ინვენტარიზაცია",
     "on_click": "() => setTab('counts')",
+    "disabled": false
+   },
+   {
+    "label": "WMS 2.0",
+    "on_click": "() => setTab('wms2')",
     "disabled": false
    },
    {
