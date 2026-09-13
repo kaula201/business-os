@@ -128,6 +128,14 @@ export default function MaintenancePage() {
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => maintenanceApi.updateOrder(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['maint-orders'] }),
   })
+  const evaluatePlan = useMutation({
+    mutationFn: (id: string) => maintenanceApi.evaluatePlan(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['maint-plans'] }); qc.invalidateQueries({ queryKey: ['maint-orders'] }) },
+  })
+  const generateOrderFromPlan = useMutation({
+    mutationFn: (id: string) => maintenanceApi.generateOrderFromPlan(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['maint-plans'] }); qc.invalidateQueries({ queryKey: ['maint-orders'] }); qc.invalidateQueries({ queryKey: ['maint-part-requests'] }) },
+  })
   const updateRepair = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => maintenanceApi.updateRepair(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['maint-repairs'] }),
@@ -797,6 +805,7 @@ export default function MaintenancePage() {
               <tr>
                 <th className="px-4 py-3">{t('სახელი')}</th>
                 <th className="px-4 py-3">{t('ინტერვალი')}</th>
+                <th className="px-4 py-3">{t('ტრიგერი')}</th>
                 <th className="px-4 py-3">{t('შემდეგი ვადა')}</th>
                 <th className="px-4 py-3">{t('აქტიური')}</th>
                   <th className="px-4 py-3"></th>
@@ -804,14 +813,30 @@ export default function MaintenancePage() {
             </thead>
             <tbody className="divide-y dark:divide-dark-50">
               {filterRows(plans).length === 0 ? (
-                <tr><td colSpan={4} className="p-8 text-center text-gray-500">{t('გეგმები არ არის')}</td></tr>
+                <tr><td colSpan={5} className="p-8 text-center text-gray-500">{t('გეგმები არ არის')}</td></tr>
               ) : filterRows(plans).map((p: any) => (
                 <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-dark-100">
                   <td className="px-4 py-3 font-medium text-brandgray-900 dark:text-gray-100">{p.name}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.interval_days} {t('დღე')}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.interval_days} {t('დღე')}{p.interval_months ? ` / ${p.interval_months} ${t('თვე')}` : ''}</td>
+                  <td className="px-4 py-3">
+                    <span className={`badge ${p.trigger_type === 'interval' ? 'badge' : p.trigger_type === 'meter' ? 'badge-info' : 'badge-warning'}`}>
+                      {p.trigger_type === 'interval' ? t('ინტერვალი') : p.trigger_type === 'meter' ? t('მრიცხველი') : t('ინტერვალი ან მრიცხველი')}
+                    </span>
+                    {p.meter_threshold ? <span className="ml-1 text-xs text-gray-500">≥{p.meter_threshold}</span> : null}
+                  </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.next_due_at ? fmtDate(new Date(p.next_due_at)) : '—'}</td>
                   <td className="px-4 py-3">{p.is_active ? <span className="badge badge-success">{t('აქტიური')}</span> : <span className="badge">{t('გაჩერებული')}</span>}</td>
-                  <td className="px-4 py-3"><RowActions item={p} kind="plan" onEdit={editItem} onDelete={removeItem} /></td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => evaluatePlan.mutate(p.id)} className="btn btn-sm btn-outline flex items-center gap-1" title={t('ტრიგერის შემოწმება')}>
+                        <Play size={14} /> {t('შემოწმება')}
+                      </button>
+                      <button onClick={() => generateOrderFromPlan.mutate(p.id)} className="btn btn-sm btn-outline flex items-center gap-1" title={t('შეკვეთის გენერაცია')}>
+                        <ClipboardList size={14} /> {t('გენერაცია')}
+                      </button>
+                      <RowActions item={p} kind="plan" onEdit={editItem} onDelete={removeItem} />
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

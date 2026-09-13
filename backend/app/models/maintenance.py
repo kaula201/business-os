@@ -119,12 +119,75 @@ class MaintenancePlan(Base):
     plan_type: Mapped[str] = mapped_column(String(20), default="preventive", nullable=False)
     # preventive | predictive | inspection | calibration
     interval_days: Mapped[int] = mapped_column(default=30, nullable=False)
+    # CMMS 2.1: meter trigger — "500 hours OR 6 months, whichever comes first"
+    meter_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("maintenance_meters.id"), nullable=True)
+    trigger_type: Mapped[str] = mapped_column(String(20), default="interval", nullable=False)  # interval | meter | interval_or_meter
+    meter_threshold: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    interval_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    auto_generate: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    reminder_days_before: Mapped[int] = mapped_column(default=7, nullable=False)
     last_run_at: Mapped[date | None] = mapped_column(Date, nullable=True)
     next_due_at: Mapped[date | None] = mapped_column(Date, nullable=True)
+    last_meter_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     assigned_to: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class MaintenancePlanPart(Base):
+    """CMMS 2.1: parts pre-reserved against a plan (auto-issued on generated order)."""
+
+    __tablename__ = "maintenance_plan_parts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    plan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("maintenance_plans.id"), nullable=False, index=True)
+    product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), default=Decimal("1"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class MaintenanceReminder(Base):
+    """CMMS 2.1: reminder scheduler entries for plan due dates."""
+
+    __tablename__ = "maintenance_reminders"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    plan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("maintenance_plans.id"), nullable=False, index=True)
+    order_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("maintenance_orders.id"), nullable=True)
+    scheduled_for: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    channel: Mapped[str] = mapped_column(String(20), default="inbox", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class MaintenancePhoto(Base):
+    """CMMS 2.1: before/after photos + signature on work orders (mobile technician flow)."""
+
+    __tablename__ = "maintenance_photos"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    order_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("maintenance_orders.id"), nullable=False, index=True)
+    phase: Mapped[str] = mapped_column(String(20), default="before", nullable=False)  # before | after
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class WorkOrderSignature(Base):
+    """CMMS 2.1: technician signature on completed work orders."""
+
+    __tablename__ = "work_order_signatures"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    order_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("maintenance_orders.id"), nullable=False, unique=True, index=True)
+    signature_data: Mapped[str] = mapped_column(Text, nullable=False)
+    signed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    signed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
 class MaintenanceOrder(Base):
@@ -155,7 +218,7 @@ class MaintenanceOrder(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     assigned_to: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     technician_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    team_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sales_teams.id"), nullable=True)
+    team_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("maintenance_teams.id"), nullable=True)
     is_emergency: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     failure_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     failure_cause: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -215,6 +278,7 @@ class MaintenanceTechnician(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
     user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    employee_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     email: Mapped[str | None] = mapped_column(String(150), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -308,6 +372,7 @@ class MaintenancePart(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    product_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=True, index=True)
     part_code: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -343,6 +408,9 @@ class MaintenancePartRequest(Base):
     requested_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     requested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     issued_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # CMMS 2.1: issue cost snapshot for GL/valuation
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 4), default=Decimal("0"), nullable=False)
+    issue_value: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 

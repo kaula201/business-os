@@ -1,14 +1,14 @@
 """Maintenance & Repairs API — CMMS: assets, categories, locations, meters, requests, plans, orders, repairs."""
 import uuid
 from decimal import Decimal
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_module
 from app.core.time import utc_now
 from app.models.maintenance import (
     MaintenanceAsset,
@@ -40,6 +40,10 @@ from app.models.maintenance import (
     MaintenanceToolIssue,
     MaintenanceWorkPermit,
     MaintenanceWorkType,
+    MaintenancePlanPart,
+    MaintenanceReminder,
+    MaintenancePhoto,
+    WorkOrderSignature,
     RepairOrder,
 )
 from app.models.user import User
@@ -128,7 +132,11 @@ from app.schemas.maintenance import (
     MaintenanceWorkTypeResponse,
 )
 
-router = APIRouter(prefix="/maintenance", tags=["Maintenance & Repairs"])
+router = APIRouter(
+    prefix="/maintenance",
+    tags=["Maintenance & Repairs"],
+    dependencies=[Depends(require_module("maintenance", "can_access"))],
+)
 
 
 # ── Asset categories ────────────────────────────────────────────────────────
@@ -922,10 +930,59 @@ async def update_part_request(
     if not r:
         raise HTTPException(status_code=404, detail="მოთხოვნა არ მოიძებნა")
     if data.status == "issued" and r.status != "issued":
+        part = (await db.execute(
+            select(MaintenancePart)
+            .where(MaintenancePart.id == r.part_id, MaintenancePart.company_id == current_user.company_id)
+            .with_for_update()
+        )).scalar_one_or_none()
+        if not part:
+            raise HTTPException(status_code=404, detail="ნაწილი არ მოიძებნა")
+        # row lock-ით რაოდენობის იდენტიფიკატორი check + warehouse movement + cost
+        if part.quantity_on_hand < r.quantity:
+            raise HTTPException(status_code=409, detail=f"საკმარისი ნაშთი არ არის (ხელმისაწვდომია: {part.quantity_on_hand})")
+        part.quantity_on_hand = part.quantity_on_hand - r.quantity
         r.issued_at = utc_now()
-        part = (await db.execute(select(MaintenancePart).where(MaintenancePart.id == r.part_id))).scalar_one_or_none()
-        if part:
-            part.quantity_on_hand = part.quantity_on_hand - r.quantity
+        r.unit_cost = part.unit_cost
+        r.issue_value = part.unit_cost * r.quantity
+        # ERP ინტეგრაცია: InventoryMovement-ჩანაწერი + product-ის current_stock-ის კლება
+        if part.product_id:
+            from app.models.product import Product
+            from app.models.warehouse import Warehouse
+            product = (await db.execute(select(Product).where(Product.id == part.product_id))).scalar_one_or_none()
+            if product:
+                product.current_stock = max(0, product.current_stock - float(r.quantity))
+            # active/default warehouse — InventoryMovement-ს warehouse_id NOT NULL სჭირდება
+            wh = (await db.execute(select(Warehouse).where(
+                Warehouse.company_id == current_user.company_id, Warehouse.is_active.is_(True),
+            ).order_by(Warehouse.is_default.desc()).limit(1))).scalars().first()
+            if wh:
+                from app.models.warehouse import InventoryMovement
+                db.add(InventoryMovement(
+                    company_id=current_user.company_id,
+                    warehouse_id=wh.id,
+                    product_id=part.product_id,
+                    movement_type="out",
+                    quantity=(-r.quantity),
+                    balance_before=(product.current_stock if product else 0) + float(r.quantity),
+                    balance_after=product.current_stock if product else 0,
+                    reason=f"maintenance_part_issue:{r.order_id or ''}",
+                    reason_category="maintenance",
+                    reference_type="maintenance_order",
+                    created_by=current_user.id,
+                ))
+            # GL: inventory → maintenance expense (ატომური — გავიწყდა transaction-ი დაიბრუნებს)
+            from app.services.gl_posting import post_journal_entry
+            await post_journal_entry(
+                db, current_user.company_id, current_user,
+                entry_date=date.today(),
+                description=f"ნაწილის გაცემა — {part.name} ({r.quantity} × {part.unit_cost})",
+                reference_type="maintenance_part_issue",
+                reference_id=r.id,
+                lines=[
+                    ("5100", r.issue_value, Decimal("0")),   # Dr COGS / maintenance expense
+                    ("1200", Decimal("0"), r.issue_value),   # Cr inventory
+                ],
+            )
     r.status = data.status or r.status
     await db.flush()
     await db.refresh(r)
@@ -2039,3 +2096,309 @@ async def delete_repair(
     await db.delete(r)
     await db.flush()
     return ResponseBase(message="მოთხოვნა წაიშალა")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CMMS 2.1 — plan triggers, schedules, photos, signatures, reminders
+# ═════════════════════════════════════════════════════════════════════════════
+
+
+@router.post("/plans/{plan_id}/evaluate", response_model=ResponseBase[dict])
+async def evaluate_plan(
+    plan_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Evaluate a plan trigger (interval / meter / interval_or_meter). Returns
+    due status and, when auto_generate is on and the plan is due, creates the
+    maintenance order automatically."""
+    p = (await db.execute(
+        select(MaintenancePlan).where(MaintenancePlan.id == plan_id, MaintenancePlan.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="გეგმა არ მოიძებნა")
+
+    today = date.today()
+    due = False
+    reasons: list[str] = []
+
+    # ── interval trigger (days or months) ──
+    if p.trigger_type in ("interval", "interval_or_meter"):
+        base = p.next_due_at or p.last_run_at or p.created_at.date()
+        next_due = base
+        while next_due <= today:
+            if p.interval_months:
+                # advance by calendar month
+                m = next_due.month - 1 + p.interval_months
+                y = next_due.year + m // 12
+                mi = m % 12 + 1
+                d = min(next_due.day, [31, 29 if y % 4 == 0 and (y % 100 != 0 or y % 400 == 0) else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mi - 1])
+                next_due = date(y, mi, d)
+            else:
+                next_due = next_due + timedelta(days=p.interval_days or 30)
+        if next_due <= today or (p.next_due_at or p.last_run_at or p.created_at.date()) <= today:
+            due = True
+            reasons.append("interval")
+        p.next_due_at = next_due
+
+    # ── meter trigger ──
+    meter_value = None
+    if p.trigger_type in ("meter", "interval_or_meter") and p.meter_id:
+        m = (await db.execute(select(MaintenanceMeter).where(MaintenanceMeter.id == p.meter_id))).scalar_one_or_none()
+        if m:
+            meter_value = m.current_value
+            p.last_meter_value = m.current_value
+            if p.meter_threshold and m.current_value >= p.meter_threshold:
+                due = True
+                reasons.append(f"meter({m.current_value}/{p.meter_threshold})")
+
+    if due and p.auto_generate:
+        from app.api.v1.endpoints.purchase_orders import allocate_document_number
+        number = await allocate_document_number(db, current_user.company_id, "maintenance_order", "MO")
+        o = MaintenanceOrder(
+            company_id=current_user.company_id,
+            plan_id=p.id,
+            order_number=number,
+            asset_id=p.asset_id,
+            maintenance_type=p.plan_type,
+            status="scheduled",
+            scheduled_date=today,
+            assigned_to=p.assigned_to,
+            description=f"ავტომატური შეკვეთა გეგმიდან: {p.name}",
+            cost_estimate=Decimal("0"),
+            actual_cost=Decimal("0"),
+            parts_cost=Decimal("0"),
+            labor_hours=Decimal("0"),
+            downtime_hours=Decimal("0"),
+        )
+        db.add(o)
+        await db.flush()
+        # reminders
+        if p.reminder_days_before:
+            db.add(MaintenanceReminder(
+                company_id=current_user.company_id,
+                plan_id=p.id,
+                order_id=o.id,
+                scheduled_for=datetime.combine(today, datetime.min.time()) + timedelta(days=p.reminder_days_before),
+            ))
+        p.last_run_at = today
+        return ResponseBase(data={
+            "due": True, "reasons": reasons, "generated_order_id": str(o.id),
+            "order_number": o.order_number, "next_due_at": p.next_due_at.isoformat() if p.next_due_at else None,
+            "meter_value": float(meter_value) if meter_value is not None else None,
+        }, message="გეგმა ვადაგადაცილებულია, შეკვეთა შეიქმნა")
+
+    return ResponseBase(data={
+        "due": due, "reasons": reasons, "generated_order_id": None,
+        "next_due_at": p.next_due_at.isoformat() if p.next_due_at else None,
+        "meter_value": float(meter_value) if meter_value is not None else None,
+    })
+
+
+@router.post("/plans/{plan_id}/generate-order", response_model=ResponseBase[dict], status_code=201)
+async def generate_order_from_plan(
+    plan_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Manually create a maintenance order from a plan (with plan_parts)."""
+    p = (await db.execute(
+        select(MaintenancePlan).where(MaintenancePlan.id == plan_id, MaintenancePlan.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="გეგმა არ მოიძებნა")
+    from app.api.v1.endpoints.purchase_orders import allocate_document_number
+    number = await allocate_document_number(db, current_user.company_id, "maintenance_order", "MO")
+    o = MaintenanceOrder(
+        company_id=current_user.company_id,
+        plan_id=p.id,
+        order_number=number,
+        asset_id=p.asset_id,
+        maintenance_type=p.plan_type,
+        status="scheduled",
+        scheduled_date=date.today(),
+        assigned_to=p.assigned_to,
+        description=f"შეკვეთა გეგმიდან: {p.name}",
+        cost_estimate=Decimal("0"),
+        actual_cost=Decimal("0"),
+        parts_cost=Decimal("0"),
+        labor_hours=Decimal("0"),
+        downtime_hours=Decimal("0"),
+    )
+    db.add(o)
+    await db.flush()
+    p.last_run_at = date.today()
+    # plan_parts → part requests (reserved)
+    plan_parts = (await db.execute(select(MaintenancePlanPart).where(MaintenancePlanPart.plan_id == p.id))).scalars().all()
+    for pp in plan_parts:
+        mpart = (await db.execute(select(MaintenancePart).where(
+            MaintenancePart.product_id == pp.product_id, MaintenancePart.company_id == current_user.company_id
+        ))).scalar_one_or_none()
+        part_id = mpart.id if mpart else pp.product_id
+        db.add(MaintenancePartRequest(
+            company_id=current_user.company_id,
+            part_id=part_id,
+            order_id=o.id,
+            quantity=pp.quantity,
+            status="requested",
+            requested_by=current_user.id,
+        ))
+    await db.flush()
+    return ResponseBase(data={"id": str(o.id), "order_number": o.order_number, "part_requests": len(plan_parts)}, message="შეკვეთა შეიქმნა")
+
+
+@router.post("/orders/{order_id}/photos", response_model=ResponseBase[dict], status_code=201)
+async def add_order_photo(
+    order_id: uuid.UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Attach a before/after photo to a work order (mobile technician flow)."""
+    o = (await db.execute(select(MaintenanceOrder.id).where(
+        MaintenanceOrder.id == order_id, MaintenanceOrder.company_id == current_user.company_id
+    ))).scalar_one_or_none()
+    if not o:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+    url = data.get("url")
+    if not url:
+        raise HTTPException(status_code=422, detail="url სავალდებულოა")
+    ph = MaintenancePhoto(
+        company_id=current_user.company_id,
+        order_id=order_id,
+        phase=data.get("phase", "before") if data.get("phase") in ("before", "after") else "before",
+        url=url,
+        uploaded_by=current_user.id,
+    )
+    db.add(ph)
+    await db.flush()
+    await db.refresh(ph)
+    return ResponseBase(data={"id": str(ph.id), "phase": ph.phase}, message="ფოტო დაერთო")
+
+
+@router.get("/orders/{order_id}/photos", response_model=ResponseBase[list[dict]])
+async def list_order_photos(
+    order_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    o = (await db.execute(select(MaintenanceOrder.id).where(
+        MaintenanceOrder.id == order_id, MaintenanceOrder.company_id == current_user.company_id
+    ))).scalar_one_or_none()
+    if not o:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+    rows = (await db.execute(select(MaintenancePhoto).where(
+        MaintenancePhoto.order_id == order_id, MaintenancePhoto.company_id == current_user.company_id,
+    ).order_by(MaintenancePhoto.created_at.desc()))).scalars().all()
+    return ResponseBase(data=[{"id": str(r.id), "phase": r.phase, "url": r.url, "created_at": r.created_at.isoformat()} for r in rows])
+
+
+@router.post("/orders/{order_id}/signature", response_model=ResponseBase[dict], status_code=201)
+async def save_order_signature(
+    order_id: uuid.UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Save the technician/customer signature on a completed work order."""
+    o = (await db.execute(select(MaintenanceOrder.id).where(
+        MaintenanceOrder.id == order_id, MaintenanceOrder.company_id == current_user.company_id
+    ))).scalar_one_or_none()
+    if not o:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+    sig = data.get("signature_data")
+    if not sig:
+        raise HTTPException(status_code=422, detail="signature_data სავალდებულოა")
+    existing = (await db.execute(select(WorkOrderSignature).where(
+        WorkOrderSignature.order_id == order_id,
+    ))).scalar_one_or_none()
+    if existing:
+        existing.signature_data = sig
+        existing.signed_by = current_user.id
+        existing.signed_at = utc_now()
+        await db.flush()
+        return ResponseBase(data={"id": str(existing.id), "updated": True}, message="ხელმოწერა განახლდა")
+    s = WorkOrderSignature(
+        company_id=current_user.company_id,
+        order_id=order_id,
+        signature_data=sig,
+        signed_by=current_user.id,
+    )
+    db.add(s)
+    await db.flush()
+    await db.refresh(s)
+    return ResponseBase(data={"id": str(s.id)}, message="ხელმოწერა შეინახა")
+
+
+@router.get("/orders/{order_id}/signature", response_model=ResponseBase[dict])
+async def get_order_signature(
+    order_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    o = (await db.execute(select(MaintenanceOrder.id).where(
+        MaintenanceOrder.id == order_id, MaintenanceOrder.company_id == current_user.company_id
+    ))).scalar_one_or_none()
+    if not o:
+        raise HTTPException(status_code=404, detail="შეკვეთა არ მოიძებნა")
+    s = (await db.execute(select(WorkOrderSignature).where(WorkOrderSignature.order_id == order_id))).scalar_one_or_none()
+    if not s:
+        return ResponseBase(data=None)
+    return ResponseBase(data={"id": str(s.id), "signature_data": s.signature_data, "signed_at": s.signed_at.isoformat()})
+
+
+@router.get("/reminders", response_model=ResponseBase[list[dict]])
+async def list_reminders(
+    pending_only: bool = True,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(MaintenanceReminder).where(MaintenanceReminder.company_id == current_user.company_id)
+    if pending_only:
+        q = q.where(MaintenanceReminder.sent_at.is_(None))
+    rows = (await db.execute(q.order_by(MaintenanceReminder.scheduled_for))).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(r.id), "plan_id": str(r.plan_id), "order_id": str(r.order_id) if r.order_id else None,
+        "scheduled_for": r.scheduled_for.isoformat(), "sent_at": r.sent_at.isoformat() if r.sent_at else None,
+        "channel": r.channel,
+    } for r in rows])
+
+
+@router.get("/plans/{plan_id}/parts", response_model=ResponseBase[list[dict]])
+async def list_plan_parts(
+    plan_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    p = (await db.execute(select(MaintenancePlan.id).where(
+        MaintenancePlan.id == plan_id, MaintenancePlan.company_id == current_user.company_id
+    ))).scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="გეგმა არ მოიძებნა")
+    rows = (await db.execute(select(MaintenancePlanPart).where(MaintenancePlanPart.plan_id == plan_id))).scalars().all()
+    part_ids = {r.product_id for r in rows}
+    parts = {row[0]: row[1] for row in (await db.execute(select(MaintenancePart.id, MaintenancePart.name).where(MaintenancePart.id.in_(part_ids)))).all()} if part_ids else {}
+    return ResponseBase(data=[{"id": str(r.id), "product_id": str(r.product_id), "part_name": parts.get(r.product_id), "quantity": float(r.quantity)} for r in rows])
+
+
+@router.post("/plans/{plan_id}/parts", response_model=ResponseBase[dict], status_code=201)
+async def add_plan_part(
+    plan_id: uuid.UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    p = (await db.execute(select(MaintenancePlan.id).where(
+        MaintenancePlan.id == plan_id, MaintenancePlan.company_id == current_user.company_id
+    ))).scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="გეგმა არ მოიძებნა")
+    product_id = data.get("product_id")
+    qty = Decimal(str(data.get("quantity", 1)))
+    if not product_id:
+        raise HTTPException(status_code=422, detail="product_id სავალდებულოა")
+    pp = MaintenancePlanPart(company_id=current_user.company_id, plan_id=plan_id, product_id=product_id, quantity=qty)
+    db.add(pp)
+    await db.flush()
+    await db.refresh(pp)
+    return ResponseBase(data={"id": str(pp.id)}, message="ნაწილი დაემატა გეგმას")

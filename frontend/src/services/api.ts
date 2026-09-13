@@ -613,6 +613,16 @@ export const maintenanceApi = {
   deleteStatusConfig: (id: string) => api.delete(`/maintenance/config/statuses/${id}`),
   updateNumberingConfig: (id: string, data: Record<string, unknown>) => api.patch(`/maintenance/config/numbering/${id}`, data),
   deleteNumberingConfig: (id: string) => api.delete(`/maintenance/config/numbering/${id}`),
+  // ── CMMS 2.1: plan triggers, photos, signatures, reminders ──
+  evaluatePlan: (id: string) => api.post(`/maintenance/plans/${id}/evaluate`),
+  generateOrderFromPlan: (id: string) => api.post(`/maintenance/plans/${id}/generate-order`),
+  planParts: (id: string) => api.get(`/maintenance/plans/${id}/parts`),
+  addPlanPart: (id: string, data: Record<string, unknown>) => api.post(`/maintenance/plans/${id}/parts`, data),
+  orderPhotos: (id: string) => api.get(`/maintenance/orders/${id}/photos`),
+  addOrderPhoto: (id: string, data: Record<string, unknown>) => api.post(`/maintenance/orders/${id}/photos`, data),
+  orderSignature: (id: string) => api.get(`/maintenance/orders/${id}/signature`),
+  saveOrderSignature: (id: string, data: Record<string, unknown>) => api.post(`/maintenance/orders/${id}/signature`, data),
+  reminders: (pendingOnly: boolean = true) => api.get('/maintenance/reminders', { params: { pending_only: pendingOnly } }),
 }
 
 // PLM API

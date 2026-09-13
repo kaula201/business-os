@@ -185,6 +185,12 @@ class MaintenancePlanCreate(BaseModel):
     next_due_at: date | None = None
     assigned_to: UUID | None = None
     notes: str | None = None
+    meter_id: UUID | None = None
+    trigger_type: str = "interval"  # interval | meter | interval_or_meter
+    meter_threshold: Decimal | None = None
+    interval_months: int | None = Field(default=None, ge=1)
+    auto_generate: bool = False
+    reminder_days_before: int = Field(default=7, ge=0)
 
 
 class MaintenancePlanUpdate(BaseModel):
@@ -195,6 +201,12 @@ class MaintenancePlanUpdate(BaseModel):
     assigned_to: UUID | None = None
     is_active: bool | None = None
     notes: str | None = None
+    meter_id: UUID | None = None
+    trigger_type: str | None = None
+    meter_threshold: Decimal | None = None
+    interval_months: int | None = Field(default=None, ge=1)
+    auto_generate: bool | None = None
+    reminder_days_before: int | None = Field(default=None, ge=0)
 
 
 class MaintenancePlanResponse(BaseModel):
@@ -209,6 +221,13 @@ class MaintenancePlanResponse(BaseModel):
     assigned_to: UUID | None
     is_active: bool
     notes: str | None
+    meter_id: UUID | None = None
+    trigger_type: str = "interval"
+    meter_threshold: Decimal | None = None
+    interval_months: int | None = None
+    auto_generate: bool = False
+    reminder_days_before: int = 7
+    last_meter_value: Decimal | None = None
     asset_name: str | None = None
     created_at: datetime
 
@@ -450,6 +469,7 @@ class MaintenancePartCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     category: str | None = None
     unit: str = "ცალი"
+    product_id: UUID | None = None
     quantity_on_hand: Decimal = Field(default=Decimal("0"), ge=0)
     reorder_level: Decimal = Field(default=Decimal("0"), ge=0)
     unit_cost: Decimal = Field(default=Decimal("0"), ge=0)
@@ -462,6 +482,7 @@ class MaintenancePartUpdate(BaseModel):
     name: str | None = None
     category: str | None = None
     unit: str | None = None
+    product_id: UUID | None = None
     quantity_on_hand: Decimal | None = Field(default=None, ge=0)
     reorder_level: Decimal | None = Field(default=None, ge=0)
     unit_cost: Decimal | None = Field(default=None, ge=0)
@@ -477,6 +498,7 @@ class MaintenancePartResponse(BaseModel):
     name: str
     category: str | None
     unit: str
+    product_id: UUID | None = None
     quantity_on_hand: Decimal
     reorder_level: Decimal
     unit_cost: Decimal
@@ -510,6 +532,8 @@ class MaintenancePartRequestResponse(BaseModel):
     requested_by: UUID | None
     requested_at: datetime
     issued_at: datetime | None
+    unit_cost: Decimal = Decimal("0")
+    issue_value: Decimal = Decimal("0")
     part_name: str | None = None
     part_code: str | None = None
     created_at: datetime

@@ -271,5 +271,9 @@ from app.models.maintenance import (  # noqa: F401
     MaintenanceToolIssue,
     MaintenanceWorkPermit,
     MaintenanceWorkType,
+    MaintenancePlanPart,
+    MaintenanceReminder,
+    MaintenancePhoto,
+    WorkOrderSignature,
     RepairOrder,
 )
