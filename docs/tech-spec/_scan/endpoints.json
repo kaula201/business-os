@@ -4467,12 +4467,12 @@
  },
  {
   "file": "backend/app/api/v1/endpoints/maintenance.py",
-  "prefix": "/maintenance",
+  "prefix": "",
   "routes": [
    {
     "method": "GET",
     "path": "/asset-categories",
-    "full_path": "/maintenance/asset-categories",
+    "full_path": "/asset-categories",
     "function": "list_asset_categories",
     "doc": "",
     "auth": false
@@ -4480,7 +4480,7 @@
    {
     "method": "POST",
     "path": "/asset-categories",
-    "full_path": "/maintenance/asset-categories",
+    "full_path": "/asset-categories",
     "function": "create_asset_category",
     "doc": "",
     "auth": false
@@ -4488,7 +4488,7 @@
    {
     "method": "GET",
     "path": "/locations",
-    "full_path": "/maintenance/locations",
+    "full_path": "/locations",
     "function": "list_locations",
     "doc": "",
     "auth": false
@@ -4496,7 +4496,7 @@
    {
     "method": "POST",
     "path": "/locations",
-    "full_path": "/maintenance/locations",
+    "full_path": "/locations",
     "function": "create_location",
     "doc": "",
     "auth": false
@@ -4504,7 +4504,7 @@
    {
     "method": "GET",
     "path": "/assets",
-    "full_path": "/maintenance/assets",
+    "full_path": "/assets",
     "function": "list_assets",
     "doc": "",
     "auth": false
@@ -4512,7 +4512,7 @@
    {
     "method": "POST",
     "path": "/assets",
-    "full_path": "/maintenance/assets",
+    "full_path": "/assets",
     "function": "create_asset",
     "doc": "",
     "auth": false
@@ -4520,7 +4520,7 @@
    {
     "method": "PATCH",
     "path": "/assets/{asset_id}",
-    "full_path": "/maintenance/assets/{asset_id}",
+    "full_path": "/assets/{asset_id}",
     "function": "update_asset",
     "doc": "",
     "auth": false
@@ -4528,7 +4528,7 @@
    {
     "method": "DELETE",
     "path": "/assets/{asset_id}",
-    "full_path": "/maintenance/assets/{asset_id}",
+    "full_path": "/assets/{asset_id}",
     "function": "delete_asset",
     "doc": "",
     "auth": false
@@ -4536,7 +4536,7 @@
    {
     "method": "GET",
     "path": "/meters",
-    "full_path": "/maintenance/meters",
+    "full_path": "/meters",
     "function": "list_meters",
     "doc": "",
     "auth": false
@@ -4544,7 +4544,7 @@
    {
     "method": "POST",
     "path": "/meters",
-    "full_path": "/maintenance/meters",
+    "full_path": "/meters",
     "function": "create_meter",
     "doc": "",
     "auth": false
@@ -4552,7 +4552,7 @@
    {
     "method": "PATCH",
     "path": "/meters/{meter_id}",
-    "full_path": "/maintenance/meters/{meter_id}",
+    "full_path": "/meters/{meter_id}",
     "function": "update_meter",
     "doc": "",
     "auth": false
@@ -4560,7 +4560,7 @@
    {
     "method": "GET",
     "path": "/requests",
-    "full_path": "/maintenance/requests",
+    "full_path": "/requests",
     "function": "list_requests",
     "doc": "",
     "auth": false
@@ -4568,7 +4568,7 @@
    {
     "method": "POST",
     "path": "/requests",
-    "full_path": "/maintenance/requests",
+    "full_path": "/requests",
     "function": "create_request",
     "doc": "",
     "auth": false
@@ -4576,7 +4576,7 @@
    {
     "method": "PATCH",
     "path": "/requests/{request_id}",
-    "full_path": "/maintenance/requests/{request_id}",
+    "full_path": "/requests/{request_id}",
     "function": "update_request",
     "doc": "",
     "auth": false
@@ -4584,7 +4584,7 @@
    {
     "method": "GET",
     "path": "/plans",
-    "full_path": "/maintenance/plans",
+    "full_path": "/plans",
     "function": "list_plans",
     "doc": "",
     "auth": false
@@ -4592,7 +4592,7 @@
    {
     "method": "POST",
     "path": "/plans",
-    "full_path": "/maintenance/plans",
+    "full_path": "/plans",
     "function": "create_plan",
     "doc": "",
     "auth": false
@@ -4600,7 +4600,7 @@
    {
     "method": "PATCH",
     "path": "/plans/{plan_id}",
-    "full_path": "/maintenance/plans/{plan_id}",
+    "full_path": "/plans/{plan_id}",
     "function": "update_plan",
     "doc": "",
     "auth": false
@@ -4608,7 +4608,7 @@
    {
     "method": "GET",
     "path": "/orders",
-    "full_path": "/maintenance/orders",
+    "full_path": "/orders",
     "function": "list_orders",
     "doc": "",
     "auth": false
@@ -4616,7 +4616,7 @@
    {
     "method": "POST",
     "path": "/orders",
-    "full_path": "/maintenance/orders",
+    "full_path": "/orders",
     "function": "create_order",
     "doc": "",
     "auth": false
@@ -4624,7 +4624,7 @@
    {
     "method": "PATCH",
     "path": "/orders/{order_id}",
-    "full_path": "/maintenance/orders/{order_id}",
+    "full_path": "/orders/{order_id}",
     "function": "update_order",
     "doc": "",
     "auth": false
@@ -4632,7 +4632,7 @@
    {
     "method": "GET",
     "path": "/repairs",
-    "full_path": "/maintenance/repairs",
+    "full_path": "/repairs",
     "function": "list_repairs",
     "doc": "",
     "auth": false
@@ -4640,7 +4640,7 @@
    {
     "method": "POST",
     "path": "/repairs",
-    "full_path": "/maintenance/repairs",
+    "full_path": "/repairs",
     "function": "create_repair",
     "doc": "",
     "auth": false
@@ -4648,7 +4648,7 @@
    {
     "method": "PATCH",
     "path": "/repairs/{repair_id}",
-    "full_path": "/maintenance/repairs/{repair_id}",
+    "full_path": "/repairs/{repair_id}",
     "function": "update_repair",
     "doc": "",
     "auth": false
@@ -4656,7 +4656,7 @@
    {
     "method": "GET",
     "path": "/technicians",
-    "full_path": "/maintenance/technicians",
+    "full_path": "/technicians",
     "function": "list_technicians",
     "doc": "",
     "auth": false
@@ -4664,7 +4664,7 @@
    {
     "method": "POST",
     "path": "/technicians",
-    "full_path": "/maintenance/technicians",
+    "full_path": "/technicians",
     "function": "create_technician",
     "doc": "",
     "auth": false
@@ -4672,7 +4672,7 @@
    {
     "method": "PATCH",
     "path": "/technicians/{technician_id}",
-    "full_path": "/maintenance/technicians/{technician_id}",
+    "full_path": "/technicians/{technician_id}",
     "function": "update_technician",
     "doc": "",
     "auth": false
@@ -4680,7 +4680,7 @@
    {
     "method": "GET",
     "path": "/teams",
-    "full_path": "/maintenance/teams",
+    "full_path": "/teams",
     "function": "list_teams",
     "doc": "",
     "auth": false
@@ -4688,7 +4688,7 @@
    {
     "method": "POST",
     "path": "/teams",
-    "full_path": "/maintenance/teams",
+    "full_path": "/teams",
     "function": "create_team",
     "doc": "",
     "auth": false
@@ -4696,7 +4696,7 @@
    {
     "method": "POST",
     "path": "/teams/{team_id}/members",
-    "full_path": "/maintenance/teams/{team_id}/members",
+    "full_path": "/teams/{team_id}/members",
     "function": "add_team_member",
     "doc": "",
     "auth": false
@@ -4704,7 +4704,7 @@
    {
     "method": "DELETE",
     "path": "/teams/{team_id}/members/{technician_id}",
-    "full_path": "/maintenance/teams/{team_id}/members/{technician_id}",
+    "full_path": "/teams/{team_id}/members/{technician_id}",
     "function": "remove_team_member",
     "doc": "",
     "auth": false
@@ -4712,7 +4712,7 @@
    {
     "method": "GET",
     "path": "/contractors",
-    "full_path": "/maintenance/contractors",
+    "full_path": "/contractors",
     "function": "list_contractors",
     "doc": "",
     "auth": false
@@ -4720,7 +4720,7 @@
    {
     "method": "POST",
     "path": "/contractors",
-    "full_path": "/maintenance/contractors",
+    "full_path": "/contractors",
     "function": "create_contractor",
     "doc": "",
     "auth": false
@@ -4728,7 +4728,7 @@
    {
     "method": "PATCH",
     "path": "/contractors/{contractor_id}",
-    "full_path": "/maintenance/contractors/{contractor_id}",
+    "full_path": "/contractors/{contractor_id}",
     "function": "update_contractor",
     "doc": "",
     "auth": false
@@ -4736,7 +4736,7 @@
    {
     "method": "GET",
     "path": "/slas",
-    "full_path": "/maintenance/slas",
+    "full_path": "/slas",
     "function": "list_slas",
     "doc": "",
     "auth": false
@@ -4744,7 +4744,7 @@
    {
     "method": "POST",
     "path": "/slas",
-    "full_path": "/maintenance/slas",
+    "full_path": "/slas",
     "function": "create_sla",
     "doc": "",
     "auth": false
@@ -4752,7 +4752,7 @@
    {
     "method": "PATCH",
     "path": "/slas/{sla_id}",
-    "full_path": "/maintenance/slas/{sla_id}",
+    "full_path": "/slas/{sla_id}",
     "function": "update_sla",
     "doc": "",
     "auth": false
@@ -4760,7 +4760,7 @@
    {
     "method": "GET",
     "path": "/certificates",
-    "full_path": "/maintenance/certificates",
+    "full_path": "/certificates",
     "function": "list_certificates",
     "doc": "",
     "auth": false
@@ -4768,7 +4768,7 @@
    {
     "method": "POST",
     "path": "/certificates",
-    "full_path": "/maintenance/certificates",
+    "full_path": "/certificates",
     "function": "create_certificate",
     "doc": "",
     "auth": false
@@ -4776,7 +4776,7 @@
    {
     "method": "GET",
     "path": "/parts",
-    "full_path": "/maintenance/parts",
+    "full_path": "/parts",
     "function": "list_parts",
     "doc": "",
     "auth": false
@@ -4784,7 +4784,7 @@
    {
     "method": "POST",
     "path": "/parts",
-    "full_path": "/maintenance/parts",
+    "full_path": "/parts",
     "function": "create_part",
     "doc": "",
     "auth": false
@@ -4792,7 +4792,7 @@
    {
     "method": "PATCH",
     "path": "/parts/{part_id}",
-    "full_path": "/maintenance/parts/{part_id}",
+    "full_path": "/parts/{part_id}",
     "function": "update_part",
     "doc": "",
     "auth": false
@@ -4800,7 +4800,7 @@
    {
     "method": "GET",
     "path": "/part-requests",
-    "full_path": "/maintenance/part-requests",
+    "full_path": "/part-requests",
     "function": "list_part_requests",
     "doc": "",
     "auth": false
@@ -4808,7 +4808,7 @@
    {
     "method": "POST",
     "path": "/part-requests",
-    "full_path": "/maintenance/part-requests",
+    "full_path": "/part-requests",
     "function": "create_part_request",
     "doc": "",
     "auth": false
@@ -4816,7 +4816,7 @@
    {
     "method": "PATCH",
     "path": "/part-requests/{request_id}",
-    "full_path": "/maintenance/part-requests/{request_id}",
+    "full_path": "/part-requests/{request_id}",
     "function": "update_part_request",
     "doc": "",
     "auth": false
@@ -4824,7 +4824,7 @@
    {
     "method": "GET",
     "path": "/tools",
-    "full_path": "/maintenance/tools",
+    "full_path": "/tools",
     "function": "list_tools",
     "doc": "",
     "auth": false
@@ -4832,7 +4832,7 @@
    {
     "method": "POST",
     "path": "/tools",
-    "full_path": "/maintenance/tools",
+    "full_path": "/tools",
     "function": "create_tool",
     "doc": "",
     "auth": false
@@ -4840,7 +4840,7 @@
    {
     "method": "PATCH",
     "path": "/tools/{tool_id}",
-    "full_path": "/maintenance/tools/{tool_id}",
+    "full_path": "/tools/{tool_id}",
     "function": "update_tool",
     "doc": "",
     "auth": false
@@ -4848,7 +4848,7 @@
    {
     "method": "GET",
     "path": "/tool-issues",
-    "full_path": "/maintenance/tool-issues",
+    "full_path": "/tool-issues",
     "function": "list_tool_issues",
     "doc": "",
     "auth": false
@@ -4856,7 +4856,7 @@
    {
     "method": "POST",
     "path": "/tool-issues",
-    "full_path": "/maintenance/tool-issues",
+    "full_path": "/tool-issues",
     "function": "issue_tool",
     "doc": "",
     "auth": false
@@ -4864,7 +4864,7 @@
    {
     "method": "POST",
     "path": "/tool-issues/{issue_id}/return",
-    "full_path": "/maintenance/tool-issues/{issue_id}/return",
+    "full_path": "/tool-issues/{issue_id}/return",
     "function": "return_tool",
     "doc": "",
     "auth": false
@@ -4872,7 +4872,7 @@
    {
     "method": "GET",
     "path": "/safety-instructions",
-    "full_path": "/maintenance/safety-instructions",
+    "full_path": "/safety-instructions",
     "function": "list_safety_instructions",
     "doc": "",
     "auth": false
@@ -4880,7 +4880,7 @@
    {
     "method": "POST",
     "path": "/safety-instructions",
-    "full_path": "/maintenance/safety-instructions",
+    "full_path": "/safety-instructions",
     "function": "create_safety_instruction",
     "doc": "",
     "auth": false
@@ -4888,7 +4888,7 @@
    {
     "method": "GET",
     "path": "/work-permits",
-    "full_path": "/maintenance/work-permits",
+    "full_path": "/work-permits",
     "function": "list_work_permits",
     "doc": "",
     "auth": false
@@ -4896,7 +4896,7 @@
    {
     "method": "POST",
     "path": "/work-permits",
-    "full_path": "/maintenance/work-permits",
+    "full_path": "/work-permits",
     "function": "create_work_permit",
     "doc": "",
     "auth": false
@@ -4904,7 +4904,7 @@
    {
     "method": "PATCH",
     "path": "/work-permits/{permit_id}",
-    "full_path": "/maintenance/work-permits/{permit_id}",
+    "full_path": "/work-permits/{permit_id}",
     "function": "update_work_permit",
     "doc": "",
     "auth": false
@@ -4912,7 +4912,7 @@
    {
     "method": "GET",
     "path": "/checklists",
-    "full_path": "/maintenance/checklists",
+    "full_path": "/checklists",
     "function": "list_checklists",
     "doc": "",
     "auth": false
@@ -4920,7 +4920,7 @@
    {
     "method": "POST",
     "path": "/checklists",
-    "full_path": "/maintenance/checklists",
+    "full_path": "/checklists",
     "function": "create_checklist",
     "doc": "",
     "auth": false
@@ -4928,7 +4928,7 @@
    {
     "method": "GET",
     "path": "/incidents",
-    "full_path": "/maintenance/incidents",
+    "full_path": "/incidents",
     "function": "list_incidents",
     "doc": "",
     "auth": false
@@ -4936,7 +4936,7 @@
    {
     "method": "POST",
     "path": "/incidents",
-    "full_path": "/maintenance/incidents",
+    "full_path": "/incidents",
     "function": "create_incident",
     "doc": "",
     "auth": false
@@ -4944,7 +4944,7 @@
    {
     "method": "PATCH",
     "path": "/incidents/{incident_id}",
-    "full_path": "/maintenance/incidents/{incident_id}",
+    "full_path": "/incidents/{incident_id}",
     "function": "update_incident",
     "doc": "",
     "auth": false
@@ -4952,7 +4952,7 @@
    {
     "method": "GET",
     "path": "/cost-records",
-    "full_path": "/maintenance/cost-records",
+    "full_path": "/cost-records",
     "function": "list_cost_records",
     "doc": "",
     "auth": false
@@ -4960,7 +4960,7 @@
    {
     "method": "POST",
     "path": "/cost-records",
-    "full_path": "/maintenance/cost-records",
+    "full_path": "/cost-records",
     "function": "create_cost_record",
     "doc": "",
     "auth": false
@@ -4968,7 +4968,7 @@
    {
     "method": "GET",
     "path": "/budgets",
-    "full_path": "/maintenance/budgets",
+    "full_path": "/budgets",
     "function": "list_budgets",
     "doc": "",
     "auth": false
@@ -4976,7 +4976,7 @@
    {
     "method": "POST",
     "path": "/budgets",
-    "full_path": "/maintenance/budgets",
+    "full_path": "/budgets",
     "function": "create_budget",
     "doc": "",
     "auth": false
@@ -4984,7 +4984,7 @@
    {
     "method": "GET",
     "path": "/reliability-metrics",
-    "full_path": "/maintenance/reliability-metrics",
+    "full_path": "/reliability-metrics",
     "function": "list_reliability_metrics",
     "doc": "",
     "auth": false
@@ -4992,7 +4992,7 @@
    {
     "method": "POST",
     "path": "/reliability-metrics",
-    "full_path": "/maintenance/reliability-metrics",
+    "full_path": "/reliability-metrics",
     "function": "create_reliability_metric",
     "doc": "",
     "auth": false
@@ -5000,7 +5000,7 @@
    {
     "method": "GET",
     "path": "/analytics/summary",
-    "full_path": "/maintenance/analytics/summary",
+    "full_path": "/analytics/summary",
     "function": "analytics_summary",
     "doc": "",
     "auth": false
@@ -5008,7 +5008,7 @@
    {
     "method": "GET",
     "path": "/config/work-types",
-    "full_path": "/maintenance/config/work-types",
+    "full_path": "/config/work-types",
     "function": "list_work_types",
     "doc": "",
     "auth": false
@@ -5016,7 +5016,7 @@
    {
     "method": "POST",
     "path": "/config/work-types",
-    "full_path": "/maintenance/config/work-types",
+    "full_path": "/config/work-types",
     "function": "create_work_type",
     "doc": "",
     "auth": false
@@ -5024,7 +5024,7 @@
    {
     "method": "GET",
     "path": "/config/priorities",
-    "full_path": "/maintenance/config/priorities",
+    "full_path": "/config/priorities",
     "function": "list_priorities",
     "doc": "",
     "auth": false
@@ -5032,7 +5032,7 @@
    {
     "method": "POST",
     "path": "/config/priorities",
-    "full_path": "/maintenance/config/priorities",
+    "full_path": "/config/priorities",
     "function": "create_priority",
     "doc": "",
     "auth": false
@@ -5040,7 +5040,7 @@
    {
     "method": "GET",
     "path": "/config/statuses",
-    "full_path": "/maintenance/config/statuses",
+    "full_path": "/config/statuses",
     "function": "list_status_configs",
     "doc": "",
     "auth": false
@@ -5048,7 +5048,7 @@
    {
     "method": "POST",
     "path": "/config/statuses",
-    "full_path": "/maintenance/config/statuses",
+    "full_path": "/config/statuses",
     "function": "create_status_config",
     "doc": "",
     "auth": false
@@ -5056,7 +5056,7 @@
    {
     "method": "GET",
     "path": "/config/numbering",
-    "full_path": "/maintenance/config/numbering",
+    "full_path": "/config/numbering",
     "function": "list_numbering_configs",
     "doc": "",
     "auth": false
@@ -5064,7 +5064,7 @@
    {
     "method": "POST",
     "path": "/config/numbering",
-    "full_path": "/maintenance/config/numbering",
+    "full_path": "/config/numbering",
     "function": "create_numbering_config",
     "doc": "",
     "auth": false
@@ -5072,7 +5072,7 @@
    {
     "method": "PATCH",
     "path": "/asset-categories/{item_id}",
-    "full_path": "/maintenance/asset-categories/{item_id}",
+    "full_path": "/asset-categories/{item_id}",
     "function": "update_asset_category",
     "doc": "",
     "auth": false
@@ -5080,7 +5080,7 @@
    {
     "method": "DELETE",
     "path": "/asset-categories/{item_id}",
-    "full_path": "/maintenance/asset-categories/{item_id}",
+    "full_path": "/asset-categories/{item_id}",
     "function": "delete_asset_category",
     "doc": "",
     "auth": false
@@ -5088,7 +5088,7 @@
    {
     "method": "PATCH",
     "path": "/locations/{item_id}",
-    "full_path": "/maintenance/locations/{item_id}",
+    "full_path": "/locations/{item_id}",
     "function": "update_location",
     "doc": "",
     "auth": false
@@ -5096,7 +5096,7 @@
    {
     "method": "DELETE",
     "path": "/locations/{item_id}",
-    "full_path": "/maintenance/locations/{item_id}",
+    "full_path": "/locations/{item_id}",
     "function": "delete_location",
     "doc": "",
     "auth": false
@@ -5104,7 +5104,7 @@
    {
     "method": "PATCH",
     "path": "/budgets/{budget_id}",
-    "full_path": "/maintenance/budgets/{budget_id}",
+    "full_path": "/budgets/{budget_id}",
     "function": "update_budget",
     "doc": "",
     "auth": false
@@ -5112,7 +5112,7 @@
    {
     "method": "DELETE",
     "path": "/budgets/{budget_id}",
-    "full_path": "/maintenance/budgets/{budget_id}",
+    "full_path": "/budgets/{budget_id}",
     "function": "delete_budget",
     "doc": "",
     "auth": false
@@ -5120,7 +5120,7 @@
    {
     "method": "PATCH",
     "path": "/certificates/{certificate_id}",
-    "full_path": "/maintenance/certificates/{certificate_id}",
+    "full_path": "/certificates/{certificate_id}",
     "function": "update_certificate",
     "doc": "",
     "auth": false
@@ -5128,7 +5128,7 @@
    {
     "method": "DELETE",
     "path": "/certificates/{certificate_id}",
-    "full_path": "/maintenance/certificates/{certificate_id}",
+    "full_path": "/certificates/{certificate_id}",
     "function": "delete_certificate",
     "doc": "",
     "auth": false
@@ -5136,7 +5136,7 @@
    {
     "method": "PATCH",
     "path": "/checklists/{checklist_id}",
-    "full_path": "/maintenance/checklists/{checklist_id}",
+    "full_path": "/checklists/{checklist_id}",
     "function": "update_checklist",
     "doc": "",
     "auth": false
@@ -5144,7 +5144,7 @@
    {
     "method": "DELETE",
     "path": "/checklists/{checklist_id}",
-    "full_path": "/maintenance/checklists/{checklist_id}",
+    "full_path": "/checklists/{checklist_id}",
     "function": "delete_checklist",
     "doc": "",
     "auth": false
@@ -5152,7 +5152,7 @@
    {
     "method": "PATCH",
     "path": "/cost-records/{record_id}",
-    "full_path": "/maintenance/cost-records/{record_id}",
+    "full_path": "/cost-records/{record_id}",
     "function": "update_cost_record",
     "doc": "",
     "auth": false
@@ -5160,7 +5160,7 @@
    {
     "method": "DELETE",
     "path": "/cost-records/{record_id}",
-    "full_path": "/maintenance/cost-records/{record_id}",
+    "full_path": "/cost-records/{record_id}",
     "function": "delete_cost_record",
     "doc": "",
     "auth": false
@@ -5168,7 +5168,7 @@
    {
     "method": "PATCH",
     "path": "/safety-instructions/{instruction_id}",
-    "full_path": "/maintenance/safety-instructions/{instruction_id}",
+    "full_path": "/safety-instructions/{instruction_id}",
     "function": "update_safety_instruction",
     "doc": "",
     "auth": false
@@ -5176,7 +5176,7 @@
    {
     "method": "DELETE",
     "path": "/safety-instructions/{instruction_id}",
-    "full_path": "/maintenance/safety-instructions/{instruction_id}",
+    "full_path": "/safety-instructions/{instruction_id}",
     "function": "delete_safety_instruction",
     "doc": "",
     "auth": false
@@ -5184,7 +5184,7 @@
    {
     "method": "PATCH",
     "path": "/reliability-metrics/{metric_id}",
-    "full_path": "/maintenance/reliability-metrics/{metric_id}",
+    "full_path": "/reliability-metrics/{metric_id}",
     "function": "update_reliability_metric",
     "doc": "",
     "auth": false
@@ -5192,7 +5192,7 @@
    {
     "method": "DELETE",
     "path": "/reliability-metrics/{metric_id}",
-    "full_path": "/maintenance/reliability-metrics/{metric_id}",
+    "full_path": "/reliability-metrics/{metric_id}",
     "function": "delete_reliability_metric",
     "doc": "",
     "auth": false
@@ -5200,7 +5200,7 @@
    {
     "method": "PATCH",
     "path": "/config/work-types/{item_id}",
-    "full_path": "/maintenance/config/work-types/{item_id}",
+    "full_path": "/config/work-types/{item_id}",
     "function": "update_work_type",
     "doc": "",
     "auth": false
@@ -5208,7 +5208,7 @@
    {
     "method": "DELETE",
     "path": "/config/work-types/{item_id}",
-    "full_path": "/maintenance/config/work-types/{item_id}",
+    "full_path": "/config/work-types/{item_id}",
     "function": "delete_work_type",
     "doc": "",
     "auth": false
@@ -5216,7 +5216,7 @@
    {
     "method": "PATCH",
     "path": "/config/priorities/{item_id}",
-    "full_path": "/maintenance/config/priorities/{item_id}",
+    "full_path": "/config/priorities/{item_id}",
     "function": "update_priority",
     "doc": "",
     "auth": false
@@ -5224,7 +5224,7 @@
    {
     "method": "DELETE",
     "path": "/config/priorities/{item_id}",
-    "full_path": "/maintenance/config/priorities/{item_id}",
+    "full_path": "/config/priorities/{item_id}",
     "function": "delete_priority",
     "doc": "",
     "auth": false
@@ -5232,7 +5232,7 @@
    {
     "method": "PATCH",
     "path": "/config/statuses/{item_id}",
-    "full_path": "/maintenance/config/statuses/{item_id}",
+    "full_path": "/config/statuses/{item_id}",
     "function": "update_status_config",
     "doc": "",
     "auth": false
@@ -5240,7 +5240,7 @@
    {
     "method": "DELETE",
     "path": "/config/statuses/{item_id}",
-    "full_path": "/maintenance/config/statuses/{item_id}",
+    "full_path": "/config/statuses/{item_id}",
     "function": "delete_status_config",
     "doc": "",
     "auth": false
@@ -5248,7 +5248,7 @@
    {
     "method": "PATCH",
     "path": "/config/numbering/{item_id}",
-    "full_path": "/maintenance/config/numbering/{item_id}",
+    "full_path": "/config/numbering/{item_id}",
     "function": "update_numbering_config",
     "doc": "",
     "auth": false
@@ -5256,7 +5256,7 @@
    {
     "method": "DELETE",
     "path": "/config/numbering/{item_id}",
-    "full_path": "/maintenance/config/numbering/{item_id}",
+    "full_path": "/config/numbering/{item_id}",
     "function": "delete_numbering_config",
     "doc": "",
     "auth": false
@@ -5264,7 +5264,7 @@
    {
     "method": "DELETE",
     "path": "/plans/{plan_id}",
-    "full_path": "/maintenance/plans/{plan_id}",
+    "full_path": "/plans/{plan_id}",
     "function": "delete_plan",
     "doc": "",
     "auth": false
@@ -5272,7 +5272,7 @@
    {
     "method": "DELETE",
     "path": "/orders/{order_id}",
-    "full_path": "/maintenance/orders/{order_id}",
+    "full_path": "/orders/{order_id}",
     "function": "delete_order",
     "doc": "",
     "auth": false
@@ -5280,7 +5280,7 @@
    {
     "method": "DELETE",
     "path": "/requests/{request_id}",
-    "full_path": "/maintenance/requests/{request_id}",
+    "full_path": "/requests/{request_id}",
     "function": "delete_request",
     "doc": "",
     "auth": false
@@ -5288,7 +5288,7 @@
    {
     "method": "DELETE",
     "path": "/meters/{meter_id}",
-    "full_path": "/maintenance/meters/{meter_id}",
+    "full_path": "/meters/{meter_id}",
     "function": "delete_meter",
     "doc": "",
     "auth": false
@@ -5296,7 +5296,7 @@
    {
     "method": "DELETE",
     "path": "/technicians/{technician_id}",
-    "full_path": "/maintenance/technicians/{technician_id}",
+    "full_path": "/technicians/{technician_id}",
     "function": "delete_technician",
     "doc": "",
     "auth": false
@@ -5304,7 +5304,7 @@
    {
     "method": "DELETE",
     "path": "/contractors/{contractor_id}",
-    "full_path": "/maintenance/contractors/{contractor_id}",
+    "full_path": "/contractors/{contractor_id}",
     "function": "delete_contractor",
     "doc": "",
     "auth": false
@@ -5312,7 +5312,7 @@
    {
     "method": "DELETE",
     "path": "/slas/{sla_id}",
-    "full_path": "/maintenance/slas/{sla_id}",
+    "full_path": "/slas/{sla_id}",
     "function": "delete_sla",
     "doc": "",
     "auth": false
@@ -5320,7 +5320,7 @@
    {
     "method": "DELETE",
     "path": "/parts/{part_id}",
-    "full_path": "/maintenance/parts/{part_id}",
+    "full_path": "/parts/{part_id}",
     "function": "delete_part",
     "doc": "",
     "auth": false
@@ -5328,7 +5328,7 @@
    {
     "method": "DELETE",
     "path": "/part-requests/{request_id}",
-    "full_path": "/maintenance/part-requests/{request_id}",
+    "full_path": "/part-requests/{request_id}",
     "function": "delete_part_request",
     "doc": "",
     "auth": false
@@ -5336,7 +5336,7 @@
    {
     "method": "DELETE",
     "path": "/tools/{tool_id}",
-    "full_path": "/maintenance/tools/{tool_id}",
+    "full_path": "/tools/{tool_id}",
     "function": "delete_tool",
     "doc": "",
     "auth": false
@@ -5344,7 +5344,7 @@
    {
     "method": "DELETE",
     "path": "/tool-issues/{issue_id}",
-    "full_path": "/maintenance/tool-issues/{issue_id}",
+    "full_path": "/tool-issues/{issue_id}",
     "function": "delete_tool_issue",
     "doc": "",
     "auth": false
@@ -5352,8 +5352,80 @@
    {
     "method": "DELETE",
     "path": "/repairs/{repair_id}",
-    "full_path": "/maintenance/repairs/{repair_id}",
+    "full_path": "/repairs/{repair_id}",
     "function": "delete_repair",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/plans/{plan_id}/evaluate",
+    "full_path": "/plans/{plan_id}/evaluate",
+    "function": "evaluate_plan",
+    "doc": "Evaluate a plan trigger (interval / meter / interval_or_meter). Returns due status and, when auto_generate is on and the plan is due, creates the maintenance order automatically.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/plans/{plan_id}/generate-order",
+    "full_path": "/plans/{plan_id}/generate-order",
+    "function": "generate_order_from_plan",
+    "doc": "Manually create a maintenance order from a plan (with plan_parts).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/orders/{order_id}/photos",
+    "full_path": "/orders/{order_id}/photos",
+    "function": "add_order_photo",
+    "doc": "Attach a before/after photo to a work order (mobile technician flow).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/orders/{order_id}/photos",
+    "full_path": "/orders/{order_id}/photos",
+    "function": "list_order_photos",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/orders/{order_id}/signature",
+    "full_path": "/orders/{order_id}/signature",
+    "function": "save_order_signature",
+    "doc": "Save the technician/customer signature on a completed work order.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/orders/{order_id}/signature",
+    "full_path": "/orders/{order_id}/signature",
+    "function": "get_order_signature",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/reminders",
+    "full_path": "/reminders",
+    "function": "list_reminders",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/plans/{plan_id}/parts",
+    "full_path": "/plans/{plan_id}/parts",
+    "function": "list_plan_parts",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/plans/{plan_id}/parts",
+    "full_path": "/plans/{plan_id}/parts",
+    "function": "add_plan_part",
     "doc": "",
     "auth": false
    }

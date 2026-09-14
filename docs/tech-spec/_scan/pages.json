@@ -3121,11 +3121,21 @@
  {
   "module_code": "Maintenance",
   "file": "frontend/src/pages/MaintenancePage.tsx",
-  "lines": 1849,
+  "lines": 1874,
   "buttons": [
    {
     "label": "ახალი",
     "on_click": "() => openCreate(tab === 'plans' ? 'plan' : tab === 'orders' ? 'order' : tab === 'assets' ? 'asset' : tab === 'meters' ?",
+    "disabled": false
+   },
+   {
+    "label": "შემოწმება",
+    "on_click": "() => evaluatePlan.mutate(p.id)",
+    "disabled": false
+   },
+   {
+    "label": "გენერაცია",
+    "on_click": "() => generateOrderFromPlan.mutate(p.id)",
     "disabled": false
    },
    {
