@@ -362,6 +362,7 @@ const en: Record<string, string> = {
   'ამორტიზაციის მეთოდი': 'Depreciation method',
   'ან': 'or',
   'ანალიტიკური აღრიცხვა': 'Analytic accounting',
+  'ბუღალტრული კონტროლები': 'Accounting controls',
   'ანგარიშზე შესვლა': 'Account login',
   'ანგარიშთა გეგმა': 'Chart of accounts',
   'ანგარიში / მითითება': 'Account / Reference',

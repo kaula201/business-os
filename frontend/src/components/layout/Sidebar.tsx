@@ -30,29 +30,42 @@ const iconMap: Record<string, any> = {
 
 interface NavItem { to: string; icon: any; label: string }
 
+// ── Product catalog scope (v3.0): sidebar-ში ჩანს მხოლოდ ეს მოდულები ──
+// DASH, CRM, SAL, WMS, MFG, TMS/Fleet, MNT, FIN, ACC, TASK, DOC, RPT, AI + BASE (settings)
+const SCOPE_CODES = new Set([
+  'dashboard',
+  'crm', 'clients',
+  'quotations', 'orders', 'invoices', 'price-lists',
+  'wms', 'inventory', 'inventory-valuation',
+  'production', 'fleet', 'maintenance',
+  'cash', 'banking', 'banking-rules', 'currency', 'customer-finance', 'supplier-finance', 'expenses', 'assets',
+  'gl', 'journal-entries', 'trial-balance', 'profit-loss', 'balance-sheet', 'srs', 'budgeting',
+  'analytic', 'deferred', 'accounting-periods', 'gl-recurring', 'exchange-differences', 'consolidated', 'accounting-controls',
+  'tasks', 'projects', 'documents', 'reports', 'ai', 'settings',
+])
+
 const DIRECT_PREFIXES = [
-  '/dashboard', '/crm', '/production', '/maintenance', '/hr', '/fleet',
-  '/helpdesk', '/projects', '/tasks', '/documents', '/reports', '/ai', '/settings',
+  '/dashboard', '/production', '/fleet', '/maintenance',
+  '/documents', '/reports', '/ai', '/settings',
 ]
 
 const GROUP_DEFS: { id: string; label: string; icon: any; prefixes: string[] }[] = [
-  { id: 'sales', label: 'გაყიდვები', icon: ShoppingCart, prefixes: ['/clients', '/orders', '/invoices', '/quotations', '/price-lists', '/sales-teams', '/email-tracking', '/subscriptions', '/customer-portal', '/ecommerce', '/pos'] },
-  { id: 'purchases', label: 'შესყიდვები', icon: Building2, prefixes: ['/purchases', '/procurement', '/suppliers', '/supplier-finance', '/vendor-portal'] },
-  { id: 'warehouse', label: 'საწყობი', icon: Package, prefixes: ['/inventory', '/wms', '/inventory-valuation'] },
-  { id: 'finance', label: 'ფინანსები', icon: DollarSign, prefixes: ['/cash', '/banking', '/banking-rules', '/currency', '/customer-finance', '/expenses', '/assets'] },
+  { id: 'crm', label: 'CRM', icon: Target, prefixes: ['/crm', '/clients'] },
+  { id: 'sales', label: 'გაყიდვები', icon: ShoppingCart, prefixes: ['/quotations', '/orders', '/invoices', '/price-lists'] },
+  { id: 'warehouse', label: 'საწყობი', icon: Boxes, prefixes: ['/wms', '/inventory', '/inventory-valuation'] },
+  { id: 'finance', label: 'ფინანსები', icon: DollarSign, prefixes: ['/cash', '/banking', '/banking-rules', '/currency', '/customer-finance', '/supplier-finance', '/expenses', '/assets'] },
   { id: 'accounting', label: 'ბუღალტერია', icon: BookOpen, prefixes: ['/chart-of-accounts', '/journal-entries', '/trial-balance', '/profit-loss', '/balance-sheet', '/srs', '/budgeting', '/analytic-accounting', '/deferred', '/accounting-periods', '/gl-recurring', '/gl-exchange-differences', '/gl-consolidated', '/accounting-controls'] },
-  { id: 'other', label: 'სხვა', icon: Settings, prefixes: ['/automations', '/payments', '/email-calendar', '/integrations', '/security', '/kitchen', '/studio', '/platform-studio', '/marketplace', '/field-service', '/quality'] },
+  { id: 'tasks', label: 'დავალებები', icon: CheckSquare, prefixes: ['/tasks', '/projects'] },
 ]
 
 // User-defined order: group ids and direct route prefixes interleaved.
 // მიმოხილვა, რჩეულები და ბოლო ნანახი ყოველთვის ზევით რჩება.
 const NAV_ORDER: (string)[] = [
-  'sales', 'purchases', 'warehouse',
-  'maintenance', '/production',
+  'crm', 'sales', 'warehouse',
+  '/production', '/fleet', 'maintenance',
   'finance', 'accounting',
-  '/crm', '/hr', '/projects', '/tasks', '/fleet', '/documents', '/helpdesk',
-  '/reports', '/ai',
-  'other',
+  'tasks',
+  '/documents', '/reports', '/ai',
   '/settings',
 ]
 
@@ -248,6 +261,7 @@ export default function Sidebar({ open, onClose, onChatToggle }: SidebarProps) {
   }
 
   const allItems: NavItem[] = enabledModules
+    .filter((m) => SCOPE_CODES.has(m.module.code))
     .filter((m) => canAccess(m.module.code))
     .map((m) => ({
       to: m.module.route || `/${m.module.code}`,
