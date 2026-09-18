@@ -7184,11 +7184,147 @@
     "auth": false
    },
    {
+    "method": "GET",
+    "path": "/routings",
+    "full_path": "/production/routings",
+    "function": "list_routings",
+    "doc": "",
+    "auth": false
+   },
+   {
     "method": "POST",
-    "path": "/demo/workflow",
-    "full_path": "/production/demo/workflow",
-    "function": "production_workflow_demo",
-    "doc": "Run a full production workflow: create BOM → create WO → check availability → reserve → receive finished goods.",
+    "path": "/routings",
+    "full_path": "/production/routings",
+    "function": "create_routing",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/routings/{routing_id}/operations",
+    "full_path": "/production/routings/{routing_id}/operations",
+    "function": "add_routing_operation",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/work-orders/{wo_id}/routing",
+    "full_path": "/production/work-orders/{wo_id}/routing",
+    "function": "apply_routing_to_work_order",
+    "doc": "Copy a routing's operations onto a work order (scheduling baseline).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/work-orders/{wo_id}/operations",
+    "full_path": "/production/work-orders/{wo_id}/operations",
+    "function": "list_work_order_operations",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/work-orders/{wo_id}/operations/{op_id}/start",
+    "full_path": "/production/work-orders/{wo_id}/operations/{op_id}/start",
+    "function": "start_work_order_operation",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/work-orders/{wo_id}/operations/{op_id}/complete",
+    "full_path": "/production/work-orders/{wo_id}/operations/{op_id}/complete",
+    "function": "complete_work_order_operation",
+    "doc": "Complete an operation, recording actual labor time and cost → WIP labor.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/work-orders/{wo_id}/consumptions",
+    "full_path": "/production/work-orders/{wo_id}/consumptions",
+    "function": "list_consumptions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/work-orders/{wo_id}/consumptions",
+    "full_path": "/production/work-orders/{wo_id}/consumptions",
+    "function": "add_manual_consumption",
+    "doc": "Manual component consumption (no backflush) — decrements warehouse + product stock.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/work-orders/{wo_id}/wip",
+    "full_path": "/production/work-orders/{wo_id}/wip",
+    "function": "get_work_order_wip",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/work-orders/{wo_id}/scrap",
+    "full_path": "/production/work-orders/{wo_id}/scrap",
+    "function": "add_scrap_or_byproduct",
+    "doc": "Record scrap (waste) or by-product — by-product receives stock into warehouse.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/work-orders/{wo_id}/genealogy",
+    "full_path": "/production/work-orders/{wo_id}/genealogy",
+    "function": "list_genealogy",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/work-orders/{wo_id}/genealogy",
+    "full_path": "/production/work-orders/{wo_id}/genealogy",
+    "function": "add_genealogy",
+    "doc": "Traceability: which component lot/serial went into a finished lot/serial.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/mrp/run",
+    "full_path": "/production/mrp/run",
+    "function": "run_mrp",
+    "doc": "MRP: explode BOM demand for open work orders, compare with on-hand and reserved stock, generate make (in-house) / buy (purchase) suggestions.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/mrp/suggestions",
+    "full_path": "/production/mrp/suggestions",
+    "function": "list_mrp_suggestions",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/maintenance-downtime",
+    "full_path": "/production/maintenance-downtime",
+    "function": "add_downtime_window",
+    "doc": "Planned maintenance/break windows — reduce effective work-center capacity.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/maintenance-downtime",
+    "full_path": "/production/maintenance-downtime",
+    "function": "list_downtime_windows",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/work-centers/{wc_id}/capacity",
+    "full_path": "/production/work-centers/{wc_id}/capacity",
+    "function": "work_center_capacity",
+    "doc": "Capacity utilization: scheduled operation minutes + downtime windows vs shift capacity.",
     "auth": false
    }
   ]
