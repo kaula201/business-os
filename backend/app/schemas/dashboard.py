@@ -24,6 +24,16 @@ class KPICards(BaseModel):
     clients_change: float | None = None
     tasks_change: float | None = None
     cashflow_change: float | None = None
+    # Operational KPIs (REQ-DASH-01): delayed deliveries, production backlog,
+    # fleet unavailability, critical maintenance, pending approvals
+    delayed_shipments: int = 0
+    production_backlog: int = 0
+    fleet_unavailable: int = 0
+    maintenance_critical: int = 0
+    approvals_pending: int = 0
+    otif_rate: float | None = None
+    # Freshness (REQ-DASH-03): when these aggregates were computed
+    last_updated_at: datetime | None = None
 
 
 class KPITooltip(BaseModel):

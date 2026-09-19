@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { dashboardApi, usersApi } from '../services/api'
-import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, ArrowDown, Wallet, Clock , ArrowUpRight, LayoutGrid, Info, X } from 'lucide-react'
+import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, ArrowDown, Wallet, Clock , ArrowUpRight, LayoutGrid, Info, X, Factory, Car, Wrench, CheckSquare, Gauge } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts'
 import { StatusBadge, orderStatusMap } from '../components/ui/Badges'
 import type { DashboardData } from '../types'
@@ -15,7 +15,7 @@ const money = (v: number | string | null | undefined) =>
 const COLORS = ['#16A6D4', '#4CAF32', '#7C6966', '#8EDFF7', '#94DF79', '#BCAEAB']
 
 // All known KPI keys (used when a role view has no explicit list)
-const KPI_ORDER = ['revenue', 'orders', 'clients', 'tasks', 'pipeline', 'leads', 'cashflow', 'receivables', 'payables', 'unpaid_invoices', 'low_stock', 'stock_value', 'inventory']
+const KPI_ORDER = ['revenue', 'orders', 'clients', 'tasks', 'pipeline', 'leads', 'cashflow', 'receivables', 'payables', 'unpaid_invoices', 'low_stock', 'stock_value', 'inventory', 'delayed_shipments', 'production_backlog', 'fleet_unavailable', 'maintenance_critical', 'approvals_pending', 'otif_rate']
 
 // KPI keys → icons/colors for the role view rendering
 const KPI_META: Record<string, { icon: any; color: 'blue' | 'green' | 'red' | 'gray'; to?: string }> = {
@@ -32,6 +32,12 @@ const KPI_META: Record<string, { icon: any; color: 'blue' | 'green' | 'red' | 'g
   low_stock: { icon: Package, color: 'red', to: '/warehouse' },
   stock_value: { icon: Package, color: 'blue', to: '/warehouse' },
   inventory: { icon: Package, color: 'gray', to: '/warehouse' },
+  delayed_shipments: { icon: AlertTriangle, color: 'red', to: '/orders' },
+  production_backlog: { icon: Factory, color: 'red', to: '/production' },
+  fleet_unavailable: { icon: Car, color: 'red', to: '/fleet' },
+  maintenance_critical: { icon: Wrench, color: 'red', to: '/maintenance' },
+  approvals_pending: { icon: CheckSquare, color: 'blue' },
+  otif_rate: { icon: Gauge, color: 'green', to: '/orders' },
 }
 
 export default function DashboardPage() {
@@ -259,6 +265,12 @@ export default function DashboardPage() {
               case 'low_stock': return String(kpi?.low_stock_products || 0)
               case 'stock_value': return kpi?.stock_value != null ? money(kpi.stock_value) : money(0)
               case 'inventory': return kpi?.inventory_units != null ? String(new Intl.NumberFormat('ka-GE').format(Math.round(kpi.inventory_units))) : '0'
+              case 'delayed_shipments': return String(kpi?.delayed_shipments || 0)
+              case 'production_backlog': return String(kpi?.production_backlog || 0)
+              case 'fleet_unavailable': return String(kpi?.fleet_unavailable || 0)
+              case 'maintenance_critical': return String(kpi?.maintenance_critical || 0)
+              case 'approvals_pending': return String(kpi?.approvals_pending || 0)
+              case 'otif_rate': return kpi?.otif_rate != null ? `${kpi.otif_rate}%` : 'N/A'
               default: return '—'
             }
           })()
@@ -266,7 +278,7 @@ export default function DashboardPage() {
             <KPICard
               key={k}
               icon={meta.icon}
-              label={def?.label || k}
+              label={t(def?.label || k)}
               value={val}
               change={(() => {
                 switch (k) {

@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, text
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from uuid import UUID
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
@@ -17,6 +17,11 @@ from app.models.invoice import Invoice
 from app.models.crm import CRMLead, CRMOpportunity
 from app.models.receivable import CustomerReceivable
 from app.models.purchase import SupplierPayable
+from app.models.wms_ops import Shipment
+from app.models.production import WorkOrder
+from app.models.fleet import Vehicle
+from app.models.maintenance import MaintenanceOrder
+from app.models.approval import ApprovalRequest
 from app.schemas.dashboard import (
     DashboardSummary, KPICards, RevenueChart, RevenueDataPoint,
     OrderStatusDistribution, RecentActivity, CriticalAlert, KPITooltip
@@ -210,6 +215,69 @@ async def get_dashboard_summary(
         clients_change=_pct_change(active_clients_count, prev_active_clients),
         tasks_change=_pct_change(overdue_tasks_count, prev_overdue_tasks),
         cashflow_change=_pct_change(cur_cashflow, prev_cashflow),
+        # ── Operational KPIs (REQ-DASH-01) ──────────────────────────────
+        # Delayed deliveries: order promised before now, still not completed/cancelled
+        delayed_shipments=int((await db.execute(
+            select(func.count(Order.id)).where(
+                Order.company_id == company_id,
+                Order.delivery_date.isnot(None),
+                Order.delivery_date < now,
+                Order.status.notin_([OrderStatus.COMPLETED.value, OrderStatus.CANCELLED.value]),
+            )
+        )).scalar() or 0),
+        # Production backlog: confirmed/in-progress orders past their end date
+        production_backlog=int((await db.execute(
+            select(func.count(WorkOrder.id)).where(
+                WorkOrder.company_id == company_id,
+                WorkOrder.end_date.isnot(None),
+                WorkOrder.end_date < date.today(),
+                WorkOrder.status.in_(["confirmed", "in_progress"]),
+            )
+        )).scalar() or 0),
+        # Fleet unavailable: inactive vehicles or expired insurance/inspection
+        fleet_unavailable=int((await db.execute(
+            select(func.count(Vehicle.id)).where(
+                Vehicle.company_id == company_id,
+                (Vehicle.is_active.is_(False))
+                | (Vehicle.insurance_valid_until.isnot(None) & (Vehicle.insurance_valid_until < date.today()))
+                | (Vehicle.tech_inspection_until.isnot(None) & (Vehicle.tech_inspection_until < date.today())),
+            )
+        )).scalar() or 0),
+        # Critical maintenance: emergency/critical open work orders
+        maintenance_critical=int((await db.execute(
+            select(func.count(MaintenanceOrder.id)).where(
+                MaintenanceOrder.company_id == company_id,
+                MaintenanceOrder.status.in_(["scheduled", "in_progress"]),
+                (MaintenanceOrder.priority == "critical") | (MaintenanceOrder.maintenance_type == "emergency"),
+            )
+        )).scalar() or 0),
+        # Pending approvals queue
+        approvals_pending=int((await db.execute(
+            select(func.count(ApprovalRequest.id)).where(
+                ApprovalRequest.company_id == company_id,
+                ApprovalRequest.status == ApprovalRequest.Status.PENDING,
+            )
+        )).scalar() or 0),
+        # OTIF: completed among due (promised before now); None when nothing due yet
+        otif_rate=(lambda due, done: round(done / due * 100, 1) if due else None)(
+            int((await db.execute(
+                select(func.count(Order.id)).where(
+                    Order.company_id == company_id,
+                    Order.delivery_date.isnot(None),
+                    Order.delivery_date < now,
+                    Order.status.notin_([OrderStatus.CANCELLED.value, OrderStatus.DRAFT.value]),
+                )
+            )).scalar() or 0),
+            int((await db.execute(
+                select(func.count(Order.id)).where(
+                    Order.company_id == company_id,
+                    Order.delivery_date.isnot(None),
+                    Order.delivery_date < now,
+                    Order.status == OrderStatus.COMPLETED.value,
+                )
+            )).scalar() or 0),
+        ),
+        last_updated_at=now,
     )
 
     # Revenue chart (daily aggregation from issued invoices)
@@ -324,6 +392,24 @@ async def get_dashboard_summary(
             KPITooltip(key="total_revenue", label="ჯამური შემოსავალი",
                        formula="მხოლოდ გაცემული (issued) ინვოისების ჯამი",
                        source="გაყიდვის ინვოისები"),
+            KPITooltip(key="delayed_shipments", label="დაგვიანებული მიწოდება",
+                       formula="შეკვეთები, სადაც delivery_date გავიდა და შეკვეთა ღიაა (არა completed/cancelled)",
+                       source="გაყიდვის შეკვეთები"),
+            KPITooltip(key="production_backlog", label="წარმოების ჩამორჩენა",
+                       formula="სამუშაო დავალებები (WorkOrder) სტატუსით confirmed/in_progress, რომელთა დასრულების ვადა გავიდა",
+                       source="წარმოება"),
+            KPITooltip(key="fleet_unavailable", label="ავტოპარკის მიუწვდომლობა",
+                       formula="მანქანები არააქტიური ან ვადაგასული დაზღვევა/ტექდათვალიერება",
+                       source="ავტოპარკი"),
+            KPITooltip(key="maintenance_critical", label="კრიტიკული მოვლა",
+                       formula="ღია სამუშაო დავალებები პრიორიტეტით critical ან ტიპით emergency",
+                       source="Maintenance"),
+            KPITooltip(key="approvals_pending", label="დასამტკიცებელი",
+                       formula="მოლოდინში მყოფი (pending) დამტკიცების მოთხოვნები",
+                       source="დამტკიცებები"),
+            KPITooltip(key="otif_rate", label="OTIF",
+                       formula="დროულად შესრულებული / ვადამოსული შეკვეთები × 100 (შედარება ვერ ითვლება, თუ ვადამოსულები არ არის)",
+                       source="გაყიდვის შეკვეთები"),
         ],
     ))
 

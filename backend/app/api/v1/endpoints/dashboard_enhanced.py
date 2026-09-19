@@ -21,6 +21,11 @@ from app.models.crm import CRMLead, CRMOpportunity
 from app.models.hr import Employee
 from app.models.invoice import Invoice
 from app.models.company import Company
+from app.models.wms_ops import Shipment
+from app.models.production import WorkOrder
+from app.models.fleet import Vehicle
+from app.models.maintenance import MaintenanceOrder
+from app.models.approval import ApprovalRequest
 from app.models.receivable import (
     CustomerPayment,
     CustomerPaymentReversal,
@@ -529,30 +534,37 @@ async def role_views(
     role = current_user.role
     admin_view = DashboardRoleView(
         key="director", label="დირექტორი",
-        kpis=["revenue", "orders", "clients", "cashflow", "tasks", "pipeline"],
-        modules=["sales", "finance", "crm", "tasks"],
+        kpis=["revenue", "orders", "delayed_shipments", "production_backlog", "fleet_unavailable", "maintenance_critical", "approvals_pending", "otif_rate"],
+        modules=["sales", "finance", "crm", "tasks", "warehouse", "production", "fleet", "maintenance"],
     )
     acct_view = DashboardRoleView(
         key="accountant", label="ბუღალტერი",
-        kpis=["revenue", "cashflow", "receivables", "payables", "unpaid_invoices"],
+        kpis=["revenue", "cashflow", "receivables", "payables", "unpaid_invoices", "approvals_pending"],
         modules=["finance", "accounting"],
     )
     sales_view = DashboardRoleView(
         key="sales", label="გაყიდვების მენეჯერი",
-        kpis=["revenue", "orders", "clients", "pipeline", "leads"],
+        kpis=["revenue", "orders", "clients", "pipeline", "leads", "delayed_shipments"],
         modules=["sales", "crm"],
     )
     wh_view = DashboardRoleView(
         key="warehouse", label="საწყობის მენეჯერი",
-        kpis=["low_stock", "stock_value", "orders", "inventory"],
+        kpis=["low_stock", "stock_value", "orders", "inventory", "delayed_shipments"],
         modules=["warehouse", "sales"],
+    )
+    operator_view = DashboardRoleView(
+        key="operator", label="ოპერატორი",
+        kpis=["tasks", "approvals_pending", "orders", "delayed_shipments", "maintenance_critical"],
+        modules=["tasks", "sales", "maintenance"],
     )
     default_view = "director" if role == User.Role.ADMIN else (
         "accountant" if role == User.Role.ACCOUNTANT else (
-            "sales" if role == User.Role.MANAGER else "director"
+            "sales" if role == User.Role.MANAGER else (
+                "operator" if role == User.Role.EMPLOYEE else "director"
+            )
         )
     )
-    views = [admin_view, acct_view, sales_view, wh_view]
+    views = [admin_view, acct_view, sales_view, wh_view, operator_view]
     return ResponseBase(data=RoleViewsResponse(views=views, default_view=default_view))
 
 
@@ -621,6 +633,36 @@ KPI_DEFINITIONS: dict[str, dict] = {
         "label": "მარაგის ერთეულები",
         "formula": "Σ inventory_balances.quantity (ყველა პროდუქტი/საწყობი)",
         "source": "inventory_balances",
+    },
+    "delayed_shipments": {
+        "label": "დაგვიანებული მიწოდება",
+        "formula": "COUNT(orders) — delivery_date < now და status ∉ {completed, cancelled}",
+        "source": "orders ცხრილი (delivery_date)",
+    },
+    "production_backlog": {
+        "label": "წარმოების ჩამორჩენა",
+        "formula": "COUNT(work_orders) — end_date < today და status ∈ {confirmed, in_progress}",
+        "source": "work_orders ცხრილი",
+    },
+    "fleet_unavailable": {
+        "label": "ავტოპარკის მიუწვდომლობა",
+        "formula": "COUNT(vehicles) — is_active=false ან დაზღვევის/ტექდათვალიერების ვადა გასული",
+        "source": "vehicles ცხრილი",
+    },
+    "maintenance_critical": {
+        "label": "კრიტიკული მოვლა",
+        "formula": "COUNT(maintenance_orders) — status ∈ {scheduled, in_progress} და (priority='critical' ან type='emergency')",
+        "source": "maintenance_orders ცხრილი",
+    },
+    "approvals_pending": {
+        "label": "დასამტკიცებელი",
+        "formula": "COUNT(approval_requests) — status='pending'",
+        "source": "approval_requests ცხრილი",
+    },
+    "otif_rate": {
+        "label": "OTIF",
+        "formula": "completed (ვადაში) / ვადამოსული შეკვეთები × 100; ვადამოსულის არქონისას N/A (შედარება ვერ ითვლება)",
+        "source": "orders ცხრილი (delivery_date)",
     },
 }
 
@@ -732,5 +774,79 @@ async def kpi_drill_down(
         data = [KpiDrillDownRow(label=p.name or p.sku or "—", value=f"მინიმუმი: {p.min_stock}", status="low_stock") for p in rows]
         total = str(len(rows))
         return ResponseBase(data=KpiDrillDownResponse(kpi="low_stock", title="დეფიციტური პროდუქტები", rows=data, total=total))
+
+    if kpi_key == "delayed_shipments":
+        rows = (await db.execute(
+            select(Order).where(
+                Order.company_id == cid,
+                Order.delivery_date.isnot(None),
+                Order.delivery_date < utc_now(),
+                Order.status.notin_([OrderStatus.COMPLETED.value, OrderStatus.CANCELLED.value]),
+            ).order_by(Order.delivery_date.asc()).limit(limit)
+        )).scalars().all()
+        data = [KpiDrillDownRow(label=f"#{o.order_number}", value=f"ვადა: {o.delivery_date.date() if o.delivery_date else '—'}", date=str(o.delivery_date.date()) if o.delivery_date else None, status=o.status) for o in rows]
+        total = str(len(rows))
+        return ResponseBase(data=KpiDrillDownResponse(kpi="delayed_shipments", title="დაგვიანებული მიწოდება", rows=data, total=total))
+
+    if kpi_key == "production_backlog":
+        rows = (await db.execute(
+            select(WorkOrder).where(
+                WorkOrder.company_id == cid,
+                WorkOrder.end_date.isnot(None),
+                WorkOrder.end_date < today,
+                WorkOrder.status.in_(["confirmed", "in_progress"]),
+            ).order_by(WorkOrder.end_date.asc()).limit(limit)
+        )).scalars().all()
+        data = [KpiDrillDownRow(label=f"#{wo.order_number}", value=wo.status, date=str(wo.end_date) if wo.end_date else None, status=wo.status) for wo in rows]
+        total = str(len(rows))
+        return ResponseBase(data=KpiDrillDownResponse(kpi="production_backlog", title="წარმოების ჩამორჩენა", rows=data, total=total))
+
+    if kpi_key == "fleet_unavailable":
+        rows = (await db.execute(
+            select(Vehicle).where(
+                Vehicle.company_id == cid,
+                (Vehicle.is_active.is_(False))
+                | (Vehicle.insurance_valid_until.isnot(None) & (Vehicle.insurance_valid_until < today))
+                | (Vehicle.tech_inspection_until.isnot(None) & (Vehicle.tech_inspection_until < today)),
+            ).order_by(Vehicle.plate_number).limit(limit)
+        )).scalars().all()
+        data = [KpiDrillDownRow(label=f"{v.plate_number} {v.brand} {v.model}".strip(), value="unavailable", status="fleet_unavailable") for v in rows]
+        total = str(len(rows))
+        return ResponseBase(data=KpiDrillDownResponse(kpi="fleet_unavailable", title="ავტოპარკის მიუწვდომლობა", rows=data, total=total))
+
+    if kpi_key == "maintenance_critical":
+        rows = (await db.execute(
+            select(MaintenanceOrder).where(
+                MaintenanceOrder.company_id == cid,
+                MaintenanceOrder.status.in_(["scheduled", "in_progress"]),
+                (MaintenanceOrder.priority == "critical") | (MaintenanceOrder.maintenance_type == "emergency"),
+            ).order_by(MaintenanceOrder.created_at.desc()).limit(limit)
+        )).scalars().all()
+        data = [KpiDrillDownRow(label=f"#{mo.order_number} {mo.asset_name or ''}".strip(), value=mo.priority + '/' + mo.maintenance_type, date=str(mo.created_at.date()) if mo.created_at else None, status=mo.status) for mo in rows]
+        total = str(len(rows))
+        return ResponseBase(data=KpiDrillDownResponse(kpi="maintenance_critical", title="კრიტიკული მოვლა", rows=data, total=total))
+
+    if kpi_key == "approvals_pending":
+        rows = (await db.execute(
+            select(ApprovalRequest).where(
+                ApprovalRequest.company_id == cid,
+                ApprovalRequest.status == ApprovalRequest.Status.PENDING,
+            ).order_by(ApprovalRequest.created_at.desc()).limit(limit)
+        )).scalars().all()
+        data = [KpiDrillDownRow(label=a.title or "—", value=a.approval_type, date=str(a.created_at.date()) if a.created_at else None, status=a.status) for a in rows]
+        total = str(len(rows))
+        return ResponseBase(data=KpiDrillDownResponse(kpi="approvals_pending", title="დასამტკიცებელი რიგი", rows=data, total=total))
+
+    if kpi_key == "otif_rate":
+        due = int((await db.execute(select(func.count(Order.id)).where(
+            Order.company_id == cid, Order.delivery_date.isnot(None),
+            Order.delivery_date < utc_now(), Order.status.notin_([OrderStatus.CANCELLED.value, OrderStatus.DRAFT.value]),
+        ))).scalar() or 0)
+        done = int((await db.execute(select(func.count(Order.id)).where(
+            Order.company_id == cid, Order.delivery_date.isnot(None),
+            Order.delivery_date < utc_now(), Order.status == OrderStatus.COMPLETED.value,
+        ))).scalar() or 0)
+        total_str = f"{done}/{due} ({round(done / due * 100, 1)}%)" if due else "N/A"
+        return ResponseBase(data=KpiDrillDownResponse(kpi="otif_rate", title="OTIF — დროული მიწოდება", rows=[], total=total_str))
 
     return ResponseBase(data=KpiDrillDownResponse(kpi=kpi_key, title=kpi_key, rows=[], total="0"))
