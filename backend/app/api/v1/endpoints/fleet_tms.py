@@ -421,6 +421,40 @@ async def dispatch_trip(
         if drv.license_valid_until and drv.license_valid_until < date.today():
             raise HTTPException(status_code=409, detail="მძღოლის ლიცენზია ვადაგასულია")
 
+    # REQ-TMS-02: no time overlap — the same vehicle/driver cannot be on two
+    # open (dispatched/in_progress) trips whose planned window overlaps theirs.
+    if trip.planned_start and trip.planned_end:
+        overlap_vehicle = None
+        overlap_driver = None
+        if veh_id:
+            overlap_vehicle = (await db.execute(
+                select(Trip.id).where(
+                    Trip.company_id == current_user.company_id,
+                    Trip.vehicle_id == veh_id,
+                    Trip.id != trip.id,
+                    Trip.status.in_(["dispatched", "in_progress"]),
+                    Trip.planned_start.isnot(None), Trip.planned_end.isnot(None),
+                    Trip.planned_start < trip.planned_end,
+                    Trip.planned_end > trip.planned_start,
+                ).limit(1)
+            )).first()
+        if drv_id:
+            overlap_driver = (await db.execute(
+                select(Trip.id).where(
+                    Trip.company_id == current_user.company_id,
+                    Trip.driver_id == drv_id,
+                    Trip.id != trip.id,
+                    Trip.status.in_(["dispatched", "in_progress"]),
+                    Trip.planned_start.isnot(None), Trip.planned_end.isnot(None),
+                    Trip.planned_start < trip.planned_end,
+                    Trip.planned_end > trip.planned_start,
+                ).limit(1)
+            )).first()
+        if overlap_vehicle:
+            raise HTTPException(status_code=409, detail="მანქანა ამ პერიოდში უკვე დაგეგმილია სხვა რეისზე")
+        if overlap_driver:
+            raise HTTPException(status_code=409, detail="მძღოლი ამ პერიოდში უკვე დაგეგმილია სხვა რეისზე")
+
     if veh_id: trip.vehicle_id = veh_id
     if drv_id: trip.driver_id = drv_id
     trip.status = "dispatched"
@@ -595,7 +629,102 @@ async def list_trip_pods(
         "delivered_qty": str(p.delivered_qty), "delivered_at": p.delivered_at.isoformat() if p.delivered_at else None,
         "recipient_name": p.recipient_name, "exception": p.exception, "exception_reason": p.exception_reason,
         "evidence_id": str(p.evidence_id) if p.evidence_id else None,
+        "supersedes_id": str(p.supersedes_id) if p.supersedes_id else None,
+        "corrected_by": str(p.corrected_by) if p.corrected_by else None,
+        "corrected_at": p.corrected_at.isoformat() if p.corrected_at else None,
     } for p in rows])
+
+
+@router.post("/pods/{pod_id}/correct", response_model=ResponseBase[dict])
+async def correct_pod(
+    pod_id: uuid.UUID,
+    payload: PODIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """REQ-TMS-06: a POD correction requires manager rights and preserves the
+    original record. The corrected POD supersedes the original (supersedes_id →
+    original); the original is never mutated."""
+    # manager / admin guard
+    role = getattr(current_user, "role", None)
+    allowed = {"admin", "manager", "director", "supervisor"}
+    if role not in allowed:
+        raise HTTPException(status_code=403, detail="POD-ის შესწორება მოითხოვს მმართველის უფლებას")
+
+    pod = (await db.execute(
+        select(TripPOD).where(TripPOD.id == pod_id, TripPOD.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not pod:
+        raise HTTPException(status_code=404, detail="POD არ მოიძებნა")
+
+    # build the corrected POD — original preserved untouched
+    corrected = TripPOD(
+        company_id=current_user.company_id,
+        trip_id=pod.trip_id, stop_id=pod.stop_id, delivery_id=pod.delivery_id,
+        delivered_qty=payload.delivered_qty,
+        delivered_at=payload.delivered_at,
+        recipient_name=payload.recipient_name,
+        exception=payload.exception or pod.exception,
+        exception_reason=payload.exception_reason or pod.exception_reason,
+        evidence_id=uuid.UUID(payload.evidence_id) if payload.evidence_id else pod.evidence_id,
+        corrected_by=current_user.id, corrected_at=utc_now(),
+        supersedes_id=pod.id,
+        device_event_id=None, device_time=None,
+    )
+    db.add(corrected)
+    await db.flush()
+
+    # re-sync the delivery request from the corrected POD
+    if pod.delivery_id:
+        drq = (await db.execute(
+            select(DeliveryRequest).where(DeliveryRequest.id == pod.delivery_id)
+        )).scalar_one_or_none()
+        if drq:
+            drq.delivered_qty = corrected.delivered_qty
+            drq.delivered_at = corrected.delivered_at
+            drq.status = "delivered" if corrected.exception in (None, "ok") else "failed"
+            drq.exception = corrected.exception_reason
+
+    await db.commit()
+    await db.refresh(corrected)
+    return ResponseBase(data={
+        "id": str(corrected.id), "supersedes": str(pod.id), "delivered_qty": str(corrected.delivered_qty),
+        "status": "corrected",
+    })
+
+
+@router.post("/delivery-requests/{delivery_id}/wms-return", response_model=ResponseBase[dict])
+async def wms_return_delivery(
+    delivery_id: uuid.UUID,
+    payload: dict | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """REQ-TMS-06: failed/undelivered cargo re-enters stock ONLY via a WMS
+    return. This stamps the delivery request as returned — no stock movement is
+    posted here (the WMS return does that)."""
+    drq = (await db.execute(
+        select(DeliveryRequest).where(DeliveryRequest.id == delivery_id, DeliveryRequest.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not drq:
+        raise HTTPException(status_code=404, detail="მოთხოვნა არ მოიძებნა")
+    if drq.status not in ("failed", "partial"):
+        raise HTTPException(status_code=409, detail="დაბრუნება მხოლოდ failed/partial ტვირთზე")
+
+    wh_id = None
+    data = payload or {}
+    if data.get("warehouse_id"):
+        wh_id = uuid.UUID(data["warehouse_id"])
+
+    drq.returned_to_warehouse = True
+    drq.returned_warehouse_id = wh_id
+    drq.returned_at = utc_now()
+    await db.commit()
+    await db.refresh(drq)
+    return ResponseBase(data={
+        "delivery_id": str(drq.id), "returned": True,
+        "warehouse_id": str(drq.returned_warehouse_id) if drq.returned_warehouse_id else None,
+    })
 
 
 @router.post("/trips/{trip_id}/costs", response_model=ResponseBase[dict])
@@ -629,6 +758,20 @@ async def add_trip_cost(
     if total <= 0:
         raise HTTPException(status_code=409, detail="განაწილების საფუძველი ნულოვანია")
 
+    # REQ-TMS-08: the same FIN expense cannot be double-allocated
+    if payload.source_expense_id:
+        dup = (await db.execute(
+            select(TripCostAllocation.id).where(
+                TripCostAllocation.company_id == current_user.company_id,
+                TripCostAllocation.source_expense_id == uuid.UUID(payload.source_expense_id),
+            ).limit(1)
+        )).first()
+        if dup:
+            raise HTTPException(status_code=409, detail="ეს expense უკვე განაწილებულია — ორმაგი ჩაწერა აკრძალულია")
+
+    # REQ-TMS-08: allocation rule version (ledger semantics, default 1)
+    rule_version = 1
+
     created = []
     for did, b in bases.items():
         share = (payload.amount * b) / total
@@ -637,11 +780,12 @@ async def add_trip_cost(
             delivery_id=uuid.UUID(did), cost_type=payload.cost_type,
             amount=share, allocation_method=payload.allocation_method,
             source_expense_id=uuid.UUID(payload.source_expense_id) if payload.source_expense_id else None,
+            version=rule_version,
         )
         db.add(ca)
         created.append({"delivery_id": did, "amount": str(share)})
     await db.commit()
-    return ResponseBase(data={"allocated": created, "total": str(payload.amount)})
+    return ResponseBase(data={"allocated": created, "total": str(payload.amount), "version": rule_version})
 
 
 @router.get("/vehicles/{vehicle_id}/availability", response_model=ResponseBase[dict])
@@ -684,8 +828,26 @@ async def vehicle_availability(
     if open_trip:
         issues.append("active_trip")
 
+    # REQ-TMS-09: document expiry lead-time warnings (insurance / inspection /
+    # maintenance due) so dispatch blockers are anticipated before they hit.
+    from datetime import timedelta
+    upcoming = []
+    if vh.insurance_valid_until:
+        days = (vh.insurance_valid_until - today).days
+        if 0 <= days <= 30:
+            upcoming.append({"kind": "insurance_expiring", "in_days": days})
+    if vh.tech_inspection_until:
+        days = (vh.tech_inspection_until - today).days
+        if 0 <= days <= 30:
+            upcoming.append({"kind": "inspection_expiring", "in_days": days})
+    if vh.maintenance_due_date:
+        days = (vh.maintenance_due_date - today).days
+        if 0 <= days <= 30:
+            upcoming.append({"kind": "maintenance_due", "in_days": days})
+
     return ResponseBase(data={
         "vehicle_id": str(vh.id), "available": len(issues) == 0, "issues": issues,
         "capacity_kg": str(vh.capacity_kg) if vh.capacity_kg is not None else None,
         "capacity_m3": str(vh.capacity_m3) if vh.capacity_m3 is not None else None,
+        "upcoming": upcoming,
     })

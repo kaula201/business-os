@@ -11,6 +11,7 @@ Covers the operational transport/delivery chain via the public API:
 """
 import pytest
 from sqlalchemy import select
+from sqlalchemy import delete as sqla_delete
 
 from app.models.fleet import Vehicle
 from app.models.fleet_tms import (
@@ -244,3 +245,145 @@ async def test_tms_vehicle_availability(client, auth_headers, test_company, db_s
 
     await db_session.delete(vehicle)
     await db_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_tms_time_overlap_block(client, auth_headers, test_company, db_session):
+    """REQ-TMS-02: the same vehicle cannot be dispatched on two trips whose
+    planned windows overlap."""
+    from app.models.fleet_tms import TripStop, TripLoad
+    vehicle = Vehicle(
+        company_id=test_company.id,
+        plate_number="TMS-OVLP-1", brand="Toyota", model="Hiace", year=2024,
+        fuel_type="diesel", capacity_kg=10000, capacity_m3=200,
+        ownership="own", is_active=True,
+        insurance_valid_until=None, tech_inspection_until=None,
+    )
+    db_session.add(vehicle)
+    await db_session.flush()
+    await db_session.commit()
+
+    # Trip A already dispatched
+    ta_num = "TR-OVLPA"
+    ta = await client.post("/api/v1/fleet/tms/trips", headers=auth_headers, json={
+        "trip_number": ta_num, "planned_start": "2026-09-25T08:00:00", "planned_end": "2026-09-25T12:00:00"})
+    ta_id = ta.json()["data"]["id"]
+    da = await client.post(f"/api/v1/fleet/tms/trips/{ta_id}/dispatch",
+                           headers=auth_headers, json={"vehicle_id": str(vehicle.id)})
+    assert da.status_code == 200, da.text
+
+    # Trip B overlapping same vehicle → block
+    tb = await client.post("/api/v1/fleet/tms/trips", headers=auth_headers, json={
+        "trip_number": "TR-OVLPB", "planned_start": "2026-09-25T10:00:00", "planned_end": "2026-09-25T14:00:00"})
+    tb_id = tb.json()["data"]["id"]
+    db2 = await client.post(f"/api/v1/fleet/tms/trips/{tb_id}/dispatch",
+                            headers=auth_headers, json={"vehicle_id": str(vehicle.id)})
+    assert db2.status_code == 409, db2.text
+    assert "უკვე დაგეგმილია" in db2.text
+
+    await db_session.execute(sqla_delete(Trip).where(Trip.id == ta_id))
+    await db_session.execute(sqla_delete(Trip).where(Trip.id == tb_id))
+    await db_session.delete(vehicle)
+    await db_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_tms_wms_return_only_for_failed(client, auth_headers, test_company, db_session):
+    """REQ-TMS-06: a delivery request only returns to warehouse when failed/
+    partial; a delivered one cannot be stamped as returned via WMS."""
+    vehicle = Vehicle(
+        company_id=test_company.id,
+        plate_number="TMS-RET-1", brand="Toyota", model="Hiace", year=2024,
+        fuel_type="diesel", capacity_kg=5000, capacity_m3=100,
+        ownership="own", is_active=True,
+        insurance_valid_until=None, tech_inspection_until=None,
+    )
+    db_session.add(vehicle)
+    await db_session.flush()
+    await db_session.commit()
+
+    dr_id, trip_id, stop_id = await _prepare_trip(
+        client, auth_headers, trip_number="TR-RET", request_number="DR-RET",
+        weight="1000.000", volume="20.000")
+
+    # fail the stop
+    fl = await client.post(f"/api/v1/fleet/tms/trip-stops/{stop_id}/events",
+                           headers=auth_headers, json={
+                               "event": "fail", "delivered_qty": 0,
+                               "exception": "refused", "exception_reason": "მიმღებმა უარი თქვა",
+                           })
+    assert fl.status_code == 200, fl.text
+
+    # WMS return allowed on failed
+    ret = await client.post(f"/api/v1/fleet/tms/delivery-requests/{dr_id}/wms-return",
+                            headers=auth_headers, json={})
+    assert ret.status_code == 200, ret.text
+    assert ret.json()["data"]["returned"] is True
+
+    # a delivered request cannot be returned
+    dr2, trip2, stop2 = await _prepare_trip(
+        client, auth_headers, trip_number="TR-RET2", request_number="DR-RET2",
+        weight="500.000", volume="10.000")
+    dv = await client.post(f"/api/v1/fleet/tms/trip-stops/{stop2}/events",
+                           headers=auth_headers, json={"event": "deliver", "delivered_qty": 10})
+    assert dv.status_code == 200, dv.text
+    ret2 = await client.post(f"/api/v1/fleet/tms/delivery-requests/{dr2}/wms-return",
+                             headers=auth_headers, json={})
+    assert ret2.status_code == 409, ret2.text
+
+    await _cleanup(db_session, trip_id, [dr_id], vehicle)
+    await _cleanup(db_session, trip2, [dr2])
+
+
+@pytest.mark.asyncio
+async def test_tms_pod_correction_requires_manager(client, auth_headers, test_company, db_session, test_employee):
+    """REQ-TMS-06: POD correction requires manager rights; a plain employee is
+    refused, and once corrected the original POD is preserved (supersedes)."""
+    # obtain a low-privilege employee token via the API
+    emp_resp = await client.post("/api/v1/auth/login",
+                                 json={"email": "employee@test.ge", "password": "employee123"})
+    assert emp_resp.status_code == 200, emp_resp.text
+    emp_token = emp_resp.json()["data"]["access_token"]
+    emp_headers = {"Authorization": f"Bearer {emp_token}"}
+
+    # build a delivered POD
+    vehicle = Vehicle(
+        company_id=test_company.id,
+        plate_number="TMS-PODC-1", brand="Toyota", model="Hiace", year=2024,
+        fuel_type="diesel", capacity_kg=5000, capacity_m3=100,
+        ownership="own", is_active=True,
+        insurance_valid_until=None, tech_inspection_until=None,
+    )
+    db_session.add(vehicle)
+    await db_session.flush()
+    await db_session.commit()
+
+    dr_id, trip_id, stop_id = await _prepare_trip(
+        client, auth_headers, trip_number="TR-PODC", request_number="DR-PODC",
+        weight="1000.000", volume="20.000")
+    dl = await client.post(f"/api/v1/fleet/tms/trip-stops/{stop_id}/events",
+                           headers=auth_headers, json={
+                               "event": "deliver", "delivered_qty": 10, "recipient_name": "გიორგი",
+                               "device_event_id": "podc-1"})
+    assert dl.status_code == 200, dl.text
+    pods = await client.get(f"/api/v1/fleet/tms/trips/{trip_id}/pods", headers=auth_headers)
+    pod_id = pods.json()["data"][0]["id"]
+
+    # employee cannot correct
+    corr = {"delivered_qty": 8, "delivered_at": "2026-09-25T12:00:00", "recipient_name": "გიორგი",
+            "exception": "partial", "exception_reason": "ნაწილობრივი"}
+    emp_corr = await client.post(f"/api/v1/fleet/tms/pods/{pod_id}/correct",
+                                 headers=emp_headers, json=corr)
+    assert emp_corr.status_code == 403, emp_corr.text
+
+    # admin corrects → new POD, original preserved
+    adm_corr = await client.post(f"/api/v1/fleet/tms/pods/{pod_id}/correct",
+                                 headers=auth_headers, json=corr)
+    assert adm_corr.status_code == 200, adm_corr.text
+    assert adm_corr.json()["data"]["supersedes"] == pod_id
+
+    pods2 = await client.get(f"/api/v1/fleet/tms/trips/{trip_id}/pods", headers=auth_headers)
+    supers = [p for p in pods2.json()["data"] if p.get("supersedes_id") == pod_id]
+    assert len(supers) == 1
+
+    await _cleanup(db_session, trip_id, [dr_id], vehicle)

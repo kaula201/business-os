@@ -67,6 +67,11 @@ class DeliveryRequest(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     delivered_qty: Mapped[Decimal | None] = mapped_column(Numeric(14, 3), nullable=True)
     exception: Mapped[str | None] = mapped_column(String(255), nullable=True)  # undelivered reason
+    # REQ-TMS-06: returned (undelivered/failed) cargo re-enters stock ONLY via a
+    # WMS return. These stamps record that the return was processed by WMS.
+    returned_to_warehouse: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    returned_warehouse_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=True)
+    returned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -181,6 +186,9 @@ class TripPOD(Base):
     evidence_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # photo/signature doc id
     corrected_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     corrected_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # REQ-TMS-06 POD correction: original record is preserved; a corrected POD
+    # supersedes it (supersedes_id → original). Original is never mutated.
+    supersedes_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tms_pods.id"), nullable=True, index=True)
 
     device_event_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # offline idempotency
     device_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -203,5 +211,7 @@ class TripCostAllocation(Base):
     cost_type: Mapped[str] = mapped_column(String(30), nullable=False)  # fuel | road | carrier | other
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     allocation_method: Mapped[str] = mapped_column(String(20), default="weight", nullable=False)  # weight|volume|quantity
+    # REQ-TMS-08: rule version used for this allocation (immutable ledger semantics)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     source_expense_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FIN expense ref
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
