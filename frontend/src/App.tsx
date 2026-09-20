@@ -28,6 +28,7 @@ const TrialBalancePage = lazy(() => import('./pages/TrialBalancePage'))
 const ProfitLossPage = lazy(() => import('./pages/ProfitLossPage'))
 const BalanceSheetPage = lazy(() => import('./pages/BalanceSheetPage'))
 const FleetPage = lazy(() => import('./pages/FleetPage'))
+const TmsPage = lazy(() => import('./pages/TmsPage'))
 const CashPage = lazy(() => import('./pages/CashPage'))
 const AssetsPage = lazy(() => import('./pages/AssetsPage'))
 const SrsPage = lazy(() => import('./pages/SrsPage'))
@@ -142,6 +143,7 @@ function App() {
                   <Route path="/profit-loss" element={<ProfitLossPage />} />
                   <Route path="/balance-sheet" element={<BalanceSheetPage />} />
                   <Route path="/fleet" element={<FleetPage />} />
+                  <Route path="/fleet/tms" element={<TmsPage />} />
                   <Route path="/cash" element={<CashPage />} />
                   <Route path="/assets" element={<AssetsPage />} />
                   <Route path="/srs" element={<SrsPage />} />

@@ -1,0 +1,691 @@
+# backend/app/api/v1/endpoints/fleet_tms.py
+"""TMS 2.0 — transport & delivery (REQ-TMS-01..09).
+
+delivery-requests, trips (plan/dispatch/start/complete/close), trip-stop events
+(arrive/depart/deliver/fail → POD), capacity checks, vehicle availability.
+"""
+import uuid
+from datetime import datetime, date, timedelta
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.core.database import get_db
+from app.core.dependencies import get_current_user
+from app.core.time import utc_now
+from app.models.user import User
+from app.models.fleet import Vehicle
+from app.models.fleet_tms import (
+    Driver, DeliveryRequest, Trip, TripStop, TripLoad, TripPOD, TripCostAllocation,
+)
+from app.models.maintenance import MaintenanceOrder
+from app.schemas.common import ResponseBase
+
+router = APIRouter(prefix="/fleet/tms", tags=["TMS — ტრანსპორტი"])
+
+
+# ── Schemas ─────────────────────────────────────────────────────────────
+class DeliveryRequestIn(BaseModel):
+    request_number: str
+    dropoff_address: str
+    pickup_address: str | None = None
+    contact_name: str | None = None
+    contact_phone: str | None = None
+    scheduled_from: datetime | None = None
+    scheduled_to: datetime | None = None
+    weight_kg: Decimal | None = None
+    volume_m3: Decimal | None = None
+    package_count: int | None = None
+    special_conditions: str | None = None
+    source_type: str | None = None
+    source_id: str | None = None
+    delivery_date: date | None = None
+
+
+class TripIn(BaseModel):
+    trip_number: str
+    vehicle_id: str | None = None
+    driver_id: str | None = None
+    carrier_id: str | None = None
+    carrier_rate: Decimal | None = None
+    planned_start: datetime | None = None
+    planned_end: datetime | None = None
+    notes: str | None = None
+
+
+class TripStopIn(BaseModel):
+    sequence: int
+    address: str
+    contact_name: str | None = None
+    contact_phone: str | None = None
+    window_from: datetime | None = None
+    window_to: datetime | None = None
+
+
+class TripLoadIn(BaseModel):
+    delivery_id: str
+    stop_id: str | None = None
+    quantity: Decimal
+    weight_kg: Decimal | None = None
+    volume_m3: Decimal | None = None
+
+
+class StopEventIn(BaseModel):
+    event: str  # arrive | depart | deliver | fail
+    device_event_id: str | None = None
+    device_time: datetime | None = None
+    delivered_qty: Decimal | None = None
+    recipient_name: str | None = None
+    exception: str | None = None
+    exception_reason: str | None = None
+    evidence_id: str | None = None
+
+
+class PODIn(BaseModel):
+    delivered_qty: Decimal
+    delivered_at: datetime
+    recipient_name: str | None = None
+    exception: str | None = None
+    exception_reason: str | None = None
+    evidence_id: str | None = None
+    device_event_id: str | None = None
+    device_time: datetime | None = None
+
+
+class DispatchIn(BaseModel):
+    vehicle_id: str | None = None
+    driver_id: str | None = None
+
+
+class CostAllocationIn(BaseModel):
+    cost_type: str  # fuel | road | carrier | other
+    amount: Decimal
+    allocation_method: str = "weight"  # weight|volume|quantity
+    source_expense_id: str | None = None
+
+
+def _dr_resp(d: DeliveryRequest) -> dict:
+    return {
+        "id": str(d.id), "request_number": d.request_number, "status": d.status,
+        "dropoff_address": d.dropoff_address, "pickup_address": d.pickup_address,
+        "contact_name": d.contact_name, "contact_phone": d.contact_phone,
+        "scheduled_from": d.scheduled_from.isoformat() if d.scheduled_from else None,
+        "scheduled_to": d.scheduled_to.isoformat() if d.scheduled_to else None,
+        "weight_kg": str(d.weight_kg) if d.weight_kg is not None else None,
+        "volume_m3": str(d.volume_m3) if d.volume_m3 is not None else None,
+        "package_count": d.package_count, "delivery_date": str(d.delivery_date) if d.delivery_date else None,
+        "delivered_at": d.delivered_at.isoformat() if d.delivered_at else None,
+        "delivered_qty": str(d.delivered_qty) if d.delivered_qty is not None else None,
+        "exception": d.exception,
+    }
+
+
+def _trip_resp(t: Trip) -> dict:
+    return {
+        "id": str(t.id), "trip_number": t.trip_number, "status": t.status,
+        "vehicle_id": str(t.vehicle_id) if t.vehicle_id else None,
+        "driver_id": str(t.driver_id) if t.driver_id else None,
+        "carrier_id": str(t.carrier_id) if t.carrier_id else None,
+        "planned_start": t.planned_start.isoformat() if t.planned_start else None,
+        "planned_end": t.planned_end.isoformat() if t.planned_end else None,
+        "total_weight_kg": str(t.total_weight_kg),
+        "total_volume_m3": str(t.total_volume_m3),
+        "dispatched_at": t.dispatched_at.isoformat() if t.dispatched_at else None,
+        "started_at": t.started_at.isoformat() if t.started_at else None,
+        "completed_at": t.completed_at.isoformat() if t.completed_at else None,
+        "closed_at": t.closed_at.isoformat() if t.closed_at else None,
+    }
+
+
+def _trip_load_weight(tl: TripLoad) -> Decimal:
+    return tl.weight_kg if tl.weight_kg is not None else Decimal("0")
+
+
+def _trip_load_volume(tl: TripLoad) -> Decimal:
+    return tl.volume_m3 if tl.volume_m3 is not None else Decimal("0")
+
+
+# ── Delivery Requests (REQ-TMS-01) ──────────────────────────────────────
+@router.get("/delivery-requests", response_model=ResponseBase[list[dict]])
+async def list_delivery_requests(
+    status: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(DeliveryRequest).where(DeliveryRequest.company_id == current_user.company_id)
+    if status:
+        q = q.where(DeliveryRequest.status == status)
+    q = q.order_by(DeliveryRequest.created_at.desc()).limit(limit)
+    rows = (await db.execute(q)).scalars().all()
+    return ResponseBase(data=[_dr_resp(d) for d in rows])
+
+
+@router.post("/delivery-requests", response_model=ResponseBase[dict])
+async def create_delivery_request(
+    payload: DeliveryRequestIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    dup = (await db.execute(
+        select(DeliveryRequest).where(
+            DeliveryRequest.company_id == current_user.company_id,
+            DeliveryRequest.request_number == payload.request_number,
+        )
+    )).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail="ამ ნომრით მოთხოვნა უკვე არსებობს")
+
+    src_uuid = None
+    if payload.source_id:
+        try:
+            src_uuid = uuid.UUID(payload.source_id)
+        except ValueError:
+            src_uuid = None
+
+    d = DeliveryRequest(
+        company_id=current_user.company_id,
+        request_number=payload.request_number,
+        dropoff_address=payload.dropoff_address,
+        pickup_address=payload.pickup_address,
+        contact_name=payload.contact_name,
+        contact_phone=payload.contact_phone,
+        scheduled_from=payload.scheduled_from,
+        scheduled_to=payload.scheduled_to,
+        weight_kg=payload.weight_kg,
+        volume_m3=payload.volume_m3,
+        package_count=payload.package_count,
+        special_conditions=payload.special_conditions,
+        source_type=payload.source_type,
+        source_id=src_uuid,
+        delivery_date=payload.delivery_date,
+        created_by=current_user.id,
+    )
+    db.add(d)
+    await db.commit()
+    await db.refresh(d)
+    return ResponseBase(data=_dr_resp(d))
+
+
+@router.post("/delivery-requests/{delivery_id}/plan", response_model=ResponseBase[dict])
+async def plan_delivery_request(
+    delivery_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    d = (await db.execute(
+        select(DeliveryRequest).where(
+            DeliveryRequest.id == delivery_id, DeliveryRequest.company_id == current_user.company_id
+        )
+    )).scalar_one_or_none()
+    if not d:
+        raise HTTPException(status_code=404, detail="მოთხოვნა არ მოიძებნა")
+    if d.status not in ("draft", "planned"):
+        raise HTTPException(status_code=409, detail="მოთხოვნა უკვე დაგეგმილია")
+    d.status = "planned"
+    await db.commit()
+    await db.refresh(d)
+    return ResponseBase(data=_dr_resp(d))
+
+
+# ── Trips (REQ-TMS-02/03) ──────────────────────────────────────────────
+@router.get("/trips", response_model=ResponseBase[list[dict]])
+async def list_trips(
+    status: str | None = None,
+    vehicle_id: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = select(Trip).where(Trip.company_id == current_user.company_id)
+    if status:
+        q = q.where(Trip.status == status)
+    if vehicle_id:
+        try:
+            q = q.where(Trip.vehicle_id == uuid.UUID(vehicle_id))
+        except ValueError:
+            pass
+    q = q.order_by(Trip.created_at.desc()).limit(limit)
+    rows = (await db.execute(q)).scalars().all()
+    return ResponseBase(data=[_trip_resp(t) for t in rows])
+
+
+@router.post("/trips", response_model=ResponseBase[dict])
+async def create_trip(
+    payload: TripIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    dup = (await db.execute(
+        select(Trip).where(
+            Trip.company_id == current_user.company_id, Trip.trip_number == payload.trip_number
+        )
+    )).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail="ამ ნომრით რეისი უკვე არსებობს")
+
+    def _uid(v):
+        try:
+            return uuid.UUID(v) if v else None
+        except ValueError:
+            return None
+
+    t = Trip(
+        company_id=current_user.company_id,
+        trip_number=payload.trip_number,
+        vehicle_id=_uid(payload.vehicle_id),
+        driver_id=_uid(payload.driver_id),
+        carrier_id=_uid(payload.carrier_id),
+        carrier_rate=payload.carrier_rate,
+        planned_start=payload.planned_start,
+        planned_end=payload.planned_end,
+        notes=payload.notes,
+        created_by=current_user.id,
+    )
+    db.add(t)
+    await db.commit()
+    await db.refresh(t)
+    return ResponseBase(data=_trip_resp(t))
+
+
+@router.post("/trips/{trip_id}/stops", response_model=ResponseBase[dict])
+async def add_trip_stop(
+    trip_id: uuid.UUID,
+    payload: TripStopIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+    if trip.status not in ("draft", "planned"):
+        raise HTTPException(status_code=409, detail="ღია რეისზე გაჩერების ცვლილება დაშვებული არ არის")
+    s = TripStop(
+        company_id=current_user.company_id, trip_id=trip.id,
+        sequence=payload.sequence, address=payload.address,
+        contact_name=payload.contact_name, contact_phone=payload.contact_phone,
+        window_from=payload.window_from, window_to=payload.window_to,
+    )
+    db.add(s)
+    await db.commit()
+    await db.refresh(s)
+    return ResponseBase(data={"id": str(s.id), "sequence": s.sequence, "status": s.status})
+
+
+@router.post("/trips/{trip_id}/loads", response_model=ResponseBase[dict])
+async def add_trip_load(
+    trip_id: uuid.UUID,
+    payload: TripLoadIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+    # REQ-TMS-02: capacity check per segment (aggregate weight/volume vs vehicle capacity)
+    existing = (await db.execute(select(TripLoad).where(TripLoad.trip_id == trip.id))).scalars().all()
+    cur_w = sum((_trip_load_weight(x) for x in existing), Decimal("0"))
+    cur_v = sum((_trip_load_volume(x) for x in existing), Decimal("0"))
+    new_w = payload.weight_kg if payload.weight_kg is not None else Decimal("0")
+    new_v = payload.volume_m3 if payload.volume_m3 is not None else Decimal("0")
+    if trip.vehicle_id:
+        vh = (await db.execute(select(Vehicle).where(Vehicle.id == trip.vehicle_id))).scalar_one_or_none()
+        if vh:
+            if vh.capacity_kg is not None and (cur_w + new_w) > vh.capacity_kg:
+                raise HTTPException(status_code=409, detail="წონის ლიმიტი გადაჭარბებულია")
+            if vh.capacity_m3 is not None and (cur_v + new_v) > vh.capacity_m3:
+                raise HTTPException(status_code=409, detail="მოცულობის ლიმიტი გადაჭარბებულია")
+
+    try:
+        did = uuid.UUID(payload.delivery_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="არასწორი delivery_id")
+    stop_id = None
+    if payload.stop_id:
+        try:
+            stop_id = uuid.UUID(payload.stop_id)
+        except ValueError:
+            stop_id = None
+
+    # ensure delivery request matches company; flip to planned
+    drq = (await db.execute(
+        select(DeliveryRequest).where(DeliveryRequest.id == did, DeliveryRequest.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not drq:
+        raise HTTPException(status_code=404, detail="მოთხოვნა არ მოიძებნა")
+
+    tl = TripLoad(
+        company_id=current_user.company_id, trip_id=trip.id, stop_id=stop_id,
+        delivery_id=did, quantity=payload.quantity,
+        weight_kg=payload.weight_kg, volume_m3=payload.volume_m3,
+    )
+    db.add(tl)
+    trip.total_weight_kg = cur_w + new_w
+    trip.total_volume_m3 = cur_v + new_v
+    await db.commit()
+    return ResponseBase(data={"id": str(tl.id), "loaded": True, "total_weight_kg": str(trip.total_weight_kg)})
+
+
+@router.post("/trips/{trip_id}/dispatch", response_model=ResponseBase[dict])
+async def dispatch_trip(
+    trip_id: uuid.UUID,
+    payload: DispatchIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """REQ-TMS-03: validate vehicle active, licence valid, docs current,
+    no open maintenance block, then dispatch."""
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+    if trip.status not in ("draft", "planned"):
+        raise HTTPException(status_code=409, detail="დისპეჩამდე რეისი უნდა იყოს draft ან planned")
+
+    veh_id = uuid.UUID(payload.vehicle_id) if payload.vehicle_id else trip.vehicle_id
+    drv_id = uuid.UUID(payload.driver_id) if payload.driver_id else trip.driver_id
+
+    if veh_id:
+        vh = (await db.execute(select(Vehicle).where(Vehicle.id == veh_id))).scalar_one_or_none()
+        if not vh or not vh.is_active:
+            raise HTTPException(status_code=409, detail="მანქანა არააქტიურია")
+        today = date.today()
+        if vh.insurance_valid_until and vh.insurance_valid_until < today:
+            raise HTTPException(status_code=409, detail="დაზღვევა ვადაგასულია")
+        if vh.tech_inspection_until and vh.tech_inspection_until < today:
+            raise HTTPException(status_code=409, detail="ტექდათვალიერება ვადაგასულია")
+        # REQ-TMS-03 / REQ-MNT-08: no open blocking maintenance order for vehicle
+        maint = (await db.execute(
+            select(MaintenanceOrder.id).where(
+                MaintenanceOrder.company_id == current_user.company_id,
+                MaintenanceOrder.asset_name.ilike(f"%{vh.plate_number}%"),
+                MaintenanceOrder.status.in_(["scheduled", "in_progress"]),
+            ).limit(1)
+        )).first()
+        if maint:
+            raise HTTPException(status_code=409, detail="მანქანა Maintenance-შია დაბლოკილი")
+
+    if drv_id:
+        drv = (await db.execute(select(Driver).where(Driver.id == drv_id))).scalar_one_or_none()
+        if not drv or not drv.is_active:
+            raise HTTPException(status_code=409, detail="მძღოლი არააქტიურია")
+        if drv.license_valid_until and drv.license_valid_until < date.today():
+            raise HTTPException(status_code=409, detail="მძღოლის ლიცენზია ვადაგასულია")
+
+    if veh_id: trip.vehicle_id = veh_id
+    if drv_id: trip.driver_id = drv_id
+    trip.status = "dispatched"
+    trip.dispatched_at = utc_now()
+    await db.commit()
+    await db.refresh(trip)
+    return ResponseBase(data=_trip_resp(trip))
+
+
+@router.post("/trips/{trip_id}/start", response_model=ResponseBase[dict])
+async def start_trip(
+    trip_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+    if trip.status != "dispatched":
+        raise HTTPException(status_code=409, detail="დასაწყებად რეისი უნდა იყოს dispatched")
+    trip.status = "in_progress"
+    trip.started_at = utc_now()
+    await db.commit()
+    await db.refresh(trip)
+    return ResponseBase(data=_trip_resp(trip))
+
+
+@router.post("/trip-stops/{stop_id}/events", response_model=ResponseBase[dict])
+async def stop_event(
+    stop_id: uuid.UUID,
+    payload: StopEventIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """REQ-TMS-04/05/06: arrive / depart / deliver / fail → creates POD & updates stop."""
+    stop = (await db.execute(
+        select(TripStop).where(TripStop.id == stop_id, TripStop.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not stop:
+        raise HTTPException(status_code=404, detail="გაჩერება არ მოიძებნა")
+
+    ev = payload.event
+    now = utc_now()
+
+    if ev == "arrive":
+        stop.status = "arrived"
+        stop.arrived_at = payload.device_time or now
+        await db.commit()
+        return ResponseBase(data={"stop_id": str(stop.id), "status": stop.status})
+
+    if ev == "depart":
+        stop.status = "delivered" if stop.status == "arrived" else stop.status
+        stop.departed_at = payload.device_time or now
+        await db.commit()
+        return ResponseBase(data={"stop_id": str(stop.id), "status": stop.status})
+
+    if ev == "deliver" or ev == "fail":
+        # REQ-TMS-05/06: POD record (idempotent by device_event_id)
+        if payload.device_event_id:
+            existing = (await db.execute(
+                select(TripPOD).where(
+                    TripPOD.company_id == current_user.company_id,
+                    TripPOD.device_event_id == payload.device_event_id,
+                )
+            )).scalar_one_or_none()
+            if existing:
+                return ResponseBase(data={"id": str(existing.id), "duplicate": True, "status": stop.status})
+
+        delivery = None
+        load = (await db.execute(
+            select(TripLoad).where(TripLoad.stop_id == stop.id).limit(1)
+        )).scalar_one_or_none()
+        did = load.delivery_id if load else None
+
+        delivered_qty = payload.delivered_qty if payload.delivered_qty is not None else Decimal("0")
+        exception = payload.exception or ("failed" if ev == "fail" else "ok")
+
+        pod = TripPOD(
+            company_id=current_user.company_id,
+            trip_id=stop.trip_id, stop_id=stop.id, delivery_id=did,
+            delivered_qty=delivered_qty,
+            delivered_at=payload.device_time or now,
+            recipient_name=payload.recipient_name,
+            exception=exception,
+            exception_reason=payload.exception_reason,
+            evidence_id=uuid.UUID(payload.evidence_id) if payload.evidence_id else None,
+            device_event_id=payload.device_event_id,
+            device_time=payload.device_time,
+        )
+        db.add(pod)
+
+        if ev == "fail":
+            stop.status = "failed"
+            stop.exception = payload.exception_reason or payload.exception
+        else:
+            stop.status = "partial" if load and delivered_qty < load.quantity else "delivered"
+            stop.delivered_qty = delivered_qty
+
+        if did:
+            drq = (await db.execute(
+                select(DeliveryRequest).where(DeliveryRequest.id == did)
+            )).scalar_one_or_none()
+            if drq:
+                drq.delivered_qty = delivered_qty
+                drq.delivered_at = pod.delivered_at
+                drq.status = "partial" if (load and delivered_qty < load.quantity) else "delivered"
+                drq.exception = payload.exception_reason or payload.exception
+
+        await db.commit()
+        await db.refresh(pod)
+        return ResponseBase(data={"id": str(pod.id), "status": stop.status, "delivered_qty": str(delivered_qty)})
+
+    raise HTTPException(status_code=422, detail="უცნობი მოვლენა")
+
+
+@router.post("/trips/{trip_id}/complete", response_model=ResponseBase[dict])
+async def complete_trip(
+    trip_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+    if trip.status != "in_progress":
+        raise HTTPException(status_code=409, detail="დასასრულებლად რეისი უნდა იყოს in_progress")
+    trip.status = "completed"
+    trip.completed_at = utc_now()
+    await db.commit()
+    await db.refresh(trip)
+    return ResponseBase(data=_trip_resp(trip))
+
+
+@router.post("/trips/{trip_id}/close", response_model=ResponseBase[dict])
+async def close_trip(
+    trip_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+    if trip.status != "completed":
+        raise HTTPException(status_code=409, detail="დახურვამდე რეისი უნდა იყოს completed")
+    trip.status = "closed"
+    trip.closed_at = utc_now()
+    await db.commit()
+    await db.refresh(trip)
+    return ResponseBase(data=_trip_resp(trip))
+
+
+# ── POD / Costs ───────────────────────────────────────────────────────
+@router.get("/trips/{trip_id}/pods", response_model=ResponseBase[list[dict]])
+async def list_trip_pods(
+    trip_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(TripPOD).where(
+            TripPOD.company_id == current_user.company_id, TripPOD.trip_id == trip_id
+        ).order_by(TripPOD.created_at.desc())
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(p.id), "delivery_id": str(p.delivery_id) if p.delivery_id else None,
+        "delivered_qty": str(p.delivered_qty), "delivered_at": p.delivered_at.isoformat() if p.delivered_at else None,
+        "recipient_name": p.recipient_name, "exception": p.exception, "exception_reason": p.exception_reason,
+        "evidence_id": str(p.evidence_id) if p.evidence_id else None,
+    } for p in rows])
+
+
+@router.post("/trips/{trip_id}/costs", response_model=ResponseBase[dict])
+async def add_trip_cost(
+    trip_id: uuid.UUID,
+    payload: CostAllocationIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """REQ-TMS-08: allocate a trip cost across deliveries by weight/volume/qty."""
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+
+    loads = (await db.execute(select(TripLoad).where(TripLoad.trip_id == trip.id))).scalars().all()
+    if not loads:
+        raise HTTPException(status_code=409, detail="რეისზე ტვირთი არ არის — განაწილება შეუძლებელია")
+
+    # base for allocation
+    def base(x: TripLoad) -> Decimal:
+        if payload.allocation_method == "quantity":
+            return x.quantity
+        if payload.allocation_method == "volume":
+            return _trip_load_volume(x) or Decimal("0")
+        return _trip_load_weight(x) or Decimal("0")
+
+    bases = {str(l.delivery_id): base(l) for l in loads}
+    total = sum(bases.values(), Decimal("0"))
+    if total <= 0:
+        raise HTTPException(status_code=409, detail="განაწილების საფუძველი ნულოვანია")
+
+    created = []
+    for did, b in bases.items():
+        share = (payload.amount * b) / total
+        ca = TripCostAllocation(
+            company_id=current_user.company_id, trip_id=trip.id,
+            delivery_id=uuid.UUID(did), cost_type=payload.cost_type,
+            amount=share, allocation_method=payload.allocation_method,
+            source_expense_id=uuid.UUID(payload.source_expense_id) if payload.source_expense_id else None,
+        )
+        db.add(ca)
+        created.append({"delivery_id": did, "amount": str(share)})
+    await db.commit()
+    return ResponseBase(data={"allocated": created, "total": str(payload.amount)})
+
+
+@router.get("/vehicles/{vehicle_id}/availability", response_model=ResponseBase[dict])
+async def vehicle_availability(
+    vehicle_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """REQ-TMS-09: is this vehicle available to dispatch today (docs, maintenance block, active trip)?"""
+    vh = (await db.execute(
+        select(Vehicle).where(Vehicle.id == vehicle_id, Vehicle.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not vh:
+        raise HTTPException(status_code=404, detail="მანქანა არ მოიძებნა")
+
+    today = date.today()
+    issues = []
+    if not vh.is_active:
+        issues.append("inactive")
+    if vh.insurance_valid_until and vh.insurance_valid_until < today:
+        issues.append("insurance_expired")
+    if vh.tech_inspection_until and vh.tech_inspection_until < today:
+        issues.append("inspection_expired")
+    maint = (await db.execute(
+        select(MaintenanceOrder.id).where(
+            MaintenanceOrder.company_id == current_user.company_id,
+            MaintenanceOrder.asset_name.ilike(f"%{vh.plate_number}%"),
+            MaintenanceOrder.status.in_(["scheduled", "in_progress"]),
+        ).limit(1)
+    )).first()
+    if maint:
+        issues.append("maintenance_block")
+
+    open_trip = (await db.execute(
+        select(Trip.id).where(
+            Trip.company_id == current_user.company_id, Trip.vehicle_id == vh.id,
+            Trip.status.in_(["dispatched", "in_progress"]),
+        ).limit(1)
+    )).first()
+    if open_trip:
+        issues.append("active_trip")
+
+    return ResponseBase(data={
+        "vehicle_id": str(vh.id), "available": len(issues) == 0, "issues": issues,
+        "capacity_kg": str(vh.capacity_kg) if vh.capacity_kg is not None else None,
+        "capacity_m3": str(vh.capacity_m3) if vh.capacity_m3 is not None else None,
+    })

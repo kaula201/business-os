@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # ── Vehicle ──────────────────────────────────────────────────────────
 
+
 class VehicleCreate(BaseModel):
     plate_number: str = Field(..., min_length=1, max_length=20)
     brand: str = Field(..., min_length=1, max_length=100)
@@ -29,6 +30,11 @@ class VehicleCreate(BaseModel):
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     notes: str | None = None
+    # TMS 2.0
+    capacity_kg: float | None = Field(default=None, gt=0)
+    capacity_m3: float | None = Field(default=None, gt=0)
+    ownership: str = Field(default="own", max_length=20)
+    maintenance_due_date: date | None = None
 
     @model_validator(mode="after")
     def validate_coordinate_pair(self):
@@ -59,6 +65,11 @@ class VehicleUpdate(BaseModel):
     longitude: float | None = Field(default=None, ge=-180, le=180)
     is_active: bool | None = None
     notes: str | None = None
+    # TMS 2.0
+    capacity_kg: float | None = Field(default=None, gt=0)
+    capacity_m3: float | None = Field(default=None, gt=0)
+    ownership: str | None = Field(default=None, max_length=20)
+    maintenance_due_date: date | None = None
 
     @model_validator(mode="after")
     def validate_coordinate_pair(self):
@@ -95,6 +106,11 @@ class VehicleResponse(BaseModel):
     longitude: float | None
     is_active: bool
     notes: str | None
+    # TMS 2.0
+    capacity_kg: float | None
+    capacity_m3: float | None
+    ownership: str
+    maintenance_due_date: date | None
     created_at: datetime
     updated_at: datetime
 

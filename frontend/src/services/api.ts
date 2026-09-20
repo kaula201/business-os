@@ -947,6 +947,21 @@ export const fleetApi = {
   createDriver: (vehicleId: string, data: import('../types').DriverAssignmentCreate) => api.post(`/fleet/vehicles/${vehicleId}/drivers`, data),
   updateDriver: (id: string, data: import('../types').DriverAssignmentUpdate) => api.put(`/fleet/drivers/${id}`, data),
   deleteDriver: (id: string) => api.delete(`/fleet/drivers/${id}`),
+  // TMS 2.0 (REQ-TMS-01..09)
+  listDeliveryRequests: (status?: string) => api.get('/fleet/tms/delivery-requests', { params: status ? { status } : {} }),
+  createDeliveryRequest: (data: Record<string, unknown>) => api.post('/fleet/tms/delivery-requests', data),
+  planDelivery: (id: string) => api.post(`/fleet/tms/delivery-requests/${id}/plan`, {}),
+  listTrips: (status?: string) => api.get('/fleet/tms/trips', { params: status ? { status } : {} }),
+  createTrip: (data: Record<string, unknown>) => api.post('/fleet/tms/trips', data),
+  addTripStop: (tripId: string, data: Record<string, unknown>) => api.post(`/fleet/tms/trips/${tripId}/stops`, data),
+  addTripLoad: (tripId: string, data: Record<string, unknown>) => api.post(`/fleet/tms/trips/${tripId}/loads`, data),
+  dispatchTrip: (tripId: string, data: Record<string, unknown>) => api.post(`/fleet/tms/trips/${tripId}/dispatch`, data),
+  startTrip: (tripId: string) => api.post(`/fleet/tms/trips/${tripId}/start`, {}),
+  completeTrip: (tripId: string) => api.post(`/fleet/tms/trips/${tripId}/complete`, {}),
+  closeTrip: (tripId: string) => api.post(`/fleet/tms/trips/${tripId}/close`, {}),
+  stopEvent: (stopId: string, data: Record<string, unknown>) => api.post(`/fleet/tms/trip-stops/${stopId}/events`, data),
+  listTripPods: (tripId: string) => api.get(`/fleet/tms/trips/${tripId}/pods`),
+  vehicleAvailability: (vehicleId: string) => api.get(`/fleet/tms/vehicles/${vehicleId}/availability`),
 }
 
 // App Module API

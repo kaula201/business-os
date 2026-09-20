@@ -33,6 +33,11 @@ class Vehicle(Base):
     fuel_type: Mapped[str] = mapped_column(String(20), default="petrol")  # petrol, diesel, gas, electric, hybrid
     engine_capacity: Mapped[float | None] = mapped_column(Numeric(6, 1), nullable=True)
     tank_capacity_liters: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
+    # TMS 2.0 (REQ-TMS-02/09): cargo capacity + ownership for dispatch capacity checks
+    capacity_kg: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    capacity_m3: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    ownership: Mapped[str] = mapped_column(String(20), default="own", nullable=False)  # own | leased | hired
+    maintenance_due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     initial_mileage: Mapped[float] = mapped_column(Numeric(10, 1), default=0)
     current_mileage: Mapped[float] = mapped_column(Numeric(10, 1), default=0)
     service_interval_km: Mapped[float | None] = mapped_column(Numeric(10, 1), nullable=True)

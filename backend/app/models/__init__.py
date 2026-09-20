@@ -60,6 +60,15 @@ from app.models.procurement import (
 from app.models.audit import AuditLog
 from app.models.gl import GLAccount, JournalEntry, JournalEntryLine
 from app.models.fleet import Vehicle, FuelLog, ServiceRecord, DriverAssignment, OdometerReading
+from app.models.fleet_tms import (
+    Driver as TmsDriver,
+    DeliveryRequest as TmsDeliveryRequest,
+    Trip as TmsTrip,
+    TripStop as TmsTripStop,
+    TripLoad as TmsTripLoad,
+    TripPOD as TmsTripPOD,
+    TripCostAllocation as TmsTripCostAllocation,
+)
 from app.models.cash import CashAccount, CashTransaction
 from app.models.assets import FixedAsset, AssetDepreciation
 from app.models.expenses import Expense, ExpenseCategory

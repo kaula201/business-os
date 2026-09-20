@@ -52,6 +52,7 @@ from app.api.v1.endpoints import (
     expenses,
     fleet,
     fleet_enhanced,
+    fleet_tms,
     gl,
     gl_enhanced,
     exchange_differences,
@@ -185,6 +186,7 @@ api_router.include_router(company.router)
 api_router.include_router(currency.router)
 api_router.include_router(fleet.router)
 api_router.include_router(fleet_enhanced.router)
+api_router.include_router(fleet_tms.router)
 api_router.include_router(integrations.router)
 api_router.include_router(cash.router)
 api_router.include_router(assets.router)
