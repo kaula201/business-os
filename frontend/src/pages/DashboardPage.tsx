@@ -125,10 +125,11 @@ export default function DashboardPage() {
     queryFn: () => usersApi.list({ page_size: 100 }).then(r => r.data.data),
   })
 
-  const { data, isLoading, dataUpdatedAt } = useQuery({
+  const { data, isLoading, isError, dataUpdatedAt, error } = useQuery({
     queryKey: ['dashboard', period, ownerId],
     queryFn: () => dashboardApi.getSummary(period, ownerId || undefined).then(r => r.data.data),
     refetchInterval: refreshFrozen ? false : 60_000,  // silent auto-refresh, frozen while paused
+    retry: 1,
   })
   const { data: aging } = useQuery({
     queryKey: ['dashboard-aging'],
@@ -191,12 +192,24 @@ export default function DashboardPage() {
               {new Date(dataUpdatedAt).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
           )}
-          {/* REQ-DASH-03: stale badge when the authoritative snapshot is older than the refresh window */}
-          {(() => {
-            const lu = kpi?.last_updated_at
-            if (!lu) return null
-            const ageSec = (Date.now() - new Date(lu).getTime()) / 1000
-            if (ageSec <= 120) return null
+          {/* Freshness / fault states (REQ-DASH-03):
+              1. fetch error → show a clear red badge (data is NOT shown as zero)
+              2. > 5 min since last successful refresh → stale amber badge
+              3. otherwise → nothing (silent live dashboard) */}
+          {isError ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              {t('მონაცემების დატვირთვა ვერ მოხერხდა')}
+              <span title={String((error as any)?.message || '')}>?</span>
+            </span>
+          ) : (() => {
+            const luRaw = data?.kpi?.last_updated_at
+            if (!luRaw) return null
+            // backend sends naive UTC — append Z so the client parses it as UTC
+            const lu = new Date(luRaw.endsWith('Z') || luRaw.includes('+') ? luRaw : luRaw + 'Z')
+            if (Number.isNaN(lu.getTime())) return null
+            const ageSec = (Date.now() - lu.getTime()) / 1000
+            if (ageSec <= 300) return null   // fresh within 5 min (60s auto-refresh → normally never shown)
             return (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />

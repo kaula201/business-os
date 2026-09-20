@@ -868,6 +868,8 @@ const en: Record<string, string> = {
   'მომხმარებლები არ მოიძებნა': 'No users found',
   'მომხმარებლის მოწვევა': 'Invite user',
   'მონაცემები არ მოიძებნა': 'No data found',
+  'მონაცემები მოძველდა': 'Data is stale',
+  'მონაცემების დატვირთვა ვერ მოხერხდა': 'Could not load data',
   'მონაცემები არ მოიძებნა ამ პერიოდისთვის': 'No data found for this period',
   'მოსალოდნელი მიღება': 'Expected receipt',
   'მოწვევა': 'Invite',
