@@ -53,6 +53,10 @@ class DeliveryRequest(Base):
 
     pickup_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     dropoff_address: Mapped[str] = mapped_column(String(500), nullable=False)
+    # REQ-TMS-02 planning: dropoff coordinates (optional, used for route
+    # sequencing when recorded — no geocoder required)
+    dropoff_lat: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    dropoff_lng: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
     contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     contact_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     scheduled_from: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # time window

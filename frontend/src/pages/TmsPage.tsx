@@ -127,6 +127,12 @@ export default function TmsPage() {
     queryKey: ['fleet-vehicles'],
     queryFn: () => fleetApi.listVehicles().then((r: any) => r.data.data),
   })
+  // TMS commercial analytics (OTIF / cost / fleet utilization)
+  const analyticsQuery = useQuery({
+    queryKey: ['tms-analytics'],
+    queryFn: () => fleetApi.analytics().then((r: any) => r.data.data),
+  })
+  const analytics: any = analyticsQuery.data || {}
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['tms-deliveries'] })
@@ -148,6 +154,23 @@ export default function TmsPage() {
   const startTrip = useMutation({ mutationFn: (id: string) => fleetApi.startTrip(id), onSuccess: invalidate })
   const completeTrip = useMutation({ mutationFn: (id: string) => fleetApi.completeTrip(id), onSuccess: invalidate })
   const closeTrip = useMutation({ mutationFn: (id: string) => fleetApi.closeTrip(id), onSuccess: invalidate })
+
+  // TMS commercial: route planning + freight billing
+  const routePlanTrip = useMutation({
+    mutationFn: (id: string) => fleetApi.routePlan(id).then((r: any) => r.data.data),
+    onSuccess: (data: any) => {
+      if (data?.suggested && data?.trip_id) {
+        fleetApi.applyPlan(data.trip_id, data.suggested).then(() => invalidate())
+      }
+    },
+  })
+  const freightTrip = useMutation({
+    mutationFn: (id: string) => fleetApi.freight(id).then((r: any) => r.data.data),
+    onSuccess: (data: any) => {
+      setFreightData(data || null)
+    },
+  })
+  const [freightData, setFreightData] = useState<any | null>(null)
 
   const planDelivery = useMutation({ mutationFn: (id: string) => fleetApi.planDelivery(id), onSuccess: invalidate })
 
@@ -197,6 +220,30 @@ export default function TmsPage() {
           >
             <Route className="h-4 w-4" /> {t('რეისის შექმნა')}
           </button>
+        </div>
+      </div>
+
+      {/* TMS analytics (commercial value) */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">{t('დროული მიწოდება (OTIF)')}</p>
+          <p className="mt-1 text-xl font-semibold text-green-600">{analytics.on_time_rate != null ? `${analytics.on_time_rate}%` : '—'}</p>
+          <p className="text-xs text-gray-400">{analytics.delivered ?? 0} {t('მიწოდებული')}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">{t('ხარჯი მიწოდებაზე')}</p>
+          <p className="mt-1 text-xl font-semibold">{analytics.cost_per_delivery != null ? `${analytics.cost_per_delivery} ₾` : '—'}</p>
+          <p className="text-xs text-gray-400">{t('ჯამური')}: {analytics.total_freight_cost != null ? `${analytics.total_freight_cost} ₾` : '—'}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">{t('POD-ები')}</p>
+          <p className="mt-1 text-xl font-semibold">{analytics.pods_recorded ?? 0}</p>
+          <p className="text-xs text-gray-400">{t('ჩაწერილი')}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">{t('ღია რეისები')}</p>
+          <p className="mt-1 text-xl font-semibold">{analytics.fleet_utilization?.open_trips ?? 0}</p>
+          <p className="text-xs text-gray-400">{t('ავტომობილით')}: {analytics.fleet_utilization?.with_vehicle ?? 0}</p>
         </div>
       </div>
 
@@ -260,6 +307,8 @@ export default function TmsPage() {
                     <button onClick={() => completeTrip.mutate(r.id)} className="rounded p-1 text-green-600 hover:bg-green-50" title={t('დასრულება')}><CheckCircle2 className="h-4 w-4" /></button>)}
                   {r.status === 'completed' && (
                     <button onClick={() => closeTrip.mutate(r.id)} className="rounded p-1 text-gray-600 hover:bg-gray-50" title={t('დახურვა')}><XCircle className="h-4 w-4" /></button>)}
+                  <button onClick={() => routePlanTrip.mutate(r.id)} className="rounded p-1 text-orange-600 hover:bg-orange-50" title={t('მარშრუტის დაგეგმვა')}><Route className="h-4 w-4" /></button>
+                  {r.vehicle_id && <button onClick={() => freightTrip.mutate(r.id)} className="rounded p-1 text-purple-600 hover:bg-purple-50" title={t('ფრეიტ-ბილინგი')}><CheckCircle2 className="h-4 w-4" /></button>}
                 </div>
               </div>
             )},
@@ -387,6 +436,34 @@ export default function TmsPage() {
                 <p className="text-sm text-gray-500">{t('გაჩერებები არ არის')}</p>
               )}
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* TMS freight billing modal */}
+      {freightData !== null && (
+        <Modal open={freightData !== null} onClose={() => setFreightData(null)} title={`${t('ფრეიტ-ბილინგი')} — ${freightData.trip_number || ''}`}>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-gray-200 p-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Subtotal</span>
+                <span className="font-medium">{freightData.subtotal} ₾</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Carrier</span>
+                <span className="font-medium">{freightData.carrier_rate} ₾</span>
+              </div>
+              <div className="flex justify-between border-t border-gray-200 pt-1 text-sm font-semibold">
+                <span>Margin</span>
+                <span className="text-green-600">{freightData.margin} ₾</span>
+              </div>
+            </div>
+            {(freightData.lines || []).map((line: any, i: number) => (
+              <div key={i} className="flex items-center justify-between rounded-lg border border-gray-100 p-2 text-sm">
+                <span>{line.request_number}</span>
+                <span>{line.basis} kg × {line.rate} = <b>{line.freight_charge} ₾</b></span>
+              </div>
+            ))}
           </div>
         </Modal>
       )}

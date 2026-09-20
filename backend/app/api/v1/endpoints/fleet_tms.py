@@ -817,6 +817,85 @@ async def trip_fuel_summary(
     })
 
 
+@router.get("/analytics", response_model=ResponseBase[dict])
+async def tms_analytics_endpoint(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """TMS commercial analytics: on-time rate, cost per delivery, fleet
+    utilization."""
+    from app.services.tms import tms_analytics
+    data = await tms_analytics(db, current_user.company_id)
+    return ResponseBase(data=data)
+
+
+@router.post("/trips/{trip_id}/route-plan", response_model=ResponseBase[dict])
+async def route_plan(
+    trip_id: uuid.UUID,
+    payload: dict | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """TMS planning: suggest an order for a trip's stops (nearest-neighbour).
+    Caller may apply it with /apply-plan."""
+    from app.services.tms import sequence_trip_stops
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+    body = payload or {}
+    planned = await sequence_trip_stops(
+        db, trip,
+        start_lat=body.get("start_lat"), start_lon=body.get("start_lng"),
+    )
+    return ResponseBase(data={"trip_id": str(trip.id), "suggested": planned})
+
+
+@router.post("/trips/{trip_id}/apply-plan", response_model=ResponseBase[dict])
+async def apply_plan(
+    trip_id: uuid.UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Persist a trip stop order from a route-plan suggestion (list of stops)."""
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+    ordered = payload.get("ordered") or []
+    seq = 1
+    for item in ordered:
+        stop_id = item.get("stop_id") if isinstance(item, dict) else item
+        stop = (await db.execute(
+            select(TripStop).where(TripStop.id == stop_id, TripStop.trip_id == trip.id)
+        )).scalar_one_or_none()
+        if stop:
+            stop.sequence = seq
+            seq += 1
+    await db.commit()
+    return ResponseBase(data={"trip_id": str(trip.id), "applied": True, "stops": len(ordered)})
+
+
+@router.get("/trips/{trip_id}/freight", response_model=ResponseBase[dict])
+async def freight_billing(
+    trip_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """TMS freight billing: per-delivery freight charge + carrier settlement."""
+    from app.services.tms import freight_schedule
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+    schedule = await freight_schedule(db, trip)
+    return ResponseBase(data=schedule)
+
+
 @router.post("/trips/{trip_id}/costs", response_model=ResponseBase[dict])
 async def add_trip_cost(
     trip_id: uuid.UUID,

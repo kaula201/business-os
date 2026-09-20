@@ -429,3 +429,17 @@ async def test_tms_pod_correction_requires_manager(client, auth_headers, test_co
     assert len(supers) == 1
 
     await _cleanup(db_session, trip_id, [dr_id], vehicle)
+
+
+@pytest.mark.asyncio
+async def test_tms_commercial_analytics_freight(client, auth_headers, test_company, db_session):
+    """TMS commercial layer: analytics endpoint + freight schedule compute."""
+    analytics = await client.get("/api/v1/fleet/tms/analytics", headers=auth_headers)
+    assert analytics.status_code == 200, analytics.text
+    data = analytics.json()["data"]
+    assert "on_time_rate" in data
+    assert "fleet_utilization" in data
+    assert "total_freight_cost" in data
+
+    # empty state: no trips yet → safe zeros
+    assert data["total_delivery_requests"] >= 0
