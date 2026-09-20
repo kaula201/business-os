@@ -1051,6 +1051,27 @@ export interface DashboardKPI {
   total_revenue: number
   monthly_revenue?: number
   revenue_change?: number
+  orders_change?: number | null
+  clients_change?: number | null
+  tasks_change?: number | null
+  cashflow_change?: number | null
+  pipeline_value?: number
+  open_leads?: number
+  receivables_outstanding?: number
+  payables_outstanding?: number
+  stock_value?: number
+  inventory_units?: number
+  cashflow_30d?: number
+  unpaid_invoices?: number
+  // Operational KPIs (REQ-DASH-01)
+  delayed_shipments?: number
+  production_backlog?: number
+  fleet_unavailable?: number
+  maintenance_critical?: number
+  approvals_pending?: number
+  otif_rate?: number | null
+  // Freshness (REQ-DASH-03)
+  last_updated_at?: string | null
 }
 
 export interface RevenuePoint {

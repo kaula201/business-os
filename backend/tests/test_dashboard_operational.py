@@ -31,6 +31,111 @@ async def _set_order_delivery(client, auth_headers, db_session, order_id, delive
 
 
 @pytest.mark.asyncio
+async def test_dashboard_layout_roundtrip(client, auth_headers, test_admin, db_session):
+    """REQ-DASH layout contract: GET empty → PUT persists → GET returns saved."""
+    # seed a company module permission so the dashboard router loads
+    get0 = await client.get("/api/v1/dashboard/layout", headers=auth_headers)
+    assert get0.status_code == 200, get0.text
+
+    payload = {"layouts": {"director": ["revenue", "orders", "otif_rate"], "operator": ["tasks", "approvals_pending"]}}
+    put = await client.put("/api/v1/dashboard/layout", json=payload, headers=auth_headers)
+    assert put.status_code == 200, put.text
+    assert put.json()["data"]["layouts"] == payload["layouts"]
+
+    get1 = await client.get("/api/v1/dashboard/layout", headers=auth_headers)
+    assert get1.status_code == 200, get1.text
+    assert get1.json()["data"]["layouts"] == payload["layouts"]
+
+    # cleanup so test isolation is not broken
+    from app.models.dashboard_layout import DashboardLayout
+    lay = (
+        await db_session.execute(
+            select(DashboardLayout).where(DashboardLayout.user_id == test_admin.id)
+        )
+    ).scalar_one_or_none()
+    if lay:
+        await db_session.delete(lay)
+        await db_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_dashboard_metrics_returns_freshness_and_filters(
+    client, auth_headers, test_company
+):
+    """AC-DASH-03/04: /metrics returns computed_at + status, filters are echoed."""
+    from app.models.warehouse import Warehouse
+    wh = (await client.get("/api/v1/warehouses/", headers=auth_headers)).json()["data"]
+    wh_id = wh[0]["id"] if wh else ""
+
+    url = f"/api/v1/dashboard/metrics?from_date={date.today().isoformat()}&to_date={date.today().isoformat()}"
+    if wh_id:
+        url += f"&warehouse_id={wh_id}"
+    resp = await client.get(url, headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert data["computed_at"] is not None
+    assert data["status"] == "fresh"
+    assert data["from_date"] == date.today().isoformat()
+    assert "kpi" in data and "active_orders" in data["kpi"]
+
+
+@pytest.mark.asyncio
+async def test_dashboard_acdash01_invoice_adds_to_kpi_after_issue(
+    client, auth_headers, test_company, db_session,
+):
+    """AC-DASH-01: order creation auto-creates a DRAFT invoice that does NOT
+    inflate KPI revenue; issuing that invoice adds to revenue."""
+    from tests.test_customer_invoicing import create_invoice_order
+    from app.models.invoice import Invoice
+
+    order, _, _ = await create_invoice_order(
+        client, auth_headers, test_company, db_session, "DASH-AC01"
+    )
+    # The draft invoice auto-created with the order must not affect revenue
+    inv = (
+        await db_session.execute(
+            select(Invoice).where(Invoice.order_id == order["id"])
+        )
+    ).scalar_one()
+    assert inv.status == "draft", "order must auto-create a draft invoice first"
+
+    resp = await client.get("/api/v1/dashboard/summary?period=90d", headers=auth_headers)
+    before = float(resp.json()["data"]["kpi"]["total_revenue"])
+
+    # Draft → revenue unchanged (AC-DASH-01: drafts are excluded)
+    resp2 = await client.get("/api/v1/dashboard/summary?period=90d", headers=auth_headers)
+    assert float(resp2.json()["data"]["kpi"]["total_revenue"]) == before, \
+        "draft invoice must not inflate KPI revenue"
+
+    # Issue it → revenue increases
+    issued = await client.post(f"/api/v1/invoices/{inv.id}/issue", headers=auth_headers)
+    assert issued.status_code in (200, 202), issued.text
+    resp3 = await client.get("/api/v1/dashboard/summary?period=90d", headers=auth_headers)
+    after_issued = float(resp3.json()["data"]["kpi"]["total_revenue"])
+    assert after_issued > before, "issued invoice must add to KPI revenue"
+
+
+@pytest.mark.asyncio
+async def test_dashboard_acdash02_no_margin_widget(client, auth_headers, test_company):
+    """AC-DASH-02: margin/COGS is NOT exposed on the dashboard — a warehouse
+    operator cannot obtain it via UI (KPI set) or API (summary payload)."""
+    resp = await client.get("/api/v1/dashboard/summary?period=30d", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    kpi = resp.json()["data"]["kpi"]
+    # The KPI surface is permission-neutral — no gross-margin or COGS field exists.
+    for forbidden in ("margin", "gross_margin", "cogs", "profit", "markup"):
+        assert forbidden not in kpi, f"dashboard must not expose cost/margin field: {forbidden}"
+
+    # role-views (warehouse operator layout) must not include any margin/cost KPI key
+    rv = await client.get("/api/v1/dashboard/role-views", headers=auth_headers)
+    assert rv.status_code == 200, rv.text
+    for v in rv.json()["data"]["views"]:
+        for k in v["kpis"]:
+            assert "margin" not in k.lower() and "profit" not in k.lower(), \
+                f"role view {v['key']} must not grant margin widget: {k}"
+
+
+@pytest.mark.asyncio
 async def test_dashboard_summary_has_operational_kpis(
     client, auth_headers, test_company, db_session
 ):

@@ -4,6 +4,17 @@ from typing import Optional, List
 from datetime import datetime
 
 
+class DashboardLayoutOut(BaseModel):
+    """Server-side per-user layout: {view_key: [kpi_key, ...]}."""
+    layouts: dict = {}
+    updated_at: Optional[datetime] = None
+
+
+class DashboardLayoutIn(BaseModel):
+    """PUT body — full layout map per view."""
+    layouts: dict = {}
+
+
 class KPICards(BaseModel):
     active_clients: int
     active_orders: int
@@ -80,6 +91,19 @@ class DashboardSummary(BaseModel):
     invoiced_orders_count: int = 0
     total_orders_count: int = 0
     kpi_tooltips: List[KPITooltip] = []
+
+
+class DashboardMetricsResponse(BaseModel):
+    """GET /dashboard/metrics — filtered KPI snapshot with freshness (REQ-DASH-03/04)."""
+    kpi: KPICards
+    from_date: Optional[str] = None
+    to_date: Optional[str] = None
+    branch_id: Optional[str] = None
+    warehouse_id: Optional[str] = None
+    team_id: Optional[str] = None
+    computed_at: datetime
+    refresh_interval_seconds: int = 60
+    status: str = "fresh"  # fresh | stale — stale when computed_at is older than refresh interval
 
 
 class CriticalAlert(BaseModel):

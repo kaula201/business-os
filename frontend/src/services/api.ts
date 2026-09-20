@@ -672,6 +672,10 @@ export const dashboardApi = {
   getKpiDefinitions: () => api.get('/dashboard/kpi-definitions'),
   getKpiDrillDown: (kpiKey: string, limit?: number) =>
     api.get(`/dashboard/kpi-detail/${kpiKey}`, { params: { limit } }),
+  getLayout: () => api.get('/dashboard/layout'),
+  putLayout: (layouts: Record<string, string[]>) => api.put('/dashboard/layout', { layouts }),
+  getMetrics: (params: { from_date?: string; to_date?: string; warehouse_id?: string; branch_id?: string; team_id?: string } = {}) =>
+    api.get('/dashboard/metrics', { params }),
 }
 
 // AI API

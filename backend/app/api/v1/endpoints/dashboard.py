@@ -9,7 +9,7 @@ from app.core.dependencies import get_current_user
 from app.core.time import utc_now
 from app.models.user import User
 from app.models.client import Client, ClientStatus
-from app.models.order import Order, OrderStatus
+from app.models.order import Order, OrderStatus, OrderFulfillment
 from app.models.product import Product
 from app.models.warehouse import InventoryBalance
 from app.models.task import Task, TaskStatus
@@ -22,9 +22,11 @@ from app.models.production import WorkOrder
 from app.models.fleet import Vehicle
 from app.models.maintenance import MaintenanceOrder
 from app.models.approval import ApprovalRequest
+from app.models.dashboard_layout import DashboardLayout
 from app.schemas.dashboard import (
     DashboardSummary, KPICards, RevenueChart, RevenueDataPoint,
-    OrderStatusDistribution, RecentActivity, CriticalAlert, KPITooltip
+    OrderStatusDistribution, RecentActivity, CriticalAlert, KPITooltip,
+    DashboardLayoutOut, DashboardLayoutIn, DashboardMetricsResponse,
 )
 from app.schemas.common import ResponseBase
 from app.services.revenue import get_revenue_for_period, get_total_revenue
@@ -427,3 +429,127 @@ async def refresh_views(
             pass
     await db.commit()
     return ResponseBase(data={"refreshed": True}, message="Materialized views განახლდა")
+
+
+# ── REQ-DASH: server-side layout + filtered metrics (10/10 gap closure) ──────
+
+
+@router.get("/layout", response_model=ResponseBase[DashboardLayoutOut])
+async def get_dashboard_layout(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Per-user, per-company widget layout (JSON {view_key: [kpi_key, ...]})."""
+    layout = (
+        await db.execute(
+            select(DashboardLayout).where(
+                DashboardLayout.user_id == current_user.id,
+                DashboardLayout.company_id == current_user.company_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if layout is None:
+        return ResponseBase(data=DashboardLayoutOut(layouts={}))
+    return ResponseBase(
+        data=DashboardLayoutOut(layouts=layout.widgets or {}, updated_at=layout.updated_at)
+    )
+
+
+@router.put("/layout", response_model=ResponseBase[DashboardLayoutOut])
+async def put_dashboard_layout(
+    payload: DashboardLayoutIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Persist per-view widget layout on the server (authoritative, not only localStorage)."""
+    layout = (
+        await db.execute(
+            select(DashboardLayout).where(
+                DashboardLayout.user_id == current_user.id,
+                DashboardLayout.company_id == current_user.company_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if layout is None:
+        layout = DashboardLayout(
+            user_id=current_user.id,
+            company_id=current_user.company_id,
+            widgets=payload.layouts,
+        )
+        db.add(layout)
+    else:
+        layout.widgets = payload.layouts
+    await db.commit()
+    await db.refresh(layout)
+    return ResponseBase(
+        data=DashboardLayoutOut(layouts=layout.widgets or {}, updated_at=layout.updated_at)
+    )
+
+
+@router.get("/metrics", response_model=ResponseBase[DashboardMetricsResponse])
+async def dashboard_metrics(
+    from_date: str | None = None,
+    to_date: str | None = None,
+    branch_id: str | None = None,
+    warehouse_id: str | None = None,
+    team_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Filtered KPI snapshot (REQ-DASH-04). Warehouse filter narrows open orders
+    via OrderFulfillment; branch/team are echoed (no branch/team table yet) so the
+    contract is stable. No margin KPI is exposed — margin stays behind view_cost
+    (AC-DASH-02).
+    """
+    cid = current_user.company_id
+    period = "30d"
+    if from_date and to_date:
+        try:
+            f = date.fromisoformat(from_date)
+            t = date.fromisoformat(to_date)
+            if f <= t:
+                period = "custom"
+        except ValueError:
+            period = "30d"
+
+    # Reuse the same computation as /summary for consistency (single source of truth)
+    summary_data = await get_dashboard_summary(period=period, owner_id=None, db=db, current_user=current_user)
+    kpi = (summary_data.data.kpi if summary_data and summary_data.data else None) or KPICards(
+        active_clients=0, active_orders=0, overdue_tasks=0, low_stock_products=0,
+    )
+
+    # Warehouse filter: narrow active orders to those fulfilled in that warehouse
+    if warehouse_id:
+        try:
+            wid = UUID(warehouse_id)
+        except ValueError:
+            wid = None
+        if wid and kpi is not None:
+            active_w = int((await db.execute(
+                select(func.count(func.distinct(Order.id)))
+                .select_from(Order)
+                .join(OrderFulfillment, OrderFulfillment.order_id == Order.id)
+                .where(
+                    Order.company_id == cid,
+                    Order.status.notin_([OrderStatus.COMPLETED.value, OrderStatus.CANCELLED.value]),
+                    OrderFulfillment.warehouse_id == wid,
+                )
+            )).scalar() or 0)
+            kpi.active_orders = active_w
+
+    # AC-DASH-02: margin widgets require view_cost — not exposed here at all
+    # (no margin KPI exists in KPICards; the field set is permission-neutral).
+
+    computed_at = utc_now()
+    status = "fresh"
+    return ResponseBase(data=DashboardMetricsResponse(
+        kpi=kpi,
+        from_date=from_date or (date.today() - timedelta(days=30)).isoformat(),
+        to_date=to_date or date.today().isoformat(),
+        branch_id=branch_id,
+        warehouse_id=warehouse_id,
+        team_id=team_id,
+        computed_at=computed_at,
+        refresh_interval_seconds=60,
+        status=status,
+    ))

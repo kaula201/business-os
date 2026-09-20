@@ -1,5 +1,5 @@
 import { Link , useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { dashboardApi, usersApi } from '../services/api'
@@ -68,7 +68,7 @@ export default function DashboardPage() {
     enabled: !!drillKpi,
   })
 
-  // saved layout per view — localStorage
+  // saved layout per view — server-side (authoritative) + localStorage (fast-path cache)
   const [savedLayouts, setSavedLayouts] = useState<Record<string, string[]>>(() => {
     try { return JSON.parse(localStorage.getItem('bos_dash_layouts') || '{}') } catch { return {} }
   })
@@ -76,7 +76,26 @@ export default function DashboardPage() {
     const next = { ...savedLayouts, [viewKey]: kpis }
     setSavedLayouts(next)
     localStorage.setItem('bos_dash_layouts', JSON.stringify(next))
+    // REQ-DASH layout contract: persist on server too (role-change-safe)
+    dashboardApi.putLayout(next).catch(() => {})
   }
+
+  // Seed from server layout on first load (overrides any stale localStorage)
+  const { data: serverLayoutData } = useQuery({
+    queryKey: ['dashboard-server-layout'],
+    queryFn: () => dashboardApi.getLayout().then(r => r.data.data),
+    staleTime: 60_000,
+  })
+  useEffect(() => {
+    const sl = (serverLayoutData as any)?.layouts
+    if (sl && typeof sl === 'object' && Object.keys(sl).length) {
+      try {
+        const cur = JSON.parse(localStorage.getItem('bos_dash_layouts') || '{}')
+        const merged = { ...cur, ...sl }
+        localStorage.setItem('bos_dash_layouts', JSON.stringify(merged))
+      } catch { /* ignore */ }
+    }
+  }, [serverLayoutData])
 
   const effectiveView = activeView ?? roleViewsData?.default_view ?? 'director'
   const roleView = roleViewsData?.views?.find((v: any) => v.key === effectiveView) || roleViewsData?.views?.[0]
@@ -172,6 +191,19 @@ export default function DashboardPage() {
               {new Date(dataUpdatedAt).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
           )}
+          {/* REQ-DASH-03: stale badge when the authoritative snapshot is older than the refresh window */}
+          {(() => {
+            const lu = kpi?.last_updated_at
+            if (!lu) return null
+            const ageSec = (Date.now() - new Date(lu).getTime()) / 1000
+            if (ageSec <= 120) return null
+            return (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                {t('მონაცემები მოძველდა')}
+              </span>
+            )
+          })()}
         </div>
         <select
           value={ownerId}
