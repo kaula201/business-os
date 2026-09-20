@@ -1154,7 +1154,7 @@
  {
   "module_code": "Dashboard",
   "file": "frontend/src/pages/DashboardPage.tsx",
-  "lines": 598,
+  "lines": 610,
   "buttons": [
    {
     "label": "მორგება",
