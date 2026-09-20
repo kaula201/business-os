@@ -443,3 +443,63 @@ async def test_tms_commercial_analytics_freight(client, auth_headers, test_compa
 
     # empty state: no trips yet → safe zeros
     assert data["total_delivery_requests"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_tms_gps_telemetry_geofence(client, auth_headers, test_company, db_session):
+    """REQ-TMS-04 live tracking: telemetry posts a GPS point; a geofence around
+    the next stop fires auto-arrival when the point is within the radius."""
+    from app.models.fleet_tms import TripGeofence
+    vehicle = Vehicle(
+        company_id=test_company.id,
+        plate_number="TMS-GPS-1", brand="Toyota", model="Hiace", year=2024,
+        fuel_type="diesel", capacity_kg=5000, capacity_m3=100,
+        ownership="own", is_active=True,
+        insurance_valid_until=None, tech_inspection_until=None,
+    )
+    db_session.add(vehicle)
+    await db_session.flush()
+    await db_session.commit()
+
+    dr_id, trip_id, stop_id = await _prepare_trip(
+        client, auth_headers, trip_number="TR-GPS", request_number="DR-GPS",
+        weight="1000.000", volume="20.000")
+
+    # dispatch + start so the stop is on the live path
+    await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/dispatch",
+                      headers=auth_headers, json={"vehicle_id": str(vehicle.id)})
+    await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/start",
+                      headers=auth_headers, json={})
+
+    # define geofence around the stop (radius 200m)
+    gf = await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/geofences",
+                           headers=auth_headers, json={
+                               "stop_id": stop_id, "lat": "41.715137", "lng": "44.827096", "radius_m": 200})
+    assert gf.status_code == 200, gf.text
+
+    # post a point far away → no auto-arrival
+    far = await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/telemetry",
+                            headers=auth_headers, json={
+                                "lat": "42.146158", "lng": "41.6719", "tracked_at": "2026-09-25T09:00:00"})
+    assert far.status_code == 200, far.text
+    assert far.json()["data"]["auto_arrival"] is None
+
+    # post a point inside the geofence → auto-arrival fires
+    inside = await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/telemetry",
+                               headers=auth_headers, json={
+                                   "lat": "41.715137", "lng": "44.827096", "tracked_at": "2026-09-25T09:05:00"})
+    assert inside.status_code == 200, inside.text
+    hit = inside.json()["data"]["auto_arrival"]
+    assert hit is not None and hit.get("arrived") is True
+
+    # live position now reflects the last point
+    live = await client.get(f"/api/v1/fleet/tms/trips/{trip_id}/live-position", headers=auth_headers)
+    assert live.status_code == 200, live.text
+    pos = live.json()["data"]["position"]
+    assert pos is not None and "41.715137" in pos["lat"]
+
+    await db_session.execute(sqla_delete(TripGeofence).where(TripGeofence.trip_id == trip_id))
+    # remove telemetry rows first (FK to trip) so _cleanup can delete the trip
+    from app.models.fleet_tms import TripTelemetry
+    await db_session.execute(sqla_delete(TripTelemetry).where(TripTelemetry.trip_id == trip_id))
+    await _cleanup(db_session, trip_id, [dr_id], vehicle)

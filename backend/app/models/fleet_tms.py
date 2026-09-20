@@ -219,3 +219,40 @@ class TripCostAllocation(Base):
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     source_expense_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FIN expense ref
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class TripTelemetry(Base):
+    """Live GPS feed for an active trip (REQ-TMS-04 live tracking). Any GPS
+    tracker / driver app posts coordinates here; a live view reads the latest."""
+
+    __tablename__ = "tms_trip_telemetry"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    trip_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tms_trips.id"), nullable=False, index=True)
+    device_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    tracked_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    lat: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    lng: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    speed_kmh: Mapped[float | None] = mapped_column(Numeric(6, 1), nullable=True)
+    heading: Mapped[float | None] = mapped_column(Numeric(5, 1), nullable=True)
+    # Offline batching: unique device+time dedupes bursts
+    server_received_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class TripGeofence(Base):
+    """REQ-TMS-04: a circular geofence around a stop for auto-arrival."""
+
+    __tablename__ = "tms_trip_geofences"
+    __table_args__ = (
+        UniqueConstraint("company_id", "trip_id", "stop_id", name="uq_tms_trip_geofence_stop"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    trip_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tms_trips.id"), nullable=False, index=True)
+    stop_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tms_trip_stops.id"), nullable=False)
+    lat: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    lng: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    radius_m: Mapped[float] = mapped_column(Numeric(8, 1), default=500, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

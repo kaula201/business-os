@@ -22,6 +22,7 @@ from app.models.fleet import Vehicle
 from app.models.fleet import FuelLog
 from app.models.fleet_tms import (
     Driver, DeliveryRequest, Trip, TripStop, TripLoad, TripPOD, TripCostAllocation,
+    TripTelemetry, TripGeofence,
 )
 from app.models.maintenance import MaintenanceOrder
 from app.schemas.common import ResponseBase
@@ -877,6 +878,126 @@ async def apply_plan(
             seq += 1
     await db.commit()
     return ResponseBase(data={"trip_id": str(trip.id), "applied": True, "stops": len(ordered)})
+
+
+@router.post("/trips/{trip_id}/telemetry", response_model=ResponseBase[dict])
+async def post_telemetry(
+    trip_id: uuid.UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """REQ-TMS-04 live tracking: any GPS tracker/driver app posts a coordinate
+    point for an active trip. Auto-arrival fires when the point enters a stop
+    geofence."""
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+
+    lat = Decimal(str(payload["lat"]))
+    lng = Decimal(str(payload["lng"]))
+    tracked_at = payload.get("tracked_at")
+    if isinstance(tracked_at, str):
+        tracked_at = datetime.fromisoformat(tracked_at)
+
+    tele = TripTelemetry(
+        company_id=current_user.company_id, trip_id=trip.id,
+        device_id=payload.get("device_id"),
+        tracked_at=tracked_at or utc_now(),
+        lat=lat, lng=lng,
+        speed_kmh=payload.get("speed_kmh"), heading=payload.get("heading"),
+    )
+    db.add(tele)
+
+    await db.commit()
+
+    # auto-arrival: check the latest unmatched stop's geofence
+    from math import radians, sin, cos, asin, sqrt
+    hit = None
+    if trip.status == "in_progress":
+        nxt = (await db.execute(
+            select(TripStop).where(TripStop.trip_id == trip.id, TripStop.status == "pending")
+            .order_by(TripStop.sequence).limit(1)
+        )).scalar_one_or_none()
+        if nxt:
+            gf = (await db.execute(
+                select(TripGeofence).where(
+                    TripGeofence.trip_id == trip.id, TripGeofence.stop_id == nxt.id
+                )
+            )).scalar_one_or_none()
+            if gf:
+                r = 6371000.0
+                dlat = radians(float(lat) - float(gf.lat))
+                dlng = radians(float(lng) - float(gf.lng))
+                a = sin(dlat/2)**2 + cos(radians(float(lat))) * cos(radians(float(gf.lat))) * sin(dlng/2)**2
+                dist = 2 * r * asin(sqrt(a))
+                if dist <= float(gf.radius_m):
+                    nxt.status = "arrived"
+                    nxt.arrived_at = utc_now()
+                    await db.commit()
+                    hit = {"stop_id": str(nxt.id), "arrived": True, "distance_m": round(dist, 1)}
+
+    return ResponseBase(data={"trip_id": str(trip.id), "recorded": True, "auto_arrival": hit})
+
+
+@router.get("/trips/{trip_id}/live-position", response_model=ResponseBase[dict])
+async def live_position(
+    trip_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """REQ-TMS-04: latest GPS position for a trip's live view."""
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+    last = (await db.execute(
+        select(TripTelemetry).where(TripTelemetry.trip_id == trip.id)
+        .order_by(TripTelemetry.tracked_at.desc()).limit(1)
+    )).scalar_one_or_none()
+    return ResponseBase(data={
+        "trip_id": str(trip.id),
+        "position": {
+            "lat": str(last.lat), "lng": str(last.lng),
+            "tracked_at": last.tracked_at.isoformat() if last else None,
+            "speed_kmh": str(last.speed_kmh) if last and last.speed_kmh is not None else None,
+        } if last else None,
+    })
+
+
+@router.post("/trips/{trip_id}/geofences", response_model=ResponseBase[dict])
+async def set_geofence(
+    trip_id: uuid.UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """REQ-TMS-04: define a circular geofence around a stop for auto-arrival."""
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+    stop = (await db.execute(
+        select(TripStop).where(
+            TripStop.id == uuid.UUID(payload["stop_id"]), TripStop.trip_id == trip.id
+        )
+    )).scalar_one_or_none()
+    if not stop:
+        raise HTTPException(status_code=404, detail="გაჩერება არ მოიძებნა")
+
+    gf = TripGeofence(
+        company_id=current_user.company_id, trip_id=trip.id, stop_id=stop.id,
+        lat=Decimal(str(payload["lat"])), lng=Decimal(str(payload["lng"])),
+        radius_m=payload.get("radius_m", 500),
+    )
+    db.add(gf)
+    await db.commit()
+    await db.refresh(gf)
+    return ResponseBase(data={"id": str(gf.id), "stop_id": str(stop.id), "radius_m": float(gf.radius_m)})
 
 
 @router.get("/trips/{trip_id}/freight", response_model=ResponseBase[dict])
