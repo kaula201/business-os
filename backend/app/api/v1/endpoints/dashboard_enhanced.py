@@ -26,6 +26,7 @@ from app.models.production import WorkOrder
 from app.models.fleet import Vehicle
 from app.models.maintenance import MaintenanceOrder
 from app.models.approval import ApprovalRequest
+from app.models.reporting import MetricDefinition
 from app.models.receivable import (
     CustomerPayment,
     CustomerPaymentReversal,
@@ -676,11 +677,43 @@ class KPIInfo(BaseModel):
 
 @router.get("/kpi-definitions", response_model=ResponseBase[list[KPIInfo]])
 async def kpi_definitions(
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("dashboard", "can_access")),
 ):
+    """KPI registry from the MetricDefinition table (REQ-RPT-01). Seeds the
+    authoritative dict on first call if the table is empty for this company."""
+    cid = current_user.company_id
+    rows = (await db.execute(
+        select(MetricDefinition).where(
+            MetricDefinition.company_id == cid, MetricDefinition.is_active.is_(True)
+        ).order_by(MetricDefinition.code)
+    )).scalars().all()
+
+    if not rows:
+        # Lazy seed from the canonical KPI_DEFINITIONS dict (one source of truth)
+        for code, v in KPI_DEFINITIONS.items():
+            db.add(MetricDefinition(
+                company_id=cid,
+                code=code,
+                name=v["label"],
+                description=v.get("description"),
+                formula=v["formula"],
+                source=v["source"],
+                formula_version=v.get("formula_version", 1),
+                allowed_roles=v.get("allowed_roles"),
+                refresh_interval=v.get("refresh_interval", 60),
+                grain=v.get("grain"),
+            ))
+        await db.commit()
+        rows = (await db.execute(
+            select(MetricDefinition).where(
+                MetricDefinition.company_id == cid, MetricDefinition.is_active.is_(True)
+            ).order_by(MetricDefinition.code)
+        )).scalars().all()
+
     return ResponseBase(data=[
-        KPIInfo(key=k, label=v["label"], formula=v["formula"], source=v["source"])
-        for k, v in KPI_DEFINITIONS.items()
+        KPIInfo(key=m.code, label=m.name, formula=m.formula, source=m.source or "")
+        for m in rows
     ])
 
 

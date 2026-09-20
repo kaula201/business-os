@@ -675,7 +675,7 @@ export const dashboardApi = {
     api.get(`/dashboard/kpi-detail/${kpiKey}`, { params: { limit, ...(opts?.period ? { period: opts.period } : {}), ...(opts?.warehouse_id ? { warehouse_id: opts.warehouse_id } : {}), ...(opts?.owner_id ? { owner_id: opts.owner_id } : {}) } }),
   getLayout: () => api.get('/dashboard/layout'),
   putLayout: (layouts: Record<string, string[]>) => api.put('/dashboard/layout', { layouts }),
-  getMetrics: (params: { from_date?: string; to_date?: string; warehouse_id?: string; branch_id?: string; team_id?: string } = {}) =>
+  getMetrics: (params: { from_date?: string; to_date?: string; warehouse_id?: string; team_id?: string } = {}) =>
     api.get('/dashboard/metrics', { params }),
 }
 

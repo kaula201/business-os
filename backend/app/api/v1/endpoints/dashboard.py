@@ -524,16 +524,14 @@ async def put_dashboard_layout(
 async def dashboard_metrics(
     from_date: str | None = None,
     to_date: str | None = None,
-    branch_id: str | None = None,
     warehouse_id: str | None = None,
     team_id: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Filtered KPI snapshot (REQ-DASH-04). Warehouse filter narrows open orders
-    via OrderFulfillment; branch/team are echoed (no branch/team table yet) so the
-    contract is stable. No margin KPI is exposed — margin stays behind view_cost
-    (AC-DASH-02).
+    """Filtered KPI snapshot (REQ-DASH-04). Warehouse and team scope are applied
+    via get_dashboard_summary (single source of truth). No margin KPI is exposed —
+    margin stays behind view_cost (AC-DASH-02).
     """
     cid = current_user.company_id
     period = "30d"
@@ -546,30 +544,12 @@ async def dashboard_metrics(
         except ValueError:
             period = "30d"
 
+    from app.core.time import utc_now
     # Reuse the same computation as /summary for consistency (single source of truth)
-    summary_data = await get_dashboard_summary(period=period, owner_id=None, db=db, current_user=current_user)
+    summary_data = await get_dashboard_summary(period=period, owner_id=None, warehouse_id=warehouse_id, team_id=team_id, db=db, current_user=current_user)
     kpi = (summary_data.data.kpi if summary_data and summary_data.data else None) or KPICards(
         active_clients=0, active_orders=0, overdue_tasks=0, low_stock_products=0,
     )
-
-    # Warehouse filter: narrow active orders to those fulfilled in that warehouse
-    if warehouse_id:
-        try:
-            wid = UUID(warehouse_id)
-        except ValueError:
-            wid = None
-        if wid and kpi is not None:
-            active_w = int((await db.execute(
-                select(func.count(func.distinct(Order.id)))
-                .select_from(Order)
-                .join(OrderFulfillment, OrderFulfillment.order_id == Order.id)
-                .where(
-                    Order.company_id == cid,
-                    Order.status.notin_([OrderStatus.COMPLETED.value, OrderStatus.CANCELLED.value]),
-                    OrderFulfillment.warehouse_id == wid,
-                )
-            )).scalar() or 0)
-            kpi.active_orders = active_w
 
     # AC-DASH-02: margin widgets require view_cost — not exposed here at all
     # (no margin KPI exists in KPICards; the field set is permission-neutral).
@@ -580,7 +560,6 @@ async def dashboard_metrics(
         kpi=kpi,
         from_date=from_date or (date.today() - timedelta(days=30)).isoformat(),
         to_date=to_date or date.today().isoformat(),
-        branch_id=branch_id,
         warehouse_id=warehouse_id,
         team_id=team_id,
         computed_at=computed_at,
