@@ -1469,6 +1469,8 @@ const en: Record<string, string> = {
   'GPS-ის ლოდინი...': 'Waiting for GPS...',
   'აქტიური რეისები არ არის': 'No active trips',
   'ფოტოს მიმაგრება...': 'Attaching photo...',
+  'ოფლაინი': 'Offline',
+  'ოფლაინის რიგი': 'Offline queue',
   'საკონტაქტო': 'Contact',
   'Cashier PIN': 'Cashier PIN',
   'შეიყვანე cashier-ის PIN': 'Enter cashier PIN',

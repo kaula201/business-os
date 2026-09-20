@@ -90,15 +90,73 @@ export default function DriverAppPage() {
   const stopEvent = useMutation({
     mutationFn: ({ stopId, ev, qty }: { stopId: string; ev: string; qty?: number }) =>
       fleetApi.stopEvent(stopId, { event: ev, delivered_qty: qty, recipient_name: 'მძღოლი' }),
+    onMutate: async (vars) => {
+      // offline-first: enqueue first, flush after optimistic UI
+      const online = typeof navigator !== 'undefined' ? navigator.onLine !== false : true
+      if (!online) {
+        const q = await loadQueue()
+        q.push({ type: 'stop_event', ...vars, queued: Date.now() })
+        await saveQueue(q)
+        setOfflineCount((c) => c + 1)
+      }
+    },
     onSuccess: () => {
       if (activeTrip) openTrip(activeTrip.id)
       queryClient.invalidateQueries({ queryKey: ['driver-trips'] })
     },
   })
 
+  // offline queue persistence (IndexedDB-style via localStorage for the PWA)
+  const [offlineCount, setOfflineCount] = useState(0)
+  const loadQueue = async (): Promise<any[]> => {
+    try {
+      return JSON.parse(localStorage.getItem('driver_offline_queue') || '[]')
+    } catch {
+      return []
+    }
+  }
+  const saveQueue = async (q: any[]) => {
+    localStorage.setItem('driver_offline_queue', JSON.stringify(q.filter((x, i) => i < 200)))
+  }
+  // flush queue when back online
+  useEffect(() => {
+    const flush = async () => {
+      const q = await loadQueue()
+      if (q.length === 0) return
+      const online = navigator.onLine !== false
+      if (!online) return
+      const remaining: any[] = []
+      for (const item of q) {
+        try {
+          if (item.type === 'stop_event') {
+            await fleetApi.stopEvent(item.stopId, { event: item.ev, delivered_qty: item.qty, recipient_name: 'მძღოლი' })
+          } else if (item.type === 'evidence') {
+            await fleetApi.podEvidence(item.podId, { data: item.data, kind: item.kind })
+          }
+        } catch {
+          remaining.push(item)
+        }
+      }
+      await saveQueue(remaining)
+      setOfflineCount(remaining.length)
+      queryClient.invalidateQueries({ queryKey: ['driver-trips'] })
+    }
+    flush()
+    window.addEventListener('online', flush)
+    return () => window.removeEventListener('online', flush)
+  }, [])
+
   const evidenceMutation = useMutation({
     mutationFn: ({ podId, data, kind }: { podId: string; data: string; kind: 'photo' | 'signature' }) =>
       fleetApi.podEvidence(podId, { data, kind }),
+    onMutate: async (vars) => {
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        const q = await loadQueue()
+        q.push({ type: 'evidence', ...vars, queued: Date.now() })
+        await saveQueue(q)
+        setOfflineCount((c) => c + 1)
+      }
+    },
     onSuccess: () => setEvidenceFor(null),
   })
 
@@ -130,6 +188,11 @@ export default function DriverAppPage() {
           <Navigation className="h-3 w-3" />
           {gps ? `GPS: ${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)}` : (gpsErr || t('GPS-ის ლოდინი...'))}
         </span>
+        {offlineCount > 0 && (
+          <span className="rounded-full bg-amber-500 px-2 py-1 text-xs text-white" title={t('ოფლაინის რიგი')}>
+            ⌛ {offlineCount} {t('ოფლაინი')}
+          </span>
+        )}
       </header>
 
       {/* Active trip live view */}
