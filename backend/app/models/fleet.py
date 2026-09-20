@@ -76,6 +76,9 @@ class FuelLog(Base):
     station: Mapped[str | None] = mapped_column(String(255), nullable=True)
     receipt_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # REQ-TMS-07: a fuel log can be linked to an optional trip for per-trip cost/
+    # consumption reporting. trip optional by design.
+    trip_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tms_trips.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     vehicle = relationship("Vehicle", back_populates="fuel_logs")

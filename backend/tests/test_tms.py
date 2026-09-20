@@ -248,6 +248,48 @@ async def test_tms_vehicle_availability(client, auth_headers, test_company, db_s
 
 
 @pytest.mark.asyncio
+async def test_tms_maintenance_block_dispatch(client, auth_headers, test_company, db_session):
+    """REQ-TMS-03 / REQ-MNT-08: a vehicle in an open maintenance order is blocked
+    at dispatch; a free vehicle dispatches normally."""
+    from app.models.maintenance import MaintenanceOrder
+    mnt_vehicle = Vehicle(
+        company_id=test_company.id,
+        plate_number="MNT-BLOCK-9", brand="Toyota", model="Hiace", year=2024,
+        fuel_type="diesel", capacity_kg=5000, capacity_m3=100,
+        ownership="own", is_active=True,
+        insurance_valid_until=None, tech_inspection_until=None,
+    )
+    db_session.add(mnt_vehicle)
+    await db_session.flush()
+    await db_session.commit()
+
+    # open maintenance order referencing the vehicle's plate
+    mnt = MaintenanceOrder(
+        company_id=test_company.id, order_number="MNT-9001",
+        description="ა.პ. სასწრაფო შეკეთება",
+        asset_name=f"ტესტი {mnt_vehicle.plate_number}", status="in_progress",
+    )
+    db_session.add(mnt)
+    await db_session.flush()
+    await db_session.commit()
+
+    # try dispatching a trip on the maintenance-blocked vehicle
+    tr_resp = await client.post("/api/v1/fleet/tms/trips", headers=auth_headers, json={
+        "trip_number": "TR-MNTBLOCK", "planned_start": "2026-09-25T08:00:00",
+        "planned_end": "2026-09-25T12:00:00"})
+    tr_id = tr_resp.json()["data"]["id"]
+    disp = await client.post(f"/api/v1/fleet/tms/trips/{tr_id}/dispatch",
+                             headers=auth_headers, json={"vehicle_id": str(mnt_vehicle.id)})
+    assert disp.status_code == 409, disp.text
+    assert "Maintenance" in disp.text or "დაბლოკილი" in disp.text
+
+    await db_session.execute(sqla_delete(Trip).where(Trip.id == tr_id))
+    await db_session.execute(sqla_delete(MaintenanceOrder).where(MaintenanceOrder.id == mnt.id))
+    await db_session.delete(mnt_vehicle)
+    await db_session.commit()
+
+
+@pytest.mark.asyncio
 async def test_tms_time_overlap_block(client, auth_headers, test_company, db_session):
     """REQ-TMS-02: the same vehicle cannot be dispatched on two trips whose
     planned windows overlap."""

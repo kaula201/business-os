@@ -1445,6 +1445,12 @@ const en: Record<string, string> = {
   'ჩავარდნილი': 'Failed',
   'თანამშრომლები': 'Employees',
   'ხელფასები': 'Payroll',
+  // ── TMS driver board (REQ-TMS-04..06) ──
+  'ჩასვლა': 'Arrive',
+  'გამგზავრება': 'Depart',
+  'ჩავარდენა': 'Fail',
+  'გაჩერებები არ არის': 'No stops',
+  'წონა': 'Weight',
   'საკონტაქტო': 'Contact',
   'Cashier PIN': 'Cashier PIN',
   'შეიყვანე cashier-ის PIN': 'Enter cashier PIN',

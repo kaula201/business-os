@@ -112,6 +112,8 @@ export default function TmsPage() {
   const [tripForm, setTripForm] = useState<Record<string, unknown>>({
     trip_number: '', planned_start: '', notes: '',
   })
+  // REQ-TMS-04 driver board: selected trip + its ordered stops
+  const [selectedTrip, setSelectedTrip] = useState<any | null>(null)
 
   const drQuery = useQuery({
     queryKey: ['tms-deliveries'],
@@ -148,6 +150,22 @@ export default function TmsPage() {
   const closeTrip = useMutation({ mutationFn: (id: string) => fleetApi.closeTrip(id), onSuccess: invalidate })
 
   const planDelivery = useMutation({ mutationFn: (id: string) => fleetApi.planDelivery(id), onSuccess: invalidate })
+
+  // REQ-TMS-04: load a trip's ordered stops into the driver-board modal
+  const openTrip = async (tripId: string) => {
+    const res = await fleetApi.getTrip(tripId)
+    setSelectedTrip((res as any).data.data)
+  }
+
+  // REQ-TMS-05/06: driver stop event (arrive/depart/deliver/fail) → POD
+  const driverEvent = useMutation({
+    mutationFn: ({ stopId, ev, qty }: { stopId: string; ev: string; qty?: number }) =>
+      fleetApi.stopEvent(stopId, { event: ev, delivered_qty: qty, recipient_name: 'მძღოლი' }),
+    onSuccess: (_: any, vars: any) => {
+      if (selectedTrip) openTrip(selectedTrip.id)
+      invalidate()
+    },
+  })
 
   const deliveries = drQuery.data || []
   const trips = tripQuery.data || []
@@ -257,6 +275,7 @@ export default function TmsPage() {
             { key: 'total_volume_m3', label: t('მოცულობა (მ³)') },
           ]}
           data={trips}
+          onRowClick={(r: any) => openTrip(r.id)}
         />
       )}
 
@@ -321,6 +340,56 @@ export default function TmsPage() {
           </div>
         </div>
       </Modal>
+
+      {/* REQ-TMS-04: driver board — trip detail with ordered stops */}
+      {selectedTrip !== null && (
+        <Modal open={selectedTrip !== null} onClose={() => setSelectedTrip(null)} title={`${t('რეისი')} ${selectedTrip.trip_number}`}>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-gray-100 px-2 py-1">{selectedTrip.status}</span>
+              <span className="inline-flex items-center gap-1 text-gray-600"><Calendar className="h-3 w-3" />
+                {selectedTrip.planned_start ? new Date(selectedTrip.planned_start).toLocaleString('ka-GE', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</span>
+              <span className="text-gray-600">{t('წონა')}: {selectedTrip.total_weight_kg} kg</span>
+            </div>
+            <div className="space-y-2">
+              {selectedTrip.stops && selectedTrip.stops.length > 0 ? (
+                selectedTrip.stops.map((stop: any, idx: number) => (
+                  <div key={stop.id} className="rounded-lg border border-gray-200 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">{idx + 1}</span>
+                          <span>{stop.address}</span>
+                        </div>
+                        {stop.contact_name && (
+                          <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                            <User className="h-3 w-3" />{stop.contact_name}
+                            {stop.contact_phone && <Phone className="ml-1 h-3 w-3" />}
+                            {stop.contact_phone}
+                          </div>
+                        )}
+                      </div>
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${statusColor[stop.status] || 'bg-gray-100 text-gray-600'}`}>{stop.status}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {stop.status === 'pending' && (
+                        <button onClick={() => driverEvent.mutate({ stopId: stop.id, ev: 'arrive' })} className="rounded bg-blue-600 px-2 py-1 text-xs text-white">{t('ჩასვლა')}</button>)}
+                      {stop.status === 'arrived' && (
+                        <>
+                          <button onClick={() => driverEvent.mutate({ stopId: stop.id, ev: 'depart' })} className="rounded bg-indigo-600 px-2 py-1 text-xs text-white">{t('გამგზავრება')}</button>
+                          <button onClick={() => driverEvent.mutate({ stopId: stop.id, ev: 'deliver', qty: 10 })} className="rounded bg-green-600 px-2 py-1 text-xs text-white">{t('მიწოდება')}</button>
+                          <button onClick={() => driverEvent.mutate({ stopId: stop.id, ev: 'fail', qty: 0 })} className="rounded bg-red-600 px-2 py-1 text-xs text-white">{t('ჩავარდენა')}</button>
+                        </>)}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">{t('გაჩერებები არ არის')}</p>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

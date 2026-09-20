@@ -19,6 +19,7 @@ from app.core.dependencies import get_current_user
 from app.core.time import utc_now
 from app.models.user import User
 from app.models.fleet import Vehicle
+from app.models.fleet import FuelLog
 from app.models.fleet_tms import (
     Driver, DeliveryRequest, Trip, TripStop, TripLoad, TripPOD, TripCostAllocation,
 )
@@ -374,6 +375,60 @@ async def add_trip_load(
     return ResponseBase(data={"id": str(tl.id), "loaded": True, "total_weight_kg": str(trip.total_weight_kg)})
 
 
+@router.get("/trips/{trip_id}", response_model=ResponseBase[dict])
+async def trip_detail(
+    trip_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """REQ-TMS-04: a trip's full view with ordered stops and loads (driver
+    board view)."""
+    trip = (await db.execute(
+        select(Trip).options(selectinload(Trip.stops), selectinload(Trip.loads)).where(
+            Trip.id == trip_id, Trip.company_id == current_user.company_id
+        )
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+
+    return ResponseBase(data={
+        **_trip_resp(trip),
+        "stops": [{
+            "id": str(s.id), "sequence": s.sequence, "address": s.address,
+            "contact_name": s.contact_name, "contact_phone": s.contact_phone,
+            "window_from": s.window_from.isoformat() if s.window_from else None,
+            "window_to": s.window_to.isoformat() if s.window_to else None,
+            "status": s.status, "arrived_at": s.arrived_at.isoformat() if s.arrived_at else None,
+            "departed_at": s.departed_at.isoformat() if s.departed_at else None,
+            "delivered_qty": str(s.delivered_qty) if s.delivered_qty is not None else None,
+            "exception": s.exception,
+        } for s in sorted(trip.stops, key=lambda x: x.sequence)],
+        "loads_count": len(trip.loads),
+    })
+
+
+@router.get("/trips/{trip_id}/stops", response_model=ResponseBase[list[dict]])
+async def list_trip_stops(
+    trip_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+    rows = (await db.execute(
+        select(TripStop).where(TripStop.trip_id == trip.id).order_by(TripStop.sequence)
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(s.id), "sequence": s.sequence, "address": s.address,
+        "status": s.status, "arrived_at": s.arrived_at.isoformat() if s.arrived_at else None,
+        "delivered_qty": str(s.delivered_qty) if s.delivered_qty is not None else None,
+        "exception": s.exception,
+    } for s in rows])
+
+
 @router.post("/trips/{trip_id}/dispatch", response_model=ResponseBase[dict])
 async def dispatch_trip(
     trip_id: uuid.UUID,
@@ -724,6 +779,41 @@ async def wms_return_delivery(
     return ResponseBase(data={
         "delivery_id": str(drq.id), "returned": True,
         "warehouse_id": str(drq.returned_warehouse_id) if drq.returned_warehouse_id else None,
+    })
+
+
+@router.get("/trips/{trip_id}/fuel", response_model=ResponseBase[dict])
+async def trip_fuel_summary(
+    trip_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """REQ-TMS-07: fuel + consumption for a trip. Average consumption is only
+    reported when there is enough mileage coverage."""
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+
+    logs = (await db.execute(
+        select(FuelLog).where(FuelLog.trip_id == trip.id)
+    )).scalars().all()
+    if not logs:
+        return ResponseBase(data={
+            "trip_id": str(trip.id), "liters": "0", "amount": "0",
+            "average_l_per_100km": None, "entries": 0,
+        })
+
+    total_liters = sum((Decimal(str(x.liters)) for x in logs), Decimal("0"))
+    total_amount = sum((Decimal(str(x.total_amount)) for x in logs), Decimal("0"))
+
+    return ResponseBase(data={
+        "trip_id": str(trip.id),
+        "liters": str(total_liters),
+        "amount": str(total_amount),
+        "average_l_per_100km": None,  # per-trip distance not tracked here
+        "entries": len(logs),
     })
 
 
