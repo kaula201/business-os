@@ -428,6 +428,13 @@ async def test_tms_pod_correction_requires_manager(client, auth_headers, test_co
     supers = [p for p in pods2.json()["data"] if p.get("supersedes_id") == pod_id]
     assert len(supers) == 1
 
+    # delete the corrected (superseding) POD first so the original can be
+    # removed (supersedes_id FK points back to the original)
+    import uuid as uuid_mod
+    for s in supers:
+        await db_session.execute(sqla_delete(TripPOD).where(TripPOD.id == uuid_mod.UUID(s["id"])))
+    await db_session.commit()
+
     await _cleanup(db_session, trip_id, [dr_id], vehicle)
 
 
@@ -500,6 +507,63 @@ async def test_tms_gps_telemetry_geofence(client, auth_headers, test_company, db
 
     await db_session.execute(sqla_delete(TripGeofence).where(TripGeofence.trip_id == trip_id))
     # remove telemetry rows first (FK to trip) so _cleanup can delete the trip
+    from app.models.fleet_tms import TripTelemetry
+    await db_session.execute(sqla_delete(TripTelemetry).where(TripTelemetry.trip_id == trip_id))
+    await _cleanup(db_session, trip_id, [dr_id], vehicle)
+
+
+@pytest.mark.asyncio
+async def test_tms_pod_evidence_and_freight_invoice(client, auth_headers, test_company, db_session):
+    """REQ-TMS-05 + freight billing: POD evidence upload (base64) is accepted and
+    a freight invoice issues idempotently per trip."""
+    from app.models.fleet_tms import TripFreightInvoice
+    vehicle = Vehicle(
+        company_id=test_company.id,
+        plate_number="TMS-EVID-1", brand="Toyota", model="Hiace", year=2024,
+        fuel_type="diesel", capacity_kg=5000, capacity_m3=100,
+        ownership="own", is_active=True,
+        insurance_valid_until=None, tech_inspection_until=None,
+    )
+    db_session.add(vehicle)
+    await db_session.flush()
+    await db_session.commit()
+
+    dr_id, trip_id, stop_id = await _prepare_trip(
+        client, auth_headers, trip_number="TR-EVID", request_number="DR-EVID",
+        weight="1000.000", volume="20.000")
+
+    # deliver → create a POD
+    dl = await client.post(f"/api/v1/fleet/tms/trip-stops/{stop_id}/events",
+                           headers=auth_headers, json={
+                               "event": "deliver", "delivered_qty": 10, "recipient_name": "გიორგი",
+                               "device_event_id": "evid-1"})
+    assert dl.status_code == 200, dl.text
+    pods = await client.get(f"/api/v1/fleet/tms/trips/{trip_id}/pods", headers=auth_headers)
+    pod_id = pods.json()["data"][0]["id"]
+
+    # attach evidence (photo base64)
+    ev = await client.post(f"/api/v1/fleet/tms/pods/{pod_id}/evidence",
+                           headers=auth_headers, json={
+                               "data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+                               "kind": "photo"})
+    assert ev.status_code == 200, ev.text
+    assert "fingerprint" in ev.json()["data"]
+
+    # invalid evidence → 422
+    bad = await client.post(f"/api/v1/fleet/tms/pods/{pod_id}/evidence",
+                            headers=auth_headers, json={"data": "not-a-data-url", "kind": "photo"})
+    assert bad.status_code == 422, bad.text
+
+    # freight invoice issues idempotently
+    inv1 = await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/freight-invoice",
+                             headers=auth_headers, json={})
+    assert inv1.status_code == 200, inv1.text
+    assert inv1.json()["data"]["already_exists"] is False
+    inv2 = await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/freight-invoice",
+                             headers=auth_headers, json={})
+    assert inv2.json()["data"]["already_exists"] is True
+
+    await db_session.execute(sqla_delete(TripFreightInvoice).where(TripFreightInvoice.trip_id == trip_id))
     from app.models.fleet_tms import TripTelemetry
     await db_session.execute(sqla_delete(TripTelemetry).where(TripTelemetry.trip_id == trip_id))
     await _cleanup(db_session, trip_id, [dr_id], vehicle)

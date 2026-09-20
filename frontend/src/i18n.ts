@@ -1464,6 +1464,11 @@ const en: Record<string, string> = {
   'დაადასტურე მარშრუტი': 'Apply route',
   'მარშრუტი გამოითვალა': 'Route computed',
   'მარშრუტი დადასტურდა': 'Route applied',
+  // ── Driver PWA (REQ-TMS-04) ──
+  'მძღოლის აპი': 'Driver app',
+  'GPS-ის ლოდინი...': 'Waiting for GPS...',
+  'აქტიური რეისები არ არის': 'No active trips',
+  'ფოტოს მიმაგრება...': 'Attaching photo...',
   'საკონტაქტო': 'Contact',
   'Cashier PIN': 'Cashier PIN',
   'შეიყვანე cashier-ის PIN': 'Enter cashier PIN',

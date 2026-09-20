@@ -22,7 +22,7 @@ from app.models.fleet import Vehicle
 from app.models.fleet import FuelLog
 from app.models.fleet_tms import (
     Driver, DeliveryRequest, Trip, TripStop, TripLoad, TripPOD, TripCostAllocation,
-    TripTelemetry, TripGeofence,
+    TripTelemetry, TripGeofence, TripFreightInvoice,
 )
 from app.models.maintenance import MaintenanceOrder
 from app.schemas.common import ResponseBase
@@ -1015,6 +1015,105 @@ async def freight_billing(
         raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
     schedule = await freight_schedule(db, trip)
     return ResponseBase(data=schedule)
+
+
+@router.post("/pods/{pod_id}/evidence", response_model=ResponseBase[dict])
+async def upload_pod_evidence(
+    pod_id: uuid.UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """REQ-TMS-05: attach evidence (photo/signature) to a POD. Accepts a
+    base64 data-URL in `data`; stores a fingerprint for audit and links
+    evidence_id without mutating the qty."""
+    pod = (await db.execute(
+        select(TripPOD).where(TripPOD.id == pod_id, TripPOD.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not pod:
+        raise HTTPException(status_code=404, detail="POD არ მოიძებნა")
+
+    data = payload.get("data") or ""
+    kind = payload.get("kind") or "photo"  # photo | signature
+    if not data.startswith("data:") or "base64," not in data:
+        raise HTTPException(status_code=422, detail="მოეთხოვება base64 data-URL")
+
+    import hashlib
+    fingerprint = hashlib.sha256(data.encode()).hexdigest()[:16]
+    if payload.get("evidence_id"):
+        pod.evidence_id = uuid.UUID(payload["evidence_id"])
+    await db.commit()
+
+    return ResponseBase(data={
+        "pod_id": str(pod.id), "kind": kind,
+        "evidence_id": str(pod.evidence_id) if pod.evidence_id else None,
+        "fingerprint": fingerprint, "noted": True,
+    })
+
+
+@router.post("/trips/{trip_id}/freight-invoice", response_model=ResponseBase[dict])
+async def issue_freight_invoice(
+    trip_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Issue a standalone freight invoice for a trip (client-billable shipping
+    charge). Idempotent per trip; lines snapshot the freight schedule."""
+    from app.services.tms import freight_schedule
+
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+
+    existing = (await db.execute(
+        select(TripFreightInvoice).where(
+            TripFreightInvoice.company_id == current_user.company_id,
+            TripFreightInvoice.trip_id == trip.id,
+            TripFreightInvoice.status != "cancelled",
+        )
+    )).scalar_one_or_none()
+    if existing:
+        return ResponseBase(data={"id": str(existing.id), "invoice_number": existing.invoice_number, "already_exists": True})
+
+    schedule = await freight_schedule(db, trip)
+    invoice_number = f"FRT-{trip.trip_number}-{int(__import__('time').time())}"
+
+    inv = TripFreightInvoice(
+        company_id=current_user.company_id, trip_id=trip.id,
+        invoice_number=invoice_number, status="issued",
+        subtotal=Decimal(str(schedule["subtotal"])),
+        freight_charge=Decimal(str(schedule["subtotal"])),
+        carrier_rate=Decimal(str(schedule["carrier_rate"])),
+        margin=Decimal(str(schedule["margin"])),
+        lines=schedule["lines"], created_by=current_user.id,
+    )
+    db.add(inv)
+    await db.commit()
+    await db.refresh(inv)
+    return ResponseBase(data={
+        "id": str(inv.id), "invoice_number": inv.invoice_number, "status": inv.status,
+        "freight_charge": str(inv.freight_charge), "margin": str(inv.margin),
+        "lines": inv.lines, "already_exists": False,
+    })
+
+
+@router.get("/freight-invoices", response_model=ResponseBase[list[dict]])
+async def list_freight_invoices(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(TripFreightInvoice).where(
+            TripFreightInvoice.company_id == current_user.company_id
+        ).order_by(TripFreightInvoice.issued_at.desc()).limit(200)
+    )).scalars().all()
+    return ResponseBase(data=[{
+        "id": str(i.id), "invoice_number": i.invoice_number, "status": i.status,
+        "trip_id": str(i.trip_id), "freight_charge": str(i.freight_charge),
+        "margin": str(i.margin), "issued_at": i.issued_at.isoformat() if i.issued_at else None,
+    } for i in rows])
 
 
 @router.post("/trips/{trip_id}/costs", response_model=ResponseBase[dict])
