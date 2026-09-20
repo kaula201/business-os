@@ -663,7 +663,8 @@ export const accountingControlsApi = {
 
 // Dashboard API
 export const dashboardApi = {
-  getSummary: (period: string = '30d', ownerId?: string) => api.get('/dashboard/summary', { params: { period, ...(ownerId ? { owner_id: ownerId } : {}) } }),
+  getSummary: (period: string = '30d', ownerId?: string, warehouseId?: string) =>
+    api.get('/dashboard/summary', { params: { period, ...(ownerId ? { owner_id: ownerId } : {}), ...(warehouseId ? { warehouse_id: warehouseId } : {}) } }),
   getAging: () => api.get('/dashboard/aging'),
   getCashFlow: () => api.get('/dashboard/cash-flow'),
   getDrillDown: (entity: 'ar' | 'ap', bucket: string = 'all') =>

@@ -1522,6 +1522,8 @@ const en: Record<string, string> = {
   'გადართვა': 'Swap',
   'ყველა თანამშრომელი': 'All employees',
   'პასუხისმგებელი ფილტრი': 'Owner filter',
+  'საწყობის ფილტრი': 'Warehouse filter',
+  'ყველა საწყობი': 'All warehouses',
   'დეტალურად ნახვა': 'View details',
   'დეტალები (drill-down)': 'Details (drill-down)',
   'მოგება-ზარალი აჩვენებს მხოლოდ არჩეულ პერიოდს (დან–მდე), ხოლო ბალანსში „მიმდინარე მოგება" მთელი პერიოდის (წლის დასაწყისიდან) დაგროვებულ შედეგს ასახავს.': "P&L shows only the selected period (from–to), while the balance sheet's 'current profit' reflects the accumulated result since the start of the year.",

@@ -45,6 +45,7 @@ def _pct_change(cur: float, prev: float) -> float | None:
 async def get_dashboard_summary(
     period: str = "30d",
     owner_id: str | None = None,
+    warehouse_id: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -60,6 +61,13 @@ async def get_dashboard_summary(
         )).scalar_one_or_none()
         if not owner_exists:
             raise HTTPException(status_code=404, detail="თანამშრომელი არ მოიძებნა")
+
+    wh_uuid = None
+    if warehouse_id:
+        try:
+            wh_uuid = UUID(warehouse_id)
+        except ValueError:
+            wh_uuid = None
 
     # Period mapping
     days = {"7d": 7, "30d": 30, "90d": 90}.get(period, 30)
@@ -120,6 +128,15 @@ async def get_dashboard_summary(
     order_scope = [Order.company_id == company_id]
     if owner_uuid:
         order_scope.append(Order.assigned_to == owner_uuid)
+    if wh_uuid:
+        # Order has no warehouse_id → scope active orders via OrderFulfillment
+        order_scope.append(
+            Order.id.in_(
+                select(OrderFulfillment.order_id).where(
+                    OrderFulfillment.warehouse_id == wh_uuid
+                )
+            )
+        )
     active_orders_count = (await db.execute(
         select(func.count()).where(
             *order_scope,

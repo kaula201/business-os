@@ -2,7 +2,7 @@ import { Link , useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { dashboardApi, usersApi } from '../services/api'
+import { dashboardApi, usersApi, warehousesApi } from '../services/api'
 import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, ArrowDown, Wallet, Clock , ArrowUpRight, LayoutGrid, Info, X, Factory, Car, Wrench, CheckSquare, Gauge } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts'
 import { StatusBadge, orderStatusMap } from '../components/ui/Badges'
@@ -44,6 +44,7 @@ export default function DashboardPage() {
   const { t } = useTranslation()
   const [period, setPeriod] = useState('30d')
   const [ownerId, setOwnerId] = useState('')
+  const [warehouseId, setWarehouseId] = useState('')
   const [showCustomize, setShowCustomize] = useState(false)
   const [activeView, setActiveView] = useState<string | null>(null)
   const [drillKpi, setDrillKpi] = useState<string | null>(null)
@@ -124,10 +125,14 @@ export default function DashboardPage() {
     queryKey: ['dashboard-users'],
     queryFn: () => usersApi.list({ page_size: 100 }).then(r => r.data.data),
   })
+  const { data: warehouses } = useQuery({
+    queryKey: ['dashboard-warehouses'],
+    queryFn: () => warehousesApi.list().then(r => r.data.data),
+  })
 
   const { data, isLoading, isError, dataUpdatedAt, error } = useQuery({
-    queryKey: ['dashboard', period, ownerId],
-    queryFn: () => dashboardApi.getSummary(period, ownerId || undefined).then(r => r.data.data),
+    queryKey: ['dashboard', period, ownerId, warehouseId],
+    queryFn: () => dashboardApi.getSummary(period, ownerId || undefined, warehouseId || undefined).then(r => r.data.data),
     refetchInterval: refreshFrozen ? false : 60_000,  // silent auto-refresh, frozen while paused
     retry: 1,
   })
@@ -227,6 +232,18 @@ export default function DashboardPage() {
           <option value="">{t('ყველა თანამშრომელი')}</option>
           {(users?.items || users || []).map((u: any) => (
             <option key={u.id} value={u.id}>{u.full_name}</option>
+          ))}
+        </select>
+        {/* REQ-DASH-04: warehouse filter narrows order KPIs */}
+        <select
+          value={warehouseId}
+          onChange={(e) => setWarehouseId(e.target.value)}
+          className="input h-9 w-auto text-sm"
+          aria-label={t('საწყობის ფილტრი')}
+        >
+          <option value="">{t('ყველა საწყობი')}</option>
+          {(warehouses || []).map((w: any) => (
+            <option key={w.id} value={w.id}>{w.name || w.code || w.id.slice(0, 8)}</option>
           ))}
         </select>
         <div className="flex gap-2 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-50 p-1 dark:bg-dark-200 dark:border-dark-50">
