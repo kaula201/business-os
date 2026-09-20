@@ -13,6 +13,7 @@ from app.models.order import Order, OrderStatus, OrderFulfillment
 from app.models.product import Product
 from app.models.warehouse import InventoryBalance
 from app.models.task import Task, TaskStatus
+from app.models.sales_team import SalesTeamMember
 from app.models.invoice import Invoice
 from app.models.crm import CRMLead, CRMOpportunity
 from app.models.receivable import CustomerReceivable
@@ -46,6 +47,7 @@ async def get_dashboard_summary(
     period: str = "30d",
     owner_id: str | None = None,
     warehouse_id: str | None = None,
+    team_id: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -68,6 +70,19 @@ async def get_dashboard_summary(
             wh_uuid = UUID(warehouse_id)
         except ValueError:
             wh_uuid = None
+
+    # Optional team scope: members of the given sales team (REQ-DASH-04)
+    team_user_ids = None
+    if team_id:
+        try:
+            team_uuid = UUID(team_id)
+        except ValueError:
+            team_uuid = None
+        if team_uuid:
+            member_rows = (await db.execute(
+                select(SalesTeamMember.user_id).where(SalesTeamMember.team_id == team_uuid)
+            )).scalars().all()
+            team_user_ids = list(member_rows)
 
     # Period mapping
     days = {"7d": 7, "30d": 30, "90d": 90}.get(period, 30)
@@ -128,6 +143,8 @@ async def get_dashboard_summary(
     order_scope = [Order.company_id == company_id]
     if owner_uuid:
         order_scope.append(Order.assigned_to == owner_uuid)
+    if team_user_ids:
+        order_scope.append(Order.assigned_to.in_(team_user_ids))
     if wh_uuid:
         # Order has no warehouse_id → scope active orders via OrderFulfillment
         order_scope.append(

@@ -663,16 +663,16 @@ export const accountingControlsApi = {
 
 // Dashboard API
 export const dashboardApi = {
-  getSummary: (period: string = '30d', ownerId?: string, warehouseId?: string) =>
-    api.get('/dashboard/summary', { params: { period, ...(ownerId ? { owner_id: ownerId } : {}), ...(warehouseId ? { warehouse_id: warehouseId } : {}) } }),
+  getSummary: (period: string = '30d', ownerId?: string, warehouseId?: string, teamId?: string) =>
+    api.get('/dashboard/summary', { params: { period, ...(ownerId ? { owner_id: ownerId } : {}), ...(warehouseId ? { warehouse_id: warehouseId } : {}), ...(teamId ? { team_id: teamId } : {}) } }),
   getAging: () => api.get('/dashboard/aging'),
   getCashFlow: () => api.get('/dashboard/cash-flow'),
   getDrillDown: (entity: 'ar' | 'ap', bucket: string = 'all') =>
     api.get(`/dashboard/drill-down/${entity}`, { params: { bucket } }),
   getRoleViews: () => api.get('/dashboard/role-views'),
   getKpiDefinitions: () => api.get('/dashboard/kpi-definitions'),
-  getKpiDrillDown: (kpiKey: string, limit?: number) =>
-    api.get(`/dashboard/kpi-detail/${kpiKey}`, { params: { limit } }),
+  getKpiDrillDown: (kpiKey: string, limit?: number, opts?: { period?: string; warehouse_id?: string; owner_id?: string }) =>
+    api.get(`/dashboard/kpi-detail/${kpiKey}`, { params: { limit, ...(opts?.period ? { period: opts.period } : {}), ...(opts?.warehouse_id ? { warehouse_id: opts.warehouse_id } : {}), ...(opts?.owner_id ? { owner_id: opts.owner_id } : {}) } }),
   getLayout: () => api.get('/dashboard/layout'),
   putLayout: (layouts: Record<string, string[]>) => api.put('/dashboard/layout', { layouts }),
   getMetrics: (params: { from_date?: string; to_date?: string; warehouse_id?: string; branch_id?: string; team_id?: string } = {}) =>

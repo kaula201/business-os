@@ -40,7 +40,7 @@ from app.models.wms_ops import (
 from app.models.helpdesk_ext import (
     HelpdeskQueue, HelpdeskSla, HelpdeskEscalation, CannedReply, KnowledgeArticle, FieldServiceJob, EmailIntakeRule,
 )
-from app.models.reporting import SavedReport, ReportSchedule, ReportDimension
+from app.models.reporting import SavedReport, ReportSchedule, ReportDimension, MetricDefinition
 from app.models.integration import ApiKey, Webhook, WebhookEvent
 from app.models.bank_connection import BankConnection
 from app.models.payment import PaymentTransaction
@@ -154,7 +154,7 @@ __all__ = [
  "InventoryReservation", "DocumentSequence",
     "Product", "ProductCategory", "ProductVariant", "ProductImage", "StockMovement", "Task", "TaskComment", "TaskAttachment", "TaskHistory", "TaskReminder", "TaskDependency", "Invoice", "InvoiceItem", "InvoiceInstallment", "PaymentAllocation", "InvoiceNote",
     "CustomerReceivable", "CustomerPayment", "CustomerPaymentReversal", "CustomerCreditNote", "CustomerBankReconciliation", "CustomerBankReconciliationReversal",
-    "Warehouse", "InventoryBalance", "InventoryMovement", "WarehouseZone", "ZoneBalance", "InventoryCount", "InventoryCountLine", "AuditLog",
+    "Warehouse", "InventoryBalance", "InventoryMovement", "WarehouseZone", "ZoneBalance", "InventoryCount", "InventoryCountLine", "MetricDefinition", "AuditLog",
     "ProductBatch", "ProductSerial", "UoM", "UoMConversion", "WarehouseReorderRule", "PutawayStrategy", "CycleCountSchedule", "ConsignmentStock",
     "PickList", "PickListItem", "PackingSlip", "ReplenishmentRule", "LandedCost", "LandedCostAllocation", "BatchTraceEvent",
     "WavePick", "CrossDockOrder", "CrossDockItem", "Shipment", "ShipmentItem", "LotZoneBalance",

@@ -2,7 +2,7 @@ import { Link , useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { dashboardApi, usersApi, warehousesApi } from '../services/api'
+import { dashboardApi, usersApi, warehousesApi, salesOrgApi } from '../services/api'
 import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, ArrowDown, Wallet, Clock , ArrowUpRight, LayoutGrid, Info, X, Factory, Car, Wrench, CheckSquare, Gauge } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts'
 import { StatusBadge, orderStatusMap } from '../components/ui/Badges'
@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState('30d')
   const [ownerId, setOwnerId] = useState('')
   const [warehouseId, setWarehouseId] = useState('')
+  const [teamId, setTeamId] = useState('')
   const [showCustomize, setShowCustomize] = useState(false)
   const [activeView, setActiveView] = useState<string | null>(null)
   const [drillKpi, setDrillKpi] = useState<string | null>(null)
@@ -64,8 +65,8 @@ export default function DashboardPage() {
     queryFn: () => dashboardApi.getKpiDefinitions().then(r => r.data.data),
   })
   const { data: drillData, isLoading: drillLoading } = useQuery({
-    queryKey: ['dashboard-drill', drillKpi],
-    queryFn: () => drillKpi ? dashboardApi.getKpiDrillDown(drillKpi, 15).then(r => r.data.data) : null,
+    queryKey: ['dashboard-drill', drillKpi, period, ownerId, warehouseId],
+    queryFn: () => drillKpi ? dashboardApi.getKpiDrillDown(drillKpi, 15, { period, warehouse_id: warehouseId || undefined, owner_id: ownerId || undefined }).then(r => r.data.data) : null,
     enabled: !!drillKpi,
   })
 
@@ -129,10 +130,14 @@ export default function DashboardPage() {
     queryKey: ['dashboard-warehouses'],
     queryFn: () => warehousesApi.list().then(r => r.data.data),
   })
+  const { data: teams } = useQuery({
+    queryKey: ['dashboard-teams'],
+    queryFn: () => salesOrgApi.listTeams({ page_size: 100 }).then(r => r.data.data),
+  })
 
   const { data, isLoading, isError, dataUpdatedAt, error } = useQuery({
-    queryKey: ['dashboard', period, ownerId, warehouseId],
-    queryFn: () => dashboardApi.getSummary(period, ownerId || undefined, warehouseId || undefined).then(r => r.data.data),
+    queryKey: ['dashboard', period, ownerId, warehouseId, teamId],
+    queryFn: () => dashboardApi.getSummary(period, ownerId || undefined, warehouseId || undefined, teamId || undefined).then(r => r.data.data),
     refetchInterval: refreshFrozen ? false : 60_000,  // silent auto-refresh, frozen while paused
     retry: 1,
   })
@@ -205,6 +210,11 @@ export default function DashboardPage() {
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
               <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
               {t('მონაცემების დატვირთვა ვერ მოხერხდა')}
+              {dataUpdatedAt > 0 && (
+                <span title={t('ბოლო წარმატებული განახლება')}>
+                  · {new Date(dataUpdatedAt).toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+              )}
               <span title={String((error as any)?.message || '')}>?</span>
             </span>
           ) : (() => {
@@ -246,6 +256,28 @@ export default function DashboardPage() {
             <option key={w.id} value={w.id}>{w.name || w.code || w.id.slice(0, 8)}</option>
           ))}
         </select>
+        {/* REQ-DASH-04: team filter — narrows order/task KPIs to team members */}
+        <select
+          value={teamId}
+          onChange={(e) => setTeamId(e.target.value)}
+          className="input h-9 w-auto text-sm"
+          aria-label={t('გუნდის ფილტრი')}
+        >
+          <option value="">{t('ყველა გუნდი')}</option>
+          {((teams as any)?.items || teams || []).map((tm: any) => (
+            <option key={tm.id} value={tm.id}>{tm.name || tm.id.slice(0, 8)}</option>
+          ))}
+        </select>
+        {/* REQ-DASH-03: period start/end frame */}
+        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums" title={t('გაანალიზებული პერიოდი')}>
+          {(() => {
+            const days = { '7d': 7, '30d': 30, '90d': 90 }[period] || 30
+            const end = new Date()
+            const start = new Date(end.getTime() - days * 24 * 3600 * 1000)
+            const fmt = (d: Date) => d.toISOString().slice(0, 10)
+            return `${fmt(start)} – ${fmt(end)}`
+          })()}
+        </span>
         <div className="flex gap-2 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-50 p-1 dark:bg-dark-200 dark:border-dark-50">
           {[
             { key: '7d', label: t('7 დღე') },
@@ -344,11 +376,11 @@ export default function DashboardPage() {
               value={val}
               change={(() => {
                 switch (k) {
-                  case 'revenue': return kpi?.revenue_change != null ? kpi.revenue_change : undefined
-                  case 'orders': return kpi?.orders_change != null ? kpi.orders_change : undefined
-                  case 'clients': return kpi?.clients_change != null ? kpi.clients_change : undefined
-                  case 'tasks': return kpi?.tasks_change != null ? kpi.tasks_change : undefined
-                  case 'cashflow': return kpi?.cashflow_change != null ? kpi.cashflow_change : undefined
+                  case 'revenue': return kpi?.revenue_change ?? null
+                  case 'orders': return kpi?.orders_change ?? null
+                  case 'clients': return kpi?.clients_change ?? null
+                  case 'tasks': return kpi?.tasks_change ?? null
+                  case 'cashflow': return kpi?.cashflow_change ?? null
                   default: return undefined
                 }
               })()}
@@ -594,7 +626,7 @@ export default function DashboardPage() {
   )
 }
 
-function KPICard({ icon: Icon, label, value, change, color, hint, to, onDrill, infoTitle, infoSource }: { icon: any; label: string; value: string; change?: number; color: string; hint?: string; to?: string; onDrill?: () => void; infoTitle?: string; infoSource?: string }) {
+function KPICard({ icon: Icon, label, value, change, color, hint, to, onDrill, infoTitle, infoSource }: { icon: any; label: string; value: string; change?: number | null; color: string; hint?: string; to?: string; onDrill?: () => void; infoTitle?: string; infoSource?: string }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const colorMap: Record<string, string> = {
@@ -624,10 +656,15 @@ function KPICard({ icon: Icon, label, value, change, color, hint, to, onDrill, i
       <div className="flex-1 min-w-0">
         <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-200 truncate">{value}</p>
         <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 truncate">{t(label)}</p>
-        {change !== undefined && (
+        {change !== null && change !== undefined && (
           <span className={`text-xs flex items-center gap-1 mt-0.5 ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {change >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
             {Math.abs(change).toFixed(1)}%
+          </span>
+        )}
+        {change === null && (
+          <span className="text-xs text-gray-400 dark:text-gray-500 mt-0.5" title={t('წინა პერიოდი ცარიელია, შედარება ვერ გამოითვლება')}>
+            {t('შედარება ვერ ითვლება')}
           </span>
         )}
         {hint && (

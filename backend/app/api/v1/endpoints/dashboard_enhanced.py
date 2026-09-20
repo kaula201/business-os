@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
 from app.models.user import User
-from app.models.order import Order, OrderStatus
+from app.models.order import Order, OrderStatus, OrderFulfillment
 from app.models.client import Client
 from app.models.product import Product
 from app.models.warehouse import InventoryBalance
@@ -706,18 +706,42 @@ def _days_ago(db: AsyncSession, company_id: UUID, model, col, days: int):
 async def kpi_drill_down(
     kpi_key: str,
     limit: int = Query(10, ge=1, le=50),
+    period: str = "30d",
+    warehouse_id: str | None = None,
+    owner_id: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("dashboard", "can_access")),
 ):
-    """Latest rows behind each KPI — click a card to see what makes up the number."""
+    """Latest rows behind each KPI — click a card to see what makes up the number.
+    Scoped to the same period / owner / warehouse as the dashboard card
+    (REQ-DASH: widget click → same-scope filtered list)."""
     cid = current_user.company_id
     today = date.today()
-    period_start = today - timedelta(days=30)
+    days = {"7d": 7, "30d": 30, "90d": 90}.get(period, 30)
+    period_start_ts = datetime.combine(today - timedelta(days=days), datetime.min.time())
+
+    # Optional owner / warehouse scope (mirrors /summary)
+    owner_uuid = None
+    if owner_id:
+        try:
+            owner_uuid = UUID(owner_id)
+        except ValueError:
+            owner_uuid = None
+    wh_uuid = None
+    if warehouse_id:
+        try:
+            wh_uuid = UUID(warehouse_id)
+        except ValueError:
+            wh_uuid = None
 
     if kpi_key == "revenue":
         # Canonical revenue = issued invoices (same source as summary KPI)
         rows = (await db.execute(
-            select(Invoice).where(Invoice.company_id == cid, Invoice.status == "issued")
+            select(Invoice).where(
+                Invoice.company_id == cid,
+                Invoice.status == "issued",
+                Invoice.invoice_date >= period_start_ts.date(),
+            )
             .order_by(Invoice.created_at.desc())
             .limit(limit)
         )).scalars().all()
@@ -726,8 +750,17 @@ async def kpi_drill_down(
         return ResponseBase(data=KpiDrillDownResponse(kpi="revenue", title="შემოსავალი — გაცემული ინვოისები", rows=data, total=total))
 
     if kpi_key == "orders":
+        scope = [Order.company_id == cid, Order.status.notin_([OrderStatus.COMPLETED.value, OrderStatus.CANCELLED.value]), Order.created_at >= period_start_ts]
+        if owner_uuid:
+            scope.append(Order.assigned_to == owner_uuid)
+        if wh_uuid:
+            scope.append(
+                Order.id.in_(
+                    select(OrderFulfillment.order_id).where(OrderFulfillment.warehouse_id == wh_uuid)
+                )
+            )
         rows = (await db.execute(
-            select(Order).where(Order.company_id == cid, Order.status.notin_([OrderStatus.COMPLETED.value, OrderStatus.CANCELLED.value]))
+            select(Order).where(*scope)
             .order_by(Order.created_at.desc()).limit(limit)
         )).scalars().all()
         data = [KpiDrillDownRow(label=f"#{o.order_number}", value=o.status, date=str(o.created_at.date() if o.created_at else ""), status=o.status) for o in rows]
