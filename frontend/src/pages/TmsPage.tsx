@@ -20,6 +20,7 @@ import {
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import FormField, { Select } from '../components/ui/FormField'
+import LiveRouteMap from '../components/LiveRouteMap'
 import { fleetApi } from '../services/api'
 
 interface DeliveryRequest {
@@ -98,7 +99,10 @@ function badge(status: string) {
 export default function TmsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState<'deliveries' | 'trips'>('deliveries')
+  const [tab, setTab] = useState<'deliveries' | 'trips' | 'map'>('deliveries')
+  // live route map state
+  const [mapTrip, setMapTrip] = useState<any | null>(null)
+  const [historyData, setHistoryData] = useState<any | null>(null)
 
   // ── Delivery requests ──
   const [drModal, setDrModal] = useState(false)
@@ -268,6 +272,14 @@ export default function TmsPage() {
             <Truck className="h-4 w-4" /> {t('რეისები')}
             <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs">{trips.length}</span>
           </button>
+          <button
+            onClick={() => setTab('map')}
+            className={`inline-flex items-center gap-2 rounded-t-lg px-4 py-2 text-sm font-medium ${
+              tab === 'map' ? 'border-b-2 border-blue-600 text-blue-700' : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            <MapPin className="h-4 w-4" /> {t('ლაივ რუკა')}
+          </button>
         </nav>
       </div>
 
@@ -326,6 +338,39 @@ export default function TmsPage() {
           data={trips}
           onRowClick={(r: any) => openTrip(r.id)}
         />
+      )}
+
+      {/* Live route map (REQ-TMS-04) */}
+      {tab === 'map' && (
+        <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+          <div className="rounded-xl border border-gray-200 bg-white p-3">
+            <p className="mb-2 text-sm font-semibold">{t('აირჩიეთ რეისი')}</p>
+            <div className="space-y-1">
+              {trips.length === 0 && <p className="text-sm text-gray-400">{t('აქტიური რეისები არ არის')}</p>}
+              {trips.map((tp) => (
+                <button
+                  key={tp.id}
+                  onClick={async () => { setMapTrip(tp); const h = await fleetApi.tripHistory(tp.id); setHistoryData((h as any).data.data) }}
+                  className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                    mapTrip?.id === tp.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
+                  }`}
+                >
+                  <div className="font-medium">{tp.trip_number}</div>
+                  <div className="text-xs text-gray-500">{tp.status}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            {historyData ? (
+              <LiveRouteMap history={historyData} />
+            ) : (
+              <div className="flex h-[420px] items-center justify-center text-sm text-gray-400">
+                {t('ლაივ რუკა')} — {t('აირჩიეთ რეისი სანახავად')}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* New delivery request modal */}

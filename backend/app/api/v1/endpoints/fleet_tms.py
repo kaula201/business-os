@@ -968,6 +968,56 @@ async def live_position(
     })
 
 
+@router.get("/trips/{trip_id}/history", response_model=ResponseBase[dict])
+async def trip_history(
+    trip_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """REQ-TMS-04 map: chronological GPS track (polyline) + stop geo-pins +
+    geofence circles for the live route view."""
+    trip = (await db.execute(
+        select(Trip).where(Trip.id == trip_id, Trip.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
+
+    # track
+    track = (await db.execute(
+        select(TripTelemetry).where(TripTelemetry.trip_id == trip.id)
+        .order_by(TripTelemetry.tracked_at.asc())
+    )).scalars().all()
+    track_pts = [{"lat": str(t.lat), "lng": str(t.lng), "tracked_at": t.tracked_at.isoformat()} for t in track]
+
+    # stops with coords (from delivery-request dropoff coords via loads)
+    stops_out = []
+    loads = (await db.execute(
+        select(TripLoad).where(TripLoad.trip_id == trip.id)
+    )).scalars().all()
+    for ld in loads:
+        dr = (await db.execute(
+            select(DeliveryRequest).where(DeliveryRequest.id == ld.delivery_id)
+        )).scalar_one_or_none()
+        if dr and dr.dropoff_lat is not None and dr.dropoff_lng is not None:
+            st = (await db.execute(
+                select(TripStop).where(TripStop.id == ld.stop_id)
+            )).scalar_one_or_none() if ld.stop_id else None
+            stops_out.append({
+                "stop_id": str(ld.stop_id) if ld.stop_id else None,
+                "lat": str(dr.dropoff_lat), "lng": str(dr.dropoff_lng),
+                "address": dr.dropoff_address,
+                "status": st.status if st else "pending",
+            })
+
+    # geofence circles
+    geofences = (await db.execute(
+        select(TripGeofence).where(TripGeofence.trip_id == trip.id)
+    )).scalars().all()
+    fences = [{"stop_id": str(g.stop_id), "lat": str(g.lat), "lng": str(g.lng), "radius_m": float(g.radius_m)} for g in geofences]
+
+    return ResponseBase(data={"trip_id": str(trip.id), "track": track_pts, "stops": stops_out, "geofences": fences})
+
+
 @router.post("/trips/{trip_id}/geofences", response_model=ResponseBase[dict])
 async def set_geofence(
     trip_id: uuid.UUID,

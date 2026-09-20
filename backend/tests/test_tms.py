@@ -567,3 +567,39 @@ async def test_tms_pod_evidence_and_freight_invoice(client, auth_headers, test_c
     from app.models.fleet_tms import TripTelemetry
     await db_session.execute(sqla_delete(TripTelemetry).where(TripTelemetry.trip_id == trip_id))
     await _cleanup(db_session, trip_id, [dr_id], vehicle)
+
+
+@pytest.mark.asyncio
+async def test_tms_trip_history(client, auth_headers, test_company, db_session):
+    """REQ-TMS-04 map: /history returns the GPS track chronological points."""
+    vehicle = Vehicle(
+        company_id=test_company.id,
+        plate_number="TMS-HIST-1", brand="Toyota", model="Hiace", year=2024,
+        fuel_type="diesel", capacity_kg=5000, capacity_m3=100,
+        ownership="own", is_active=True,
+        insurance_valid_until=None, tech_inspection_until=None,
+    )
+    db_session.add(vehicle)
+    await db_session.flush()
+    await db_session.commit()
+
+    dr_id, trip_id, stop_id = await _prepare_trip(
+        client, auth_headers, trip_number="TR-HIST", request_number="DR-HIST",
+        weight="1000.000", volume="20.000")
+    await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/dispatch", headers=auth_headers, json={"vehicle_id": str(vehicle.id)})
+    await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/start", headers=auth_headers, json={})
+    await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/telemetry", headers=auth_headers,
+                      json={"lat": "41.715137", "lng": "44.827096", "tracked_at": "2026-09-25T09:00:00"})
+    await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/telemetry", headers=auth_headers,
+                      json={"lat": "41.8000", "lng": "44.8500", "tracked_at": "2026-09-25T09:05:00"})
+
+    h = await client.get(f"/api/v1/fleet/tms/trips/{trip_id}/history", headers=auth_headers)
+    assert h.status_code == 200, h.text
+    data = h.json()["data"]
+    assert "track" in data and "geofences" in data and "stops" in data
+    assert len(data["track"]) == 2
+
+    from app.models.fleet_tms import TripTelemetry, TripGeofence
+    await db_session.execute(sqla_delete(TripGeofence).where(TripGeofence.trip_id == trip_id))
+    await db_session.execute(sqla_delete(TripTelemetry).where(TripTelemetry.trip_id == trip_id))
+    await _cleanup(db_session, trip_id, [dr_id], vehicle)
