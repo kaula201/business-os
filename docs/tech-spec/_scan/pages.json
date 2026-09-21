@@ -1154,7 +1154,7 @@
  {
   "module_code": "Dashboard",
   "file": "frontend/src/pages/DashboardPage.tsx",
-  "lines": 610,
+  "lines": 709,
   "buttons": [
    {
     "label": "მორგება",
@@ -1181,6 +1181,24 @@
       "label": ""
      }
     ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
+   },
+   {
+    "label": null,
+    "options": [
+     {
+      "value": "",
+      "label": ""
+     }
+    ]
    }
   ],
   "inputs": [],
@@ -1189,6 +1207,11 @@
     "method": "LIST",
     "path": "{ page_size: 100 ",
     "client": "usersApi"
+   },
+   {
+    "method": "LIST",
+    "path": "",
+    "client": "warehousesApi"
    }
   ]
  },
@@ -1312,6 +1335,46 @@
     "path": "/documents/${id}"
    }
   ]
+ },
+ {
+  "module_code": "DriverApp",
+  "file": "frontend/src/pages/DriverAppPage.tsx",
+  "lines": 283,
+  "buttons": [
+   {
+    "label": "დახურვა",
+    "on_click": "() => { setActiveTrip(null); tripIdRef.current = null }",
+    "disabled": false
+   },
+   {
+    "label": "ჩასვლა",
+    "on_click": "() => stopEvent.mutate({ stopId: stop.id, ev: 'arrive' })",
+    "disabled": false
+   },
+   {
+    "label": "მიწოდება",
+    "on_click": "() => stopEvent.mutate({ stopId: stop.id, ev: 'deliver', qty: 10 })",
+    "disabled": false
+   },
+   {
+    "label": "ჩავარდენა",
+    "on_click": "() => stopEvent.mutate({ stopId: stop.id, ev: 'fail', qty: 0 })",
+    "disabled": false
+   },
+   {
+    "label": "ფოტო",
+    "on_click": "() => { setEvidenceFor({ podId: stop.id, kind: 'photo' }); capturePhoto(stop.id) }",
+    "disabled": false
+   },
+   {
+    "label": ") : '—'} · kg",
+    "on_click": "() => openTrip(tp.id)",
+    "disabled": false
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
  },
  {
   "module_code": "Ecommerce",
@@ -6504,6 +6567,81 @@
     "client": "tasksApi"
    }
   ]
+ },
+ {
+  "module_code": "Tms",
+  "file": "frontend/src/pages/TmsPage.tsx",
+  "lines": 518,
+  "buttons": [
+   {
+    "label": "მიწოდების მოთხოვნა",
+    "on_click": "() => { setDrModal(true) }",
+    "disabled": false
+   },
+   {
+    "label": "რეისის შექმნა",
+    "on_click": "() => { setTripModal(true) }",
+    "disabled": false
+   },
+   {
+    "label": "მიწოდების მოთხოვნები",
+    "on_click": "() => setTab('deliveries')",
+    "disabled": false
+   },
+   {
+    "label": "რეისები",
+    "on_click": "() => setTab('trips')",
+    "disabled": false
+   },
+   {
+    "label": "ლაივ რუკა",
+    "on_click": "() => setTab('map')",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setDrModal(false)",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createDr.mutate(drForm)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setTripModal(false)",
+    "disabled": false
+   },
+   {
+    "label": "შექმნა",
+    "on_click": "() => createTrip.mutate(tripForm)",
+    "disabled": false
+   },
+   {
+    "label": "ჩასვლა",
+    "on_click": "() => driverEvent.mutate({ stopId: stop.id, ev: 'arrive' })",
+    "disabled": false
+   },
+   {
+    "label": "გამგზავრება",
+    "on_click": "() => driverEvent.mutate({ stopId: stop.id, ev: 'depart' })",
+    "disabled": false
+   },
+   {
+    "label": "მიწოდება",
+    "on_click": "() => driverEvent.mutate({ stopId: stop.id, ev: 'deliver', qty: 10 })",
+    "disabled": false
+   },
+   {
+    "label": "ჩავარდენა",
+    "on_click": "() => driverEvent.mutate({ stopId: stop.id, ev: 'fail', qty: 0 })",
+    "disabled": false
+   }
+  ],
+  "selects": [],
+  "inputs": [],
+  "api_calls": []
  },
  {
   "module_code": "TrialBalance",

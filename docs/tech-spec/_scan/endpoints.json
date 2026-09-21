@@ -1828,6 +1828,30 @@
     "function": "refresh_views",
     "doc": "Manually refresh materialized views (mv_sales_daily, mv_receivables_aging, mv_stock_balances).",
     "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/layout",
+    "full_path": "/dashboard/layout",
+    "function": "get_dashboard_layout",
+    "doc": "Per-user, per-company widget layout (JSON {view_key: [kpi_key, ...]}).",
+    "auth": false
+   },
+   {
+    "method": "PUT",
+    "path": "/layout",
+    "full_path": "/dashboard/layout",
+    "function": "put_dashboard_layout",
+    "doc": "Persist per-view widget layout on the server (authoritative, not only localStorage).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/metrics",
+    "full_path": "/dashboard/metrics",
+    "function": "dashboard_metrics",
+    "doc": "Filtered KPI snapshot (REQ-DASH-04). Warehouse and team scope are applied via get_dashboard_summary (single source of truth). No margin KPI is exposed — margin stays behind view_cost (AC-DASH-02).",
+    "auth": false
    }
   ]
  },
@@ -1896,7 +1920,7 @@
     "path": "/kpi-definitions",
     "full_path": "/dashboard/kpi-definitions",
     "function": "kpi_definitions",
-    "doc": "",
+    "doc": "KPI registry from the MetricDefinition table (REQ-RPT-01). Seeds the authoritative dict on first call if the table is empty for this company.",
     "auth": false
    },
    {
@@ -1904,7 +1928,7 @@
     "path": "/kpi-detail/{kpi_key}",
     "full_path": "/dashboard/kpi-detail/{kpi_key}",
     "function": "kpi_drill_down",
-    "doc": "Latest rows behind each KPI — click a card to see what makes up the number.",
+    "doc": "Latest rows behind each KPI — click a card to see what makes up the number. Scoped to the same period / owner / warehouse as the dashboard card (REQ-DASH: widget click → same-scope filtered list).",
     "auth": false
    }
   ]
@@ -2949,6 +2973,260 @@
     "full_path": "/fleet/export/vehicles",
     "function": "export_vehicles",
     "doc": "",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/fleet_tms.py",
+  "prefix": "/fleet/tms",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/delivery-requests",
+    "full_path": "/fleet/tms/delivery-requests",
+    "function": "list_delivery_requests",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/delivery-requests",
+    "full_path": "/fleet/tms/delivery-requests",
+    "function": "create_delivery_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/delivery-requests/{delivery_id}/plan",
+    "full_path": "/fleet/tms/delivery-requests/{delivery_id}/plan",
+    "function": "plan_delivery_request",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/trips",
+    "full_path": "/fleet/tms/trips",
+    "function": "list_trips",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trips",
+    "full_path": "/fleet/tms/trips",
+    "function": "create_trip",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trips/{trip_id}/stops",
+    "full_path": "/fleet/tms/trips/{trip_id}/stops",
+    "function": "add_trip_stop",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trips/{trip_id}/loads",
+    "full_path": "/fleet/tms/trips/{trip_id}/loads",
+    "function": "add_trip_load",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/trips/{trip_id}",
+    "full_path": "/fleet/tms/trips/{trip_id}",
+    "function": "trip_detail",
+    "doc": "REQ-TMS-04: a trip's full view with ordered stops and loads (driver board view).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/trips/{trip_id}/stops",
+    "full_path": "/fleet/tms/trips/{trip_id}/stops",
+    "function": "list_trip_stops",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trips/{trip_id}/dispatch",
+    "full_path": "/fleet/tms/trips/{trip_id}/dispatch",
+    "function": "dispatch_trip",
+    "doc": "REQ-TMS-03: validate vehicle active, licence valid, docs current, no open maintenance block, then dispatch.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trips/{trip_id}/start",
+    "full_path": "/fleet/tms/trips/{trip_id}/start",
+    "function": "start_trip",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trip-stops/{stop_id}/events",
+    "full_path": "/fleet/tms/trip-stops/{stop_id}/events",
+    "function": "stop_event",
+    "doc": "REQ-TMS-04/05/06: arrive / depart / deliver / fail → creates POD & updates stop.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trips/{trip_id}/complete",
+    "full_path": "/fleet/tms/trips/{trip_id}/complete",
+    "function": "complete_trip",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trips/{trip_id}/close",
+    "full_path": "/fleet/tms/trips/{trip_id}/close",
+    "function": "close_trip",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/trips/{trip_id}/pods",
+    "full_path": "/fleet/tms/trips/{trip_id}/pods",
+    "function": "list_trip_pods",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/pods/{pod_id}/correct",
+    "full_path": "/fleet/tms/pods/{pod_id}/correct",
+    "function": "correct_pod",
+    "doc": "REQ-TMS-06: a POD correction requires manager rights and preserves the original record. The corrected POD supersedes the original (supersedes_id → original); the original is never mutated.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/delivery-requests/{delivery_id}/wms-return",
+    "full_path": "/fleet/tms/delivery-requests/{delivery_id}/wms-return",
+    "function": "wms_return_delivery",
+    "doc": "REQ-TMS-06: failed/undelivered cargo re-enters stock ONLY via a WMS return. This stamps the delivery request as returned — no stock movement is posted here (the WMS return does that).",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/trips/{trip_id}/fuel",
+    "full_path": "/fleet/tms/trips/{trip_id}/fuel",
+    "function": "trip_fuel_summary",
+    "doc": "REQ-TMS-07: fuel + consumption for a trip. Average consumption is only reported when there is enough mileage coverage.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/analytics",
+    "full_path": "/fleet/tms/analytics",
+    "function": "tms_analytics_endpoint",
+    "doc": "TMS commercial analytics: on-time rate, cost per delivery, fleet utilization.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trips/{trip_id}/route-plan",
+    "full_path": "/fleet/tms/trips/{trip_id}/route-plan",
+    "function": "route_plan",
+    "doc": "TMS planning: suggest an order for a trip's stops (nearest-neighbour). Caller may apply it with /apply-plan.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trips/{trip_id}/apply-plan",
+    "full_path": "/fleet/tms/trips/{trip_id}/apply-plan",
+    "function": "apply_plan",
+    "doc": "Persist a trip stop order from a route-plan suggestion (list of stops).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trips/{trip_id}/telemetry",
+    "full_path": "/fleet/tms/trips/{trip_id}/telemetry",
+    "function": "post_telemetry",
+    "doc": "REQ-TMS-04 live tracking: any GPS tracker/driver app posts a coordinate point for an active trip. Auto-arrival fires when the point enters a stop geofence.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/trips/{trip_id}/live-position",
+    "full_path": "/fleet/tms/trips/{trip_id}/live-position",
+    "function": "live_position",
+    "doc": "REQ-TMS-04: latest GPS position for a trip's live view.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/trips/{trip_id}/history",
+    "full_path": "/fleet/tms/trips/{trip_id}/history",
+    "function": "trip_history",
+    "doc": "REQ-TMS-04 map: chronological GPS track (polyline) + stop geo-pins + geofence circles for the live route view.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trips/{trip_id}/geofences",
+    "full_path": "/fleet/tms/trips/{trip_id}/geofences",
+    "function": "set_geofence",
+    "doc": "REQ-TMS-04: define a circular geofence around a stop for auto-arrival.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/trips/{trip_id}/freight",
+    "full_path": "/fleet/tms/trips/{trip_id}/freight",
+    "function": "freight_billing",
+    "doc": "TMS freight billing: per-delivery freight charge + carrier settlement.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/pods/{pod_id}/evidence",
+    "full_path": "/fleet/tms/pods/{pod_id}/evidence",
+    "function": "upload_pod_evidence",
+    "doc": "REQ-TMS-05: attach evidence (photo/signature) to a POD. Accepts a base64 data-URL in `data`; stores a fingerprint for audit and links evidence_id without mutating the qty.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trips/{trip_id}/freight-invoice",
+    "full_path": "/fleet/tms/trips/{trip_id}/freight-invoice",
+    "function": "issue_freight_invoice",
+    "doc": "Issue a standalone freight invoice for a trip (client-billable shipping charge). Idempotent per trip; lines snapshot the freight schedule.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/freight-invoices",
+    "full_path": "/fleet/tms/freight-invoices",
+    "function": "list_freight_invoices",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/trips/{trip_id}/costs",
+    "full_path": "/fleet/tms/trips/{trip_id}/costs",
+    "function": "add_trip_cost",
+    "doc": "REQ-TMS-08: allocate a trip cost across deliveries by weight/volume/qty.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/vehicles/{vehicle_id}/availability",
+    "full_path": "/fleet/tms/vehicles/{vehicle_id}/availability",
+    "function": "vehicle_availability",
+    "doc": "REQ-TMS-09: is this vehicle available to dispatch today (docs, maintenance block, active trip)?",
     "auth": false
    }
   ]
