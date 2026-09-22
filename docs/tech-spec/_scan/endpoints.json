@@ -3228,6 +3228,14 @@
     "function": "vehicle_availability",
     "doc": "REQ-TMS-09: is this vehicle available to dispatch today (docs, maintenance block, active trip)?",
     "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/export",
+    "full_path": "/fleet/tms/export",
+    "function": "export_tms_csv",
+    "doc": "CSV export of trips / analytics / freight invoices (Excel-friendly).",
+    "auth": false
    }
   ]
  },
