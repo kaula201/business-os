@@ -164,3 +164,108 @@ async def cancel(
     await db.commit()
     await db.refresh(sub)
     return ResponseBase(data=TenantSubscriptionResponse.model_validate(sub))
+
+
+# ── Billing lifecycle (simulated payment gateway; swap for a real PSP) ──────
+
+
+@router.post("/activate", response_model=ResponseBase[TenantSubscriptionResponse])
+async def activate(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Convert a trial (or reactivate past_due/expired) into an active subscription.
+
+    Simulates a successful payment capture. In production this endpoint is the
+    client-side confirmation step after a PSP checkout session succeeds.
+    """
+    sub = (await db.execute(
+        select(TenantSubscription).where(TenantSubscription.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not sub:
+        raise HTTPException(status_code=404, detail="გამოწერა არ მოიძებნა")
+    if sub.status == "cancelled":
+        raise HTTPException(status_code=400, detail="გაუქმებული გამოწერა — ხელახლა გამოიწერეთ")
+
+    today = date.today()
+    sub.status = "active"
+    sub.trial_ends_at = None
+    sub.start_date = sub.start_date or today
+    # first paid cycle starts today (or the due date if already past it)
+    if not sub.next_billing_date or sub.next_billing_date < today:
+        sub.next_billing_date = _next_billing(today, sub.frequency)
+    sub.last_billed_at = utc_now()
+    await db.commit()
+    await db.refresh(sub)
+    return ResponseBase(data=TenantSubscriptionResponse.model_validate(sub))
+
+
+@router.post("/billing/run", response_model=ResponseBase[dict])
+async def run_billing(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Platform billing scheduler (operator-triggered; cron-able).
+
+    1. Trials past trial_ends_at → expired (no payment captured).
+    2. Active subs due (next_billing_date <= today) → simulated charge, advance cycle.
+    """
+    today = date.today()
+    expired = 0
+    billed = 0
+
+    # 1. expire lapsed trials
+    lapsed = (await db.execute(
+        select(TenantSubscription).where(
+            TenantSubscription.status == "trial",
+            TenantSubscription.trial_ends_at.isnot(None),
+            TenantSubscription.trial_ends_at < today,
+        )
+    )).scalars().all()
+    for sub in lapsed:
+        sub.status = "expired"
+        sub.end_date = sub.trial_ends_at
+        expired += 1
+
+    # 2. bill due active subscriptions
+    due = (await db.execute(
+        select(TenantSubscription).where(
+            TenantSubscription.status == "active",
+            TenantSubscription.next_billing_date.isnot(None),
+            TenantSubscription.next_billing_date <= today,
+        )
+    )).scalars().all()
+    for sub in due:
+        # simulated successful charge; a real PSP failure would set past_due
+        sub.last_billed_at = utc_now()
+        sub.next_billing_date = _next_billing(sub.next_billing_date or today, sub.frequency)
+        billed += 1
+
+    await db.commit()
+    return ResponseBase(data={"expired_trials": expired, "billed": billed, "due": len(due)})
+
+
+@router.post("/reactivate", response_model=ResponseBase[TenantSubscriptionResponse])
+async def reactivate(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-activate an expired/past_due subscription with a new payment (simulated)."""
+    sub = (await db.execute(
+        select(TenantSubscription).where(TenantSubscription.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not sub:
+        raise HTTPException(status_code=404, detail="გამოწერა არ მოიძებნა")
+    if sub.status not in ("expired", "past_due"):
+        raise HTTPException(status_code=400, detail="მხოლოდ expired/past_due გამოწერის განახლება შეიძლება")
+
+    today = date.today()
+    sub.status = "active"
+    sub.trial_ends_at = None
+    sub.start_date = today
+    sub.next_billing_date = _next_billing(today, sub.frequency)
+    sub.last_billed_at = utc_now()
+    sub.cancelled_at = None
+    await db.commit()
+    await db.refresh(sub)
+    return ResponseBase(data=TenantSubscriptionResponse.model_validate(sub))

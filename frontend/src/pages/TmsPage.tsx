@@ -179,6 +179,14 @@ export default function TmsPage() {
     mutationFn: () => saasApi.cancel(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saas-entitlement'] }),
   })
+  const activateMutation = useMutation({
+    mutationFn: () => saasApi.activate(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saas-entitlement'] }),
+  })
+  const reactivateMutation = useMutation({
+    mutationFn: () => saasApi.reactivate(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saas-entitlement'] }),
+  })
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['tms-deliveries'] })
@@ -478,16 +486,36 @@ export default function TmsPage() {
             })}
           </div>
 
-          {/* cancel */}
-          {entitlement?.subscribed && entitlement.status !== 'cancelled' && (
-            <div className="flex justify-end">
-              <button
-                onClick={() => cancelMutation.mutate()}
-                disabled={cancelMutation.isPending}
-                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-              >
-                {t('გამოწერის გაუქმება')}
-              </button>
+          {/* lifecycle actions */}
+          {entitlement?.subscribed && (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {entitlement.status === 'trial' && (
+                <button
+                  onClick={() => activateMutation.mutate()}
+                  disabled={activateMutation.isPending}
+                  className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+                >
+                  {t('გადახდა და გააქტიურება')}
+                </button>
+              )}
+              {(entitlement.status === 'expired' || entitlement.status === 'past_due') && (
+                <button
+                  onClick={() => reactivateMutation.mutate()}
+                  disabled={reactivateMutation.isPending}
+                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                >
+                  {t('განახლება')}
+                </button>
+              )}
+              {entitlement.status !== 'cancelled' && (
+                <button
+                  onClick={() => cancelMutation.mutate()}
+                  disabled={cancelMutation.isPending}
+                  className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                >
+                  {t('გამოწერის გაუქმება')}
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -145,3 +145,87 @@ async def test_driver_limit_enforced(client, auth_headers, test_company):
     async with TestSessionLocal() as s:
         await s.execute(delete(Driver).where(Driver.company_id == test_company.id))
         await s.commit()
+
+
+async def test_activate_converts_trial_to_active(client, auth_headers, test_company):
+    await _cleanup_saas(test_company.id)
+    await _ensure_plan(client, auth_headers, "tms_starter")
+    sub = await _subscribe(client, auth_headers, "tms_starter", trial_days=14)
+    assert sub["status"] == "trial"
+
+    r = await client.post("/api/v1/saas/activate", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    d = r.json()["data"]
+    assert d["status"] == "active"
+    assert d["trial_ends_at"] is None
+    assert d["next_billing_date"] is not None
+    assert d["last_billed_at"] is not None
+
+    ent = await _entitlement(client, auth_headers)
+    assert ent["status"] == "active"
+    assert ent["active"] is True
+
+
+async def test_billing_run_expires_lapsed_trial(client, auth_headers, test_company):
+    await _cleanup_saas(test_company.id)
+    await _ensure_plan(client, auth_headers, "tms_starter")
+    await _subscribe(client, auth_headers, "tms_starter", trial_days=14)
+
+    # force the trial end into the past
+    async with TestSessionLocal() as s:
+        sub = (await s.execute(select(TenantSubscription).where(
+            TenantSubscription.company_id == test_company.id))).scalar_one()
+        sub.trial_ends_at = date.today() - timedelta(days=1)
+        await s.commit()
+
+    r = await client.post("/api/v1/saas/billing/run", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["data"]["expired_trials"] == 1
+
+    ent = await _entitlement(client, auth_headers)
+    assert ent["status"] == "expired"
+    assert ent["active"] is False
+
+
+async def test_billing_run_bills_due_active(client, auth_headers, test_company):
+    await _cleanup_saas(test_company.id)
+    await _ensure_plan(client, auth_headers, "tms_starter")
+    await _subscribe(client, auth_headers, "tms_starter", trial_days=14)
+    await client.post("/api/v1/saas/activate", headers=auth_headers)
+
+    # force next_billing_date into the past
+    async with TestSessionLocal() as s:
+        sub = (await s.execute(select(TenantSubscription).where(
+            TenantSubscription.company_id == test_company.id))).scalar_one()
+        sub.next_billing_date = date.today() - timedelta(days=1)
+        await s.commit()
+
+    r = await client.post("/api/v1/saas/billing/run", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    d = r.json()["data"]
+    assert d["billed"] == 1
+
+    # next_billing_date advanced to the future
+    ent = await _entitlement(client, auth_headers)
+    assert ent["status"] == "active"
+
+
+async def test_reactivate_expired(client, auth_headers, test_company):
+    await _cleanup_saas(test_company.id)
+    await _ensure_plan(client, auth_headers, "tms_starter")
+    await _subscribe(client, auth_headers, "tms_starter", trial_days=14)
+
+    async with TestSessionLocal() as s:
+        sub = (await s.execute(select(TenantSubscription).where(
+            TenantSubscription.company_id == test_company.id))).scalar_one()
+        sub.status = "expired"
+        sub.trial_ends_at = date.today() - timedelta(days=1)
+        await s.commit()
+
+    r = await client.post("/api/v1/saas/reactivate", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["data"]["status"] == "active"
+
+    ent = await _entitlement(client, auth_headers)
+    assert ent["status"] == "active"
+    assert ent["active"] is True

@@ -987,6 +987,8 @@ export const saasApi = {
   entitlement: () => api.get('/saas/entitlement'),
   subscribe: (planCode: string, trialDays?: number) => api.post('/saas/subscribe', { plan_code: planCode, trial_days: trialDays ?? 14 }),
   cancel: () => api.post('/saas/cancel', {}),
+  activate: () => api.post('/saas/activate', {}),
+  reactivate: () => api.post('/saas/reactivate', {}),
 }
 
 // App Module API

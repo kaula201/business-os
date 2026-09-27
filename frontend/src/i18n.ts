@@ -1490,6 +1490,7 @@ const en: Record<string, string> = {
   'geocoder + ETA + ლაივ რუკა': 'geocoder + ETA + live map',
   'მიმდინარე პლანი': 'Current plan',
   'გამოწერის გაუქმება': 'Cancel subscription',
+  'გადახდა და გააქტიურება': 'Pay & activate',
   'მძღოლების მართვა და PWA-აქაუნთები': 'Driver management and PWA accounts',
   'მძღოლები არ არის': 'No drivers',
   'აქაუნთი აქვს': 'Has account',
