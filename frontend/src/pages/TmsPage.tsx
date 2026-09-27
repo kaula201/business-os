@@ -17,13 +17,14 @@ import {
   Route,
   Download,
   AlertTriangle,
+  CreditCard,
 } from 'lucide-react'
 
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import FormField, { Select } from '../components/ui/FormField'
 import LiveRouteMap from '../components/LiveRouteMap'
-import { fleetApi } from '../services/api'
+import { fleetApi, saasApi } from '../services/api'
 
 interface DeliveryRequest {
   id: string
@@ -101,7 +102,7 @@ function badge(status: string) {
 export default function TmsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState<'deliveries' | 'trips' | 'map' | 'drivers'>('deliveries')
+  const [tab, setTab] = useState<'deliveries' | 'trips' | 'map' | 'drivers' | 'billing'>('deliveries')
   // live route map state
   const [mapTrip, setMapTrip] = useState<any | null>(null)
   const [historyData, setHistoryData] = useState<any | null>(null)
@@ -157,6 +158,26 @@ export default function TmsPage() {
       setDriverForm({ name: '', phone: '', license_number: '', email: '', password: '' })
       queryClient.invalidateQueries({ queryKey: ['tms-drivers'] })
     },
+  })
+
+  // SaaS billing (platform's own subscription + entitlement)
+  const plansQuery = useQuery({
+    queryKey: ['saas-plans'],
+    queryFn: () => saasApi.listPlans().then((r: any) => r.data.data),
+  })
+  const entitlementQuery = useQuery({
+    queryKey: ['saas-entitlement'],
+    queryFn: () => saasApi.entitlement().then((r: any) => r.data.data),
+  })
+  const plans: any[] = plansQuery.data || []
+  const entitlement: any = entitlementQuery.data || null
+  const subscribeMutation = useMutation({
+    mutationFn: (planCode: string) => saasApi.subscribe(planCode),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saas-entitlement'] }),
+  })
+  const cancelMutation = useMutation({
+    mutationFn: () => saasApi.cancel(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saas-entitlement'] }),
   })
 
   const invalidate = () => {
@@ -395,8 +416,82 @@ export default function TmsPage() {
             <User className="h-4 w-4" /> {t('მძღოლები')}
             <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs">{drivers.length}</span>
           </button>
+          <button
+            onClick={() => setTab('billing')}
+            className={`inline-flex items-center gap-2 rounded-t-lg px-4 py-2 text-sm font-medium ${
+              tab === 'billing' ? 'border-b-2 border-blue-600 text-blue-700' : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            <CreditCard className="h-4 w-4" /> {t('გამოწერა')}
+          </button>
         </nav>
       </div>
+
+      {tab === 'billing' && (
+        <div className="space-y-4">
+          {/* entitlement status banner */}
+          {entitlement && (
+            <div className={`rounded-xl border px-4 py-3 text-sm ${
+              entitlement.active ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'
+            }`}>
+              <span className="font-medium">{t('გამოწერის სტატუსი')}: </span>
+              {entitlement.subscribed
+                ? `${entitlement.plan_code} · ${entitlement.status}${entitlement.trial_ends_at ? ` · ${t('trial ბოლომდე')}: ${entitlement.trial_ends_at}` : ''}`
+                : t('გამოწერა არ არის — ულიმიტო (self-hosted)')}
+              {entitlement.subscribed && !entitlement.active && (
+                <span className="ml-2 font-semibold">{t('— არააქტიური')}</span>
+              )}
+            </div>
+          )}
+
+          {/* plans catalog */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {plans.map((p: any) => {
+              const current = entitlement?.plan_code === p.code
+              const unlimited = p.feature_limits?.max_drivers === -1
+              return (
+                <div key={p.code} className={`rounded-xl border p-4 ${current ? 'border-blue-500 ring-1 ring-blue-200' : 'border-gray-200'} bg-white`}>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-semibold">{p.name}</p>
+                      <p className="text-xs text-gray-400">{p.code}</p>
+                    </div>
+                    <p className="text-lg font-bold">${p.amount}<span className="text-xs font-normal text-gray-400">/{t('თვე')}</span></p>
+                  </div>
+                  <ul className="mt-3 space-y-1 text-xs text-gray-600">
+                    <li>{t('მძღოლები')}: {unlimited ? '∞' : p.feature_limits?.max_drivers}</li>
+                    <li>{t('მანქანები')}: {p.feature_limits?.max_vehicles === -1 ? '∞' : p.feature_limits?.max_vehicles}</li>
+                    <li>{t('რეისები/თვე')}: {p.feature_limits?.max_trips_month === -1 ? '∞' : p.feature_limits?.max_trips_month}</li>
+                    <li>{t('geocoder + ETA + ლაივ რუკა')}: {p.feature_limits?.geocoder ? '✓' : '—'}</li>
+                  </ul>
+                  <button
+                    onClick={() => subscribeMutation.mutate(p.code)}
+                    disabled={current || subscribeMutation.isPending}
+                    className={`mt-4 w-full rounded-lg px-3 py-2 text-sm font-medium ${
+                      current ? 'bg-gray-100 text-gray-400' : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    {current ? t('მიმდინარე პლანი') : t('გამოწერა')}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* cancel */}
+          {entitlement?.subscribed && entitlement.status !== 'cancelled' && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => cancelMutation.mutate()}
+                disabled={cancelMutation.isPending}
+                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+              >
+                {t('გამოწერის გაუქმება')}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {tab === 'drivers' && (
         <div className="space-y-3">

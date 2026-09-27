@@ -47,6 +47,7 @@ from app.api.v1.endpoints import (
     clients,
     contracts,
     subscriptions,
+    saas,
     email_marketing,
     export,
     expenses,
@@ -114,6 +115,7 @@ api_router.include_router(users.router)
 api_router.include_router(clients.router)
 api_router.include_router(contracts.router)
 api_router.include_router(subscriptions.router)
+api_router.include_router(saas.router)
 api_router.include_router(email_marketing.router)
 api_router.include_router(crm.router)
 api_router.include_router(crm_enhanced.router)

@@ -981,6 +981,14 @@ export const fleetApi = {
   vehicleAvailability: (vehicleId: string) => api.get(`/fleet/tms/vehicles/${vehicleId}/availability`),
 }
 
+// SaaS tenant billing API (platform's own subscription, distinct from vendor subscriptions)
+export const saasApi = {
+  listPlans: () => api.get('/saas/plans'),
+  entitlement: () => api.get('/saas/entitlement'),
+  subscribe: (planCode: string, trialDays?: number) => api.post('/saas/subscribe', { plan_code: planCode, trial_days: trialDays ?? 14 }),
+  cancel: () => api.post('/saas/cancel', {}),
+}
+
 // App Module API
 export const modulesApi = {
   list: (params?: { page?: number; page_size?: number; category?: string; is_active?: boolean }) =>

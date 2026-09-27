@@ -5,6 +5,7 @@ from app.models.client import Client, ClientAddress, ClientGroupDef, ClientRelat
 from app.models.contract import Contract
 from app.models.leave import Leave
 from app.models.subscription import Subscription, SubscriptionPlan
+from app.models.saas import TenantPlan, TenantSubscription
 from app.models.customer_portal import PortalUser
 from app.models.vendor_portal import VendorPortalUser
 from app.models.order import (

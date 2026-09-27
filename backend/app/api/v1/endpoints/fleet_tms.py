@@ -235,6 +235,15 @@ async def create_driver(
 ):
     from app.core.security import hash_password
 
+    # SaaS gating: enforce max_drivers when the tenant has a plan with a cap
+    from app.services.saas import get_entitlement, check_limit
+    _status, limits = await get_entitlement(db, current_user.company_id)
+    driver_count = (await db.execute(
+        select(func.count(Driver.id)).where(Driver.company_id == current_user.company_id)
+    )).scalar_one() or 0
+    if not check_limit(limits, "max_drivers", int(driver_count)):
+        raise HTTPException(status_code=402, detail="მძღოლების ლიმიტი ამოწურულია — გადადით უფრო მაღალ პლანზე")
+
     user_id = None
     if payload.email:
         # optional linked driver account (role=driver) so the driver can log into the PWA
@@ -422,6 +431,20 @@ async def create_trip(
     )).scalar_one_or_none()
     if dup:
         raise HTTPException(status_code=409, detail="ამ ნომრით რეისი უკვე არსებობს")
+
+    # SaaS gating: block when the tenant is not active, and enforce monthly trip cap
+    from app.services.saas import get_entitlement, is_tms_active, check_limit
+    if not await is_tms_active(db, current_user.company_id):
+        raise HTTPException(status_code=402, detail="გამოწერა არაა აქტიური — განაახლეთ პლანი")
+    _status, limits = await get_entitlement(db, current_user.company_id)
+    month_start = date.today().replace(day=1)
+    trip_count = (await db.execute(
+        select(func.count(Trip.id)).where(
+            Trip.company_id == current_user.company_id, Trip.created_at >= month_start
+        )
+    )).scalar_one() or 0
+    if not check_limit(limits, "max_trips_month", int(trip_count)):
+        raise HTTPException(status_code=402, detail="თვიური რეისების ლიმიტი ამოწურულია")
 
     def _uid(v):
         try:
