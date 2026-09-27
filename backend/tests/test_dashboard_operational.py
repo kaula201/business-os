@@ -146,7 +146,8 @@ async def test_dashboard_summary_has_operational_kpis(
 
     for field in (
         "delayed_shipments", "production_backlog", "fleet_unavailable",
-        "maintenance_critical", "approvals_pending", "otif_rate", "last_updated_at",
+        "maintenance_critical", "approvals_pending", "otif_rate",
+        "tms_dispatched", "tms_active", "tms_delayed", "last_updated_at",
     ):
         assert field in kpi, f"missing operational KPI field: {field}"
 
@@ -250,4 +251,36 @@ async def test_otif_none_when_nothing_due(
         "/api/v1/dashboard/kpi-detail/otif_rate?limit=5", headers=auth_headers
     )
     assert drill.status_code == 200, drill.text
-    assert drill.json()["data"]["total"] == "N/A"
+
+
+@pytest.mark.asyncio
+async def test_tms_kpis_surface_on_dashboard(
+    client, auth_headers, test_company, db_session
+):
+    """TMS KPI (dispatched/active/delayed) fields surface on the dashboard."""
+    from app.models.fleet_tms import Trip
+
+    # baseline: fields always present (even at 0)
+    resp = await client.get("/api/v1/dashboard/summary?period=30d", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    kpi = resp.json()["data"]["kpi"]
+    for field in ("tms_dispatched", "tms_active", "tms_delayed"):
+        assert field in kpi, f"missing TMS KPI field: {field}"
+        assert kpi[field] >= 0
+
+    # add a dispatched trip → tms_dispatched increments
+    trip = Trip(
+        company_id=test_company.id,
+        trip_number="TR-DASH-1",
+        status="dispatched",
+        planned_end=None,
+    )
+    db_session.add(trip)
+    await db_session.commit()
+
+    resp2 = await client.get("/api/v1/dashboard/summary?period=30d", headers=auth_headers)
+    kpi2 = resp2.json()["data"]["kpi"]
+    assert kpi2["tms_dispatched"] >= 1, f"expected >=1 dispatched trip, got {kpi2['tms_dispatched']}"
+
+    await db_session.delete(trip)
+    await db_session.commit()

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -15,6 +15,8 @@ import {
   User,
   Calendar,
   Route,
+  Download,
+  AlertTriangle,
 } from 'lucide-react'
 
 import DataTable from '../components/ui/DataTable'
@@ -141,7 +143,48 @@ export default function TmsPage() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['tms-deliveries'] })
     queryClient.invalidateQueries({ queryKey: ['tms-trips'] })
+    queryClient.invalidateQueries({ queryKey: ['tms-analytics'] })
   }
+
+  // Silent live refresh on tms_* WebSocket events (dispatch / deliver)
+  useEffect(() => {
+    let ws: WebSocket | null = null
+    let retry = 0
+    const connect = () => {
+      try {
+        const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+        ws = new WebSocket(`${proto}://${window.location.host}/api/v1/ws/currency`)
+        ws.onmessage = (msg) => {
+          try {
+            const parsed = JSON.parse(msg.data)
+            if (parsed?.event && String(parsed.event).startsWith('tms_')) invalidate()
+          } catch (_) { /* ignore */ }
+        }
+        ws.onclose = () => { if (retry < 3) { retry++; setTimeout(connect, 3000) } }
+        ws.onopen = () => { retry = 0 }
+      } catch (_) { /* ignore */ }
+    }
+    connect()
+    return () => { try { ws?.close() } catch (_) { /* ignore */ } }
+  }, [])
+
+  // CSV export → browser download
+  const doExport = async (scope: 'trips' | 'analytics' | 'freight') => {
+    try {
+      const res = await fleetApi.exportCsv(scope)
+      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `tms_${scope}.csv`; document.body.appendChild(a); a.click()
+      a.remove(); URL.revokeObjectURL(url)
+    } catch (_) { /* ignore */ }
+  }
+  const [showInvoices, setShowInvoices] = useState(false)
+  const invoicesQuery = useQuery({
+    queryKey: ['tms-freight-invoices'],
+    queryFn: () => fleetApi.listFreightInvoices().then((r: any) => r.data.data || []),
+    enabled: showInvoices,
+  })
 
   const createDr = useMutation({
     mutationFn: (d: Record<string, unknown>) => fleetApi.createDeliveryRequest(d),
@@ -249,6 +292,48 @@ export default function TmsPage() {
           <p className="mt-1 text-xl font-semibold">{analytics.fleet_utilization?.open_trips ?? 0}</p>
           <p className="text-xs text-gray-400">{t('ავტომობილით')}: {analytics.fleet_utilization?.with_vehicle ?? 0}</p>
         </div>
+        <div className={`rounded-xl border bg-white p-3 ${(analytics.delayed_count ?? 0) > 0 ? 'border-amber-300' : 'border-gray-200'}`}>
+          <div className="flex items-center gap-1 text-xs text-gray-500">
+            {t('გვიანი მიწოდება')}
+            {(analytics.delayed_count ?? 0) > 0 && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+          </div>
+          <p className={`mt-1 text-xl font-semibold ${(analytics.delayed_count ?? 0) > 0 ? 'text-amber-600' : ''}`}>
+            {analytics.delayed_count ?? 0}
+          </p>
+          <div className="flex flex-wrap gap-x-3 text-xs text-gray-400">
+            {(analytics.delayed_requests || []).slice(0, 2).map((d: any) => (
+              <span key={d.id} title={d.address}>#{d.number}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Export + freight invoices */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => doExport('trips')}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-blue-300"
+        >
+          <Download className="h-3.5 w-3.5" /> {t('რეისები CSV')}
+        </button>
+        <button
+          onClick={() => doExport('analytics')}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-blue-300"
+        >
+          <Download className="h-3.5 w-3.5" /> {t('ანალიტიკა CSV')}
+        </button>
+        <button
+          onClick={() => doExport('freight')}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-blue-300"
+        >
+          <Download className="h-3.5 w-3.5" /> {t('ფრეიტ-ინვოისები CSV')}
+        </button>
+        <button
+          onClick={() => setShowInvoices(true)}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-medium text-purple-700 hover:bg-purple-100"
+        >
+          {t('ფრეიტ-ინვოისები')}
+        </button>
       </div>
 
       {/* Tabs */}
@@ -512,6 +597,30 @@ export default function TmsPage() {
           </div>
         </Modal>
       )}
+
+      {/* TMS freight invoices list modal */}
+      <Modal open={showInvoices} onClose={() => setShowInvoices(false)} title={t('ფრეიტ-ინვოისები')}>
+        <div className="space-y-2">
+          {invoicesQuery.isLoading ? (
+            <p className="text-sm text-gray-500">...</p>
+          ) : (invoicesQuery.data || []).length === 0 ? (
+            <p className="text-sm text-gray-500">{t('ინვოისები არ არის')}</p>
+          ) : (
+            (invoicesQuery.data || []).map((inv: any, i: number) => (
+              <div key={inv.id || i} className="flex items-center justify-between rounded-lg border border-gray-100 p-2 text-sm">
+                <div>
+                  <p className="font-medium">{inv.invoice_number}</p>
+                  <p className="text-xs text-gray-400">{inv.issued_at ? new Date(inv.issued_at).toLocaleString() : ''}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-medium">{inv.freight_charge} ₾</p>
+                  <p className="text-xs text-green-600">{inv.margin} ₾</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }

@@ -535,7 +535,7 @@ async def role_views(
     role = current_user.role
     admin_view = DashboardRoleView(
         key="director", label="დირექტორი",
-        kpis=["revenue", "orders", "delayed_shipments", "production_backlog", "fleet_unavailable", "maintenance_critical", "approvals_pending", "otif_rate"],
+        kpis=["revenue", "orders", "delayed_shipments", "production_backlog", "fleet_unavailable", "maintenance_critical", "approvals_pending", "otif_rate", "tms_dispatched", "tms_active", "tms_delayed"],
         modules=["sales", "finance", "crm", "tasks", "warehouse", "production", "fleet", "maintenance"],
     )
     acct_view = DashboardRoleView(
@@ -665,6 +665,21 @@ KPI_DEFINITIONS: dict[str, dict] = {
         "formula": "completed (ვადაში) / ვადამოსული შეკვეთები × 100; ვადამოსულის არქონისას N/A (შედარება ვერ ითვლება)",
         "source": "orders ცხრილი (delivery_date)",
     },
+    "tms_dispatched": {
+        "label": "TMS — გაგზავნილი",
+        "formula": "COUNT(tms_trips) — status='dispatched'",
+        "source": "tms_trips ცხრილი",
+    },
+    "tms_active": {
+        "label": "TMS — აქტიური",
+        "formula": "COUNT(tms_trips) — status='in_progress'",
+        "source": "tms_trips ცხრილი",
+    },
+    "tms_delayed": {
+        "label": "TMS — დაგვიანებული",
+        "formula": "COUNT(tms_trips) — status ∈ {dispatched,in_progress} და planned_end < now",
+        "source": "tms_trips ცხრილი (planned_end)",
+    },
 }
 
 
@@ -710,6 +725,31 @@ async def kpi_definitions(
                 MetricDefinition.company_id == cid, MetricDefinition.is_active.is_(True)
             ).order_by(MetricDefinition.code)
         )).scalars().all()
+    else:
+        # backfill any new canonical KPI codes that arrived after the initial seed
+        existing = {m.code for m in rows}
+        missing = [c for c in KPI_DEFINITIONS if c not in existing]
+        if missing:
+            for code in missing:
+                v = KPI_DEFINITIONS[code]
+                db.add(MetricDefinition(
+                    company_id=cid,
+                    code=code,
+                    name=v["label"],
+                    description=v.get("description"),
+                    formula=v["formula"],
+                    source=v["source"],
+                    formula_version=v.get("formula_version", 1),
+                    allowed_roles=v.get("allowed_roles"),
+                    refresh_interval=v.get("refresh_interval", 60),
+                    grain=v.get("grain"),
+                ))
+            await db.commit()
+            rows = (await db.execute(
+                select(MetricDefinition).where(
+                    MetricDefinition.company_id == cid, MetricDefinition.is_active.is_(True)
+                ).order_by(MetricDefinition.code)
+            )).scalars().all()
 
     return ResponseBase(data=[
         KPIInfo(key=m.code, label=m.name, formula=m.formula, source=m.source or "")

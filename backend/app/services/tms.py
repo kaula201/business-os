@@ -12,7 +12,7 @@ TMS from "operational core" to a sellable standalone module:
    a carrier settlement summary, suitable for customer invoices.
 """
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -119,6 +119,34 @@ async def tms_analytics(db: AsyncSession, company_id) -> dict:
             if d.delivered_at.date() <= d.delivery_date:
                 on_time += 1
 
+    # live delay detection: an open request is late when its scheduled delivery
+    # date has passed and it is not yet delivered/failed/cancelled
+    from app.core.time import utc_now
+    now = utc_now()
+    delayed_requests = []
+    delayed_trips = []
+    for d in deliveries:
+        if d.delivery_date is None or d.status not in ("planned", "dispatched", "in_progress"):
+            continue
+        if d.delivery_date + timedelta(days=1) < now.date():
+            delayed_requests.append({
+                "id": str(d.id), "number": d.request_number, "address": d.dropoff_address,
+                "due": str(d.delivery_date), "status": d.status,
+            })
+    delayed_requests.sort(key=lambda x: x["due"])
+    # per-trip delay: open trip overdue by plan
+    for t in trips:
+        if t.status not in ("dispatched", "in_progress"):
+            continue
+        t_loads = (await db.execute(select(TripLoad).where(TripLoad.trip_id == t.id))).scalars().all()
+        for ld in t_loads:
+            if not ld.delivery_id:
+                continue
+            dr = next((x for x in deliveries if x.id == ld.delivery_id), None)
+            if dr and dr.delivery_date and dr.delivery_date + timedelta(days=1) < now.date():
+                delayed_trips.append({"id": str(t.id), "number": t.trip_number, "status": t.status})
+                break
+
     total_cost = sum((Decimal(str(c.amount)) for c in costs), Decimal("0"))
     per_delivery = (total_cost / delivered) if delivered else None
 
@@ -133,6 +161,9 @@ async def tms_analytics(db: AsyncSession, company_id) -> dict:
         "delivered": delivered,
         "failed": sum(1 for d in deliveries if d.status == "failed"),
         "on_time_rate": round(on_time / delivered * 100, 1) if delivered else None,
+        "delayed_count": len(delayed_requests),
+        "delayed_requests": delayed_requests,
+        "delayed_trips": delayed_trips,
         "total_freight_cost": str(total_cost),
         "cost_per_delivery": str(per_delivery) if per_delivery is not None else None,
         "pods_recorded": len(pods),

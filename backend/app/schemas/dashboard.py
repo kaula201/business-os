@@ -43,6 +43,10 @@ class KPICards(BaseModel):
     maintenance_critical: int = 0
     approvals_pending: int = 0
     otif_rate: float | None = None
+    # TMS operational KPIs (standalone TMS value, surfaced on the dashboard)
+    tms_dispatched: int = 0
+    tms_active: int = 0
+    tms_delayed: int = 0
     # Freshness (REQ-DASH-03): when these aggregates were computed
     last_updated_at: datetime | None = None
 

@@ -9,6 +9,7 @@ from datetime import datetime, date, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +29,44 @@ from app.models.maintenance import MaintenanceOrder
 from app.schemas.common import ResponseBase
 
 router = APIRouter(prefix="/fleet/tms", tags=["TMS — ტრანსპორტი"])
+
+
+# ── Notification + live-update helper (REQ-TMS-07 style events) ─────────
+async def _notify(
+    db: AsyncSession,
+    company_id: uuid.UUID,
+    type_: str,
+    title: str,
+    message: str | None = None,
+    link: str | None = None,
+    broadcast: bool = False,
+    broadcast_event: str | None = None,
+    broadcast_payload: dict | None = None,
+) -> None:
+    """Create an in-app notification for all admins/owners and optionally
+    broadcast a live event over the company WebSocket.
+
+    Notification failures are best-effort and never abort the API request.
+    """
+    from app.models.notification import Notification
+    try:
+        owners = (await db.execute(
+            select(User).where(User.company_id == company_id, User.role.in_(["admin", "owner"]))
+        )).scalars().all()
+        for u in owners:
+            db.add(Notification(
+                company_id=company_id, user_id=u.id, type=type_,
+                title=title, message=message, link=link,
+            ))
+        await db.commit()
+    except Exception:
+        await db.rollback()
+    if broadcast:
+        try:
+            from app.core.ws import manager
+            await manager.broadcast(str(company_id), broadcast_event or f"tms_{type_}", broadcast_payload or {})
+        except Exception:
+            pass
 
 
 # ── Schemas ─────────────────────────────────────────────────────────────
@@ -517,6 +556,13 @@ async def dispatch_trip(
     trip.dispatched_at = utc_now()
     await db.commit()
     await db.refresh(trip)
+    await _notify(
+        db, current_user.company_id, "tms_dispatch", "რეისი გაიგზავნა",
+        f"{trip.trip_number} — dispatched",
+        link=f"/fleet/tms/trips/{trip.id}",
+        broadcast=True, broadcast_event="tms_dispatch",
+        broadcast_payload={"trip_id": str(trip.id), "trip_number": trip.trip_number, "status": trip.status},
+    )
     return ResponseBase(data=_trip_resp(trip))
 
 
@@ -623,6 +669,14 @@ async def stop_event(
 
         await db.commit()
         await db.refresh(pod)
+        await _notify(
+            db, current_user.company_id, "tms_deliver",
+            f"მიწოდება {'ჩავარდა' if ev == 'fail' else 'დასრულდა'}",
+            f"stop {stop.id} — {stop.status}",
+            link=f"/fleet/tms/trips/{stop.trip_id}",
+            broadcast=True, broadcast_event="tms_deliver",
+            broadcast_payload={"trip_id": str(stop.trip_id), "stop_id": str(stop.id), "status": stop.status},
+        )
         return ResponseBase(data={"id": str(pod.id), "status": stop.status, "delivered_qty": str(delivered_qty)})
 
     raise HTTPException(status_code=422, detail="უცნობი მოვლენა")
@@ -1290,3 +1344,62 @@ async def vehicle_availability(
         "capacity_m3": str(vh.capacity_m3) if vh.capacity_m3 is not None else None,
         "upcoming": upcoming,
     })
+
+
+# ── Export (CSV) ─────────────────────────────────────────────────────────
+@router.get("/export", response_model=None)
+async def export_tms_csv(
+    scope: str = Query("trips", pattern="^(trips|analytics|freight)$"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """CSV export of trips / analytics / freight invoices (Excel-friendly)."""
+    import io
+    from datetime import datetime as _dt
+    from app.services.tms import tms_analytics
+
+    cid = current_user.company_id
+    if scope == "trips":
+        trips = (await db.execute(
+            select(Trip).where(Trip.company_id == cid).order_by(Trip.created_at.desc())
+        )).scalars().all()
+        rows = [["trip_number", "status", "vehicle_id", "driver_id", "started_at", "completed_at", "created_at"]]
+        for t in trips:
+            rows.append([
+                t.trip_number, t.status, str(t.vehicle_id) if t.vehicle_id else "",
+                str(t.driver_id) if t.driver_id else "",
+                (t.started_at.isoformat() if t.started_at else ""),
+                (t.completed_at.isoformat() if t.completed_at else ""),
+                (t.created_at.isoformat() if t.created_at else ""),
+            ])
+    elif scope == "analytics":
+        a = await tms_analytics(db, cid)
+        rows = [["metric", "value"]]
+        for k, v in a.items():
+            if k in ("delayed_requests", "delayed_trips", "fleet_utilization"):
+                continue
+            rows.append([k, "" if v is None else str(v)])
+        rows.append(["delayed_requests_count", str(len(a.get("delayed_requests", [])))])
+        rows.append(["delayed_trips_count", str(len(a.get("delayed_trips", [])))])
+    else:
+        invs = (await db.execute(
+            select(TripFreightInvoice).where(TripFreightInvoice.company_id == cid).order_by(TripFreightInvoice.created_at.desc())
+        )).scalars().all()
+        rows = [["invoice_number", "trip_id", "status", "subtotal", "margin", "created_at"]]
+        for v in invs:
+            rows.append([
+                v.invoice_number, str(v.trip_id) if v.trip_id else "", v.status,
+                str(v.subtotal) if v.subtotal is not None else "",
+                str(v.margin) if v.margin is not None else "", (v.created_at.isoformat() if v.created_at else ""),
+            ])
+
+    import csv as _csv
+    buf = io.StringIO()
+    _csv.writer(buf).writerows(rows)
+    # UTF-8 BOM so Excel opens Georgian text correctly
+    data = ("\ufeff" + buf.getvalue()).encode("utf-8")
+    return StreamingResponse(
+        iter([data]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename=tms_{scope}.csv"},
+    )

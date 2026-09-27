@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { dashboardApi, usersApi, warehousesApi, salesOrgApi } from '../services/api'
-import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, ArrowDown, Wallet, Clock , ArrowUpRight, LayoutGrid, Info, X, Factory, Car, Wrench, CheckSquare, Gauge } from 'lucide-react'
+import { TrendingUp, Users, ShoppingCart, AlertTriangle, Package, ArrowUp, ArrowDown, Wallet, Clock , ArrowUpRight, LayoutGrid, Info, X, Factory, Car, Wrench, CheckSquare, Gauge, Truck } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts'
 import { StatusBadge, orderStatusMap } from '../components/ui/Badges'
 import type { DashboardData } from '../types'
@@ -15,7 +15,7 @@ const money = (v: number | string | null | undefined) =>
 const COLORS = ['#16A6D4', '#4CAF32', '#7C6966', '#8EDFF7', '#94DF79', '#BCAEAB']
 
 // All known KPI keys (used when a role view has no explicit list)
-const KPI_ORDER = ['revenue', 'orders', 'clients', 'tasks', 'pipeline', 'leads', 'cashflow', 'receivables', 'payables', 'unpaid_invoices', 'low_stock', 'stock_value', 'inventory', 'delayed_shipments', 'production_backlog', 'fleet_unavailable', 'maintenance_critical', 'approvals_pending', 'otif_rate']
+const KPI_ORDER = ['revenue', 'orders', 'clients', 'tasks', 'pipeline', 'leads', 'cashflow', 'receivables', 'payables', 'unpaid_invoices', 'low_stock', 'stock_value', 'inventory', 'delayed_shipments', 'production_backlog', 'fleet_unavailable', 'maintenance_critical', 'approvals_pending', 'otif_rate', 'tms_dispatched', 'tms_active', 'tms_delayed']
 
 // KPI keys → icons/colors for the role view rendering
 const KPI_META: Record<string, { icon: any; color: 'blue' | 'green' | 'red' | 'gray'; to?: string }> = {
@@ -38,6 +38,9 @@ const KPI_META: Record<string, { icon: any; color: 'blue' | 'green' | 'red' | 'g
   maintenance_critical: { icon: Wrench, color: 'red', to: '/maintenance' },
   approvals_pending: { icon: CheckSquare, color: 'blue' },
   otif_rate: { icon: Gauge, color: 'green', to: '/orders' },
+  tms_dispatched: { icon: Truck, color: 'blue', to: '/fleet/tms' },
+  tms_active: { icon: Truck, color: 'green', to: '/fleet/tms' },
+  tms_delayed: { icon: Truck, color: 'red', to: '/fleet/tms' },
 }
 
 export default function DashboardPage() {
@@ -101,8 +104,15 @@ export default function DashboardPage() {
 
   const effectiveView = activeView ?? roleViewsData?.default_view ?? 'director'
   const roleView = roleViewsData?.views?.find((v: any) => v.key === effectiveView) || roleViewsData?.views?.[0]
-  // For this view: saved layout overrides, else backend defaults
-  const viewKpis = savedLayouts[effectiveView]?.length ? savedLayouts[effectiveView] : (roleView?.kpis || KPI_ORDER)
+  // For this view: saved layout overrides, else backend defaults — but always
+  // merge in any new canonical KPI codes that arrived after the layout was saved,
+  // so newly added KPIs (e.g. TMS) surface without resetting user layout.
+  const _baseKpis = (roleView?.kpis || KPI_ORDER) as string[]
+  const _saved = savedLayouts[effectiveView] as string[] | undefined
+  const viewKpis = (_saved?.length ? _saved : _baseKpis).slice()
+  for (const k of _baseKpis) {
+    if (!viewKpis.includes(k)) viewKpis.push(k)
+  }
 
   const toggleKpi = (key: string) => {
     setHiddenKpis(prev => {
@@ -365,6 +375,9 @@ export default function DashboardPage() {
               case 'maintenance_critical': return String(kpi?.maintenance_critical || 0)
               case 'approvals_pending': return String(kpi?.approvals_pending || 0)
               case 'otif_rate': return kpi?.otif_rate != null ? `${kpi.otif_rate}%` : 'N/A'
+              case 'tms_dispatched': return String(kpi?.tms_dispatched || 0)
+              case 'tms_active': return String(kpi?.tms_active || 0)
+              case 'tms_delayed': return String(kpi?.tms_delayed || 0)
               default: return '—'
             }
           })()

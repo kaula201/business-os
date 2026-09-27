@@ -1464,6 +1464,11 @@ const en: Record<string, string> = {
   'დაადასტურე მარშრუტი': 'Apply route',
   'მარშრუტი გამოითვალა': 'Route computed',
   'მარშრუტი დადასტურდა': 'Route applied',
+  'გვიანი მიწოდება': 'Delayed deliveries',
+  'რეისები CSV': 'Trips CSV',
+  'ანალიტიკა CSV': 'Analytics CSV',
+  'ფრეიტ-ინვოისები CSV': 'Freight invoices CSV',
+  'ფრეიტ-ინვოისები': 'Freight invoices',
   // ── Driver PWA (REQ-TMS-04) ──
   'მძღოლის აპი': 'Driver app',
   'GPS-ის ლოდინი...': 'Waiting for GPS...',

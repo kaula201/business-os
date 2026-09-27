@@ -22,6 +22,7 @@ from app.models.wms_ops import Shipment
 from app.models.production import WorkOrder
 from app.models.fleet import Vehicle
 from app.models.maintenance import MaintenanceOrder
+from app.models.fleet_tms import Trip, TripLoad, DeliveryRequest as TmsDeliveryRequest
 from app.models.approval import ApprovalRequest
 from app.models.dashboard_layout import DashboardLayout
 from app.schemas.dashboard import (
@@ -313,6 +314,24 @@ async def get_dashboard_summary(
                 )
             )).scalar() or 0),
         ),
+        # TMS operational KPIs (dispatched today / active / delayed open trips)
+        tms_dispatched=int((await db.execute(
+            select(func.count(Trip.id)).where(
+                Trip.company_id == company_id, Trip.status == "dispatched",
+            )
+        )).scalar() or 0),
+        tms_active=int((await db.execute(
+            select(func.count(Trip.id)).where(
+                Trip.company_id == company_id, Trip.status == "in_progress",
+            )
+        )).scalar() or 0),
+        tms_delayed=int((await db.execute(
+            select(func.count(Trip.id)).where(
+                Trip.company_id == company_id,
+                Trip.status.in_(["dispatched", "in_progress"]),
+                Trip.planned_end.isnot(None), Trip.planned_end < now,
+            )
+        )).scalar() or 0),
         last_updated_at=now,
     )
 

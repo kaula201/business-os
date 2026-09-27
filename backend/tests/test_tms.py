@@ -603,3 +603,77 @@ async def test_tms_trip_history(client, auth_headers, test_company, db_session):
     await db_session.execute(sqla_delete(TripGeofence).where(TripGeofence.trip_id == trip_id))
     await db_session.execute(sqla_delete(TripTelemetry).where(TripTelemetry.trip_id == trip_id))
     await _cleanup(db_session, trip_id, [dr_id], vehicle)
+
+
+@pytest.mark.asyncio
+async def test_tms_csv_export(client, auth_headers, test_company, db_session):
+    """CSV export: trips / analytics / freight return 200 with UTF-8 BOM."""
+    # ensure at least one trip exists so the CSV is non-trivial
+    vehicle = Vehicle(
+        company_id=test_company.id,
+        plate_number="TMS-CSV-1", brand="Toyota", model="Hiace", year=2024,
+        fuel_type="diesel", capacity_kg=5000, capacity_m3=100,
+        ownership="own", is_active=True,
+        insurance_valid_until=None, tech_inspection_until=None,
+    )
+    db_session.add(vehicle)
+    await db_session.flush()
+    await db_session.commit()
+    dr_id, trip_id, stop_id = await _prepare_trip(
+        client, auth_headers, trip_number="TR-CSV", request_number="DR-CSV",
+        weight="1000.000", volume="20.000")
+    await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/dispatch", headers=auth_headers, json={"vehicle_id": str(vehicle.id)})
+
+    r = await client.get("/api/v1/fleet/tms/export?scope=trips", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    assert "text/csv" in r.headers["content-type"]
+    body = r.text
+    assert body.startswith("\ufeff"), "UTF-8 BOM missing for Excel"
+    assert "trip_number" in body and "TR-CSV" in body
+
+    r2 = await client.get("/api/v1/fleet/tms/export?scope=analytics", headers=auth_headers)
+    assert r2.status_code == 200, r2.text
+    assert "total_delivery_requests" in r2.text
+
+    r3 = await client.get("/api/v1/fleet/tms/export?scope=freight", headers=auth_headers)
+    assert r3.status_code == 200, r3.text
+    assert "invoice_number" in r3.text
+
+    from app.models.fleet_tms import TripTelemetry
+    await db_session.execute(sqla_delete(TripTelemetry).where(TripTelemetry.trip_id == trip_id))
+    await _cleanup(db_session, trip_id, [dr_id], vehicle)
+
+
+@pytest.mark.asyncio
+async def test_tms_dispatch_notification(client, auth_headers, test_company, db_session):
+    """Dispatch emits an in-app tms_dispatch notification (REQ-TMS-07 style)."""
+    from app.models.notification import Notification
+    before = len((await db_session.execute(select(Notification).where(
+        Notification.company_id == test_company.id))).scalars().all())
+
+    vehicle = Vehicle(
+        company_id=test_company.id,
+        plate_number="TMS-NOTIF-1", brand="Toyota", model="Hiace", year=2024,
+        fuel_type="diesel", capacity_kg=5000, capacity_m3=100,
+        ownership="own", is_active=True,
+        insurance_valid_until=None, tech_inspection_until=None,
+    )
+    db_session.add(vehicle)
+    await db_session.flush()
+    await db_session.commit()
+    dr_id, trip_id, stop_id = await _prepare_trip(
+        client, auth_headers, trip_number="TR-NOTIF", request_number="DR-NOTIF",
+        weight="1000.000", volume="20.000")
+    await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/dispatch", headers=auth_headers, json={"vehicle_id": str(vehicle.id)})
+
+    notifs = (await db_session.execute(select(Notification).where(
+        Notification.company_id == test_company.id, Notification.type == "tms_dispatch"))).scalars().all()
+    assert len(notifs) == before + 1, f"expected dispatch notification to be created, got {len(notifs)}"
+    assert "TR-NOTIF" in (notifs[-1].title + (notifs[-1].message or ""))
+
+    await db_session.execute(sqla_delete(Notification).where(
+        Notification.company_id == test_company.id, Notification.type == "tms_dispatch"))
+    await db_session.commit()
+    from app.models.fleet_tms import TripTelemetry
+    await db_session.execute(sqla_delete(TripTelemetry).where(TripTelemetry.trip_id == trip_id))
+    await _cleanup(db_session, trip_id, [dr_id], vehicle)

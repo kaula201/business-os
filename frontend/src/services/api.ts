@@ -968,6 +968,7 @@ export const fleetApi = {
   listFreightInvoices: () => api.get('/fleet/tms/freight-invoices'),
   livePosition: (tripId: string) => api.get(`/fleet/tms/trips/${tripId}/live-position`),
   tripHistory: (tripId: string) => api.get(`/fleet/tms/trips/${tripId}/history`),
+  exportCsv: (scope: 'trips' | 'analytics' | 'freight') => api.get(`/fleet/tms/export?scope=${scope}`, { responseType: 'blob' }),
   dispatchTrip: (tripId: string, data: Record<string, unknown>) => api.post(`/fleet/tms/trips/${tripId}/dispatch`, data),
   startTrip: (tripId: string) => api.post(`/fleet/tms/trips/${tripId}/start`, {}),
   completeTrip: (tripId: string) => api.post(`/fleet/tms/trips/${tripId}/complete`, {}),
