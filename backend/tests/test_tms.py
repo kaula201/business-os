@@ -761,3 +761,53 @@ async def test_tms_driver_account_and_scope(client, auth_headers, test_company, 
             await db_session.execute(sqla_delete(Driver).where(Driver.user_id == u.id))
             await db_session.delete(u)
     await db_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_tms_route_plan_eta_and_geocode(client, auth_headers, test_company, db_session):
+    """route-plan returns per-leg distance + ETA; geocode is graceful."""
+    # geocode unit (network may be offline in CI → graceful null)
+    g = await client.get("/api/v1/fleet/tms/geocode", headers=auth_headers,
+                         params={"address": "თბილისი, რუსთაველის გამზირი"})
+    assert g.status_code == 200, g.text
+    gdata = g.json()["data"]
+    assert "resolved" in gdata and "lat" in gdata and "lng" in gdata
+
+    # two delivery requests with known coordinates → route-plan computes distance + ETA
+    r1 = await client.post("/api/v1/fleet/tms/delivery-requests", headers=auth_headers, json={
+        "request_number": "DR-ETA-1", "dropoff_address": "თბილისი, წერტილი 1",
+        "weight_kg": "500.000", "volume_m3": "10.000",
+        "dropoff_lat": 41.7151, "dropoff_lng": 44.8271,
+    })
+    assert r1.status_code == 200, r1.text
+    dr1 = r1.json()["data"]["id"]
+    r2 = await client.post("/api/v1/fleet/tms/delivery-requests", headers=auth_headers, json={
+        "request_number": "DR-ETA-2", "dropoff_address": "თბილისი, წერტილი 2",
+        "weight_kg": "500.000", "volume_m3": "10.000",
+        "dropoff_lat": 41.8000, "dropoff_lng": 44.8500,
+    })
+    assert r2.status_code == 200, r2.text
+    dr2 = r2.json()["data"]["id"]
+
+    t = await client.post("/api/v1/fleet/tms/trips", headers=auth_headers, json={
+        "trip_number": "TR-ETA", "planned_start": "2026-09-25T08:00:00",
+    })
+    trip_id = t.json()["data"]["id"]
+    s1 = await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/stops", headers=auth_headers, json={"sequence": 1, "address": "თბილისი, წერტილი 1"})
+    s2 = await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/stops", headers=auth_headers, json={"sequence": 2, "address": "თბილისი, წერტილი 2"})
+    stop1 = s1.json()["data"]["id"]; stop2 = s2.json()["data"]["id"]
+    await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/loads", headers=auth_headers, json={"delivery_id": dr1, "stop_id": stop1, "quantity": 5, "weight_kg": "500.000", "volume_m3": "10.000"})
+    await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/loads", headers=auth_headers, json={"delivery_id": dr2, "stop_id": stop2, "quantity": 5, "weight_kg": "500.000", "volume_m3": "10.000"})
+
+    rp = await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/route-plan", headers=auth_headers, json={})
+    assert rp.status_code == 200, rp.text
+    plan = rp.json()["data"]
+    assert "total_route_km" in plan
+    assert len(plan["suggested"]) == 2
+    for stop in plan["suggested"]:
+        assert "suggested_distance_km" in stop and "eta_minutes_from_start" in stop
+
+    from app.models.fleet_tms import TripTelemetry, TripGeofence
+    await db_session.execute(sqla_delete(TripGeofence).where(TripGeofence.trip_id == trip_id))
+    await db_session.execute(sqla_delete(TripTelemetry).where(TripTelemetry.trip_id == trip_id))
+    await _cleanup(db_session, trip_id, [dr1, dr2], None)

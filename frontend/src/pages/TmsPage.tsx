@@ -222,9 +222,11 @@ export default function TmsPage() {
   const closeTrip = useMutation({ mutationFn: (id: string) => fleetApi.closeTrip(id), onSuccess: invalidate })
 
   // TMS commercial: route planning + freight billing
+  const [lastPlan, setLastPlan] = useState<any | null>(null)
   const routePlanTrip = useMutation({
     mutationFn: (id: string) => fleetApi.routePlan(id).then((r: any) => r.data.data),
     onSuccess: (data: any) => {
+      setLastPlan(data || null)
       if (data?.suggested && data?.trip_id) {
         fleetApi.applyPlan(data.trip_id, data.suggested).then(() => invalidate())
       }
@@ -476,9 +478,18 @@ export default function TmsPage() {
           data={deliveries}
         />
       ) : (
-        <DataTable
-          columns={[
-            { key: 'trip_number', label: t('რეისის ნომერი') },
+        <div className="space-y-3">
+          {lastPlan && (
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm text-orange-800">
+              <span className="inline-flex items-center gap-1.5 font-medium"><Route className="h-4 w-4" />{t('მარშრუტი დაგეგმილია')}</span>
+              <span>{t('სულ მანძილი')}: <b>{lastPlan.total_route_km ?? 0} კმ</b></span>
+              <span>{t('სულ დრო')}: <b>{lastPlan.suggested?.reduce((a: number, s: any) => a + (s.eta_minutes_from_start || 0), 0) || 0} წთ</b></span>
+              <button onClick={() => setLastPlan(null)} className="ml-auto rounded px-1 text-orange-500 hover:bg-orange-100" title={t('დახურვა')}>×</button>
+            </div>
+          )}
+          <DataTable
+            columns={[
+              { key: 'trip_number', label: t('რეისის ნომერი') },
             { key: 'status', label: t('სტატუსი'), render: (r: Trip) => (
               <div className="flex items-center gap-2">
                 {badge(r.status)}
@@ -510,6 +521,7 @@ export default function TmsPage() {
           data={trips}
           onRowClick={(r: any) => openTrip(r.id)}
         />
+        </div>
       )}
 
       {/* Live route map (REQ-TMS-04) */}

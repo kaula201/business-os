@@ -85,6 +85,8 @@ class DeliveryRequestIn(BaseModel):
     source_type: str | None = None
     source_id: str | None = None
     delivery_date: date | None = None
+    dropoff_lat: float | None = None
+    dropoff_lng: float | None = None
 
 
 class TripIn(BaseModel):
@@ -346,6 +348,8 @@ async def create_delivery_request(
         source_type=payload.source_type,
         source_id=src_uuid,
         delivery_date=payload.delivery_date,
+        dropoff_lat=payload.dropoff_lat,
+        dropoff_lng=payload.dropoff_lng,
         created_by=current_user.id,
     )
     db.add(d)
@@ -1010,11 +1014,15 @@ async def route_plan(
     if not trip:
         raise HTTPException(status_code=404, detail="რეისი არ მოიძებნა")
     body = payload or {}
-    planned = await sequence_trip_stops(
+    planned, total_km = await sequence_trip_stops(
         db, trip,
         start_lat=body.get("start_lat"), start_lon=body.get("start_lng"),
     )
-    return ResponseBase(data={"trip_id": str(trip.id), "suggested": planned})
+    return ResponseBase(data={
+        "trip_id": str(trip.id),
+        "suggested": planned,
+        "total_route_km": round(total_km, 2),
+    })
 
 
 @router.post("/trips/{trip_id}/apply-plan", response_model=ResponseBase[dict])
@@ -1122,6 +1130,39 @@ async def live_position(
         select(TripTelemetry).where(TripTelemetry.trip_id == trip.id)
         .order_by(TripTelemetry.tracked_at.desc()).limit(1)
     )).scalar_one_or_none()
+
+    # ETA to the next pending stop from the last known position
+    eta = None
+    if last:
+        nxt = (await db.execute(
+            select(TripStop).where(TripStop.trip_id == trip.id, TripStop.status == "pending")
+            .order_by(TripStop.sequence).limit(1)
+        )).scalar_one_or_none()
+        if nxt:
+            nxt_lat = nxt_lng = None
+            load = (await db.execute(
+                select(TripLoad).where(TripLoad.stop_id == nxt.id).limit(1)
+            )).scalar_one_or_none()
+            if load:
+                drq = (await db.execute(
+                    select(DeliveryRequest).where(DeliveryRequest.id == load.delivery_id)
+                )).scalar_one_or_none()
+                if drq:
+                    nxt_lat, nxt_lng = drq.dropoff_lat, drq.dropoff_lng
+                    if nxt_lat is None or nxt_lng is None:
+                        from app.services.tms import geocode_address
+                        geocoded = await geocode_address(drq.dropoff_address)
+                        if geocoded:
+                            nxt_lat, nxt_lng = geocoded
+            if nxt_lat is not None and nxt_lng is not None:
+                from app.services.tms import _haversine_km, _estimate_eta_minutes
+                dist = _haversine_km(float(last.lat), float(last.lng), float(nxt_lat), float(nxt_lng))
+                eta = {
+                    "next_stop_id": str(nxt.id),
+                    "distance_km": round(dist, 2),
+                    "eta_minutes": _estimate_eta_minutes(dist),
+                }
+
     return ResponseBase(data={
         "trip_id": str(trip.id),
         "position": {
@@ -1129,6 +1170,27 @@ async def live_position(
             "tracked_at": last.tracked_at.isoformat() if last else None,
             "speed_kmh": str(last.speed_kmh) if last and last.speed_kmh is not None else None,
         } if last else None,
+        "eta": eta,
+    })
+
+
+@router.get("/geocode", response_model=ResponseBase[dict])
+async def geocode(
+    address: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Resolve an address to (lat, lng) via OSM Nominatim (no API key).
+
+    Graceful: returns null coordinates on failure/not-found — never an error.
+    """
+    from app.services.tms import geocode_address
+    coords = await geocode_address(address)
+    return ResponseBase(data={
+        "address": address,
+        "lat": coords[0] if coords else None,
+        "lng": coords[1] if coords else None,
+        "resolved": coords is not None,
     })
 
 

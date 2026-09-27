@@ -70,6 +70,7 @@ from app.models.fleet_tms import (
     TripCostAllocation as TmsTripCostAllocation,
     TripTelemetry as TmsTripTelemetry,
     TripGeofence as TmsTripGeofence,
+    TripFreightInvoice as TmsTripFreightInvoice,
 )
 from app.models.cash import CashAccount, CashTransaction
 from app.models.assets import FixedAsset, AssetDepreciation

@@ -21,8 +21,51 @@ from app.models.fleet_tms import (
     DeliveryRequest, Trip, TripStop, TripLoad, TripPOD, TripCostAllocation,
 )
 
+# ── 0. Geocoder (OSM Nominatim — no API key, rate-aware + cached) ───────
+_GEO_CACHE: dict[str, tuple[float, float] | None] = {}
 
-# ── 1. Route planning (no geocoder needed) ─────────────────────────────
+
+async def geocode_address(address: str) -> tuple[float, float] | None:
+    """Resolve an address string to (lat, lng) via OSM Nominatim.
+
+    Returns None on any failure (network, rate-limit, not found) so callers
+    degrade gracefully — the TMS route planner already handles missing coords.
+    Cached in-process to respect Nominatim's 1 req/sec fair-use policy.
+    """
+    if not address or not address.strip():
+        return None
+    key = address.strip().lower()
+    if key in _GEO_CACHE:
+        return _GEO_CACHE[key]
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"q": address, "format": "json", "limit": 1, "countrycodes": "ge"},
+                headers={"User-Agent": "business-os-erp/3.0 (tms-geocoder)"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        if data and isinstance(data, list) and len(data):
+            lat = float(data[0]["lat"])
+            lng = float(data[0]["lon"])
+            _GEO_CACHE[key] = (lat, lng)
+            return (lat, lng)
+        _GEO_CACHE[key] = None
+        return None
+    except Exception:
+        _GEO_CACHE[key] = None
+        return None
+
+
+def _estimate_eta_minutes(distance_km: float, speed_kmh: float = 35.0) -> int:
+    """Minutes to cover a distance at an assumed urban speed."""
+    if distance_km <= 0:
+        return 0
+    return max(1, round((distance_km / max(speed_kmh, 1.0)) * 60))
+
+
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Great-circle distance in km. Falls back gracefully if coords missing."""
     import math
@@ -41,19 +84,21 @@ async def sequence_trip_stops(
     trip: Trip,
     start_lat: float | None = None,
     start_lon: float | None = None,
-) -> list[dict]:
+) -> tuple[list[dict], float]:
     """Suggest a visited order for a trip's stops.
 
     Uses a nearest-neighbour walk over each stop's delivery request drop-off
-    coordinates (when present), otherwise falls back to the existing sequence /
-    scheduled window. Returns the suggested [stop_id, address, sequence]
-    ordering — the caller persists it if approved.
+    coordinates (geocoded from the address when absent), otherwise falls back
+    to the existing sequence / scheduled window. Returns
+    (ordered_stops, total_route_km).
     """
     stops = (await db.execute(
         select(TripStop).where(TripStop.trip_id == trip.id)
     )).scalars().all()
     if len(stops) < 2:
-        return [{"stop_id": str(s.id), "address": s.address, "sequence": s.sequence} for s in stops]
+        out = [{"stop_id": str(s.id), "address": s.address, "sequence": s.sequence,
+                "suggested_distance_km": 0.0, "eta_minutes_from_start": 0} for s in stops]
+        return out, 0.0
 
     # map stop -> dropoff coords via its loads' delivery request
     loads = (await db.execute(
@@ -66,11 +111,18 @@ async def sequence_trip_stops(
                 select(DeliveryRequest).where(DeliveryRequest.id == ld.delivery_id)
             )).scalar_one_or_none()
             if dr:
-                stop_coords[ld.stop_id] = (dr.dropoff_lat, dr.dropoff_lng)
+                lat, lng = dr.dropoff_lat, dr.dropoff_lng
+                if lat is None or lng is None:
+                    # geocode the drop-off address when no coords were recorded
+                    geocoded = await geocode_address(dr.dropoff_address)
+                    if geocoded:
+                        lat, lng = geocoded
+                stop_coords[ld.stop_id] = (lat, lng)
 
     # nearest-neighbour
     remaining = list(stops)
     path = []
+    legs = []  # (stop, leg_distance_km)
     cur_lat, cur_lon = start_lat, start_lon
     while remaining:
         best = None
@@ -85,9 +137,23 @@ async def sequence_trip_stops(
         lat, lon = stop_coords.get(best.id, (None, None))
         cur_lat, cur_lon = lat, lon
         path.append(best)
+        legs.append(best_d)
         remaining.remove(best)
 
-    return [{"stop_id": str(s.id), "address": s.address, "sequence": i + 1, "suggested_distance_km": None} for i, s in enumerate(path)]
+    # cumulative ETA from the first stop, per-leg distance, total route distance
+    total_km = 0.0
+    cumulative_min = 0
+    result = []
+    for i, s in enumerate(path):
+        leg_km = legs[i] if legs[i] != float("inf") else 0.0
+        total_km += leg_km
+        cumulative_min += _estimate_eta_minutes(leg_km)
+        result.append({
+            "stop_id": str(s.id), "address": s.address, "sequence": i + 1,
+            "suggested_distance_km": round(leg_km, 2),
+            "eta_minutes_from_start": cumulative_min,
+        })
+    return result, total_km
 
 
 # ── 2. TMS analytics ────────────────────────────────────────────────────
