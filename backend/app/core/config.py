@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # attempted; otherwise the checkout falls back to sandbox (demo) mode.
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
+    # SaaS billing webhook signature secret (HMAC-SHA256). When set, incoming
+    # /saas/webhook payloads must carry a valid signature; unset = sandbox-only.
+    SAAS_WEBHOOK_SECRET: str = ""
     # POS payment terminals — TBC Pay / BOG Pay merchant credentials.
     # When set, terminal charges hit the real provider API; otherwise sandbox.
     TBC_MERCHANT_ID: str = ""

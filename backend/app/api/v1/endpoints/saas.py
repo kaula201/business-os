@@ -6,11 +6,13 @@ the Business OS platform and exposes runtime feature gating for TMS.
 """
 from datetime import date, timedelta
 from uuid import UUID
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_admin
 from app.core.time import utc_now
@@ -269,3 +271,134 @@ async def reactivate(
     await db.commit()
     await db.refresh(sub)
     return ResponseBase(data=TenantSubscriptionResponse.model_validate(sub))
+
+
+# ── PSP checkout + webhook (provider-agnostic; Stripe when configured) ─────
+
+
+@router.post("/checkout", response_model=ResponseBase[dict])
+async def create_checkout(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a checkout session for the current company's pending subscription.
+
+    Returns a `payment_reference` + `gateway`:
+      - "stripe": a Stripe PaymentIntent `client_secret` (when STRIPE_SECRET_KEY set)
+      - "sandbox": a fake reference (demo mode — complete via /saas/webhook)
+    """
+    sub = (await db.execute(
+        select(TenantSubscription).where(TenantSubscription.company_id == current_user.company_id)
+    )).scalar_one_or_none()
+    if not sub:
+        raise HTTPException(status_code=404, detail="გამოწერა არ მოიძებნა")
+    if sub.status == "cancelled":
+        raise HTTPException(status_code=400, detail="გაუქმებული გამოწერა — ხელახლა გამოიწერეთ")
+
+    amount_gel = float(sub.amount)
+    client_secret = None
+    payment_reference = None
+    gateway = "sandbox"
+
+    if settings.STRIPE_SECRET_KEY:
+        try:
+            import stripe
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            pi = stripe.PaymentIntent.create(
+                amount=int(round(amount_gel * 100)), currency="gel",
+                payment_method_types=["card"],
+                metadata={"company_id": str(current_user.company_id),
+                          "subscription_id": str(sub.id), "plan": sub.plan_code},
+            )
+            payment_reference = pi.id
+            client_secret = pi.client_secret
+            gateway = "stripe"
+        except Exception as e:  # pragma: no cover - live PSP only
+            payment_reference = None
+            gateway = "sandbox"
+            from app.models.payment import PaymentTransaction
+            db.add(PaymentTransaction(
+                company_id=current_user.company_id, provider="stripe",
+                amount=sub.amount, currency="GEL", status="failed",
+                error_message=str(e)[:500],
+            ))
+            await db.commit()
+    else:
+        payment_reference = f"sbx_{uuid.uuid4().hex[:20]}"
+
+    return ResponseBase(data={
+        "gateway": gateway,
+        "payment_reference": payment_reference,
+        "client_secret": client_secret,
+        "amount": amount_gel,
+        "currency": "GEL",
+        "publishable_key": settings.STRIPE_PUBLISHABLE_KEY or None,
+    })
+
+
+@router.post("/webhook", response_model=ResponseBase[dict])
+async def saas_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Provider payment webhook. Confirms a payment and activates the subscription.
+
+    Signature: `X-Saas-Signature` = HMAC-SHA256(body) when SAAS_WEBHOOK_SECRET is
+    set (idempotent via `provider_ref`). When no secret is configured, accepts
+    unsigned payloads (sandbox/demo only).
+    """
+    body = await request.body()
+    sig = request.headers.get("x-saas-signature")
+    if settings.SAAS_WEBHOOK_SECRET:
+        import hashlib, hmac
+        expected = hmac.new(settings.SAAS_WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
+        if not sig or not hmac.compare_digest(sig, expected):
+            raise HTTPException(status_code=401, detail="არასწორი webhook ხელმოწერა")
+
+    payload = await request.json()
+    company_id = payload.get("company_id")
+    event = payload.get("event") or payload.get("type")
+    provider_ref = payload.get("payment_reference") or payload.get("provider_ref")
+    if not company_id or event not in ("payment_succeeded", "charge.succeeded", "payment_intent.succeeded"):
+        return ResponseBase(data={"received": True, "ignored": True})
+
+    try:
+        cid = UUID(str(company_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="არასწორი company_id")
+
+    sub = (await db.execute(
+        select(TenantSubscription).where(TenantSubscription.company_id == cid)
+    )).scalar_one_or_none()
+    if not sub:
+        raise HTTPException(status_code=404, detail="გამოწერა არ მოიძებნა")
+    if sub.status == "cancelled":
+        return ResponseBase(data={"received": True, "ignored": True, "reason": "cancelled"})
+
+    from app.models.payment import PaymentTransaction
+    if provider_ref:
+        dup = (await db.execute(
+            select(PaymentTransaction).where(PaymentTransaction.provider_ref == provider_ref)
+        )).scalar_one_or_none()
+        if dup:
+            return ResponseBase(data={"received": True, "duplicate": True})
+
+    db.add(PaymentTransaction(
+        company_id=cid, provider="stripe" if settings.STRIPE_SECRET_KEY else "sandbox",
+        amount=sub.amount, currency="GEL", status="succeeded",
+        provider_ref=provider_ref,
+    ))
+
+    today = date.today()
+    sub.status = "active"
+    sub.trial_ends_at = None
+    sub.start_date = sub.start_date or today
+    if not sub.next_billing_date or sub.next_billing_date < today:
+        sub.next_billing_date = _next_billing(today, sub.frequency)
+    sub.last_billed_at = utc_now()
+
+    await db.commit()
+    return ResponseBase(data={
+        "received": True, "status": "active",
+        "subscription_id": str(sub.id), "plan": sub.plan_code,
+    })

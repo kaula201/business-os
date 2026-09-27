@@ -989,6 +989,7 @@ export const saasApi = {
   cancel: () => api.post('/saas/cancel', {}),
   activate: () => api.post('/saas/activate', {}),
   reactivate: () => api.post('/saas/reactivate', {}),
+  checkout: () => api.post('/saas/checkout', {}),
 }
 
 // App Module API

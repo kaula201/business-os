@@ -229,3 +229,49 @@ async def test_reactivate_expired(client, auth_headers, test_company):
     ent = await _entitlement(client, auth_headers)
     assert ent["status"] == "active"
     assert ent["active"] is True
+
+
+async def test_checkout_and_webhook_activates(client, auth_headers, test_company):
+    """Sandbox checkout returns a reference; webhook confirms → active (idempotent)."""
+    await _cleanup_saas(test_company.id)
+    await _ensure_plan(client, auth_headers, "tms_starter")
+    await _subscribe(client, auth_headers, "tms_starter", trial_days=14)
+
+    r = await client.post("/api/v1/saas/checkout", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    d = r.json()["data"]
+    assert d["gateway"] == "sandbox"
+    assert d["payment_reference"].startswith("sbx_")
+
+    # webhook confirms payment → active
+    w = await client.post("/api/v1/saas/webhook", headers=auth_headers, json={
+        "company_id": str(test_company.id), "event": "payment_succeeded",
+        "payment_reference": d["payment_reference"],
+    })
+    assert w.status_code == 200, w.text
+    assert w.json()["data"]["status"] == "active"
+
+    ent = await _entitlement(client, auth_headers)
+    assert ent["status"] == "active"
+    assert ent["active"] is True
+
+    # duplicate webhook is idempotent (no double-activation error)
+    w2 = await client.post("/api/v1/saas/webhook", headers=auth_headers, json={
+        "company_id": str(test_company.id), "event": "payment_succeeded",
+        "payment_reference": d["payment_reference"],
+    })
+    assert w2.status_code == 200, w2.text
+    assert w2.json()["data"]["duplicate"] is True
+
+
+async def test_webhook_rejects_invalid_event(client, auth_headers, test_company):
+    await _cleanup_saas(test_company.id)
+    await _ensure_plan(client, auth_headers, "tms_starter")
+    await _subscribe(client, auth_headers, "tms_starter", trial_days=14)
+
+    w = await client.post("/api/v1/saas/webhook", headers=auth_headers, json={
+        "company_id": str(test_company.id), "event": "payment_failed",
+        "payment_reference": "sbx_x",
+    })
+    assert w.status_code == 200, w.text
+    assert w.json()["data"]["ignored"] is True
