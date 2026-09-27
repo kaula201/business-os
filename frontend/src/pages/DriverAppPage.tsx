@@ -73,10 +73,16 @@ export default function DriverAppPage() {
     return () => clearInterval(iv)
   }, [])
 
-  // ── my trips (driver board)
+  // ── my profile + trips (driver board, scoped to this driver account)
+  const driverQuery = useQuery({
+    queryKey: ['driver-me'],
+    queryFn: () => fleetApi.driverMe(),
+    retry: false,
+  })
   const tripsQuery = useQuery({
     queryKey: ['driver-trips'],
     queryFn: () => fleetApi.listTrips('dispatched').then((r: any) => r.data.data as Trip[]),
+    retry: false,
   })
 
   const openTrip = async (tripId: string) => {
@@ -176,6 +182,7 @@ export default function DriverAppPage() {
   }
 
   const trips: Trip[] = tripsQuery.data || []
+  const driver = (driverQuery.data as any)?.driver
   const activeTripId = activeTrip?.id
 
   return (
@@ -183,6 +190,7 @@ export default function DriverAppPage() {
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-semibold flex items-center gap-2">
           <Truck className="h-5 w-5 text-blue-600" /> {t('მძღოლის აპი')}
+          {driver?.name && <span className="text-sm font-normal text-gray-500">— {driver.name}</span>}
         </h1>
         <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">
           <Navigation className="h-3 w-3" />
@@ -250,6 +258,11 @@ export default function DriverAppPage() {
         </div>
       ) : (
         <div className="space-y-2">
+          {driverQuery.isError && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-700">
+              {t('ეს აქაუნთი მძღოლს არ უკავშირდება')}
+            </div>
+          )}
           {trips.length === 0 && (
             <div className="rounded-xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
               {t('აქტიური რეისები არ არის')}

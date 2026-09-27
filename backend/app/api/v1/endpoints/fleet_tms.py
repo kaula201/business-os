@@ -149,6 +149,17 @@ class CostAllocationIn(BaseModel):
     source_expense_id: str | None = None
 
 
+class DriverIn(BaseModel):
+    name: str
+    phone: str | None = None
+    license_number: str | None = None
+    license_categories: str | None = None
+    license_valid_until: date | None = None
+    # optional: create a linked driver account (User with role=driver)
+    email: str | None = None
+    password: str | None = None
+
+
 def _dr_resp(d: DeliveryRequest) -> dict:
     return {
         "id": str(d.id), "request_number": d.request_number, "status": d.status,
@@ -182,12 +193,103 @@ def _trip_resp(t: Trip) -> dict:
     }
 
 
+def _driver_resp(drv: Driver) -> dict:
+    return {
+        "id": str(drv.id), "name": drv.name, "phone": drv.phone,
+        "license_number": drv.license_number,
+        "license_categories": drv.license_categories,
+        "license_valid_until": str(drv.license_valid_until) if drv.license_valid_until else None,
+        "is_active": drv.is_active,
+        "user_id": str(drv.user_id) if drv.user_id else None,
+        "has_account": drv.user_id is not None,
+    }
+
+
 def _trip_load_weight(tl: TripLoad) -> Decimal:
     return tl.weight_kg if tl.weight_kg is not None else Decimal("0")
 
 
 def _trip_load_volume(tl: TripLoad) -> Decimal:
     return tl.volume_m3 if tl.volume_m3 is not None else Decimal("0")
+
+
+# ── Drivers (REQ-TMS-04: standalone driver accounts) ────────────────────
+@router.get("/drivers", response_model=ResponseBase[list[dict]])
+async def list_drivers(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(Driver).where(Driver.company_id == current_user.company_id).order_by(Driver.name)
+    )).scalars().all()
+    return ResponseBase(data=[_driver_resp(d) for d in rows])
+
+
+@router.post("/drivers", response_model=ResponseBase[dict], status_code=201)
+async def create_driver(
+    payload: DriverIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.core.security import hash_password
+
+    user_id = None
+    if payload.email:
+        # optional linked driver account (role=driver) so the driver can log into the PWA
+        existing_user = (await db.execute(
+            select(User).where(User.email == payload.email)
+        )).scalar_one_or_none()
+        if existing_user:
+            raise HTTPException(status_code=409, detail="ელფოსტა უკვე დაკავებულია")
+        if not payload.password:
+            raise HTTPException(status_code=422, detail="მძღოლის აქაუნთს პაროლი სჭირდება")
+        driver_user = User(
+            company_id=current_user.company_id,
+            email=payload.email,
+            hashed_password=hash_password(payload.password),
+            full_name=payload.name,
+            role=User.Role.DRIVER,
+            is_active=True,
+            email_verified=True,
+        )
+        db.add(driver_user)
+        await db.flush()
+        user_id = driver_user.id
+
+    drv = Driver(
+        company_id=current_user.company_id,
+        name=payload.name,
+        phone=payload.phone,
+        license_number=payload.license_number,
+        license_categories=payload.license_categories,
+        license_valid_until=payload.license_valid_until,
+        user_id=user_id,
+        is_active=True,
+    )
+    db.add(drv)
+    await db.commit()
+    await db.refresh(drv)
+    return ResponseBase(data=_driver_resp(drv))
+
+
+@router.get("/drivers/me", response_model=ResponseBase[dict])
+async def my_driver_profile(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """The driver account's own profile + their assigned open trips."""
+    drv = (await db.execute(
+        select(Driver).where(Driver.company_id == current_user.company_id, Driver.user_id == current_user.id)
+    )).scalar_one_or_none()
+    if drv is None:
+        raise HTTPException(status_code=404, detail="მძღოლის პროფილი არ მოიძებნა")
+    trips = (await db.execute(
+        select(Trip).where(Trip.driver_id == drv.id, Trip.status.in_(["dispatched", "in_progress"])).order_by(Trip.created_at.desc())
+    )).scalars().all()
+    return ResponseBase(data={
+        "driver": _driver_resp(drv),
+        "trips": [_trip_resp(t) for t in trips],
+    })
 
 
 # ── Delivery Requests (REQ-TMS-01) ──────────────────────────────────────
@@ -283,6 +385,14 @@ async def list_trips(
     current_user: User = Depends(get_current_user),
 ):
     q = select(Trip).where(Trip.company_id == current_user.company_id)
+    # REQ-TMS-04: a driver account is scoped to its own trips only
+    if current_user.role == User.Role.DRIVER:
+        drv = (await db.execute(
+            select(Driver).where(Driver.company_id == current_user.company_id, Driver.user_id == current_user.id)
+        )).scalar_one_or_none()
+        if drv is None:
+            return ResponseBase(data=[])
+        q = q.where(Trip.driver_id == drv.id)
     if status:
         q = q.where(Trip.status == status)
     if vehicle_id:

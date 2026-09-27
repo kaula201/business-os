@@ -677,3 +677,87 @@ async def test_tms_dispatch_notification(client, auth_headers, test_company, db_
     from app.models.fleet_tms import TripTelemetry
     await db_session.execute(sqla_delete(TripTelemetry).where(TripTelemetry.trip_id == trip_id))
     await _cleanup(db_session, trip_id, [dr_id], vehicle)
+
+
+@pytest.mark.asyncio
+async def test_tms_driver_account_and_scope(client, auth_headers, test_company, db_session):
+    """Standalone driver account: create driver+account, driver sees only own trips."""
+    from app.models.user import User
+    from app.models.fleet_tms import Driver
+
+    # 1) create driver with a linked account
+    r = await client.post("/api/v1/fleet/tms/drivers", headers=auth_headers, json={
+        "name": "გიორგი ტესტი", "phone": "599000000",
+        "license_number": "LIC-123", "email": "driver.test@demo.ge", "password": "driverpass123",
+    })
+    assert r.status_code == 201, r.text
+    d = r.json()["data"]
+    assert d["has_account"] is True
+    driver_id = d["id"]
+
+    # 2) the linked user exists with role=driver
+    user = (await db_session.execute(
+        select(User).where(User.email == "driver.test@demo.ge")
+    )).scalar_one()
+    assert user.role == User.Role.DRIVER
+
+    # 3) login as the driver
+    lg = await client.post("/api/v1/auth/login", json={
+        "email": "driver.test@demo.ge", "password": "driverpass123",
+    })
+    assert lg.status_code == 200, lg.text
+    driver_token = lg.json()["data"]["access_token"]
+    dh = {"Authorization": f"Bearer {driver_token}"}
+
+    # 4) driver has no trips yet
+    me = await client.get("/api/v1/fleet/tms/drivers/me", headers=dh)
+    assert me.status_code == 200, me.text
+    assert me.json()["data"]["driver"]["id"] == driver_id
+    assert me.json()["data"]["trips"] == []
+
+    # 5) create a trip (as admin) assigned to this driver → driver sees it
+    dr_id, trip_id, stop_id = await _prepare_trip(
+        client, auth_headers, trip_number="TR-DRV-SCOPE", request_number="DR-DRV-SCOPE",
+        weight="1000.000", volume="20.000")
+    vehicle = Vehicle(
+        company_id=test_company.id, plate_number="TMS-DRV-1", brand="Toyota", model="Hiace",
+        year=2024, fuel_type="diesel", capacity_kg=5000, capacity_m3=100,
+        ownership="own", is_active=True, insurance_valid_until=None, tech_inspection_until=None,
+    )
+    db_session.add(vehicle)
+    await db_session.flush()
+    await db_session.commit()
+    await client.post(f"/api/v1/fleet/tms/trips/{trip_id}/dispatch", headers=auth_headers,
+                      json={"vehicle_id": str(vehicle.id), "driver_id": driver_id})
+
+    listed = await client.get("/api/v1/fleet/tms/trips", headers=dh)
+    assert listed.status_code == 200, listed.text
+    trip_numbers = [t["trip_number"] for t in listed.json()["data"]]
+    assert "TR-DRV-SCOPE" in trip_numbers, "driver should see their own assigned trip"
+
+    # 6) a second driver account must NOT see that trip
+    r2 = await client.post("/api/v1/fleet/tms/drivers", headers=auth_headers, json={
+        "name": "სხვა მძღოლი", "email": "driver.other@demo.ge", "password": "driverpass456",
+    })
+    assert r2.status_code == 201, r2.text
+    lg2 = await client.post("/api/v1/auth/login", json={
+        "email": "driver.other@demo.ge", "password": "driverpass456",
+    })
+    dh2 = {"Authorization": f"Bearer {lg2.json()['data']['access_token']}"}
+    other_list = await client.get("/api/v1/fleet/tms/trips", headers=dh2)
+    other_numbers = [t["trip_number"] for t in other_list.json()["data"]]
+    assert "TR-DRV-SCOPE" not in other_numbers, "other driver must not see this trip"
+
+    # cleanup: trip first (references driver_id FK), then the driver accounts
+    from app.models.fleet_tms import TripTelemetry, TripGeofence
+    await db_session.execute(sqla_delete(TripGeofence).where(TripGeofence.trip_id == trip_id))
+    await db_session.execute(sqla_delete(TripTelemetry).where(TripTelemetry.trip_id == trip_id))
+    await _cleanup(db_session, trip_id, [dr_id], vehicle)
+    for email in ("driver.test@demo.ge", "driver.other@demo.ge"):
+        u = (await db_session.execute(select(User).where(User.email == email))).scalar_one_or_none()
+        if u:
+            from app.models.security import LoginHistory
+            await db_session.execute(sqla_delete(LoginHistory).where(LoginHistory.user_id == u.id))
+            await db_session.execute(sqla_delete(Driver).where(Driver.user_id == u.id))
+            await db_session.delete(u)
+    await db_session.commit()

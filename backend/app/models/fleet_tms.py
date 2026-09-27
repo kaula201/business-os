@@ -25,6 +25,7 @@ class Driver(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
     employee_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=True, index=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     license_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -255,4 +256,30 @@ class TripGeofence(Base):
     lat: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
     lng: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
     radius_m: Mapped[float] = mapped_column(Numeric(8, 1), default=500, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class TripFreightInvoice(Base):
+    """Standalone freight invoice for a trip (client-billable shipping charge).
+
+    Kept independent of FIN so the TMS module sells standalone; a callout maps
+    it to a FIN invoice when linked. Lines are stored as JSONB for audit."""
+
+    __tablename__ = "tms_freight_invoices"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True)
+    trip_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tms_trips.id"), nullable=False, index=True)
+    invoice_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    # issued | posted | cancelled
+    status: Mapped[str] = mapped_column(String(20), default="issued", nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="GEL", nullable=False)
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
+    freight_charge: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
+    carrier_rate: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
+    margin: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"), nullable=False)
+    lines: Mapped[dict] = mapped_column(JSONB, default=list, nullable=False)
+    fin_invoice_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

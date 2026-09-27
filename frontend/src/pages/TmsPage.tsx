@@ -101,7 +101,7 @@ function badge(status: string) {
 export default function TmsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState<'deliveries' | 'trips' | 'map'>('deliveries')
+  const [tab, setTab] = useState<'deliveries' | 'trips' | 'map' | 'drivers'>('deliveries')
   // live route map state
   const [mapTrip, setMapTrip] = useState<any | null>(null)
   const [historyData, setHistoryData] = useState<any | null>(null)
@@ -139,6 +139,25 @@ export default function TmsPage() {
     queryFn: () => fleetApi.analytics().then((r: any) => r.data.data),
   })
   const analytics: any = analyticsQuery.data || {}
+
+  // drivers (standalone driver accounts)
+  const driversQuery = useQuery({
+    queryKey: ['tms-drivers'],
+    queryFn: () => fleetApi.tmsListDrivers(),
+  })
+  const drivers: any[] = driversQuery.data || []
+  const [driverModal, setDriverModal] = useState(false)
+  const [driverForm, setDriverForm] = useState<Record<string, unknown>>({
+    name: '', phone: '', license_number: '', email: '', password: '',
+  })
+  const createDriver = useMutation({
+    mutationFn: (d: Record<string, unknown>) => fleetApi.tmsCreateDriver(d),
+    onSuccess: () => {
+      setDriverModal(false)
+      setDriverForm({ name: '', phone: '', license_number: '', email: '', password: '' })
+      queryClient.invalidateQueries({ queryKey: ['tms-drivers'] })
+    },
+  })
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['tms-deliveries'] })
@@ -365,8 +384,76 @@ export default function TmsPage() {
           >
             <MapPin className="h-4 w-4" /> {t('ლაივ რუკა')}
           </button>
+          <button
+            onClick={() => setTab('drivers')}
+            className={`inline-flex items-center gap-2 rounded-t-lg px-4 py-2 text-sm font-medium ${
+              tab === 'drivers' ? 'border-b-2 border-blue-600 text-blue-700' : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            <User className="h-4 w-4" /> {t('მძღოლები')}
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs">{drivers.length}</span>
+          </button>
         </nav>
       </div>
+
+      {tab === 'drivers' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">{t('მძღოლების მართვა და PWA-აქაუნთები')}</p>
+            <button onClick={() => setDriverModal(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700">
+              <Plus className="h-3.5 w-3.5" /> {t('მძღოლის დამატება')}
+            </button>
+          </div>
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+            {drivers.length === 0 ? (
+              <div className="p-6 text-center text-sm text-gray-400">{t('მძღოლები არ არის')}</div>
+            ) : (
+              drivers.map((drv: any) => (
+                <div key={drv.id} className="flex items-center justify-between border-b border-gray-100 px-4 py-3 last:border-0">
+                  <div>
+                    <p className="font-medium">{drv.name}</p>
+                    <p className="text-xs text-gray-400">{drv.phone || '—'} · {drv.license_number || '—'}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-2 py-0.5 text-xs ${drv.has_account ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {drv.has_account ? t('აქაუნთი აქვს') : t('აქაუნთი არ აქვს')}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs ${drv.is_active ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-600'}`}>
+                      {drv.is_active ? t('აქტიური') : t('არააქტიური')}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      <Modal open={driverModal} onClose={() => setDriverModal(false)} title={t('მძღოლის დამატება')}>
+        <div className="space-y-3">
+          <FormField label={t('სახელი')}>
+            <input value={driverForm.name as string} onChange={(e) => setDriverForm({ ...driverForm, name: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+          </FormField>
+          <FormField label={t('ტელეფონი')}>
+            <input value={driverForm.phone as string} onChange={(e) => setDriverForm({ ...driverForm, phone: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+          </FormField>
+          <FormField label={t('მართვის მოწმობა')}>
+            <input value={driverForm.license_number as string} onChange={(e) => setDriverForm({ ...driverForm, license_number: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+          </FormField>
+          <FormField label={t('ელფოსტა (აქაუნთისთვის, არასავალდებულო)')}>
+            <input value={driverForm.email as string} onChange={(e) => setDriverForm({ ...driverForm, email: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+          </FormField>
+          {Boolean(driverForm.email) && (
+            <FormField label={t('პაროლი')}>
+              <input type="password" value={driverForm.password as string} onChange={(e) => setDriverForm({ ...driverForm, password: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            </FormField>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <button onClick={() => setDriverModal(false)} className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm">{t('გაუქმება')}</button>
+            <button onClick={() => createDriver.mutate(driverForm)} disabled={!driverForm.name} className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-50">{t('შენახვა')}</button>
+          </div>
+        </div>
+      </Modal>
 
       {tab === 'deliveries' ? (
         <DataTable
