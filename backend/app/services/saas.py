@@ -58,3 +58,118 @@ def check_limit(feature_limits: dict, key: str, current_count: int) -> bool:
     if limit is None or limit == -1:
         return True
     return current_count < int(limit)
+
+
+# ── Billing scheduler (daily: expire lapsed trials, bill due active subs) ────
+
+
+async def run_daily_billing(db: AsyncSession) -> dict:
+    """Run one billing pass across ALL companies (platform-wide).
+
+    Mirrors the /saas/billing/run endpoint logic but is tenant-agnostic, so it
+    can be scheduled. Returns counters. Uses a PostgreSQL advisory lock to stay
+    safe under multiple workers.
+    """
+    from datetime import date as _date
+    from app.core.time import utc_now
+
+    today = _date.today()
+    expired = billed = 0
+
+    lapsed = (await db.execute(
+        select(TenantSubscription).where(
+            TenantSubscription.status == "trial",
+            TenantSubscription.trial_ends_at.isnot(None),
+            TenantSubscription.trial_ends_at < today,
+        )
+    )).scalars().all()
+    for sub in lapsed:
+        sub.status = "expired"
+        sub.end_date = sub.trial_ends_at
+        expired += 1
+
+    due = (await db.execute(
+        select(TenantSubscription).where(
+            TenantSubscription.status == "active",
+            TenantSubscription.next_billing_date.isnot(None),
+            TenantSubscription.next_billing_date <= today,
+        )
+    )).scalars().all()
+    for sub in due:
+        sub.last_billed_at = utc_now()
+        nbd = sub.next_billing_date or today
+        if sub.frequency == "yearly":
+            sub.next_billing_date = nbd.replace(year=nbd.year + 1)
+        elif nbd.month == 12:
+            sub.next_billing_date = nbd.replace(year=nbd.year + 1, month=1)
+        else:
+            sub.next_billing_date = nbd.replace(month=nbd.month + 1)
+        billed += 1
+
+    await db.commit()
+    return {"expired_trials": expired, "billed": billed, "due": len(due)}
+
+
+SAAS_BILLING_ADVISORY_LOCK_KEY = 2026092702
+
+
+async def run_scheduled_billing() -> dict:
+    """Run a platform-wide billing pass under a PostgreSQL advisory lock.
+
+    Prevents duplicate workers (e.g. two uvicorn processes) from double-billing.
+    """
+    import asyncio
+    import logging
+    from sqlalchemy import text
+    from app.core.database import async_session_factory
+
+    logger = logging.getLogger(__name__)
+    async with async_session_factory() as lock_db:
+        locked = await lock_db.scalar(
+            text("SELECT pg_try_advisory_lock(:key)"), {"key": SAAS_BILLING_ADVISORY_LOCK_KEY}
+        )
+        if not locked:
+            return {"expired_trials": 0, "billed": 0, "due": 0, "skipped": 1}
+        try:
+            return await run_daily_billing(lock_db)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Scheduled SaaS billing pass failed")
+            return {"expired_trials": 0, "billed": 0, "due": 0, "error": 1}
+        finally:
+            await lock_db.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": SAAS_BILLING_ADVISORY_LOCK_KEY})
+
+
+def seconds_until_next_billing(now=None) -> float:
+    """Seconds until the next daily billing run (Asia/Tbilisi local time)."""
+    import logging
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    from app.core.config import settings
+
+    tz = ZoneInfo(settings.SAAS_BILLING_TIMEZONE)
+    current = now.astimezone(tz) if now else datetime.now(tz)
+    target = current.replace(
+        hour=settings.SAAS_BILLING_HOUR, minute=settings.SAAS_BILLING_MINUTE,
+        second=0, microsecond=0,
+    )
+    if target <= current:
+        target += timedelta(days=1)
+    return (target - current).total_seconds()
+
+
+async def saas_billing_scheduler_loop() -> None:
+    """Long-running daily billing loop (started from app lifespan)."""
+    import asyncio
+    import logging
+    logger = logging.getLogger(__name__)
+    while True:
+        await asyncio.sleep(seconds_until_next_billing())
+        try:
+            result = await run_scheduled_billing()
+            logger.info("Scheduled SaaS billing pass: %s", result)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Scheduled SaaS billing job failed")

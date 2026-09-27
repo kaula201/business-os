@@ -275,3 +275,26 @@ async def test_webhook_rejects_invalid_event(client, auth_headers, test_company)
     })
     assert w.status_code == 200, w.text
     assert w.json()["data"]["ignored"] is True
+
+
+async def test_daily_billing_service(client, auth_headers, test_company):
+    """services.saas.run_daily_billing expires lapsed trials and bills due active subs."""
+    from app.services.saas import run_daily_billing
+
+    await _cleanup_saas(test_company.id)
+    await _ensure_plan(client, auth_headers, "tms_starter")
+    await _subscribe(client, auth_headers, "tms_starter", trial_days=14)
+
+    # lapsed trial
+    async with TestSessionLocal() as s:
+        sub = (await s.execute(select(TenantSubscription).where(
+            TenantSubscription.company_id == test_company.id))).scalar_one()
+        sub.trial_ends_at = date.today() - timedelta(days=1)
+        await s.commit()
+
+    async with TestSessionLocal() as s:
+        result = await run_daily_billing(s)
+
+    assert result["expired_trials"] == 1
+    ent = await _entitlement(client, auth_headers)
+    assert ent["status"] == "expired"

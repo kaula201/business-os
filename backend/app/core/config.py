@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     # SaaS billing webhook signature secret (HMAC-SHA256). When set, incoming
     # /saas/webhook payloads must carry a valid signature; unset = sandbox-only.
     SAAS_WEBHOOK_SECRET: str = ""
+    # Daily SaaS billing scheduler (expire lapsed trials, bill due active subs).
+    SAAS_BILLING_AUTO_ENABLED: bool = True
+    SAAS_BILLING_HOUR: int = 3
+    SAAS_BILLING_MINUTE: int = 0
+    SAAS_BILLING_TIMEZONE: str = "Asia/Tbilisi"
     # POS payment terminals — TBC Pay / BOG Pay merchant credentials.
     # When set, terminal charges hit the real provider API; otherwise sandbox.
     TBC_MERCHANT_ID: str = ""

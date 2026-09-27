@@ -20,3 +20,7 @@ pgvector==0.3.6
 pytest==8.3.4
 pytest-asyncio==0.25.2
 slowapi==0.1.9
+# Payment gateway — optional: only required when STRIPE_SECRET_KEY is set.
+# Stripe charges are attempted live when the key is present; otherwise checkout
+# falls back to sandbox (no stripe import happens).
+stripe==11.3.0

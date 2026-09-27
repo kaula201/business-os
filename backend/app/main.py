@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.api.v1.router import api_router
 from app.services.nbg_rates import nbg_scheduler_loop
 from app.services.financial_automation import financial_scheduler_loop
+from app.services.saas import saas_billing_scheduler_loop
 from app.services.accounting_periods import AccountingPeriodClosedError
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
@@ -24,6 +25,8 @@ async def lifespan(_: FastAPI):
         scheduler_tasks.append(asyncio.create_task(nbg_scheduler_loop(), name="nbg-daily-sync"))
     if settings.FINANCIAL_AUTO_ENABLED:
         scheduler_tasks.append(asyncio.create_task(financial_scheduler_loop(), name="financial-monthly-close"))
+    if settings.SAAS_BILLING_AUTO_ENABLED:
+        scheduler_tasks.append(asyncio.create_task(saas_billing_scheduler_loop(), name="saas-billing-daily"))
     try:
         yield
     finally:
