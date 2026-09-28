@@ -32,7 +32,8 @@ export default function DocumentsPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ title: '', description: '', category_id: '', document_type: 'other', tags: '', filename: '', file_path: '' })
+  const [form, setForm] = useState({ title: '', description: '', category_id: '', document_type: 'other', tags: '' })
+  const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState('')
 
   const { data, isLoading } = useQuery({
@@ -48,7 +49,7 @@ export default function DocumentsPage() {
   const categories: DocumentCategory[] = catData || []
 
   const createMutation = useMutation({
-    mutationFn: (d: any) => api.post('/documents/', d),
+    mutationFn: (fd: FormData) => api.post('/documents/upload', fd),
     onSuccess: () => { setShowModal(false); resetForm(); queryClient.invalidateQueries({ queryKey: ['documents'] }) },
     onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
@@ -58,9 +59,20 @@ export default function DocumentsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['documents'] }),
   })
 
-  function resetForm() { setForm({ title: '', description: '', category_id: '', document_type: 'other', tags: '', filename: '', file_path: '' }); setError('') }
+  function resetForm() { setForm({ title: '', description: '', category_id: '', document_type: 'other', tags: '' }); setFile(null); setError('') }
 
-  function submit(e: React.FormEvent) { e.preventDefault(); createMutation.mutate(form) }
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!file) { setError(t('ფაილი *')); return }
+    const fd = new FormData()
+    fd.append('title', form.title)
+    fd.append('document_type', form.document_type)
+    if (form.description) fd.append('description', form.description)
+    if (form.category_id) fd.append('category_id', form.category_id)
+    if (form.tags) fd.append('tags', form.tags)
+    fd.append('file', file)
+    createMutation.mutate(fd)
+  }
 
   return (
     <div className="space-y-6">
@@ -148,14 +160,9 @@ export default function DocumentsPage() {
                 {Object.entries(typeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ფაილის სახელი *')}</label>
-              <input required value={form.filename} onChange={e => setForm({ ...form, filename: e.target.value })}
-                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ფაილის გზა *')}</label>
-              <input required value={form.file_path} onChange={e => setForm({ ...form, file_path: e.target.value })}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ფაილი *')}</label>
+              <input required type="file" onChange={e => setFile(e.target.files?.[0] || null)}
                 className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </div>
             <div className="md:col-span-2">

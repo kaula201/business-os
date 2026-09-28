@@ -4,18 +4,22 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from slowapi.util import get_remote_address
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.api.v1.router import api_router
 from app.services.nbg_rates import nbg_scheduler_loop
 from app.services.financial_automation import financial_scheduler_loop
 from app.services.saas import saas_billing_scheduler_loop
 from app.services.accounting_periods import AccountingPeriodClosedError
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+_DOC_PATHS = {"/docs", "/redoc", "/openapi.json"}
+
+
+def _is_docs_path(path: str) -> bool:
+    return path in _DOC_PATHS or path.startswith("/docs/") or path.startswith("/redoc/")
 
 
 @asynccontextmanager
@@ -35,11 +39,15 @@ async def lifespan(_: FastAPI):
             with suppress(asyncio.CancelledError):
                 await task
 
+_docs_disabled = settings.is_production()
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="ქართული Business OS — საოპერაციო პლატფორმა ქართული ბიზნესებისთვის",
     lifespan=lifespan,
+    docs_url=None if _docs_disabled else "/docs",
+    redoc_url=None if _docs_disabled else "/redoc",
+    openapi_url=None if _docs_disabled else "/openapi.json",
 )
 
 
@@ -52,14 +60,22 @@ async def accounting_period_closed_handler(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS
+# CORS — explicit allowlist only. Credentials are never combined with "*".
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def hide_api_docs_in_production(request: Request, call_next):
+    """Production must not expose Swagger, ReDoc, or the OpenAPI schema."""
+    if settings.is_production() and _is_docs_path(request.url.path):
+        return JSONResponse(status_code=404, content={"detail": "Not found"})
+    return await call_next(request)
 
 # Rate limiting
 app.add_middleware(SlowAPIMiddleware)
@@ -75,8 +91,10 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {
+    payload = {
         "name": settings.APP_NAME,
         "version": settings.APP_VERSION,
-        "docs": "/docs",
     }
+    if not settings.is_production():
+        payload["docs"] = "/docs"
+    return payload

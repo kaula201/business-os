@@ -343,16 +343,22 @@ async def saas_webhook(
 ):
     """Provider payment webhook. Confirms a payment and activates the subscription.
 
-    Signature: `X-Saas-Signature` = HMAC-SHA256(body) when SAAS_WEBHOOK_SECRET is
-    set (idempotent via `provider_ref`). When no secret is configured, accepts
-    unsigned payloads (sandbox/demo only).
+    Signature: `X-Saas-Signature` = HMAC-SHA256(body). SAAS_WEBHOOK_SECRET is
+    required unless APP_ENV is development, test, or sandbox. A missing or
+    invalid signature returns 401 and does not activate the subscription.
+    Idempotent via `provider_ref`. Unsigned bodies are accepted only in
+    relaxed environments when the secret is unset.
     """
     body = await request.body()
     sig = request.headers.get("x-saas-signature")
-    if settings.SAAS_WEBHOOK_SECRET:
+    secret = (settings.SAAS_WEBHOOK_SECRET or "").strip()
+    # Outside development/test/sandbox the signing secret is mandatory.
+    if not secret and not settings.is_relaxed_env():
+        raise HTTPException(status_code=401, detail="SAAS_WEBHOOK_SECRET აუცილებელია")
+    if secret:
         import hashlib, hmac
-        expected = hmac.new(settings.SAAS_WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
-        if not sig or not hmac.compare_digest(sig, expected):
+        expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        if not sig or not hmac.compare_digest(sig.strip(), expected):
             raise HTTPException(status_code=401, detail="არასწორი webhook ხელმოწერა")
 
     payload = await request.json()

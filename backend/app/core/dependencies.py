@@ -7,6 +7,7 @@ from sqlalchemy import select, text
 from app.core.database import get_db, current_company_id
 from app.core.security import decode_token
 from app.models.user import User
+from app.models.security import LoginHistory
 from app.models.module import AppModule, ModulePermission
 from app.models.integration import ApiKey
 
@@ -23,6 +24,18 @@ async def get_current_user(
     payload = decode_token(token)
     if not payload or payload.get("type") != "access":
         raise HTTPException(status_code=401, detail="არასწორი ან ვადაგასული token")
+
+    jti = payload.get("jti")
+    if not jti:
+        raise HTTPException(status_code=401, detail="არასწორი ან ვადაგასული token")
+    revoked = (await db.execute(
+        select(LoginHistory.id).where(
+            LoginHistory.session_key == jti,
+            LoginHistory.is_active.is_(False),
+        ).limit(1)
+    )).first()
+    if revoked:
+        raise HTTPException(status_code=401, detail="სესია გაუქმებულია")
 
     user_id = payload.get("sub")
     # Keep as string for SQLite compatibility (PostgreSQL UUID works with string comparison)

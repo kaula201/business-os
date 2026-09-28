@@ -41,6 +41,11 @@ logs/
 # Docker
 docker-compose.override.yml
 
+# TLS material (operators mount these; never commit real certs)
+certs/*.pem
+certs/*.key
+certs/*.crt
+
 # Node
 node_modules/
 frontend/node_modules/

@@ -2512,6 +2512,11 @@ const en: Record<string, string> = {
   'დღეს': 'Today',
   'მონაცემები იტვირთება…': 'Loading data…',
   'ძებნა…': 'Search…',
+  'ავთენტიფიკატორის კოდი': 'Authenticator code',
+  'შეიყვანეთ ავთენტიფიკატორის 6-ნიშნა კოდი': 'Enter the 6-digit authenticator code',
+  'დაადასტურეთ კოდი': 'Confirm code',
+  'დაამატეთ საიდუმლო ავთენტიფიკატორში და დაადასტურეთ 6-ნიშნა კოდი. სანამ არ დაადასტურებთ, შესვლა კოდს არ მოითხოვს.': 'Add the secret to your authenticator app and confirm the 6-digit code. Sign-in will not ask for a code until you confirm.',
+  'ფაილი *': 'File *',
 }
 
 i18n.use(initReactI18next).init({

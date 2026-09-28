@@ -10,12 +10,20 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.url_safety import UnsafeWebhookURL, assert_public_webhook_url
 from app.models.integration import Webhook, WebhookEvent
 
 
 def _sign(payload: str, secret: str) -> str:
     """HMAC-SHA256 signature (X-BOS-Signature: sha256=<hex>)."""
     return "sha256=" + hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+
+
+async def _post_webhook(url: str, payload: dict, headers: dict) -> httpx.Response:
+    """POST only after the URL is checked against private/link-local/metadata ranges."""
+    assert_public_webhook_url(url)
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
+        return await client.post(url, json=payload, headers=headers)
 
 
 async def deliver_webhook(
@@ -49,12 +57,15 @@ async def deliver_webhook(
         headers["X-BOS-Signature"] = _sign(payload_json, webhook.secret)
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(webhook.url, json=payload, headers=headers)
+        resp = await _post_webhook(webhook.url, payload, headers)
         event.attempts += 1
         event.status = "delivered" if resp.status_code < 400 else "failed"
         event.last_response_code = resp.status_code
         event.last_error = None if resp.status_code < 400 else resp.text[:500]
+    except UnsafeWebhookURL as exc:
+        event.attempts += 1
+        event.status = "failed"
+        event.last_error = str(exc)[:500]
     except Exception as exc:  # noqa: BLE001 — network errors are logged, not raised
         event.attempts += 1
         event.status = "failed"
@@ -99,8 +110,7 @@ async def process_retry_queue(db: AsyncSession, company_id: uuid.UUID) -> int:
         if webhook.secret:
             headers["X-BOS-Signature"] = _sign(event.payload, webhook.secret)
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(webhook.url, json=payload, headers=headers)
+            resp = await _post_webhook(webhook.url, payload, headers)
             event.attempts += 1
             event.last_response_code = resp.status_code
             if resp.status_code < 400:

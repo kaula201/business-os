@@ -15,8 +15,13 @@ export const api = axios.create({
 // Request interceptor — token-ის დამატება
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
-  if (token) {
+  const existing = config.headers?.get?.('Authorization') || config.headers?.Authorization
+  if (token && !existing) {
     config.headers.Authorization = `Bearer ${token}`
+  }
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    config.headers.delete?.('Content-Type')
+    delete (config.headers as Record<string, unknown>)['Content-Type']
   }
   return config
 })
@@ -43,13 +48,13 @@ api.interceptors.response.use(
 export const authApi = {
   register: (data: { company_name: string; full_name: string; email: string; password: string }) =>
     api.post('/auth/register', data),
-  login: (data: { email: string; password: string }) =>
+  login: (data: { email: string; password: string; totp_code?: string }) =>
     api.post('/auth/login', data),
   refresh: (refreshToken: string) =>
     api.post('/auth/refresh', { refresh_token: refreshToken }),
   forgotPassword: (email: string) => api.post('/auth/forgot-password', { email, password: '' }),
   resetPassword: (token: string, new_password: string) =>
-    api.post(`/auth/reset-password?token=${encodeURIComponent(token)}&new_password=${encodeURIComponent(new_password)}`),
+    api.post('/auth/reset-password', { token, new_password }),
   verifyEmail: (token: string) => api.get(`/auth/verify-email?token=${encodeURIComponent(token)}`),
   resendVerification: (email: string) => api.post('/auth/resend-verification', { email, password: '' }),
   ssoToken: () => api.get('/auth/sso-token'),
@@ -356,6 +361,7 @@ export const emailCalendarApi = {
 export const securityApi = {
   twoFaStatus: () => api.get('/auth/2fa/status'),
   twoFaSetup: () => api.post('/auth/2fa/setup'),
+  twoFaConfirm: (code: string) => api.post('/auth/2fa/confirm', { code }),
   twoFaDisable: () => api.post('/auth/2fa/disable'),
   loginHistory: () => api.get('/auth/login-history'),
   sessions: () => api.get('/auth/sessions'),
@@ -1101,8 +1107,8 @@ export const vendorPortalApi = {
 // Vendor Auth API — supplier self-service login + dashboard
 export const vendorAuthApi = {
   login: (data: { email: string; password: string }) => api.post('/vendor-auth/login', data),
-  me: (token: string) => api.get('/vendor-auth/me', { params: { token } }),
-  dashboard: (token: string) => api.get('/vendor-auth/dashboard', { params: { token } }),
+  me: (token: string) => api.get('/vendor-auth/me', { headers: { Authorization: `Bearer ${token}` } }),
+  dashboard: (token: string) => api.get('/vendor-auth/dashboard', { headers: { Authorization: `Bearer ${token}` } }),
 }
 
 // WMS API — batches (lots) and serial numbers

@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
@@ -17,6 +17,8 @@ from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse,
 from app.schemas.common import ResponseBase, MessageResponse
 from app.core.config import settings
 from app.core.dependencies import get_current_user
+from app.core.limiter import limiter
+from app.core.totp import generate_totp_secret, verify_totp
 from jose import jwt
 from uuid import UUID
 
@@ -26,6 +28,15 @@ router = APIRouter(prefix="/auth", tags=["ავტორიზაცია"])
 class SSOTokenResponse(BaseModel):
     token: str
     expires_in: int = 300
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8)
+
+
+class TotpConfirm(BaseModel):
+    code: str = Field(..., min_length=6, max_length=8)
 
 
 @router.get("/sso-token", response_model=ResponseBase[SSOTokenResponse])
@@ -48,7 +59,14 @@ async def get_sso_token(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/register", response_model=ResponseBase[TokenResponse])
-async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/hour")
+async def register(request: Request, data: UserCreate, db: AsyncSession = Depends(get_db)):
+    # Open self-signup creates a company ADMIN. Production is invite-only.
+    if not settings.is_relaxed_env():
+        raise HTTPException(
+            status_code=403,
+            detail="ღია რეგისტრაცია გამორთულია. მომხმარებელი უნდა დაემატოს მოწვევით.",
+        )
     # შემოწმება: email უნიკალურია
     result = await db.execute(select(User).where(User.email == data.email))
     if result.scalar_one_or_none():
@@ -140,6 +158,27 @@ async def login(data: UserLogin, request: Request, db: AsyncSession = Depends(ge
     if not user.is_active:
         raise HTTPException(status_code=403, detail="ანგარიში დეაქტივირებულია")
 
+    twofa = (await db.execute(select(User2FA).where(User2FA.user_id == user.id))).scalar_one_or_none()
+    if twofa and twofa.is_enabled:
+        code = (data.totp_code or "").strip()
+        if not code:
+            raise HTTPException(status_code=401, detail="2FA კოდი აუცილებელია")
+        if not verify_totp(twofa.secret, code):
+            db.add(LoginHistory(
+                user_id=user.id,
+                company_id=user.company_id,
+                ip_address=client_ip,
+                user_agent=(user_agent or "")[:255],
+                success=False,
+                device_name=device["device_name"],
+                os_name=device["os_name"],
+                device_type=device["device_type"],
+                city=city,
+                country=country,
+            ))
+            await db.commit()
+            raise HTTPException(status_code=401, detail="2FA კოდი არასწორია")
+
     # ბოლო შესვლის განახლება
     from datetime import datetime
     user.last_login = utc_now()
@@ -148,13 +187,10 @@ async def login(data: UserLogin, request: Request, db: AsyncSession = Depends(ge
     token_data = {"sub": str(user.id), "company_id": str(user.company_id), "role": user.role}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
-    # session_key = jti (unique per access token)
-    from jose import jwt as pyjwt
-    try:
-        decoded = pyjwt.get_unverified_claims(access_token)
-        session_key = decoded.get("jti") or access_token[:32]
-    except Exception:
-        session_key = access_token[:32]
+    decoded = decode_token(access_token) or {}
+    session_key = decoded.get("jti")
+    if not session_key:
+        raise HTTPException(status_code=500, detail="სესიის იდენტიფიკატორი ვერ შეიქმნა")
 
     db.add(LoginHistory(
         user_id=user.id,
@@ -230,12 +266,11 @@ async def forgot_password(
 
 @router.post("/reset-password", response_model=ResponseBase[MessageResponse])
 async def reset_password(
-    token: str,
-    new_password: str,
+    data: PasswordResetConfirm,
     db: AsyncSession = Depends(get_db),
 ):
-    """Reset password using a valid reset token."""
-    payload = decode_token(token)
+    """Reset password using a valid reset token sent in the JSON body (never the query string)."""
+    payload = decode_token(data.token)
     if not payload or payload.get("type") != "password_reset":
         raise HTTPException(status_code=400, detail="არასწორი ან ვადაგასული token")
 
@@ -244,10 +279,10 @@ async def reset_password(
     if not user:
         raise HTTPException(status_code=404, detail="მომხმარებელი არ მოიძებნა")
 
-    if len(new_password) < 8:
+    if len(data.new_password) < 8:
         raise HTTPException(status_code=400, detail="პაროლი უნდა შეიცავდეს მინიმუმ 8 სიმბოლოს")
 
-    user.hashed_password = hash_password(new_password)
+    user.hashed_password = hash_password(data.new_password)
     await db.flush()
 
     return ResponseBase(data=MessageResponse(message="პაროლი წარმატებით შეიცვალა"))
@@ -323,18 +358,45 @@ async def two_fa_setup(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Generate a TOTP secret for the user (sandbox: returns the secret to display)."""
-    import secrets as _secrets
-    secret = _secrets.token_hex(20)
+    """Generate a TOTP secret. 2FA stays off until /2fa/confirm accepts a valid code."""
+    from urllib.parse import quote
+
+    secret = generate_totp_secret()
     result = await db.execute(select(User2FA).where(User2FA.user_id == current_user.id))
     record = result.scalar_one_or_none()
+    if record and record.is_enabled:
+        raise HTTPException(status_code=400, detail="2FA უკვე ჩართულია. ჯერ გამორთეთ.")
     if record:
         record.secret = secret
-        record.is_enabled = True
+        record.is_enabled = False
     else:
-        db.add(User2FA(user_id=current_user.id, secret=secret, is_enabled=True))
+        db.add(User2FA(user_id=current_user.id, secret=secret, is_enabled=False))
     await db.commit()
-    return ResponseBase(data={"secret": secret, "enabled": True}, message="2FA ჩართულია")
+    issuer = quote(settings.APP_NAME)
+    account = quote(current_user.email)
+    otpauth_uri = f"otpauth://totp/{issuer}:{account}?secret={secret}&issuer={issuer}&algorithm=SHA1&digits=6&period=30"
+    return ResponseBase(
+        data={"secret": secret, "otpauth_uri": otpauth_uri, "enabled": False},
+        message="დაადასტურეთ კოდი ავთენტიფიკატორიდან",
+    )
+
+
+@router.post("/2fa/confirm", response_model=ResponseBase[dict])
+async def two_fa_confirm(
+    data: TotpConfirm,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Enable 2FA only after the user proves they can generate a valid TOTP code."""
+    result = await db.execute(select(User2FA).where(User2FA.user_id == current_user.id))
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=400, detail="ჯერ გაუშვით 2FA setup")
+    if not verify_totp(record.secret, data.code):
+        raise HTTPException(status_code=400, detail="2FA კოდი არასწორია")
+    record.is_enabled = True
+    await db.commit()
+    return ResponseBase(data={"enabled": True}, message="2FA ჩართულია")
 
 
 @router.post("/2fa/disable", response_model=ResponseBase[dict])
@@ -421,17 +483,13 @@ async def logout(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Logout — revoke the current session."""
+    """Logout — revoke the current access token (jti denylist via login_history)."""
     auth_header = request.headers.get("authorization", "")
-    token = auth_header.replace("Bearer ", "").strip()
+    token = auth_header.removeprefix("Bearer ").strip()
     session_key = None
     if token:
-        try:
-            from jose import jwt as pyjwt
-            decoded = pyjwt.get_unverified_claims(token)
-            session_key = decoded.get("jti") or token[:32]
-        except Exception:
-            session_key = token[:32]
+        decoded = decode_token(token) or {}
+        session_key = decoded.get("jti")
     if session_key:
         result = await db.execute(
             select(LoginHistory).where(

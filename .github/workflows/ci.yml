@@ -67,6 +67,9 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql+asyncpg://business_os_app:ci-app-secret@localhost:5432/business_os_test
           REDIS_URL: redis://localhost:6379/0
+          APP_ENV: test
+          JWT_SECRET_KEY: ci-test-jwt-secret-key-not-for-production-32b
+          CORS_ORIGINS: http://localhost:5173
           SECRET_KEY: ci-test-secret-key-not-for-production
         run: pytest -q
 

@@ -1,6 +1,22 @@
 # backend/app/core/config.py
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
+
+# Known placeholders. The process must not boot with any of these.
+_INSECURE_JWT_SECRETS = {
+    "jwt-secret-change-me",
+    "jwt-secret-change-me-in-production-min-32-characters",
+    "change-me",
+    "change-me-in-production",
+    "changeme",
+    "secret",
+    "your-super-secret-key-change-in-production",
+    "change-me-to-a-random-64-char-hex-string-now-1234567890abcdef",
+}
+
+RELAXED_ENVS = {"development", "dev", "test", "sandbox"}
+PRODUCTION_ENVS = {"production", "prod"}
 
 
 class Settings(BaseSettings):
@@ -9,8 +25,10 @@ class Settings(BaseSettings):
     # Application
     APP_NAME: str = "Business OS"
     APP_VERSION: str = "1.0.0"
+    # Production-safe default. Development and tests must set APP_ENV explicitly.
+    APP_ENV: str = "production"
     DEBUG: bool = False
-    SECRET_KEY: str = "change-me-in-production"
+    SECRET_KEY: str = ""
     
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/business_os"
@@ -23,8 +41,8 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
     
-    # JWT
-    JWT_SECRET_KEY: str = "jwt-secret-change-me"
+    # JWT — no insecure default. Empty or a known placeholder refuses to start.
+    JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
@@ -48,9 +66,12 @@ class Settings(BaseSettings):
     # Monthly financial period-close automation (depreciation + FX + deferred)
     FINANCIAL_AUTO_ENABLED: bool = True
     
-    # CORS
-    CORS_ORIGINS: str = "*"
+    # CORS — explicit allowlist only. "*" is rejected at startup.
+    CORS_ORIGINS: str = "http://localhost:5173"
     FRONTEND_URL: str = "http://localhost:5173"
+    # Optional extra restriction for outbound webhooks (comma-separated hosts).
+    # Private, link-local, and metadata targets are blocked even when unset.
+    WEBHOOK_URL_ALLOWLIST: str = ""
     # Payment gateway (Stripe). When STRIPE_SECRET_KEY is set, real charges are
     # attempted; otherwise the checkout falls back to sandbox (demo) mode.
     STRIPE_SECRET_KEY: str = ""
@@ -85,5 +106,44 @@ class Settings(BaseSettings):
     # Pagination
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
-    
+
+    @model_validator(mode="after")
+    def _reject_insecure_defaults(self):
+        key = (self.JWT_SECRET_KEY or "").strip()
+        if not key or key.lower() in _INSECURE_JWT_SECRETS:
+            raise ValueError(
+                "JWT_SECRET_KEY is empty or uses an insecure default. "
+                "Set a unique secret (python -c \"import secrets; print(secrets.token_urlsafe(48))\") "
+                "before starting the app."
+            )
+        env = (self.APP_ENV or "production").strip().lower()
+        if env in PRODUCTION_ENVS and len(key) < 32:
+            raise ValueError(
+                "JWT_SECRET_KEY must be at least 32 characters when APP_ENV is production."
+            )
+        origins = [part.strip() for part in (self.CORS_ORIGINS or "").split(",") if part.strip()]
+        if not origins or any(origin == "*" for origin in origins):
+            raise ValueError(
+                "CORS_ORIGINS must be an explicit comma-separated allowlist. "
+                "Wildcard '*' is not allowed."
+            )
+        self.JWT_SECRET_KEY = key
+        self.APP_ENV = env
+        self.CORS_ORIGINS = ",".join(origins)
+        return self
+
+    def is_production(self) -> bool:
+        return self.APP_ENV in PRODUCTION_ENVS
+
+    def is_relaxed_env(self) -> bool:
+        """Development, test, and sandbox may keep demo-only shortcuts."""
+        return self.APP_ENV in RELAXED_ENVS
+
+    def allows_demo_seed(self) -> bool:
+        return self.APP_ENV in {"development", "dev"}
+
+    def cors_origin_list(self) -> list[str]:
+        return [part.strip() for part in self.CORS_ORIGINS.split(",") if part.strip()]
+
+
 settings = Settings()

@@ -6,6 +6,7 @@ DeprecationWarnings on Python 3.11+ and is scheduled for removal on
 Python 3.13. bcrypt produces the same $2b$ hash format, so existing
 passwords remain compatible.
 """
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Optional
 
@@ -35,7 +36,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
     expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire, "type": "access"})
+    # jti identifies the server-side session so logout/revoke can reject this token.
+    to_encode.update({"exp": expire, "type": "access", "jti": str(uuid.uuid4())})
     return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
