@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 _SAFE_EXT = re.compile(r"[a-z0-9]{1,8}")
+_SAFE_CATEGORY = re.compile(r"[a-z][a-z0-9_]{0,31}")
 
 
 class UnsafeStoragePath(ValueError):
@@ -21,10 +22,44 @@ def storage_root() -> Path:
     return root.resolve()
 
 
-def document_storage_root() -> Path:
-    root = (storage_root() / "documents").resolve()
+def _safe_extension(filename: str) -> str:
+    if not filename or "." not in filename:
+        return ""
+    raw = filename.rsplit(".", 1)[-1].lower()
+    return raw if _SAFE_EXT.fullmatch(raw) else ""
+
+
+def category_storage_root(category: str) -> Path:
+    """A single server-chosen directory under the storage root (documents, helpdesk, …)."""
+    if not _SAFE_CATEGORY.fullmatch(category):
+        raise UnsafeStoragePath("ფაილის გზა დაუშვებელია")
+    root = (storage_root() / category).resolve()
+    if not root.is_relative_to(storage_root()):
+        raise UnsafeStoragePath("ფაილის გზა დაშვებული საცავის გარეთაა")
     root.mkdir(parents=True, exist_ok=True)
     return root
+
+
+def document_storage_root() -> Path:
+    return category_storage_root("documents")
+
+
+def allocate_stored_file(category: str, company_id: str, filename: str) -> Path:
+    """Server-chosen path: `{root}/{category}/{company_id}/{uuid}.{safe_ext}`.
+
+    The client filename is used only to pick a safe extension. It is never a path.
+    """
+    root = category_storage_root(category)
+    directory = (root / str(company_id)).resolve()
+    if not directory.is_relative_to(root):
+        raise UnsafeStoragePath("ფაილის გზა დაშვებული საცავის გარეთაა")
+    directory.mkdir(parents=True, exist_ok=True)
+    ext = _safe_extension(filename)
+    stored = f"{uuid.uuid4().hex}.{ext}" if ext else uuid.uuid4().hex
+    path = (directory / stored).resolve()
+    if not path.is_relative_to(root):
+        raise UnsafeStoragePath("ფაილის გზა დაშვებული საცავის გარეთაა")
+    return path
 
 
 def resolve_storage_path(file_path: str, root: Path | None = None) -> Path:
@@ -45,15 +80,9 @@ def resolve_storage_path(file_path: str, root: Path | None = None) -> Path:
 
 def allocate_document_path(company_id: str, filename: str) -> Path:
     """Server-chosen path under the document storage root. Ignores client directories."""
-    ext = ""
-    if filename and "." in filename:
-        raw = filename.rsplit(".", 1)[-1].lower()
-        if _SAFE_EXT.fullmatch(raw):
-            ext = raw
-    directory = document_storage_root() / str(company_id)
-    directory.mkdir(parents=True, exist_ok=True)
-    stored = f"{uuid.uuid4().hex}.{ext}" if ext else uuid.uuid4().hex
-    path = (directory / stored).resolve()
-    if not path.is_relative_to(document_storage_root()):
-        raise UnsafeStoragePath("ფაილის გზა დაშვებული საცავის გარეთაა")
-    return path
+    return allocate_stored_file("documents", company_id, filename)
+
+
+def allocate_helpdesk_path(company_id: str, filename: str) -> Path:
+    """Server-chosen path under `storage_root()/helpdesk/{company_id}`."""
+    return allocate_stored_file("helpdesk", company_id, filename)

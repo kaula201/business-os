@@ -1,8 +1,5 @@
 # backend/app/api/v1/endpoints/helpdesk.py
 """Helpdesk ticket management API."""
-import uuid
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -13,6 +10,7 @@ from uuid import UUID
 from datetime import date, datetime
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.storage_paths import UnsafeStoragePath, allocate_helpdesk_path
 from app.core.time import utc_now
 from app.models.user import User
 from app.models.helpdesk import HelpdeskTicket
@@ -757,14 +755,16 @@ async def upload_attachment(
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="ფაილი 10MB-ზე დიდია")
-    storage_dir = Path(f"/app/uploads/helpdesk/{current_user.company_id}")
-    storage_dir.mkdir(parents=True, exist_ok=True)
-    storage_path = storage_dir / f"{uuid.uuid4().hex}_{file.filename}"
-    storage_path.write_bytes(content)
+    display_name = (file.filename or "file").replace("\\", "/").rsplit("/", 1)[-1] or "file"
+    try:
+        storage_path = allocate_helpdesk_path(str(current_user.company_id), display_name)
+        storage_path.write_bytes(content)
+    except UnsafeStoragePath as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     att = HelpdeskAttachment(
         company_id=current_user.company_id,
         ticket_id=ticket_id,
-        filename=file.filename or "file",
+        filename=display_name,
         content_type=file.content_type or "application/octet-stream",
         size_bytes=len(content),
         storage_path=str(storage_path),

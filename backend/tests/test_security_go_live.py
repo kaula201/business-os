@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings, settings
-from app.core.storage_paths import UnsafeStoragePath, resolve_storage_path
+from app.core.storage_paths import UnsafeStoragePath, allocate_helpdesk_path, resolve_storage_path
 from app.core.totp import current_totp, verify_totp
 from app.core.url_safety import UnsafeWebhookURL, assert_public_webhook_url
 from app.main import app
@@ -93,6 +93,16 @@ def test_webhook_url_blocks_private_and_metadata(monkeypatch):
     finally:
         settings.APP_ENV = previous_env
         settings.WEBHOOK_URL_ALLOWLIST = previous_allow
+
+
+def test_helpdesk_attachment_path_stays_in_storage_root(tmp_path, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    path = allocate_helpdesk_path("11111111-1111-1111-1111-111111111111", "../../etc/passwd.pdf")
+    assert path.is_relative_to(tmp_path / "helpdesk")
+    assert path.suffix == ".pdf"
+    assert ".." not in path.name
+    assert not str(path).startswith("/app")
+    path.write_bytes(b"%PDF")
 
 
 def test_storage_path_rejects_escape(tmp_path, monkeypatch):
