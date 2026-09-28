@@ -6,6 +6,8 @@ import { Plus, Ticket, Inbox, Timer, Layers, TrendingUp, MessageSquare, BookOpen
 import Modal from '../components/ui/Modal'
 import FormField from '../components/ui/FormField'
 import { clientsApi, helpdeskApi, usersApi } from '../services/api'
+import { apiErrorMessage, detailToText } from '../lib/apiError'
+import { helpdeskTicketCreateBody } from '../lib/helpdeskForm'
 import { fmtDate, fmtDateTime, fmtTime } from '../lib/format'
 
 const tabs = [
@@ -98,43 +100,50 @@ export default function HelpdeskPage() {
   const { data: fieldJobs } = useQuery({ queryKey: ['hd-field'], queryFn: () => helpdeskApi.fieldService().then(r => r.data.data) })
   const { data: emailRules } = useQuery({ queryKey: ['hd-email'], queryFn: () => helpdeskApi.emailIntake().then(r => r.data.data) })
 
+  const showApiError = (e: unknown) => setError(apiErrorMessage(e, t('შეცდომა')))
+  const errorText = detailToText(error)
+
   const createTicket = useMutation({
-    mutationFn: () => helpdeskApi.createTicket({
-      ...ticketForm,
-      tags: ticketForm.tags ? ticketForm.tags.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined,
-    }),
+    mutationFn: () => helpdeskApi.createTicket(helpdeskTicketCreateBody(ticketForm)),
+    onMutate: () => setError(''),
     onSuccess: () => { setTicketOpen(false); setTicketForm({ subject: '', description: '', priority: 'medium', client_id: '', queue_id: '', attachment_url: '', assignee_id: '', category: '', ticket_type: '', source_channel: 'email', tags: '' }); qc.invalidateQueries({ queryKey: ['hd-tickets'] }) },
-    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+    onError: showApiError,
   })
   const createQueue = useMutation({
     mutationFn: () => helpdeskApi.createQueue(queueForm),
+    onMutate: () => setError(''),
     onSuccess: () => { setQueueOpen(false); setQueueForm({ name: '', description: '' }); qc.invalidateQueries({ queryKey: ['hd-queues'] }) },
-    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+    onError: showApiError,
   })
   const createSla = useMutation({
     mutationFn: () => helpdeskApi.createSla(slaForm),
+    onMutate: () => setError(''),
     onSuccess: () => { setSlaOpen(false); setSlaForm({ name: '', priority: 'medium', response_hours: 24, resolution_hours: 72 }); qc.invalidateQueries({ queryKey: ['hd-slas'] }) },
-    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+    onError: showApiError,
   })
   const createCanned = useMutation({
     mutationFn: () => helpdeskApi.createCannedReply(cannedForm),
+    onMutate: () => setError(''),
     onSuccess: () => { setCannedOpen(false); setCannedForm({ title: '', body: '', category: '' }); qc.invalidateQueries({ queryKey: ['hd-canned'] }) },
-    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+    onError: showApiError,
   })
   const createKb = useMutation({
     mutationFn: () => helpdeskApi.createKnowledge(kbForm),
+    onMutate: () => setError(''),
     onSuccess: () => { setKbOpen(false); setKbForm({ title: '', content: '', category: '' }); qc.invalidateQueries({ queryKey: ['hd-knowledge'] }) },
-    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+    onError: showApiError,
   })
   const createField = useMutation({
     mutationFn: () => helpdeskApi.createFieldService(fieldForm),
+    onMutate: () => setError(''),
     onSuccess: () => { setFieldOpen(false); setFieldForm({ status: 'scheduled', address: '', notes: '' }); qc.invalidateQueries({ queryKey: ['hd-field'] }) },
-    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+    onError: showApiError,
   })
   const createEmail = useMutation({
     mutationFn: () => helpdeskApi.createEmailIntake(emailForm),
+    onMutate: () => setError(''),
     onSuccess: () => { setEmailOpen(false); setEmailForm({ mailbox: '', priority: 'medium' }); qc.invalidateQueries({ queryKey: ['hd-email'] }) },
-    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+    onError: showApiError,
   })
 
   const openBtn = () => {
@@ -502,7 +511,7 @@ export default function HelpdeskPage() {
                 placeholder="auth, urgent" className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </FormField>
           </div>
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {errorText && <p className="text-sm text-red-600 dark:text-red-400">{errorText}</p>}
           <button onClick={() => createTicket.mutate()} disabled={!ticketForm.subject || createTicket.isPending}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
             {t('შენახვა')}
@@ -521,7 +530,7 @@ export default function HelpdeskPage() {
             <textarea value={queueForm.description} onChange={e => setQueueForm({ ...queueForm, description: e.target.value })}
               className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" rows={2} />
           </FormField>
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {errorText && <p className="text-sm text-red-600 dark:text-red-400">{errorText}</p>}
           <button onClick={() => createQueue.mutate()} disabled={!queueForm.name || createQueue.isPending}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
             {t('შენახვა')}
@@ -554,7 +563,7 @@ export default function HelpdeskPage() {
                 className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
             </FormField>
           </div>
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {errorText && <p className="text-sm text-red-600 dark:text-red-400">{errorText}</p>}
           <button onClick={() => createSla.mutate()} disabled={!slaForm.name || createSla.isPending}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
             {t('შენახვა')}
@@ -577,7 +586,7 @@ export default function HelpdeskPage() {
             <input value={cannedForm.category} onChange={e => setCannedForm({ ...cannedForm, category: e.target.value })}
               className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
           </FormField>
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {errorText && <p className="text-sm text-red-600 dark:text-red-400">{errorText}</p>}
           <button onClick={() => createCanned.mutate()} disabled={!cannedForm.title || !cannedForm.body || createCanned.isPending}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
             {t('შენახვა')}
@@ -600,7 +609,7 @@ export default function HelpdeskPage() {
             <input value={kbForm.category} onChange={e => setKbForm({ ...kbForm, category: e.target.value })}
               className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
           </FormField>
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {errorText && <p className="text-sm text-red-600 dark:text-red-400">{errorText}</p>}
           <button onClick={() => createKb.mutate()} disabled={!kbForm.title || !kbForm.content || createKb.isPending}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
             {t('შენახვა')}
@@ -627,7 +636,7 @@ export default function HelpdeskPage() {
             <textarea value={fieldForm.notes} onChange={e => setFieldForm({ ...fieldForm, notes: e.target.value })}
               className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" rows={2} />
           </FormField>
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {errorText && <p className="text-sm text-red-600 dark:text-red-400">{errorText}</p>}
           <button onClick={() => createField.mutate()} disabled={createField.isPending}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
             {t('შენახვა')}
@@ -650,7 +659,7 @@ export default function HelpdeskPage() {
               <option value="high">{t('მაღალი')}</option>
             </select>
           </FormField>
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {errorText && <p className="text-sm text-red-600 dark:text-red-400">{errorText}</p>}
           <button onClick={() => createEmail.mutate()} disabled={!emailForm.mailbox || createEmail.isPending}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
             {t('შენახვა')}
@@ -669,10 +678,13 @@ export default function HelpdeskPage() {
             <textarea value={teamForm.description} onChange={e => setTeamForm({ ...teamForm, description: e.target.value })}
               className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" rows={2} />
           </FormField>
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-          <button onClick={() => helpdeskApi.createTeam(teamForm).then(() => {
-            setTeamOpen(false); setTeamForm({ name: '', description: '' }); helpdeskApi.teams().then(r => setTeams(r.data.data))
-          })} disabled={!teamForm.name}
+          {errorText && <p className="text-sm text-red-600 dark:text-red-400">{errorText}</p>}
+          <button onClick={() => {
+            setError('')
+            helpdeskApi.createTeam(teamForm).then(() => {
+              setTeamOpen(false); setTeamForm({ name: '', description: '' }); helpdeskApi.teams().then(r => setTeams(r.data.data))
+            }).catch(showApiError)
+          }} disabled={!teamForm.name}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
             {t('შენახვა')}
           </button>
@@ -694,12 +706,13 @@ export default function HelpdeskPage() {
             <textarea value={pipelineForm.stages} onChange={e => setPipelineForm({ ...pipelineForm, stages: e.target.value })}
               placeholder="New&#10;Triaged&#10;Done" className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" rows={3} />
           </FormField>
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {errorText && <p className="text-sm text-red-600 dark:text-red-400">{errorText}</p>}
           <button onClick={() => {
+            setError('')
             const stages = pipelineForm.stages.split('\n').map(s => s.trim()).filter(Boolean)
             helpdeskApi.createPipeline({ name: pipelineForm.name, description: pipelineForm.description, stages }).then(() => {
               setPipelineOpen(false); setPipelineForm({ name: '', description: '', stages: '' }); helpdeskApi.pipelines().then(r => setPipelines(r.data.data))
-            })
+            }).catch(showApiError)
           }} disabled={!pipelineForm.name || !pipelineForm.stages.trim()}
             className="w-full rounded-lg bg-primary-600 py-2 text-white font-medium disabled:opacity-50">
             {t('შენახვა')}
