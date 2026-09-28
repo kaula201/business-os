@@ -444,6 +444,12 @@ async def ensure_order_lifecycle_backfill(session: AsyncSession):
 
 async def seed():
     from app.core.config import settings
+    if not settings.allows_demo_seed():
+        print(
+            f"Refusing to seed demo users (admin@demo.ge / manager@demo.ge): "
+            f"APP_ENV={settings.APP_ENV!r} is not development."
+        )
+        return
     engine = create_async_engine(settings.DATABASE_URL, echo=False)
 
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

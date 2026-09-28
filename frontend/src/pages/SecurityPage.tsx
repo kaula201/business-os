@@ -22,6 +22,8 @@ export default function SecurityPage() {
   const qc = useQueryClient()
   const [tab, setTab] = useState('2fa')
   const [secret, setSecret] = useState('')
+  const [otpauth, setOtpauth] = useState('')
+  const [confirmCode, setConfirmCode] = useState('')
   const [error, setError] = useState('')
 
   const { data: twoFa } = useQuery({ queryKey: ['sec-2fa'], queryFn: () => securityApi.twoFaStatus().then(r => r.data.data) })
@@ -45,7 +47,22 @@ export default function SecurityPage() {
 
   const setup2fa = useMutation({
     mutationFn: () => securityApi.twoFaSetup(),
-    onSuccess: (r: any) => { setSecret(r.data.data.secret); qc.invalidateQueries({ queryKey: ['sec-2fa'] }) },
+    onSuccess: (r: any) => {
+      setSecret(r.data.data.secret)
+      setOtpauth(r.data.data.otpauth_uri || '')
+      setConfirmCode('')
+      qc.invalidateQueries({ queryKey: ['sec-2fa'] })
+    },
+    onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
+  })
+  const confirm2fa = useMutation({
+    mutationFn: () => securityApi.twoFaConfirm(confirmCode),
+    onSuccess: () => {
+      setSecret('')
+      setOtpauth('')
+      setConfirmCode('')
+      qc.invalidateQueries({ queryKey: ['sec-2fa'] })
+    },
     onError: (e: any) => setError(e.response?.data?.detail || t('შეცდომა')),
   })
   const disable2fa = useMutation({
@@ -90,6 +107,16 @@ export default function SecurityPage() {
               <button onClick={() => setup2fa.mutate()} className="btn btn-primary text-sm">{t('ჩართვა')}</button>
             )}
           </div>
+          {secret && !twoFa?.enabled && (
+            <div className="mt-4 space-y-3">
+              <p className="text-sm text-gray-600 dark:text-gray-400">{t('დაამატეთ საიდუმლო ავთენტიფიკატორში და დაადასტურეთ 6-ნიშნა კოდი. სანამ არ დაადასტურებთ, შესვლა კოდს არ მოითხოვს.')}</p>
+              <code className="block break-all rounded bg-gray-50 p-2 text-xs dark:bg-dark-100">{secret}</code>
+              {otpauth && <p className="break-all text-xs text-gray-500 dark:text-gray-400">{otpauth}</p>}
+              <input value={confirmCode} onChange={e => setConfirmCode(e.target.value)} placeholder={t('ავთენტიფიკატორის კოდი')}
+                className="w-full rounded-lg border p-2 text-sm dark:border-dark-50 dark:bg-dark-100 dark:text-gray-200" />
+              <button onClick={() => confirm2fa.mutate()} disabled={confirm2fa.isPending || confirmCode.length < 6} className="btn btn-primary text-sm">{t('დაადასტურეთ კოდი')}</button>
+            </div>
+          )}
           {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
         </div>
       )}

@@ -26,21 +26,48 @@
 - **GitHub Actions** CI (backend tests + frontend build)
 - ავტომატური **PostgreSQL backup** ყოველ ღამეს (3:00)
 
-## სწრაფი დაწყება (Docker)
+## სწრაფი დაწყება (Docker, development)
 
 ```bash
 git clone https://github.com/kaula201/business-os.git
 cd business-os
+cp backend/.env.example backend/.env
+# JWT_SECRET_KEY აუცილებელია — ცარიელი ან placeholder-ით აპი არ ეშვება:
+# python -c "import secrets; print(secrets.token_urlsafe(48))"
 docker compose up --build
 ```
 
 ბრაუზერში გახსენით: **http://localhost:5173**
 
-### Demo ანგარიში
-- **Email:** admin@demo.ge
-- **პაროლი:** admin123
+`docker-compose.yml` არის ლოკალური განვითარების სტეკი (`APP_ENV=development`, Vite). Go-live ამ ფაილით არ ხდება.
 
-> ⚠️ `.env.example`-დან დააკოპირეთ და შეავსეთ `backend/.env` რეალური secret-ებით (SECRET_KEY, OPENAI_API_KEY). სტანდარტული `secret` პაროლები მხოლოდ ლოკალური განვითარებისთვისაა.
+### Demo ანგარიში
+დემო მომხმარებლები (`admin@demo.ge` / `admin123`, `manager@demo.ge` / `manager123`) იქმნება მხოლოდ მაშინ, როცა `APP_ENV=development`. Production seed-ს არ უშვებს.
+
+> ⚠️ `backend/.env`-ში ჩაწერეთ რეალური `JWT_SECRET_KEY` (არა `SECRET_KEY` — JWT ამ სახელს იყენებს) და `OPENAI_API_KEY`. `CORS_ORIGINS` უნდა იყოს მძიმით გამოყოფილი allowlist, `*` დაუშვებელია.
+
+## Production (Docker Compose)
+
+```bash
+# backend/.env: APP_ENV-ს compose თავად სვამს production-ზე.
+# აუცილებელია JWT_SECRET_KEY (32+ სიმბოლო), CORS_ORIGINS=https://your-domain,
+# SAAS_WEBHOOK_SECRET.
+mkdir -p certs
+# განათავსეთ CA/Let's Encrypt სერტიფიკატები (რეპოში არ ინახება):
+#   certs/fullchain.pem
+#   certs/privkey.pem
+docker compose -f docker-compose.prod.yml up --build
+```
+
+Production სტეკი:
+- Postgres, Redis, backend და frontend **არ** ქვეყნდება ჰოსტის პორტებზე
+- nginx უსმენს მხოლოდ 80 (ACME + redirect) და 443 (TLS)
+- frontend არის `npm run build` + nginx, Vite HMR არ არის
+- `/docs`, `/redoc`, `/openapi.json` გამორთულია
+- ღია რეგისტრაცია გამორთულია (მოწვევა)
+- SaaS webhook ხელმოწერის გარეშე 401-ს აბრუნებს
+
+სერტიფიკატის გამოშვება (DNS + CA) ოპერატორის ნაბიჯია. კონფიგურაცია მზადაა `nginx.prod.conf`-ში; სერტიფიკატის გარეშე nginx ვერ აიწყება.
 
 ## ლოკალური გაშვება (Development)
 
@@ -88,9 +115,13 @@ CI-ში ტესტები ავტომატურად ეშვე�
 
 სრული დოკუმენტაცია ხელმისაწვდომია გაშვებულ backend-ზე:
 
+Development-ში (`APP_ENV=development|test`):
+
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 - OpenAPI JSON: `http://localhost:8000/openapi.json`
+
+`APP_ENV=production`-ში ეს სამი მისამართი არ რეგისტრირდება და 404-ს აბრუნებს. nginx-იც არ აპროქსირებს მათ.
 
 ## პროექტის სტრუქტურა
 
@@ -132,7 +163,7 @@ business-os/
 - 📄 **ინვოისები** — PDF გენერაცია, VAT
 - 🚗 **ფლოტი** — მანქანები, საწვავი, სერვისები, რუკა
 - 👔 **HR** — თანამშრომლები, დასწრება, ხელფასები, ანალიტიკა
-- 🔐 **ავტორიზაცია** — JWT, role-based access, rate limiting
+- 🔐 **ავტორიზაცია** — JWT (`JWT_SECRET_KEY`, jti revoke), role-based access, TOTP 2FA, rate limiting
 
 ## ლიცენზია
 

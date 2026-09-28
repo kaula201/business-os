@@ -1,15 +1,22 @@
 """Document Management API: categories, documents, version history, approval workflow, audit trail."""
 import os
 import hashlib
+from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.storage_paths import (
+    UnsafeStoragePath,
+    allocate_document_path,
+    document_storage_root,
+    resolve_storage_path,
+)
 from app.models.user import User
 from app.models.documents import DocumentCategory, Document, DocumentVersion, DocumentApproval
 from app.models.audit import AuditLog
@@ -40,6 +47,27 @@ BLOCKED_EXTENSIONS = {
     "js", "vba", "ps1", "sh", "bin", "dll", "sys",
 }
 MAX_FILE_SIZE_DEFAULT = 50 * 1024 * 1024  # 50 MB
+
+
+def _company_storage(company_id: UUID) -> Path:
+    root = (document_storage_root() / str(company_id)).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _controlled_file_path(file_path: str, company_id: UUID) -> str:
+    """Accept only paths inside this company's storage directory."""
+    try:
+        return str(resolve_storage_path(file_path, _company_storage(company_id)))
+    except UnsafeStoragePath as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _checksum_controlled(file_path: str, company_id: UUID) -> str | None:
+    resolved = Path(_controlled_file_path(file_path, company_id))
+    if not resolved.is_file():
+        return None
+    return hashlib.sha256(resolved.read_bytes()).hexdigest()
 
 
 def _get_file_extension(filename: str) -> str:
@@ -527,14 +555,9 @@ async def create_document(
     # File upload security validation
     _validate_file_upload(data.filename, data.file_size, cat)
 
-    # Compute checksum if not provided
-    checksum = data.checksum
-    if not checksum and data.file_path and os.path.isfile(data.file_path):
-        try:
-            with open(data.file_path, "rb") as f:
-                checksum = hashlib.sha256(f.read()).hexdigest()
-        except (OSError, IOError):
-            pass
+    # Client paths are never opened. Only a path already inside controlled storage is kept.
+    stored_path = _controlled_file_path(data.file_path, current_user.company_id)
+    checksum = data.checksum or _checksum_controlled(stored_path, current_user.company_id)
 
     # Determine retention
     retention_days = data.retention_days
@@ -544,7 +567,8 @@ async def create_document(
     doc = Document(
         company_id=current_user.company_id,
         uploaded_by=current_user.id,
-        **data.model_dump(exclude={"checksum", "retention_days"}),
+        file_path=stored_path,
+        **data.model_dump(exclude={"checksum", "retention_days", "file_path"}),
     )
     if retention_days:
         doc.retention_days = retention_days
@@ -587,6 +611,94 @@ async def create_document(
         user_result = await db.execute(select(User).where(User.id == doc.uploaded_by))
         user = user_result.scalar_one_or_none()
         resp.uploaded_by_name = user.full_name if user else None
+    return ResponseBase(data=resp)
+
+
+@router.post("/upload", response_model=ResponseBase[DocumentResponse], status_code=201)
+async def upload_document(
+    title: str = Form(...),
+    file: UploadFile = File(...),
+    description: str | None = Form(None),
+    category_id: str | None = Form(None),
+    document_type: str = Form("other"),
+    tags: str | None = Form(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("documents", "can_create")),
+):
+    """Store an uploaded file under the server storage root. The client does not choose the path."""
+    content = await file.read()
+    filename = os.path.basename(file.filename or "file")
+    parsed_category: UUID | None = None
+    if category_id:
+        try:
+            parsed_category = UUID(category_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="კატეგორია არასწორია") from exc
+
+    cat = None
+    if parsed_category:
+        cat_result = await db.execute(
+            select(DocumentCategory).where(
+                DocumentCategory.id == parsed_category,
+                DocumentCategory.company_id == current_user.company_id,
+            )
+        )
+        cat = cat_result.scalar_one_or_none()
+        if not cat:
+            raise HTTPException(status_code=404, detail="კატეგორია არ მოიძებნა")
+        _check_category_access(cat, current_user)
+
+    _validate_file_upload(filename, len(content), cat)
+    try:
+        stored = allocate_document_path(str(current_user.company_id), filename)
+        stored.write_bytes(content)
+    except UnsafeStoragePath as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    checksum = hashlib.sha256(content).hexdigest()
+
+    doc = Document(
+        company_id=current_user.company_id,
+        uploaded_by=current_user.id,
+        title=title,
+        description=description or None,
+        category_id=parsed_category,
+        document_type=document_type or "other",
+        tags=tags or None,
+        filename=filename,
+        file_size=len(content),
+        mime_type=file.content_type or "application/octet-stream",
+        file_path=str(stored),
+    )
+    if cat and cat.retention_days:
+        doc.retention_days = cat.retention_days
+        from datetime import datetime, timedelta, timezone
+        doc.expires_at = datetime.now(timezone.utc) + timedelta(days=cat.retention_days)
+
+    db.add(doc)
+    await db.flush()
+    version = DocumentVersion(
+        document_id=doc.id,
+        version_number=1,
+        filename=filename,
+        file_size=len(content),
+        mime_type=doc.mime_type,
+        file_path=str(stored),
+        checksum=checksum,
+        is_current=True,
+        change_summary="თავდაპირველი ვერსია",
+        uploaded_by=current_user.id,
+    )
+    db.add(version)
+    await db.flush()
+    await db.refresh(doc)
+    await _log_audit(
+        db, current_user.company_id, current_user.id,
+        "document.created", "document", doc.id,
+        f"აიტვირთა დოკუმენტი: {doc.title} ({doc.filename})",
+    )
+    resp = DocumentResponse.model_validate(doc)
+    resp.category_name = cat.name if cat else None
+    resp.uploaded_by_name = current_user.full_name
     return ResponseBase(data=resp)
 
 
@@ -787,14 +899,8 @@ async def create_version(
         cat = cat_result.scalar_one_or_none()
     _validate_file_upload(data.filename, data.file_size, cat)
 
-    # Compute checksum
-    checksum = data.checksum
-    if not checksum and data.file_path and os.path.isfile(data.file_path):
-        try:
-            with open(data.file_path, "rb") as f:
-                checksum = hashlib.sha256(f.read()).hexdigest()
-        except (OSError, IOError):
-            pass
+    stored_path = _controlled_file_path(data.file_path, current_user.company_id)
+    checksum = data.checksum or _checksum_controlled(stored_path, current_user.company_id)
 
     # Mark current version as not current
     await db.execute(
@@ -820,7 +926,7 @@ async def create_version(
         filename=data.filename,
         file_size=data.file_size,
         mime_type=data.mime_type,
-        file_path=data.file_path,
+        file_path=stored_path,
         checksum=checksum,
         change_summary=data.change_summary,
         is_current=True,
@@ -833,7 +939,7 @@ async def create_version(
     doc.filename = data.filename
     doc.file_size = data.file_size
     doc.mime_type = data.mime_type
-    doc.file_path = data.file_path
+    doc.file_path = stored_path
     doc.version = new_version_number
 
     await db.flush()

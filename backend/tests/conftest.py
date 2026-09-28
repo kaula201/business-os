@@ -1,6 +1,11 @@
 # backend/tests/conftest.py
 import os
 
+# Must be set before app.core.config.Settings() is constructed.
+os.environ.setdefault("APP_ENV", "test")
+os.environ.setdefault("JWT_SECRET_KEY", "ci-test-jwt-secret-key-not-for-production-32b")
+os.environ.setdefault("CORS_ORIGINS", "http://localhost:5173")
+
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.engine import make_url

@@ -104,9 +104,6 @@ from app.models.documents import DocumentCategory, Document, DocumentVersion, Do
 from app.models.production import (
     BillOfMaterial, BOMItem, WorkOrder, WorkCenter,
     ProductionReservation, FinishedGoodsReceipt,
-    Routing, RoutingOperation, WorkOrderOperation, WorkOrderConsumption,
-    WorkOrderWip, WorkOrderScrapItem, ProductionGenealogy,
-    MrpSuggestion, MaintenanceDowntimeWindow,
 )
 from app.models.projects import Project, ProjectMember, ProjectMilestone, ProjectTimesheet
 from app.models.studio import StudioApp, StudioField, StudioForm, StudioRecord

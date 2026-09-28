@@ -62,20 +62,26 @@ async def test_vendor_login_me_dashboard(client, auth_headers, test_company, db_
     assert data["user"]["supplier_name"] == "VA Supplier A"
     assert data["user"]["status"] == "active"
 
+    vendor_headers = {"Authorization": f"Bearer {token}"}
+
+    # token in the query string is not accepted
+    leaked = await client.get("/api/v1/vendor-auth/me", params={"token": token})
+    assert leaked.status_code == 401, leaked.text
+
     # me
-    me = await client.get("/api/v1/vendor-auth/me", params={"token": token})
+    me = await client.get("/api/v1/vendor-auth/me", headers=vendor_headers)
     assert me.status_code == 200, me.text
     assert me.json()["data"]["email"] == "va-portal@example.com"
 
     # dashboard shows the RFQ
-    dash = await client.get("/api/v1/vendor-auth/dashboard", params={"token": token})
+    dash = await client.get("/api/v1/vendor-auth/dashboard", headers=vendor_headers)
     assert dash.status_code == 200, dash.text
     d = dash.json()["data"]
     assert d["counts"]["rfqs"] == 1
     assert d["rfqs"][0]["rfq_number"].startswith("RFQ-")
 
     # invalid token -> 401
-    bad_me = await client.get("/api/v1/vendor-auth/me", params={"token": "garbage"})
+    bad_me = await client.get("/api/v1/vendor-auth/me", headers={"Authorization": "Bearer garbage"})
     assert bad_me.status_code == 401, bad_me.text
 
 

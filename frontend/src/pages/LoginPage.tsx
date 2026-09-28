@@ -14,6 +14,8 @@ export default function LoginPage() {
   const { isAuthenticated, setAuth } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [totpCode, setTotpCode] = useState('')
+  const [needsTotp, setNeedsTotp] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [forgotOpen, setForgotOpen] = useState(false)
@@ -29,10 +31,20 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const res = await authApi.login({ email, password })
+      const res = await authApi.login({
+        email,
+        password,
+        totp_code: needsTotp ? totpCode : undefined,
+      })
       setAuth(res.data.data)
     } catch (err: any) {
-      setError(err.response?.data?.detail || t('შეცდომა შესვლისას'))
+      const detail = err.response?.data?.detail || ''
+      if (typeof detail === 'string' && detail.includes('2FA') && detail.includes('აუცილებელია')) {
+        setNeedsTotp(true)
+        setError(t('შეიყვანეთ ავთენტიფიკატორის 6-ნიშნა კოდი'))
+      } else {
+        setError(detail || t('შეცდომა შესვლისას'))
+      }
     } finally {
       setLoading(false)
     }
@@ -97,6 +109,20 @@ export default function LoginPage() {
                 <label className="mb-1.5 block text-sm font-medium text-brandgray-700 dark:text-gray-300">{t('პაროლი')}</label>
                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input h-11" placeholder="••••••••" required />
               </div>
+              {needsTotp && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-brandgray-700 dark:text-gray-300">{t('ავთენტიფიკატორის კოდი')}</label>
+                  <input
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value)}
+                    className="input h-11"
+                    placeholder="123456"
+                    required
+                  />
+                </div>
+              )}
 
               <button type="submit" className="btn-primary flex h-11 w-full items-center justify-center gap-2" disabled={loading}>
                 {loading ? 'შესვლა...' : <>{t('შესვლა')} <ArrowRight size={17} /></>}

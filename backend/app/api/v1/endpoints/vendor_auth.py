@@ -5,7 +5,7 @@ collide with internal user sessions.
 """
 from datetime import datetime
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,10 +36,20 @@ class VendorMeOut(BaseModel):
     last_login_at: datetime | None
 
 
+def _bearer_token(request: Request) -> str:
+    """Vendor session token is accepted only via Authorization, never the query string."""
+    header = request.headers.get("authorization", "")
+    scheme, _, value = header.partition(" ")
+    if scheme.lower() != "bearer" or not value.strip():
+        raise HTTPException(status_code=401, detail="ავტორიზაცია არ არის მოწოდებული")
+    return value.strip()
+
+
 async def get_vendor_user(
-    token: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> VendorPortalUser:
+    token = _bearer_token(request)
     payload = decode_token(token)
     if not payload or not payload.get("vendor"):
         raise HTTPException(status_code=401, detail="არასწორი ან ვადაგასული სესია")
@@ -90,10 +100,10 @@ async def vendor_login(
 
 @router.get("/me", response_model=ResponseBase[VendorMeOut])
 async def vendor_me(
-    token: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    row = await get_vendor_user(token, db)
+    row = await get_vendor_user(request, db)
     supplier = (await db.execute(select(Supplier).where(Supplier.id == row.supplier_id))).scalar_one_or_none()
     return ResponseBase(data=VendorMeOut(
         id=row.id,
@@ -108,11 +118,11 @@ async def vendor_me(
 
 @router.get("/dashboard", response_model=ResponseBase[dict])
 async def vendor_dashboard(
-    token: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """Everything the supplier sees after login: RFQs, POs, invoices, price lists."""
-    row = await get_vendor_user(token, db)
+    row = await get_vendor_user(request, db)
     company_id = row.company_id
     supplier_id = row.supplier_id
 

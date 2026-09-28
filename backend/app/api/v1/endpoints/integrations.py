@@ -15,6 +15,7 @@ from app.models.counterparty import CounterpartyCheck
 from app.models.user import User
 from app.schemas.common import ResponseBase
 from app.schemas.integrations import RSGeStatusResponse, RSWaybillResponse
+from app.core.url_safety import UnsafeWebhookURL, assert_public_webhook_url
 from app.services.rs_ge import RSGeClient, RSGeError
 from app.services.srs_open_data import CounterpartyUnreachable, SrsOpenDataClient
 
@@ -297,10 +298,15 @@ async def create_webhook(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("integrations", "can_create")),
 ):
+    url = (data.get("url") or "").strip()
+    try:
+        assert_public_webhook_url(url)
+    except UnsafeWebhookURL as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     w = Webhook(
         company_id=current_user.company_id,
         name=data.get("name", ""),
-        url=data.get("url", ""),
+        url=url,
         events=data.get("events", "invoice.created"),
         secret=secrets.token_hex(16),
         retry_max=int(data.get("retry_max", 3)),
