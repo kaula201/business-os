@@ -52,23 +52,83 @@ def test_migration_error_redacts_password_and_drops_the_chain():
     assert cleaned.__cause__ is None
 
 
-def test_managed_roles_list_is_only_the_app_role():
-    from app.core.db_roles import APP_ROLE, MANAGED_ROLES, grant_statements, matview_event_statements
+def test_managed_roles_are_the_app_role_and_the_backup_role():
+    from app.core.db_roles import (
+        APP_ROLE,
+        BACKUP_ROLE,
+        MANAGED_ROLES,
+        grant_statements,
+        matview_event_statements,
+    )
 
-    assert [role.name for role in MANAGED_ROLES] == ["business_os_app"]
-    sql = "\n".join(grant_statements(APP_ROLE, "business_os"))
-    assert "GRANT ALL ON ALL TABLES IN SCHEMA public TO business_os_app" in sql
-    assert "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO business_os_app" in sql
-    assert "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public GRANT ALL ON TABLES TO business_os_app" in sql
+    assert [role.name for role in MANAGED_ROLES] == ["business_os_app", "business_os_backup"]
+    assert BACKUP_ROLE.password_env == "BACKUP_DB_PASSWORD"
+    assert BACKUP_ROLE.dev_password == "business_os_backup"
+    assert BACKUP_ROLE.attributes == ("BYPASSRLS", "NOSUPERUSER", "NOCREATEDB", "NOCREATEROLE")
+    assert BACKUP_ROLE.schema_privileges == "USAGE"
+    assert BACKUP_ROLE.table_privileges == "SELECT"
+    assert BACKUP_ROLE.sequence_privileges == "SELECT"
+    assert BACKUP_ROLE.default_table_privileges == "SELECT"
+    assert BACKUP_ROLE.default_sequence_privileges == "SELECT"
+    assert BACKUP_ROLE.grant_matview_select is True
     assert "NOBYPASSRLS" in APP_ROLE.attributes
+
+    app_sql = "\n".join(grant_statements(APP_ROLE, "business_os"))
+    assert "GRANT ALL ON ALL TABLES IN SCHEMA public TO business_os_app" in app_sql
+    assert "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO business_os_app" in app_sql
+    assert "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public GRANT ALL ON TABLES TO business_os_app" in app_sql
+
+    backup_sql = "\n".join(grant_statements(BACKUP_ROLE, "business_os"))
+    assert "GRANT CONNECT ON DATABASE business_os TO business_os_backup" in backup_sql
+    assert "GRANT USAGE ON SCHEMA public TO business_os_backup" in backup_sql
+    assert "GRANT SELECT ON ALL TABLES IN SCHEMA public TO business_os_backup" in backup_sql
+    assert "GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO business_os_backup" in backup_sql
+    assert "GRANT SELECT ON TABLE %I TO business_os_backup" in backup_sql
+    assert (
+        "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public "
+        "GRANT SELECT ON TABLES TO business_os_backup"
+    ) in backup_sql
+    assert (
+        "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public "
+        "GRANT SELECT ON SEQUENCES TO business_os_backup"
+    ) in backup_sql
+    for forbidden in ("INSERT", "UPDATE", "DELETE", "TRUNCATE", "ALL"):
+        assert f"GRANT {forbidden}" not in backup_sql
+
     events = "\n".join(matview_event_statements(MANAGED_ROLES))
     assert "GRANT SELECT ON TABLE %s TO business_os_app" in events
-    assert "business_os_backup" not in sql
-    assert "business_os_backup" not in events
+    assert "GRANT SELECT ON TABLE %s TO business_os_backup" in events
+
+    migration_063 = Path(__file__).resolve().parents[1] / "migrations" / "versions" / "063_rls_app_role.py"
+    source = migration_063.read_text()
+    assert "business_os_backup" not in source
+    assert "BACKUP_DB_PASSWORD" not in source
+    assert "BACKUP_ROLE" not in source
 
 
-def test_a_second_role_spec_reuses_the_same_grant_sql():
-    """Not registered. A follow-up appends a spec to MANAGED_ROLES."""
+def test_backup_role_password_is_required_in_production(monkeypatch):
+    monkeypatch.delenv("BACKUP_DB_PASSWORD", raising=False)
+    monkeypatch.setenv("APP_ENV", "production")
+    from app.core.db_roles import BACKUP_ROLE, role_password
+
+    try:
+        role_password(BACKUP_ROLE)
+    except RuntimeError as exc:
+        assert "BACKUP_DB_PASSWORD" in str(exc)
+    else:
+        raise AssertionError("production must refuse an empty BACKUP_DB_PASSWORD")
+
+
+def test_backup_role_uses_dev_password_outside_production(monkeypatch):
+    monkeypatch.delenv("BACKUP_DB_PASSWORD", raising=False)
+    monkeypatch.setenv("APP_ENV", "development")
+    from app.core.db_roles import BACKUP_ROLE, role_password
+
+    assert role_password(BACKUP_ROLE) == "business_os_backup"
+
+
+def test_grant_sql_for_an_unregistered_reader_spec():
+    """The helper still works for a spec that is not in MANAGED_ROLES."""
     from app.core.db_roles import MANAGED_ROLES, RoleSpec, grant_statements, matview_event_statements
 
     extra = RoleSpec(
@@ -90,6 +150,51 @@ def test_a_second_role_spec_reuses_the_same_grant_sql():
     assert "GRANT SELECT ON TABLES TO example_reader" in sql
     events = "\n".join(matview_event_statements((extra,)))
     assert "GRANT SELECT ON TABLE %s TO example_reader" in events
+
+
+def _service_block(compose: str, name: str) -> str:
+    marker = f"\n  {name}:"
+    start = compose.index(marker)
+    rest = compose[start + 1 :]
+    next_service = rest.find("\n  ", 1)
+    # Services are indented two spaces and followed by a newline key.
+    # Cut at the next top-level service, which starts at column 2.
+    import re
+
+    match = re.search(r"\n  [a-z0-9_]+:\n", rest[1:])
+    if match is None:
+        return rest
+    return rest[: match.start() + 1]
+
+
+def test_prod_compose_scopes_backup_password_and_script_locks_dumps():
+    root = Path(__file__).resolve().parents[2]
+    compose = (root / "docker-compose.prod.yml").read_text()
+    dev = (root / "docker-compose.yml").read_text()
+    script = (root / "scripts" / "backup.sh").read_text()
+    example = (root / ".env.example").read_text()
+
+    migrate = _service_block(compose, "migrate")
+    backend = _service_block(compose, "backend")
+    backup = _service_block(compose, "backup")
+
+    assert "BACKUP_DB_PASSWORD: " in migrate
+    assert "BACKUP_DB_PASSWORD: " in backup
+    assert "BACKUP_DB_PASSWORD" not in backend
+    assert "POSTGRES_PASSWORD" not in backup
+    assert "APP_DB_PASSWORD" not in backup
+    assert "business_os_backup" in backup
+    assert "PGUSER: business_os_backup" in backup
+    active_script = "\n".join(
+        line for line in script.splitlines() if not line.strip().startswith("#")
+    )
+    assert "--enable-row-security" not in active_script
+    assert "umask 077" in script
+    assert "chmod 600" in script
+    assert 'PGUSER="${PGUSER:-business_os_backup}"' in script
+    assert "BACKUP_DB_PASSWORD=change-me-backup-db-password" in example
+    assert "BACKUP_DB_PASSWORD" not in dev
+    assert "PGUSER: business_os_app" in dev
 
 
 def test_log_filter_masks_password_in_logged_url():

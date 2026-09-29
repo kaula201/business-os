@@ -7,21 +7,12 @@ asks for it. Migration ``063`` keeps creating ``business_os_app`` itself so
 an incremental upgrade still works; it calls the same helpers with that one
 spec and does not walk ``MANAGED_ROLES``.
 
-The read-only backup role is a separate PR. Append one ``RoleSpec``; do not
-copy the ``CREATE ROLE`` / ``GRANT`` / ``ALTER DEFAULT PRIVILEGES`` SQL:
-
-    RoleSpec(
-        name="business_os_backup",
-        password_env="BACKUP_DB_PASSWORD",
-        dev_password="business_os_backup",
-        attributes=("BYPASSRLS", "NOSUPERUSER", "NOCREATEDB", "NOCREATEROLE"),
-        schema_privileges="USAGE",
-        table_privileges="SELECT",
-        sequence_privileges="SELECT",
-        default_table_privileges="SELECT",
-        default_sequence_privileges="SELECT",
-        grant_matview_select=True,
-    )
+``BACKUP_ROLE`` (``business_os_backup``) is created only here. ``BYPASSRLS``
+can be granted by a superuser, which the migrate service is. Migration
+``063`` does not create this role. The spec is read-only: ``USAGE`` on the
+schema, ``SELECT`` on tables, sequences, and materialized views, and the
+same ``SELECT`` via ``ALTER DEFAULT PRIVILEGES`` for objects created later
+by ``business_os``.
 """
 from __future__ import annotations
 
@@ -114,9 +105,26 @@ APP_ROLE = RoleSpec(
     grant_matview_select=True,
 )
 
+# Read-only dump role. BYPASSRLS is required so pg_dump can read every tenant.
+# --enable-row-security is not acceptable: it can write a partial dump.
+# LOGIN is set by create_role_if_missing. No INSERT/UPDATE/DELETE/TRUNCATE.
+BACKUP_ROLE = RoleSpec(
+    name="business_os_backup",
+    password_env="BACKUP_DB_PASSWORD",
+    dev_password="business_os_backup",
+    attributes=("BYPASSRLS", "NOSUPERUSER", "NOCREATEDB", "NOCREATEROLE"),
+    schema_privileges="USAGE",
+    table_privileges="SELECT",
+    sequence_privileges="SELECT",
+    default_table_privileges="SELECT",
+    default_sequence_privileges="SELECT",
+    grant_matview_select=True,
+)
+
+
 # Reconciled after ``upgrade head`` when the connection is a superuser.
-# A follow-up PR appends a spec here. It does not edit migration 063.
-MANAGED_ROLES: tuple[RoleSpec, ...] = (APP_ROLE,)
+# Migration 063 does not walk this tuple and does not create BACKUP_ROLE.
+MANAGED_ROLES: tuple[RoleSpec, ...] = (APP_ROLE, BACKUP_ROLE)
 
 
 def dollar_quote(value: str, role_name: str) -> str:

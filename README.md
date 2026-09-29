@@ -51,15 +51,16 @@ docker compose up --build
 პირველი გაშვება ცარიელ volume-ზე:
 
 1. Postgres იქმნება `POSTGRES_PASSWORD`-ით (superuser `business_os`).
-2. ცალკე one-shot სერვისი `migrate` ეშვება `python -m app.core.migrate_schema`. მხოლოდ ამ კონტეინერს აქვს `MIGRATION_DATABASE_URL` (superuser, `POSTGRES_PASSWORD`-ისგან). ის ჯერ ქმნის `vector` და `pg_trgm` extension-ებს, შემდეგ `create_all`-ით მიმდინარე ORM სქემას, stamp-ს აკეთებს მხოლოდ `001_initial`-ზე და აგრძელებს `upgrade head`-მდე. Head-ზე stamp არ ხდება: RLS, `business_os_app`, grants, materialized view-ები და seed ჩანაწერები მიგრაციებშია და მოდელებში არა, ამიტომ head-ის stamp მათ გამოტოვებდა. ცარიელ ბაზაზე უკვე არსებული სვეტი (მაგალითად `supplier_payables.credited_amount` მიგრაცია 002-ში) დუბლიკატ DDL-ად გამოტოვდება. არსებულ ბაზაზე, რომელიც head-ს ჩამორჩება, იგივე მიგრაცია რეალურად ეშვება, რადგან ის სვეტი იქ ჯერ არ არის — `create_all` მხოლოდ ცარიელ ბაზაზე ხდება. შემდეგ იქმნება `business_os_app`, უფლებები (`ALTER DEFAULT PRIVILEGES` მომავალი ცხრილებისა და sequence-ებისთვის) და RLS, და სერვისი exit 0-ით სრულდება.
-3. `backend` იწყება მხოლოდ მაშინ, როცა `migrate` წარმატებით დასრულდა (`service_completed_successfully`). Backend-ის env-ში არის მხოლოდ `APP_DB_PASSWORD` და `DATABASE_URL` (`business_os_app`). `POSTGRES_PASSWORD` და superuser URL იქ არ ხვდება — superuser `NOBYPASSRLS`-ს გვერდს აუვლიდა.
+2. ცალკე one-shot სერვისი `migrate` ეშვება `python -m app.core.migrate_schema`. მხოლოდ ამ კონტეინერს აქვს `MIGRATION_DATABASE_URL` (superuser, `POSTGRES_PASSWORD`-ისგან). ის ჯერ ქმნის `vector` და `pg_trgm` extension-ებს, შემდეგ `create_all`-ით მიმდინარე ORM სქემას, stamp-ს აკეთებს მხოლოდ `001_initial`-ზე და აგრძელებს `upgrade head`-მდე. Head-ზე stamp არ ხდება: RLS, `business_os_app`, grants, materialized view-ები და seed ჩანაწერები მიგრაციებშია და მოდელებში არა, ამიტომ head-ის stamp მათ გამოტოვებდა. ცარიელ ბაზაზე უკვე არსებული სვეტი (მაგალითად `supplier_payables.credited_amount` მიგრაცია 002-ში) დუბლიკატ DDL-ად გამოტოვდება. არსებულ ბაზაზე, რომელიც head-ს ჩამორჩება, იგივე მიგრაცია რეალურად ეშვება, რადგან ის სვეტი იქ ჯერ არ არის — `create_all` მხოლოდ ცარიელ ბაზაზე ხდება. შემდეგ იქმნება `business_os_app`, უფლებები (`ALTER DEFAULT PRIVILEGES` მომავალი ცხრილებისა და sequence-ებისთვის) და RLS. იმავე superuser სესიაში იქმნება read-only როლი `business_os_backup` (`LOGIN BYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE`, სქემაზე `USAGE`, ცხრილებსა და sequence-ებზე `SELECT`, materialized view-ებზე `SELECT`, `ALTER DEFAULT PRIVILEGES` მომავალი ობიექტებისთვის). `BYPASSRLS` მხოლოდ superuser-ს შეუძლია, ამიტომ ამ როლს migration `063` არ ქმნის. სერვისი exit 0-ით სრულდება.
+3. `backend` იწყება მხოლოდ მაშინ, როცა `migrate` წარმატებით დასრულდა (`service_completed_successfully`). Backend-ის env-ში არის მხოლოდ `APP_DB_PASSWORD` და `DATABASE_URL` (`business_os_app`). `POSTGRES_PASSWORD`, `BACKUP_DB_PASSWORD` და superuser URL იქ არ ხვდება — superuser `NOBYPASSRLS`-ს გვერდს აუვლიდა, backup-ის პაროლი კი API პროცესს არ სჭირდება.
 
 ```bash
 # Root `.env` (Compose interpolation). ცარიელი ან გამოტოვებული მნიშვნელობით
 # `docker compose -f docker-compose.prod.yml` ჩერდება:
-#   POSTGRES_PASSWORD  — Postgres superuser (`business_os`), მხოლოდ migrate სერვისი
-#   APP_DB_PASSWORD    — როლი `business_os_app` (DATABASE_URL, backup, MV refresh)
-# ორი განსხვავებული ძლიერი პაროლი. გენერაცია:
+#   POSTGRES_PASSWORD   — Postgres superuser (`business_os`), მხოლოდ migrate სერვისი
+#   APP_DB_PASSWORD     — როლი `business_os_app` (DATABASE_URL და MV refresh)
+#   BACKUP_DB_PASSWORD  — როლი `business_os_backup` (მხოლოდ migrate და backup)
+# სამი განსხვავებული ძლიერი პაროლი. გენერაცია:
 #   python -c "import secrets; print(secrets.token_urlsafe(32))"
 # ნუ გამოიყენებთ % ან $ (არც @ : / # ? და space). token_urlsafe მხოლოდ
 # ასოებს, ციფრებს, "-" და "_" იყენებს.
@@ -82,11 +83,32 @@ Production სტეკი:
 - ღია რეგისტრაცია გამორთულია (მოწვევა)
 - SaaS webhook ხელმოწერის გარეშე 401-ს აბრუნებს
 
+### Backup და restore
+
+`backup` კონტეინერი `pg_dump`-ს უშვებს როგორც `business_os_backup`. როლს აქვს `BYPASSRLS`, ამიტომ dump-ში ყველა tenant-ის სტრიქონი ხვდება. `--enable-row-security` არ გამოიყენება: ის ჩუმად არასრულ ან ცარიელ ფაილს წერს. უფლებები მხოლოდ `SELECT` და `USAGE`-ია — `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE` და DDL არ აქვს.
+
+`scripts/backup.sh` იწყება `umask 077`-ით და შედეგ ფაილს სვამს `chmod 600`. ფაილი არის custom-format `pg_dump`, gzip-ით: `/backups/business_os_YYYYMMDD_HHMMSS.sql.gz`.
+
+`BACKUP_DB_PASSWORD` არის მხოლოდ `migrate` სერვისში (როლის პაროლის დასაყენებლად) და `backup` კონტეინერში. Backend-ში არ არის. `backup` კონტეინერს არ აქვს `POSTGRES_PASSWORD` და არც `APP_DB_PASSWORD`. Materialized view-ების `REFRESH` (`scripts/refresh_mvs.sh`) გადატანილია `mvrefresh` სერვისში, რადგან view-ების მფლობელია `business_os_app`, backup როლს კი ჩაწერა არ შეუძლია.
+
+აღდგენას აკეთებს ოპერატორი superuser-ით (`business_os`). Backup როლს restore-ის უფლება არ სჭირდება და არ აქვს. ცარიელ ბაზაში აღადგინეთ და შეამოწმეთ, სანამ production ბაზას გადააწერთ:
+
+```bash
+docker exec business_os_postgres psql -U business_os -d postgres \
+  -c "CREATE DATABASE business_os_restore;"
+docker cp business_os_backup:/backups/business_os_YYYYMMDD_HHMMSS.sql.gz /tmp/business_os.dump.gz
+docker cp /tmp/business_os.dump.gz business_os_postgres:/tmp/business_os.dump.gz
+docker exec business_os_postgres sh -c \
+  "gunzip -c /tmp/business_os.dump.gz | pg_restore --no-owner --no-acl -U business_os -d business_os_restore"
+```
+
+არსებულ volume-ზე, სადაც `business_os_backup` ჯერ არ არის, შემდეგი წარმატებული `migrate` ქმნის როლს. ხელახალი გაშვება idempotent-ია: არსებული როლი თავიდან არ იქმნება, grants კი თავიდან ენიჭება. უკვე არსებული როლის პაროლს migrate არ ცვლის. პაროლის შესაცვლელად, superuser-ით: `ALTER ROLE business_os_backup PASSWORD '...';`.
+
 სერტიფიკატის გამოშვება (DNS + CA) ოპერატორის ნაბიჯია. კონფიგურაცია მზადაა `nginx.prod.conf`-ში; სერტიფიკატის გარეშე nginx ვერ აიწყება.
 
-არსებულ Postgres volume-ზე (პირველი init უკვე გავლილია) `POSTGRES_PASSWORD` superuser-ის პაროლს არ ცვლის — Postgres ამ ცვლადს მხოლოდ პირველ init-ზე კითხულობს, და `MIGRATION_DATABASE_URL`-იც ამ ახალ მნიშვნელობას იყენებს. სანამ ერთხელ, **ძველი** superuser პაროლით, არ გაუშვებთ `ALTER ROLE business_os PASSWORD '...';` (იგივე მნიშვნელობა, რაც ახალ `POSTGRES_PASSWORD`-შია), მიგრაცია ვერ შევა და superuser რჩება ძველ development პაროლზე `secret`. იმავე სესიაში, თუ როლი `business_os_app` ძველი პაროლითაა შექმნილი, migration `063` ხელახლა არ ეშვება — დააყენეთ `APP_DB_PASSWORD`-ის იგივე მნიშვნელობა: `ALTER ROLE business_os_app PASSWORD '...'`. შემდეგ თავიდან გაუშვით compose.
+არსებულ Postgres volume-ზე (პირველი init უკვე გავლილია) `POSTGRES_PASSWORD` superuser-ის პაროლს არ ცვლის — Postgres ამ ცვლადს მხოლოდ პირველ init-ზე კითხულობს, და `MIGRATION_DATABASE_URL`-იც ამ ახალ მნიშვნელობას იყენებს. სანამ ერთხელ, **ძველი** superuser პაროლით, არ გაუშვებთ `ALTER ROLE business_os PASSWORD '...';` (იგივე მნიშვნელობა, რაც ახალ `POSTGRES_PASSWORD`-შია), მიგრაცია ვერ შევა და superuser რჩება ძველ development პაროლზე `secret`. იმავე სესიაში, თუ როლი `business_os_app` ძველი პაროლითაა შექმნილი, migration `063` ხელახლა არ ეშვება — დააყენეთ `APP_DB_PASSWORD`-ის იგივე მნიშვნელობა: `ALTER ROLE business_os_app PASSWORD '...'`. `business_os_backup` ამ volume-ზე პირველ წარმატებულ `migrate`-ზე იქმნება `BACKUP_DB_PASSWORD`-ით. შემდეგ თავიდან გაუშვით compose.
 
-Production migration-ის დროს გამორთული დატოვეთ Postgres `log_statement=ddl` ან `all`, SQLAlchemy `echo` და Alembic offline `--sql`. Migration `063`-ის `CREATE ROLE ... PASSWORD` ამ რეჟიმებში ლოგში ან გამოტანილ SQL-ში ჩანს.
+Production migration-ის დროს გამორთული დატოვეთ Postgres `log_statement=ddl` ან `all`, SQLAlchemy `echo` და Alembic offline `--sql`. Migration `063`-ის და migrate სერვისის `CREATE ROLE ... PASSWORD` (`business_os_app` და `business_os_backup`) ამ რეჟიმებში ლოგში ან გამოტანილ SQL-ში ჩანს.
 
 ## ლოკალური გაშვება (Development)
 
