@@ -4,7 +4,9 @@
 Every superuser migrate run creates a missing role, resets attributes from
 the spec, re-grants privileges, and rewrites the materialized-view event
 trigger. A spec with ``revoke_excess`` (the backup role) loses anything
-beyond that spec first, including grants a drifted dump restored. Migration
+beyond that spec first, including grants a drifted dump restored. Grants to
+``PUBLIC`` are not part of a role, so the same run revokes ``CREATE`` on
+every non-system schema from ``PUBLIC`` and from each managed role. Migration
 ``063`` keeps creating ``business_os_app`` itself so an incremental upgrade
 still works; it calls the same helpers with that one spec and does not walk
 ``MANAGED_ROLES``.
@@ -271,6 +273,54 @@ def revoke_excess_statements(spec: RoleSpec, database: str) -> list[str]:
         f"ALTER DEFAULT PRIVILEGES FOR ROLE {app} IN SCHEMA public "
         f"REVOKE ALL PRIVILEGES ON FUNCTIONS FROM {name}",
     ]
+
+
+def revoke_public_schema_create_statements(
+    roles: tuple[RoleSpec, ...] | list[RoleSpec] | None = None,
+) -> list[str]:
+    """Drop schema CREATE held by PUBLIC or by a managed non-owner role.
+
+    ``REVOKE ALL`` on ``business_os_backup`` does not touch grants to
+    ``PUBLIC``. ``GRANT CREATE ON SCHEMA public TO PUBLIC`` leaves
+    ``nspacl`` as ``=UC``, and every login role then passes
+    ``has_schema_privilege(..., 'CREATE')``, so the backup role can
+    ``CREATE TABLE``. ``REVOKE CREATE`` does nothing when the privilege is
+    already absent, so this is safe on every full superuser reconcile.
+
+    The statements run after the spec grants. ``GRANT ALL ON SCHEMA`` for
+    the app role includes CREATE; that bit is removed here so neither
+    managed role keeps CREATE on a non-system schema. Table and sequence
+    grants stay. System schemas (``pg_*``, ``information_schema``) are left
+    alone. This does not revoke ``CONNECT`` or ``TEMPORARY`` on the database.
+    """
+    managed = MANAGED_ROLES if roles is None else roles
+    names = [_ident(spec.name, "role") for spec in managed]
+    statements = ["REVOKE CREATE ON SCHEMA public FROM PUBLIC"]
+    statements.extend(f"REVOKE CREATE ON SCHEMA public FROM {name}" for name in names)
+    role_lines = "\n".join(
+        f"                EXECUTE format('REVOKE CREATE ON SCHEMA %I FROM {name}', s);"
+        for name in names
+    )
+    statements.append(
+        f"""
+        DO $$
+        DECLARE
+            s text;
+        BEGIN
+            FOR s IN
+                SELECT n.nspname
+                FROM pg_namespace n
+                WHERE n.nspname <> 'information_schema'
+                  AND left(n.nspname, 3) <> 'pg_'
+            LOOP
+                EXECUTE format('REVOKE CREATE ON SCHEMA %I FROM PUBLIC', s);
+{role_lines}
+            END LOOP;
+        END
+        $$;
+        """
+    )
+    return statements
 
 
 def matview_owner_statements(owner: str | None = None) -> list[str]:

@@ -202,6 +202,37 @@ def test_reconcile_resets_attributes_revokes_backup_excess_and_owns_matviews():
         assert f"ALTER MATERIALIZED VIEW public.{view} OWNER TO business_os_app" in owners
 
 
+def test_reconcile_revokes_public_schema_create_from_public_and_managed_roles():
+    """GRANT CREATE ON SCHEMA public TO PUBLIC must not survive migrate.
+
+    The PUBLIC acl item goes back to ``=U``. Neither managed role keeps
+    CREATE on public or on any other non-system schema.
+    """
+    from app.core.db_roles import revoke_public_schema_create_statements
+
+    statements = revoke_public_schema_create_statements()
+    joined = "\n".join(statements)
+    assert "REVOKE CREATE ON SCHEMA public FROM PUBLIC" in statements
+    assert "REVOKE CREATE ON SCHEMA public FROM business_os_backup" in statements
+    assert "REVOKE CREATE ON SCHEMA public FROM business_os_app" in statements
+    assert "REVOKE CREATE ON SCHEMA %I FROM PUBLIC" in joined
+    assert "REVOKE CREATE ON SCHEMA %I FROM business_os_backup" in joined
+    assert "REVOKE CREATE ON SCHEMA %I FROM business_os_app" in joined
+    assert "information_schema" in joined
+    assert "left(n.nspname, 3) <> 'pg_'" in joined
+    assert "CONNECT" not in joined
+    assert "TEMPORARY" not in joined
+    assert "PASSWORD" not in joined
+
+    source = (Path(__file__).resolve().parents[1] / "app" / "core" / "migrate_schema.py").read_text()
+    fn = source.split("async def _ensure_managed_roles", 1)[1].split(
+        "async def _ensure_tenant_rls", 1
+    )[0]
+    assert fn.index("if roles_only:") < fn.index("grant_statements")
+    assert fn.index("grant_statements") < fn.index("revoke_public_schema_create_statements")
+    assert "REVOKE CREATE ON DATABASE" not in source
+
+
 def test_roles_only_runs_before_alembic_and_full_migrate_reconciles_after_upgrade():
     source = (Path(__file__).resolve().parents[1] / "app" / "core" / "migrate_schema.py").read_text()
     main = source.split("def main()", 1)[1]

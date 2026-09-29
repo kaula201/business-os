@@ -21,6 +21,7 @@ from app.core.db_roles import (
     matview_event_statements,
     matview_owner_statements,
     revoke_excess_statements,
+    revoke_public_schema_create_statements,
 )
 from app.core.secret_redaction import hides_password, install_log_redaction, public_migration_error
 
@@ -119,6 +120,10 @@ async def _ensure_managed_roles(bind, *, roles_only: bool = False) -> None:
                 sync_conn.execute(text(statement))
             for statement in grant_statements(spec, database):
                 sync_conn.execute(text(statement))
+        # After the grants: GRANT ALL on the app role would otherwise put
+        # CREATE back, and a PUBLIC grant is not cleared by revoke_excess.
+        for statement in revoke_public_schema_create_statements(MANAGED_ROLES):
+            sync_conn.execute(text(statement))
         for statement in matview_owner_statements():
             sync_conn.execute(text(statement))
         for statement in matview_event_statements(MANAGED_ROLES):
