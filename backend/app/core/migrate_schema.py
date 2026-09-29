@@ -1,5 +1,7 @@
 """Safely adopt the legacy schema and run versioned Alembic migrations."""
 import asyncio
+import logging
+import os
 import sys
 from pathlib import Path
 
@@ -26,6 +28,55 @@ from app.core.db_roles import (
 from app.core.secret_redaction import hides_password, install_log_redaction, public_migration_error
 
 BASELINE_REVISION = "001_initial"
+logger = logging.getLogger(__name__)
+
+
+class UnexpectedDatabase(RuntimeError):
+    """The connection is not the database restore asked to reconcile."""
+
+
+def expected_database_name() -> str | None:
+    """Target database from the environment, if restore set one.
+
+    ``EXPECTED_DATABASE`` and ``TARGET_DB`` are optional. When both are set
+    they must agree. When neither is set, migrate does not guess a name.
+    """
+    expected = os.environ.get("EXPECTED_DATABASE", "").strip()
+    target = os.environ.get("TARGET_DB", "").strip()
+    if expected and target and expected != target:
+        raise UnexpectedDatabase(
+            "EXPECTED_DATABASE and TARGET_DB name different databases."
+        )
+    return expected or target or None
+
+
+def assert_expected_database(current: str, expected: str | None) -> None:
+    """Abort when this connection is not the restore target.
+
+    An unset expected name does not abort. A compose migrate service whose
+    URL still points at ``business_os`` must not reconcile production while
+    restore asked for another database.
+    """
+    if expected and current != expected:
+        raise UnexpectedDatabase(
+            f"Refusing to migrate database {current}; expected {expected}."
+        )
+
+
+async def _require_expected_database(bind) -> str:
+    """Log ``current_database()`` and abort on a target mismatch.
+
+    Called before roles-only work, before Alembic, and again immediately
+    before full reconcile. The name is the connected database, not a
+    hardcoded ``business_os``.
+    """
+    async with bind.connect() as connection:
+        current = await connection.scalar(text("SELECT current_database()"))
+    current = str(current)
+    print(f"migrate current_database={current}", flush=True)
+    logger.info("migrate current_database=%s", current)
+    assert_expected_database(current, expected_database_name())
+    return current
 
 
 def alembic_config() -> Config:
@@ -216,6 +267,9 @@ def main() -> None:
     install_log_redaction(url)
     bind = create_async_engine(url, poolclass=NullPool, echo=False)
     try:
+        # Before any DDL. Restore sets EXPECTED_DATABASE to the target, so a
+        # URL that still names business_os stops here.
+        asyncio.run(_require_expected_database(bind))
         if roles_only:
             # No Alembic and no object grants. The target database stays empty
             # so a following pg_restore is the first writer of schema objects.
@@ -228,6 +282,7 @@ def main() -> None:
         asyncio.run(_widen_alembic_version(bind))
         command.upgrade(config, "head")
         asyncio.run(_ensure_tenant_rls(bind))
+        asyncio.run(_require_expected_database(bind))
         asyncio.run(_ensure_managed_roles(bind, roles_only=False))
         # Catalog only. Does not delete company module toggles or permissions.
         from seed_modules import seed_modules

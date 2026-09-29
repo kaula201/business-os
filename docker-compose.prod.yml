@@ -71,7 +71,13 @@ services:
       APP_ENV: production
       APP_DB_PASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
       BACKUP_DB_PASSWORD: "${BACKUP_DB_PASSWORD:?set BACKUP_DB_PASSWORD}"
-      MIGRATION_DATABASE_URL: "postgresql+asyncpg://business_os:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/business_os"
+      # Restore exports MIGRATION_DATABASE_URL, DATABASE_URL, and
+      # EXPECTED_DATABASE for the target database. Without the override,
+      # `docker compose run migrate` would reconcile business_os.
+      # Migrate aborts when current_database() is not EXPECTED_DATABASE.
+      MIGRATION_DATABASE_URL: "${MIGRATION_DATABASE_URL:-postgresql+asyncpg://business_os:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/business_os}"
+      DATABASE_URL: "${DATABASE_URL:-postgresql+asyncpg://business_os:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/business_os}"
+      EXPECTED_DATABASE: "${EXPECTED_DATABASE:-business_os}"
     depends_on:
       postgres:
         condition: service_healthy

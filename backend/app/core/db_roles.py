@@ -246,8 +246,14 @@ def revoke_excess_statements(spec: RoleSpec, database: str) -> list[str]:
 
     Only specs with ``revoke_excess`` are stripped. The app role is granted
     ``ALL`` again instead, so a missing grant is restored without a blanket
-    revoke. Default privileges are revoked for both the superuser and the
+    revoke. Its memberships are not touched here (that stays in #6).
+    Default privileges are revoked for both the superuser and the
     app role: restored objects may have been created by either.
+
+    Role memberships are cluster-wide and are not removed by ``REVOKE ALL
+    PRIVILEGES``. Every membership recorded in ``pg_auth_members`` is
+    revoked, including ``pg_write_all_data`` and ``pg_read_all_data``, not
+    only ``business_os`` and ``business_os_app``.
     """
     if not spec.revoke_excess:
         return []
@@ -256,6 +262,23 @@ def revoke_excess_statements(spec: RoleSpec, database: str) -> list[str]:
     grantor = _ident(GRANTOR_ROLE, "grantor")
     app = _ident(APP_ROLE.name, "role")
     return [
+        f"""
+        DO $$
+        DECLARE
+            granted text;
+        BEGIN
+            FOR granted IN
+                SELECT r.rolname
+                FROM pg_auth_members m
+                JOIN pg_roles r ON r.oid = m.roleid
+                JOIN pg_roles member ON member.oid = m.member
+                WHERE member.rolname = '{name}'
+            LOOP
+                EXECUTE format('REVOKE %I FROM {name}', granted);
+            END LOOP;
+        END
+        $$;
+        """,
         f"REVOKE {grantor} FROM {name}",
         f"REVOKE {app} FROM {name}",
         f"REVOKE ALL PRIVILEGES ON DATABASE {database} FROM {name}",

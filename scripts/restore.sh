@@ -28,6 +28,12 @@
 #     Word-split command that inherits the environment and runs
 #     `python -m app.core.migrate_schema`. This script appends --roles-only
 #     for the first step. Do not put a password in the command.
+#     The command must see MIGRATION_DATABASE_URL, DATABASE_URL,
+#     EXPECTED_DATABASE, and TARGET_DB. This script sets all four to the
+#     target database before it runs the command. A compose migrate service
+#     whose file hardcodes /business_os must interpolate those variables
+#     (or receive them with -e). Migrate aborts when current_database()
+#     is not EXPECTED_DATABASE.
 #   BACKEND_DIR
 #     Used when RESTORE_MIGRATE_CMD is unset. Defaults to <repo>/backend.
 #   APP_ENV (default production)
@@ -175,6 +181,11 @@ database = os.environ["TARGET_DB"]
 sys.stdout.write(f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}")
 PY
 )"
+# Same target on every URL migrate might open, and on the guard.
+# DATABASE_URL is the fallback when MIGRATION_DATABASE_URL is empty.
+export DATABASE_URL="$MIGRATION_DATABASE_URL"
+export EXPECTED_DATABASE="$TARGET_DB"
+export TARGET_DB
 
 psql_at() {
   local database="$1"

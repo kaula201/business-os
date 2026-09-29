@@ -194,6 +194,8 @@ def test_reconcile_resets_attributes_revokes_backup_excess_and_owns_matviews():
     assert "REVOKE ALL PRIVILEGES ON TABLE %I FROM business_os_backup" in revoked
     assert "REVOKE business_os FROM business_os_backup" in revoked
     assert "REVOKE business_os_app FROM business_os_backup" in revoked
+    assert "pg_auth_members" in revoked
+    assert "REVOKE %I FROM business_os_backup" in revoked
     assert (
         "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public "
         "REVOKE ALL PRIVILEGES ON TABLES FROM business_os_backup"
@@ -257,7 +259,9 @@ def test_reconcile_revokes_public_schema_create_from_public_and_managed_roles():
 def test_roles_only_runs_before_alembic_and_full_migrate_reconciles_after_upgrade():
     source = (Path(__file__).resolve().parents[1] / "app" / "core" / "migrate_schema.py").read_text()
     main = source.split("def main()", 1)[1]
+    assert main.index("_require_expected_database") < main.index("roles_only=True")
     assert main.index("roles_only=True") < main.index("command.upgrade")
+    assert main.index("command.upgrade") < main.rindex("_require_expected_database")
     assert main.index("command.upgrade") < main.index("_ensure_tenant_rls")
     assert main.index("_ensure_tenant_rls") < main.index("roles_only=False")
     assert "attribute_statement" in source
@@ -343,6 +347,12 @@ def test_prod_compose_scopes_backup_password_and_script_locks_dumps():
     assert "--no-owner" in restore_active
     assert "--no-acl" not in restore_active
     assert "--roles-only" in restore
+    assert 'export DATABASE_URL="$MIGRATION_DATABASE_URL"' in restore
+    assert 'export EXPECTED_DATABASE="$TARGET_DB"' in restore
+    assert "EXPECTED_DATABASE: " in migrate
+    assert "${MIGRATION_DATABASE_URL:-" in migrate
+    assert "${DATABASE_URL:-" in migrate
+    assert "${EXPECTED_DATABASE:-business_os}" in migrate
     assert "--force-overwrite-nonempty" in restore
     assert "business_os|postgres|template0|template1" in restore
     assert "PGPASSFILE" in restore
