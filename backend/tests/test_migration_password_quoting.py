@@ -2,6 +2,8 @@
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 from alembic.config import Config
 
 from app.core.duplicate_ddl import escape_alembic_config_value
@@ -71,6 +73,8 @@ def test_managed_roles_are_the_app_role_and_the_backup_role():
     assert BACKUP_ROLE.default_table_privileges == "SELECT"
     assert BACKUP_ROLE.default_sequence_privileges == "SELECT"
     assert BACKUP_ROLE.grant_matview_select is True
+    assert BACKUP_ROLE.revoke_excess is True
+    assert APP_ROLE.revoke_excess is False
     assert "NOBYPASSRLS" in APP_ROLE.attributes
 
     app_sql = "\n".join(grant_statements(APP_ROLE, "business_os"))
@@ -152,6 +156,63 @@ def test_grant_sql_for_an_unregistered_reader_spec():
     assert "GRANT SELECT ON TABLE %s TO example_reader" in events
 
 
+def test_reconcile_resets_attributes_revokes_backup_excess_and_owns_matviews():
+    from app.core.db_roles import (
+        APP_ROLE,
+        BACKUP_ROLE,
+        MATERIALIZED_VIEWS,
+        attribute_statement,
+        matview_owner_statements,
+        revoke_excess_statements,
+    )
+
+    app_attr = attribute_statement(APP_ROLE)
+    backup_attr = attribute_statement(BACKUP_ROLE)
+    assert app_attr == (
+        "ALTER ROLE business_os_app WITH LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE"
+    )
+    assert backup_attr == (
+        "ALTER ROLE business_os_backup WITH LOGIN BYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE"
+    )
+    assert "PASSWORD" not in app_attr
+    assert "PASSWORD" not in backup_attr
+
+    assert revoke_excess_statements(APP_ROLE, "business_os_restore") == []
+    revoked = "\n".join(revoke_excess_statements(BACKUP_ROLE, "business_os_restore"))
+    assert "REVOKE ALL PRIVILEGES ON DATABASE business_os_restore FROM business_os_backup" in revoked
+    assert "REVOKE ALL PRIVILEGES ON SCHEMA public FROM business_os_backup" in revoked
+    assert "REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM business_os_backup" in revoked
+    assert "REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM business_os_backup" in revoked
+    assert "REVOKE ALL PRIVILEGES ON TABLE %I FROM business_os_backup" in revoked
+    assert "REVOKE business_os FROM business_os_backup" in revoked
+    assert "REVOKE business_os_app FROM business_os_backup" in revoked
+    assert (
+        "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public "
+        "REVOKE ALL PRIVILEGES ON TABLES FROM business_os_backup"
+    ) in revoked
+    assert (
+        "ALTER DEFAULT PRIVILEGES FOR ROLE business_os_app IN SCHEMA public "
+        "REVOKE ALL PRIVILEGES ON TABLES FROM business_os_backup"
+    ) in revoked
+    assert "PASSWORD" not in revoked
+
+    owners = "\n".join(matview_owner_statements())
+    assert MATERIALIZED_VIEWS == ("mv_sales_daily", "mv_receivables_aging", "mv_stock_balances")
+    for view in MATERIALIZED_VIEWS:
+        assert f"ALTER MATERIALIZED VIEW public.{view} OWNER TO business_os_app" in owners
+
+
+def test_roles_only_runs_before_alembic_and_full_migrate_reconciles_after_upgrade():
+    source = (Path(__file__).resolve().parents[1] / "app" / "core" / "migrate_schema.py").read_text()
+    main = source.split("def main()", 1)[1]
+    assert main.index("roles_only=True") < main.index("command.upgrade")
+    assert main.index("command.upgrade") < main.index("_ensure_tenant_rls")
+    assert main.index("_ensure_tenant_rls") < main.index("roles_only=False")
+    assert "attribute_statement" in source
+    assert "revoke_excess_statements" in source
+    assert "matview_owner_statements" in source
+
+
 def _service_block(compose: str, name: str) -> str:
     marker = f"\n  {name}:"
     start = compose.index(marker)
@@ -167,6 +228,16 @@ def _service_block(compose: str, name: str) -> str:
     return rest[: match.start() + 1]
 
 
+def _repo_file(name: str) -> Path:
+    return Path(__file__).resolve().parents[2] / name
+
+
+@pytest.mark.skipif(
+    not _repo_file("docker-compose.prod.yml").is_file()
+    or not _repo_file("scripts/backup.sh").is_file()
+    or not _repo_file("scripts/restore.sh").is_file(),
+    reason="compose and backup scripts are not in this layout",
+)
 def test_prod_compose_scopes_backup_password_and_script_locks_dumps():
     root = Path(__file__).resolve().parents[2]
     compose = (root / "docker-compose.prod.yml").read_text()
@@ -200,6 +271,27 @@ def test_prod_compose_scopes_backup_password_and_script_locks_dumps():
     assert "business_os_*.sql.gz.partial" in script
     assert "! -name '*.partial'" in script
     assert 'PGUSER="${PGUSER:-business_os_backup}"' in script
+    assert "flock 9" in active_script
+    assert active_script.count("-mmin +60") >= 2
+    assert ".backup.lock" in script
+    assert 'chmod 600 "$LOCK_FILE"' in script
+    assert active_script.index("flock 9") < active_script.index("-mmin +60")
+    assert "--no-owner" not in active_script
+    assert "--no-acl" not in active_script
+    assert "pg_dumpall" not in active_script
+    assert " -g" not in active_script
+    restore = (root / "scripts" / "restore.sh").read_text()
+    restore_active = "\n".join(
+        line for line in restore.splitlines() if not line.strip().startswith("#")
+    )
+    assert "set -x" not in restore_active
+    assert "pg_dumpall" not in restore_active
+    assert "--single-transaction" in restore
+    assert "--exit-on-error" in restore
+    assert "--roles-only" in restore
+    assert "--force-overwrite-nonempty" in restore
+    assert "business_os|postgres|template0|template1" in restore
+    assert "PGPASSFILE" in restore
     assert "BACKUP_DB_PASSWORD=change-me-backup-db-password" in example
     assert "BACKUP_DB_PASSWORD" not in dev
     assert "PGUSER: business_os_app" in dev

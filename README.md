@@ -87,26 +87,37 @@ Production სტეკი:
 
 `backup` კონტეინერი `pg_dump`-ს უშვებს როგორც `business_os_backup`. როლს აქვს `BYPASSRLS`, ამიტომ dump-ში ყველა tenant-ის სტრიქონი ხვდება. `--enable-row-security` არ გამოიყენება: ის ჩუმად არასრულ ან ცარიელ ფაილს წერს. უფლებები მხოლოდ `SELECT` და `USAGE`-ია — `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE` და DDL არ აქვს.
 
-`scripts/backup.sh` იწყება `umask 077`-ით და შედეგ ფაილს სვამს `chmod 600`. ფაილი არის custom-format `pg_dump`, gzip-ით: `/backups/business_os_YYYYMMDD_HHMMSS.sql.gz`.
+`scripts/backup.sh` იწყება `umask 077`-ით და შედეგ ფაილს სვამს `chmod 600`. ფაილი არის custom-format `pg_dump`, gzip-ით: `/backups/business_os_YYYYMMDD_HHMMSS.sql.gz`. Dump ინახავს owner-ს და ACL-ს. უფლებების წყარო მაინც migrate-ია: აღდგენის შემდეგ ის აბრუნებს როლებს სპეციფიკაციაზე. `pg_dumpall` და `-g` არ გამოიყენება, ამიტომ როლის პაროლის ჰეში dump-ში არ ხვდება. სკრიპტი იღებს `flock`-ს `/backups/.backup.lock`-ზე (mode 600). მეორე გაშვება ელოდება და არ შლის პირველის ცოცხალ `.partial` ფაილს. ერთ საათზე ძველი `.partial` იშლება.
 
 `BACKUP_DB_PASSWORD` არის მხოლოდ `migrate` სერვისში (როლის პაროლის დასაყენებლად) და `backup` კონტეინერში. Backend-ში არ არის. `backup` კონტეინერს არ აქვს `POSTGRES_PASSWORD` და არც `APP_DB_PASSWORD`. Materialized view-ების `REFRESH` (`scripts/refresh_mvs.sh`) გადატანილია `mvrefresh` სერვისში, რადგან view-ების მფლობელია `business_os_app`, backup როლს კი ჩაწერა არ შეუძლია.
 
-აღდგენას აკეთებს ოპერატორი superuser-ით (`business_os`). Backup როლს restore-ის უფლება არ სჭირდება და არ აქვს. ცარიელ ბაზაში აღადგინეთ და შეამოწმეთ, სანამ production ბაზას გადააწერთ. აღადგინეთ მხოლოდ დასრულებული `.sql.gz` ფაილი და არასოდეს `.partial` ფაილი:
+აღდგენას აკეთებს ოპერატორი superuser-ით (`business_os`), `scripts/restore.sh`-ით. Backup როლს restore-ის უფლება არ სჭირდება და არ აქვს. აღადგინეთ **ახალ** ბაზაში, არასოდეს `business_os`-ის ადგილზე. შეამოწმეთ, შემდეგ გადართეთ ტრაფიკი. აღადგინეთ მხოლოდ დასრულებული `.sql.gz` ფაილი და არასოდეს `.partial` ფაილი. პაროლი გადაეცემა გარემოთი ან `PGPASSFILE`-ით, არა არგუმენტით.
+
+`restore.sh` რიგი:
+
+1. მხოლოდ როლები (`RoleSpec` და env), Alembic-ის გარეშე, რომ სამიზნე ბაზა ცარიელი დარჩეს.
+2. `pg_restore --exit-on-error --single-transaction` ცარიელ ბაზაში. შეცდომა ან შეწყვეტა ტრანზაქციას აბრუნებს; ნახევრად აღდგენილი ბაზა წარმატებად არ ითვლება.
+3. სრული migrate. ის უფლებებს აბრუნებს სპეციფიკაციაზე და ძველ dump-ს head-მდე აჰყავს.
+
+არაცარიელ სამიზნეს სკრიპტი უარყოფს. `--force-overwrite-nonempty` შლის ამ ბაზას და თავიდან ქმნის. სახელი `business_os` ყოველთვის უარყოფილია.
 
 ```bash
-docker exec business_os_postgres psql -U business_os -d postgres \
-  -c "CREATE DATABASE business_os_restore;"
-docker cp business_os_backup:/backups/business_os_YYYYMMDD_HHMMSS.sql.gz /tmp/business_os.dump.gz
-docker cp /tmp/business_os.dump.gz business_os_postgres:/tmp/business_os.dump.gz
-docker exec business_os_postgres sh -c \
-  "gunzip -c /tmp/business_os.dump.gz | pg_restore --no-owner --no-acl -U business_os -d business_os_restore"
+export PGHOST=127.0.0.1 PGPORT=5432 PGUSER=business_os
+export APP_ENV=production
+# PGPASSWORD, APP_DB_PASSWORD, BACKUP_DB_PASSWORD, JWT_SECRET_KEY, CORS_ORIGINS
+# უკვე გარემოშია. არ ჩაწეროთ ისინი ბრძანების სტრიქონში.
+scripts/restore.sh \
+  --dump /path/business_os_YYYYMMDD_HHMMSS.sql.gz \
+  --target-db business_os_restore
 ```
 
-არსებულ volume-ზე, სადაც `business_os_backup` ჯერ არ არის, შემდეგი წარმატებული `migrate` ქმნის როლს. ხელახალი გაშვება idempotent-ია: არსებული როლი თავიდან არ იქმნება, grants კი თავიდან ენიჭება. უკვე არსებული როლის პაროლს migrate არ ცვლის. პაროლის შესაცვლელად, superuser-ით: `ALTER ROLE business_os_backup PASSWORD '...';`.
+ყოველ superuser migrate-ზე, არა მხოლოდ როლის შექმნისას, თავიდან ენიჭება ატრიბუტები (`business_os_app`: `NOSUPERUSER NOBYPASSRLS`; `business_os_backup`: `LOGIN BYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE`), grants და default privileges. Backup როლზე ზედმეტი უფლება იხსნება (`SELECT`/`USAGE`-მდე). სამი materialized view-ის მფლობელი ხდება `business_os_app`. `company_id` ცხრილებზე თავიდან ედება `ENABLE`/`FORCE` RLS და `tenant_isolation`. Drift-ული ან კომპრომეტირებული dump-ის ზედმეტი უფლება აღდგენის შემდეგ არ რჩება. `--no-acl` dump-იც იგივე ნაბიჯით სწორდება.
+
+არსებულ volume-ზე, სადაც `business_os_backup` ჯერ არ არის, შემდეგი წარმატებული `migrate` ქმნის როლს. ხელახალი გაშვება idempotent-ია. უკვე არსებული როლის პაროლს migrate არ ცვლის. `BACKUP_DB_PASSWORD`-ის შეცვლა env-ში მარტო როლის პაროლს არ ცვლის — იგივე წესი, რაც `business_os_app`-ზე. Superuser-ით: `ALTER ROLE business_os_backup PASSWORD '...';`.
 
 სერტიფიკატის გამოშვება (DNS + CA) ოპერატორის ნაბიჯია. კონფიგურაცია მზადაა `nginx.prod.conf`-ში; სერტიფიკატის გარეშე nginx ვერ აიწყება.
 
-არსებულ Postgres volume-ზე (პირველი init უკვე გავლილია) `POSTGRES_PASSWORD` superuser-ის პაროლს არ ცვლის — Postgres ამ ცვლადს მხოლოდ პირველ init-ზე კითხულობს, და `MIGRATION_DATABASE_URL`-იც ამ ახალ მნიშვნელობას იყენებს. სანამ ერთხელ, **ძველი** superuser პაროლით, არ გაუშვებთ `ALTER ROLE business_os PASSWORD '...';` (იგივე მნიშვნელობა, რაც ახალ `POSTGRES_PASSWORD`-შია), მიგრაცია ვერ შევა და superuser რჩება ძველ development პაროლზე `secret`. იმავე სესიაში, თუ როლი `business_os_app` ძველი პაროლითაა შექმნილი, migration `063` ხელახლა არ ეშვება — დააყენეთ `APP_DB_PASSWORD`-ის იგივე მნიშვნელობა: `ALTER ROLE business_os_app PASSWORD '...'`. `business_os_backup` ამ volume-ზე პირველ წარმატებულ `migrate`-ზე იქმნება `BACKUP_DB_PASSWORD`-ით. შემდეგ თავიდან გაუშვით compose.
+არსებულ Postgres volume-ზე (პირველი init უკვე გავლილია) `POSTGRES_PASSWORD` superuser-ის პაროლს არ ცვლის — Postgres ამ ცვლადს მხოლოდ პირველ init-ზე კითხულობს, და `MIGRATION_DATABASE_URL`-იც ამ ახალ მნიშვნელობას იყენებს. სანამ ერთხელ, **ძველი** superuser პაროლით, არ გაუშვებთ `ALTER ROLE business_os PASSWORD '...';` (იგივე მნიშვნელობა, რაც ახალ `POSTGRES_PASSWORD`-შია), მიგრაცია ვერ შევა და superuser რჩება ძველ development პაროლზე `secret`. იმავე სესიაში, თუ როლი `business_os_app` ძველი პაროლითაა შექმნილი, migration `063` ხელახლა არ ეშვება — დააყენეთ `APP_DB_PASSWORD`-ის იგივე მნიშვნელობა: `ALTER ROLE business_os_app PASSWORD '...'`. `business_os_backup` ამ volume-ზე პირველ წარმატებულ `migrate`-ზე იქმნება `BACKUP_DB_PASSWORD`-ით. თუ როლი უკვე არსებობს, env-ში `BACKUP_DB_PASSWORD`-ის შეცვლა პაროლს არ ცვლის — `ALTER ROLE business_os_backup PASSWORD '...'`. შემდეგ თავიდან გაუშვით compose.
 
 Production migration-ის დროს გამორთული დატოვეთ Postgres `log_statement=ddl` ან `all`, SQLAlchemy `echo` და Alembic offline `--sql`. Migration `063`-ის და migrate სერვისის `CREATE ROLE ... PASSWORD` (`business_os_app` და `business_os_backup`) ამ რეჟიმებში ლოგში ან გამოტანილ SQL-ში ჩანს.
 

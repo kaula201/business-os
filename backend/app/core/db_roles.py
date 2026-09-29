@@ -1,18 +1,20 @@
 """Login roles reconciled by the superuser migrate step.
 
 ``MANAGED_ROLES`` is the only list to edit when a later PR adds a role.
-The migrate service creates any missing role, grants the privileges on the
-spec, and rewrites the materialized-view event trigger for every spec that
-asks for it. Migration ``063`` keeps creating ``business_os_app`` itself so
-an incremental upgrade still works; it calls the same helpers with that one
-spec and does not walk ``MANAGED_ROLES``.
+Every superuser migrate run creates a missing role, resets attributes from
+the spec, re-grants privileges, and rewrites the materialized-view event
+trigger. A spec with ``revoke_excess`` (the backup role) loses anything
+beyond that spec first, including grants a drifted dump restored. Migration
+``063`` keeps creating ``business_os_app`` itself so an incremental upgrade
+still works; it calls the same helpers with that one spec and does not walk
+``MANAGED_ROLES``.
 
 ``BACKUP_ROLE`` (``business_os_backup``) is created only here. ``BYPASSRLS``
 can be granted by a superuser, which the migrate service is. Migration
 ``063`` does not create this role. The spec is read-only: ``USAGE`` on the
 schema, ``SELECT`` on tables, sequences, and materialized views, and the
 same ``SELECT`` via ``ALTER DEFAULT PRIVILEGES`` for objects created later
-by ``business_os``.
+by ``business_os``. Passwords of existing roles are not changed here.
 """
 from __future__ import annotations
 
@@ -81,6 +83,9 @@ class RoleSpec:
     default_table_privileges: str
     default_sequence_privileges: str
     grant_matview_select: bool = False
+    # When true, every reconcile revokes privileges outside this spec before
+    # the grants are applied again. A dump is not a privilege source.
+    revoke_excess: bool = False
 
     def __post_init__(self) -> None:
         _ident(self.name, "role")
@@ -119,6 +124,17 @@ BACKUP_ROLE = RoleSpec(
     default_table_privileges="SELECT",
     default_sequence_privileges="SELECT",
     grant_matview_select=True,
+    revoke_excess=True,
+)
+
+
+# REFRESH CONCURRENTLY requires the owner. Migration 065 sets this once;
+# a dump restored with --no-owner leaves the views owned by the superuser,
+# and 065 does not re-run when the dump is already at head.
+MATERIALIZED_VIEWS: tuple[str, ...] = (
+    "mv_sales_daily",
+    "mv_receivables_aging",
+    "mv_stock_balances",
 )
 
 
@@ -190,6 +206,98 @@ def create_role_if_missing(bind, spec: RoleSpec) -> None:
         except Exception:
             pass
         raise RuntimeError(f"Failed to create database role {spec.name}.") from None
+
+
+def attribute_statement(spec: RoleSpec) -> str:
+    """Reset login and the spec attributes. Does not change the password.
+
+    Applied on every superuser reconcile, including when the role already
+    existed. A dump cannot grant ``BYPASSRLS`` to the app role and have it
+    survive the next migrate.
+    """
+    name = _ident(spec.name, "role")
+    attributes = _words(spec.attributes, _ATTRIBUTES, "attribute")
+    return f"ALTER ROLE {name} WITH LOGIN {attributes}"
+
+
+def revoke_excess_statements(spec: RoleSpec, database: str) -> list[str]:
+    """Strip privileges that are not on ``spec``.
+
+    Only specs with ``revoke_excess`` are stripped. The app role is granted
+    ``ALL`` again instead, so a missing grant is restored without a blanket
+    revoke. Default privileges are revoked for both the superuser and the
+    app role: restored objects may have been created by either.
+    """
+    if not spec.revoke_excess:
+        return []
+    name = _ident(spec.name, "role")
+    database = _ident(database, "database")
+    grantor = _ident(GRANTOR_ROLE, "grantor")
+    app = _ident(APP_ROLE.name, "role")
+    return [
+        f"REVOKE {grantor} FROM {name}",
+        f"REVOKE {app} FROM {name}",
+        f"REVOKE ALL PRIVILEGES ON DATABASE {database} FROM {name}",
+        f"REVOKE ALL PRIVILEGES ON SCHEMA public FROM {name}",
+        f"REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {name}",
+        f"REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {name}",
+        f"REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM {name}",
+        f"""
+        DO $$
+        DECLARE
+            mv text;
+        BEGIN
+            FOR mv IN
+                SELECT c.relname
+                FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relkind = 'm'
+            LOOP
+                EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE %I FROM {name}', mv);
+            END LOOP;
+        END
+        $$;
+        """,
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+        f"REVOKE ALL PRIVILEGES ON TABLES FROM {name}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+        f"REVOKE ALL PRIVILEGES ON SEQUENCES FROM {name}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+        f"REVOKE ALL PRIVILEGES ON FUNCTIONS FROM {name}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {app} IN SCHEMA public "
+        f"REVOKE ALL PRIVILEGES ON TABLES FROM {name}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {app} IN SCHEMA public "
+        f"REVOKE ALL PRIVILEGES ON SEQUENCES FROM {name}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {app} IN SCHEMA public "
+        f"REVOKE ALL PRIVILEGES ON FUNCTIONS FROM {name}",
+    ]
+
+
+def matview_owner_statements(owner: str | None = None) -> list[str]:
+    """Give the app role ownership of the three refresh views, if they exist."""
+    owner_name = _ident(owner or APP_ROLE.name, "role")
+    statements: list[str] = []
+    for view in MATERIALIZED_VIEWS:
+        view_name = _ident(view, "materialized view")
+        statements.append(
+            f"""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1
+                    FROM pg_class c
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'public'
+                      AND c.relname = '{view_name}'
+                      AND c.relkind = 'm'
+                ) THEN
+                    EXECUTE 'ALTER MATERIALIZED VIEW public.{view_name} OWNER TO {owner_name}';
+                END IF;
+            END
+            $$;
+            """
+        )
+    return statements
 
 
 def grant_statements(spec: RoleSpec, database: str) -> list[str]:

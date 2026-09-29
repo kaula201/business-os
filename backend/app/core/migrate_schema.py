@@ -1,5 +1,6 @@
 """Safely adopt the legacy schema and run versioned Alembic migrations."""
 import asyncio
+import sys
 from pathlib import Path
 
 from alembic import command
@@ -12,7 +13,15 @@ from sqlalchemy.pool import NullPool
 from app.core.alembic_version import ensure_alembic_version_width
 from app.core.config import settings
 from app.core.database import init_db
-from app.core.db_roles import MANAGED_ROLES, create_role_if_missing, grant_statements, matview_event_statements
+from app.core.db_roles import (
+    MANAGED_ROLES,
+    attribute_statement,
+    create_role_if_missing,
+    grant_statements,
+    matview_event_statements,
+    matview_owner_statements,
+    revoke_excess_statements,
+)
 from app.core.secret_redaction import hides_password, install_log_redaction, public_migration_error
 
 BASELINE_REVISION = "001_initial"
@@ -74,12 +83,20 @@ async def _prepare(bind) -> bool:
     return version_exists
 
 
-async def _ensure_managed_roles(bind) -> None:
-    """Create and grant every role in ``MANAGED_ROLES``.
+async def _ensure_managed_roles(bind, *, roles_only: bool = False) -> None:
+    """Reconcile every role in ``MANAGED_ROLES``.
 
     Skipped when this connection is not a superuser, so local dev keeps using
     ``DATABASE_URL`` unchanged. Adding a role is a new ``RoleSpec`` in that
     tuple; this loop does not change.
+
+    Attributes, grants, and (for the backup role) revokes run on every call,
+    not only when the role is created. Existing passwords are left alone.
+
+    ``roles_only`` creates and resets attributes and then stops. It does not
+    grant, create the matview event trigger, or touch schema objects. Restore
+    uses that mode on an empty database so ``pg_restore`` can load the trigger
+    itself.
     """
     async with bind.connect() as connection:
         is_super = bool(
@@ -93,10 +110,17 @@ async def _ensure_managed_roles(bind) -> None:
     def _apply(sync_conn) -> None:
         for spec in MANAGED_ROLES:
             create_role_if_missing(sync_conn, spec)
+            sync_conn.execute(text(attribute_statement(spec)))
+        if roles_only:
+            return
         database = sync_conn.engine.url.database
         for spec in MANAGED_ROLES:
+            for statement in revoke_excess_statements(spec, database):
+                sync_conn.execute(text(statement))
             for statement in grant_statements(spec, database):
                 sync_conn.execute(text(statement))
+        for statement in matview_owner_statements():
+            sync_conn.execute(text(statement))
         for statement in matview_event_statements(MANAGED_ROLES):
             sync_conn.execute(text(statement))
 
@@ -173,11 +197,25 @@ async def _widen_alembic_version(bind) -> None:
         await connection.run_sync(ensure_alembic_version_width)
 
 
+def _roles_only(argv: list[str]) -> bool:
+    if not argv:
+        return False
+    if argv != ["--roles-only"]:
+        raise SystemExit("usage: python -m app.core.migrate_schema [--roles-only]")
+    return True
+
+
 def main() -> None:
+    roles_only = _roles_only(sys.argv[1:])
     url = settings.migration_database_url()
     install_log_redaction(url)
     bind = create_async_engine(url, poolclass=NullPool, echo=False)
     try:
+        if roles_only:
+            # No Alembic and no object grants. The target database stays empty
+            # so a following pg_restore is the first writer of schema objects.
+            asyncio.run(_ensure_managed_roles(bind, roles_only=True))
+            return
         version_exists = asyncio.run(_prepare(bind))
         config = alembic_config()
         if not version_exists:
@@ -185,7 +223,7 @@ def main() -> None:
         asyncio.run(_widen_alembic_version(bind))
         command.upgrade(config, "head")
         asyncio.run(_ensure_tenant_rls(bind))
-        asyncio.run(_ensure_managed_roles(bind))
+        asyncio.run(_ensure_managed_roles(bind, roles_only=False))
         # Catalog only. Does not delete company module toggles or permissions.
         from seed_modules import seed_modules
 
