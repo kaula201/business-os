@@ -12,12 +12,21 @@ public schema (plus CREATE for Alembic), and FORCEs RLS on every
 company-scoped table so the new role is filtered by tenant.
 
 Deploy note: after this migration, DATABASE_URL (and TEST_DATABASE_URL in
-tests) must switch to business_os_app:business_os_app@... and the same role
-must be granted on the *_test databases (see skill notes).
+tests) must use the business_os_app role. Production takes that role's
+password from APP_DB_PASSWORD. Local docker-compose.yml leaves the variable
+unset and keeps its dev password. The same role must be granted on the
+*_test databases (see skill notes).
+
+If this revision already ran, it will not change an existing password.
+Set the new password as the Postgres superuser before switching DATABASE_URL:
+
+    ALTER ROLE business_os_app PASSWORD '...';
 """
+import os
 from typing import Sequence, Union
 
 from alembic import op
+from sqlalchemy import text
 
 revision: str = "063_rls_app_role"
 down_revision: Union[str, None] = "062_rls_tenant_isolation"
@@ -25,22 +34,38 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 APP_ROLE = "business_os_app"
-APP_PASSWORD = "business_os_app"  # same value used in docker-compose DATABASE_URL
+# Local docker-compose.yml and tests omit APP_DB_PASSWORD.
+_DEV_APP_PASSWORD = "business_os_app"
+
+
+def _app_password() -> str:
+    password = os.environ.get("APP_DB_PASSWORD", "").strip()
+    if password:
+        return password
+    app_env = os.environ.get("APP_ENV", "").strip().lower()
+    if app_env in {"production", "prod"}:
+        raise RuntimeError("APP_DB_PASSWORD must be set when APP_ENV is production")
+    return _DEV_APP_PASSWORD
+
+
+def _dollar_quote(value: str) -> str:
+    tag = "pw"
+    while f"${tag}$" in value:
+        tag += "x"
+    return f"${tag}${value}${tag}$"
 
 
 def upgrade() -> None:
-    op.execute(
-        f"""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{APP_ROLE}') THEN
-                CREATE ROLE {APP_ROLE} LOGIN PASSWORD '{APP_PASSWORD}'
-                    NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
-            END IF;
-        END
-        $$;
-        """
-    )
+    bind = op.get_bind()
+    role_exists = bind.execute(
+        text("SELECT 1 FROM pg_roles WHERE rolname = :name"),
+        {"name": APP_ROLE},
+    ).scalar()
+    if not role_exists:
+        op.execute(
+            f"CREATE ROLE {APP_ROLE} LOGIN PASSWORD {_dollar_quote(_app_password())} "
+            "NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE"
+        )
     # Schema + DML + DDL for the app role on the current database.
     op.execute(f"GRANT CONNECT ON DATABASE {op.get_bind().engine.url.database} TO {APP_ROLE}")
     op.execute(f"GRANT ALL ON SCHEMA public TO {APP_ROLE}")

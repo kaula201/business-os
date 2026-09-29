@@ -49,9 +49,15 @@ docker compose up --build
 ## Production (Docker Compose)
 
 ```bash
+# Root `.env` (Compose interpolation). ცარიელი ან გამოტოვებული მნიშვნელობით
+# `docker compose -f docker-compose.prod.yml` ჩერდება:
+#   POSTGRES_PASSWORD  — Postgres superuser (`business_os`)
+#   APP_DB_PASSWORD    — როლი `business_os_app` (DATABASE_URL, backup, MV refresh)
+# ორი განსხვავებული ძლიერი პაროლი. APP_DB_PASSWORD-ში არ გამოიყენოთ @ : / # ? ან space.
+cp .env.example .env
 # backend/.env: APP_ENV-ს compose თავად სვამს production-ზე.
 # აუცილებელია JWT_SECRET_KEY (32+ სიმბოლო), CORS_ORIGINS=https://your-domain,
-# SAAS_WEBHOOK_SECRET.
+# SAAS_WEBHOOK_SECRET. APP_DB_PASSWORD აქ ცარიელი დატოვეთ — prod compose root `.env`-დან სვამს.
 mkdir -p certs
 # განათავსეთ CA/Let's Encrypt სერტიფიკატები (რეპოში არ ინახება):
 #   certs/fullchain.pem
@@ -68,6 +74,8 @@ Production სტეკი:
 - SaaS webhook ხელმოწერის გარეშე 401-ს აბრუნებს
 
 სერტიფიკატის გამოშვება (DNS + CA) ოპერატორის ნაბიჯია. კონფიგურაცია მზადაა `nginx.prod.conf`-ში; სერტიფიკატის გარეშე nginx ვერ აიწყება.
+
+თუ Postgres volume უკვე არსებობს და როლი `business_os_app` ძველი პაროლითაა შექმნილი, migration `063` ხელახლა არ ეშვება. Superuser-ით ერთხელ დააყენეთ `APP_DB_PASSWORD`-ის იგივე მნიშვნელობა: `ALTER ROLE business_os_app PASSWORD '...'`.
 
 ## ლოკალური გაშვება (Development)
 

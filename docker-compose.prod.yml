@@ -3,11 +3,14 @@
 # network. The only published ports are 80 (ACME + HTTPS redirect) and 443.
 #
 # Before the first start:
-#   1. Copy backend/.env.example to backend/.env
-#   2. Set JWT_SECRET_KEY (32+ random chars; the API refuses known placeholders)
-#   3. Set CORS_ORIGINS to the public origin, e.g. https://app.example.com
-#   4. Set SAAS_WEBHOOK_SECRET (unsigned /saas/webhook calls are rejected)
-#   5. Place TLS certs in ./certs/fullchain.pem and ./certs/privkey.pem
+#   1. Copy .env.example to .env and set POSTGRES_PASSWORD and APP_DB_PASSWORD.
+#      Compose exits if either is missing. Use two different strong passwords.
+#      APP_DB_PASSWORD is embedded in DATABASE_URL — avoid @ : / # ? and spaces.
+#   2. Copy backend/.env.example to backend/.env
+#   3. Set JWT_SECRET_KEY (32+ random chars; the API refuses known placeholders)
+#   4. Set CORS_ORIGINS to the public origin, e.g. https://app.example.com
+#   5. Set SAAS_WEBHOOK_SECRET (unsigned /saas/webhook calls are rejected)
+#   6. Place TLS certs in ./certs/fullchain.pem and ./certs/privkey.pem
 #      (Let's Encrypt or your CA — this repo does not ship a certificate)
 #
 #   docker compose -f docker-compose.prod.yml up --build
@@ -23,7 +26,7 @@ services:
     environment:
       POSTGRES_DB: business_os
       POSTGRES_USER: business_os
-      POSTGRES_PASSWORD: secret
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -50,7 +53,8 @@ services:
       - ./backend/.env
     environment:
       APP_ENV: production
-      DATABASE_URL: postgresql+asyncpg://business_os_app:business_os_app@postgres:5432/business_os
+      APP_DB_PASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
+      DATABASE_URL: "postgresql+asyncpg://business_os_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD}@postgres:5432/business_os"
       REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
@@ -81,7 +85,7 @@ services:
         crond -f -l 2
       "
     environment:
-      PGPASSWORD: business_os_app
+      PGPASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
       RETENTION_DAYS: 30
     volumes:
       - ./scripts/backup.sh:/scripts/backup.sh:ro

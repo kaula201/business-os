@@ -4,6 +4,8 @@
 
 set -euo pipefail
 
+: "${PGPASSWORD:?set PGPASSWORD}"
+
 BACKUP_DIR="/backups"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
@@ -11,7 +13,7 @@ FILENAME="business_os_${TIMESTAMP}.sql.gz"
 
 mkdir -p "$BACKUP_DIR"
 
-PGPASSWORD="${PGPASSWORD:-business_os_app}" pg_dump \
+pg_dump \
   -h postgres \
   -U business_os_app \
   -d business_os \

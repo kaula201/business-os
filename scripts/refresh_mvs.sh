@@ -5,7 +5,9 @@
 
 set -euo pipefail
 
-PGPASSWORD="${PGPASSWORD:-business_os_app}" psql \
+: "${PGPASSWORD:?set PGPASSWORD}"
+
+psql \
   -h postgres \
   -U business_os_app \
   -d business_os \
