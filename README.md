@@ -51,7 +51,7 @@ docker compose up --build
 პირველი გაშვება ცარიელ volume-ზე:
 
 1. Postgres იქმნება `POSTGRES_PASSWORD`-ით (superuser `business_os`).
-2. ცალკე one-shot სერვისი `migrate` ეშვება `python -m app.core.migrate_schema`. მხოლოდ ამ კონტეინერს აქვს `MIGRATION_DATABASE_URL` (superuser, `POSTGRES_PASSWORD`-ისგან). ის ქმნის `business_os_app`-ს, უფლებებს (`ALTER DEFAULT PRIVILEGES` მომავალი ცხრილებისთვის), RLS-ს, extension-ებს და materialized view-ებს, შემდეგ exit 0-ით სრულდება.
+2. ცალკე one-shot სერვისი `migrate` ეშვება `python -m app.core.migrate_schema`. მხოლოდ ამ კონტეინერს აქვს `MIGRATION_DATABASE_URL` (superuser, `POSTGRES_PASSWORD`-ისგან). ის ჯერ ქმნის `vector` და `pg_trgm` extension-ებს, შემდეგ `create_all`-ით მიმდინარე ORM სქემას, stamp-ს აკეთებს მხოლოდ `001_initial`-ზე და აგრძელებს `upgrade head`-მდე. Head-ზე stamp არ ხდება: RLS, `business_os_app`, grants, materialized view-ები და seed ჩანაწერები მიგრაციებშია და მოდელებში არა, ამიტომ head-ის stamp მათ გამოტოვებდა. ცარიელ ბაზაზე უკვე არსებული სვეტი (მაგალითად `supplier_payables.credited_amount` მიგრაცია 002-ში) დუბლიკატ DDL-ად გამოტოვდება. არსებულ ბაზაზე, რომელიც head-ს ჩამორჩება, იგივე მიგრაცია რეალურად ეშვება, რადგან ის სვეტი იქ ჯერ არ არის — `create_all` მხოლოდ ცარიელ ბაზაზე ხდება. შემდეგ იქმნება `business_os_app`, უფლებები (`ALTER DEFAULT PRIVILEGES` მომავალი ცხრილებისა და sequence-ებისთვის) და RLS, და სერვისი exit 0-ით სრულდება.
 3. `backend` იწყება მხოლოდ მაშინ, როცა `migrate` წარმატებით დასრულდა (`service_completed_successfully`). Backend-ის env-ში არის მხოლოდ `APP_DB_PASSWORD` და `DATABASE_URL` (`business_os_app`). `POSTGRES_PASSWORD` და superuser URL იქ არ ხვდება — superuser `NOBYPASSRLS`-ს გვერდს აუვლიდა.
 
 ```bash
@@ -59,8 +59,10 @@ docker compose up --build
 # `docker compose -f docker-compose.prod.yml` ჩერდება:
 #   POSTGRES_PASSWORD  — Postgres superuser (`business_os`), მხოლოდ migrate სერვისი
 #   APP_DB_PASSWORD    — როლი `business_os_app` (DATABASE_URL, backup, MV refresh)
-# ორი განსხვავებული ძლიერი პაროლი. APP_DB_PASSWORD-ში არ გამოიყენოთ @ : / # ? ან space.
-# % დასაშვებია — Alembic კონფიგში %%-ად იწერება.
+# ორი განსხვავებული ძლიერი პაროლი. გენერაცია:
+#   python -c "import secrets; print(secrets.token_urlsafe(32))"
+# ნუ გამოიყენებთ % ან $ (არც @ : / # ? და space). token_urlsafe მხოლოდ
+# ასოებს, ციფრებს, "-" და "_" იყენებს.
 cp .env.example .env
 # backend/.env: APP_ENV-ს compose თავად სვამს production-ზე.
 # აუცილებელია JWT_SECRET_KEY (32+ სიმბოლო), CORS_ORIGINS=https://your-domain,

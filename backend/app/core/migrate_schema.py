@@ -11,6 +11,7 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 from app.core.database import init_db
+from app.core.secret_redaction import hides_password, install_log_redaction, public_migration_error
 
 BASELINE_REVISION = "001_initial"
 
@@ -39,6 +40,17 @@ async def _extension(bind, name: str) -> None:
 
 
 async def _prepare(bind) -> bool:
+    """Return whether alembic_version already exists.
+
+    A fresh database is created from the current ORM metadata, then every
+    revision is replayed. Stamping head here would skip RLS, the app role,
+    grants, extensions, materialized views, and seed rows that are not part
+    of the models. Replaying is safe because duplicate tables and columns
+    (the ``credited_amount`` failure in 002) are skipped, while new DDL still
+    runs. An existing database is left alone and ``upgrade`` applies only
+    revisions it does not have yet — those columns are absent, so the same
+    migrations are not no-ops.
+    """
     async with bind.connect() as connection:
         schema_exists = bool(
             await connection.scalar(text("SELECT to_regclass('public.companies') IS NOT NULL"))
@@ -138,7 +150,9 @@ async def _widen_alembic_version(bind) -> None:
 
 
 def main() -> None:
-    bind = create_async_engine(settings.migration_database_url(), poolclass=NullPool)
+    url = settings.migration_database_url()
+    install_log_redaction(url)
+    bind = create_async_engine(url, poolclass=NullPool, echo=False)
     try:
         version_exists = asyncio.run(_prepare(bind))
         config = alembic_config()
@@ -147,6 +161,10 @@ def main() -> None:
         asyncio.run(_widen_alembic_version(bind))
         command.upgrade(config, "head")
         asyncio.run(_ensure_app_grants(bind))
+    except Exception as exc:
+        if hides_password(exc, url):
+            raise public_migration_error(exc, url) from None
+        raise
     finally:
         asyncio.run(bind.dispose())
 

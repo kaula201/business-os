@@ -7,6 +7,7 @@ import app.models  # noqa: F401 — register every ORM table in Base.metadata
 from app.core.config import settings
 from app.core.database import Base
 from app.core.duplicate_ddl import escape_alembic_config_value, install_duplicate_ddl_guard
+from app.core.secret_redaction import hides_password, install_log_redaction, public_migration_error
 
 config = context.config
 if config.config_file_name is not None:
@@ -40,12 +41,12 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     # Fresh boots create_all the current models, then replay revisions whose
     # tables and columns are already present. Duplicate DDL is skipped;
-    # every other error still aborts.
+    # every other error still aborts. Existing databases are not stamped at
+    # head, so revisions they have not applied still run.
     install_duplicate_ddl_guard()
-    engine = create_engine(
-        sync_url(config.get_main_option("sqlalchemy.url")),
-        poolclass=pool.NullPool,
-    )
+    url = sync_url(config.get_main_option("sqlalchemy.url"))
+    install_log_redaction(url)
+    engine = create_engine(url, poolclass=pool.NullPool, echo=False)
     try:
         with engine.connect() as connection:
             context.configure(
@@ -56,6 +57,10 @@ def run_migrations_online() -> None:
             )
             with context.begin_transaction():
                 context.run_migrations()
+    except Exception as exc:
+        if hides_password(exc, url):
+            raise public_migration_error(exc, url) from None
+        raise
     finally:
         engine.dispose()
 
