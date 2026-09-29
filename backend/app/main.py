@@ -24,6 +24,13 @@ def _is_docs_path(path: str) -> bool:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # Idempotent module catalog. Production does not run the demo seed, and
+    # the sidebar reads app_modules. Missing rows leave it empty. Tests use
+    # their own fixtures and must not open DATABASE_URL during import/startup.
+    if settings.APP_ENV not in {"test", "sandbox"}:
+        from seed_modules import seed_modules
+
+        await seed_modules()
     scheduler_tasks = []
     if settings.NBG_AUTO_SYNC_ENABLED:
         scheduler_tasks.append(asyncio.create_task(nbg_scheduler_loop(), name="nbg-daily-sync"))

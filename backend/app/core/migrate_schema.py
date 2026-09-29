@@ -9,6 +9,7 @@ from sqlalchemy.exc import DBAPIError, ProgrammingError
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
+from app.core.alembic_version import ensure_alembic_version_width
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.db_roles import MANAGED_ROLES, create_role_if_missing, grant_statements, matview_event_statements
@@ -102,19 +103,9 @@ async def _ensure_managed_roles(bind) -> None:
 
 
 async def _widen_alembic_version(bind) -> None:
-    """Revision ids are longer than Alembic's default varchar(32).
-
-    ``122_pos_restaurant_courses_floorplan`` cannot be stored until the
-    version column is widened. Do this outside the migration transaction:
-    the UPDATE that records the new revision is what overflows.
-    """
+    """Widen version_num before upgrade. env.py does this again on upgrade."""
     async with bind.begin() as connection:
-        exists = await connection.scalar(text("SELECT to_regclass('public.alembic_version')"))
-        if not exists:
-            return
-        await connection.execute(
-            text("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255)")
-        )
+        await connection.run_sync(ensure_alembic_version_width)
 
 
 def main() -> None:
@@ -129,6 +120,10 @@ def main() -> None:
         asyncio.run(_widen_alembic_version(bind))
         command.upgrade(config, "head")
         asyncio.run(_ensure_managed_roles(bind))
+        # Catalog only. Does not delete company module toggles or permissions.
+        from seed_modules import seed_modules
+
+        asyncio.run(seed_modules(bind))
     except Exception as exc:
         if hides_password(exc, url):
             raise public_migration_error(exc, url) from None

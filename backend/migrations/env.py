@@ -4,6 +4,7 @@ from alembic import context
 from sqlalchemy import create_engine, pool
 
 import app.models  # noqa: F401 — register every ORM table in Base.metadata
+from app.core.alembic_version import ensure_alembic_version_width
 from app.core.config import settings
 from app.core.database import Base
 from app.core.duplicate_ddl import escape_alembic_config_value, install_duplicate_ddl_guard
@@ -48,6 +49,10 @@ def run_migrations_online() -> None:
     install_log_redaction(url)
     engine = create_engine(url, poolclass=pool.NullPool, echo=False)
     try:
+        # Before Alembic creates or updates alembic_version. Covers a fresh
+        # upgrade and a database already stuck on revision 121.
+        with engine.begin() as connection:
+            ensure_alembic_version_width(connection)
         with engine.connect() as connection:
             context.configure(
                 connection=connection,
