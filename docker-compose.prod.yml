@@ -6,6 +6,9 @@
 #   1. Copy .env.example to .env and set POSTGRES_PASSWORD and APP_DB_PASSWORD.
 #      Compose exits if either is missing. Use two different strong passwords.
 #      APP_DB_PASSWORD is embedded in DATABASE_URL — avoid @ : / # ? and spaces.
+#      A % in a password is fine: Alembic stores it as %%.
+#      Migrations connect as the superuser (MIGRATION_DATABASE_URL, built from
+#      POSTGRES_PASSWORD). The API then runs as business_os_app.
 #   2. Copy backend/.env.example to backend/.env
 #   3. Set JWT_SECRET_KEY (32+ random chars; the API refuses known placeholders)
 #   4. Set CORS_ORIGINS to the public origin, e.g. https://app.example.com
@@ -54,6 +57,8 @@ services:
     environment:
       APP_ENV: production
       APP_DB_PASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
+      # Superuser, for migrate_schema only. The process unsets this before uvicorn.
+      MIGRATION_DATABASE_URL: "postgresql+asyncpg://business_os:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/business_os"
       DATABASE_URL: "postgresql+asyncpg://business_os_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD}@postgres:5432/business_os"
       REDIS_URL: redis://redis:6379/0
     depends_on:
@@ -62,7 +67,7 @@ services:
       redis:
         condition: service_healthy
     command: >
-      sh -c "python -m app.core.migrate_schema && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      sh -c "python -m app.core.migrate_schema && unset MIGRATION_DATABASE_URL && uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   frontend:
     build:

@@ -48,12 +48,19 @@ docker compose up --build
 
 ## Production (Docker Compose)
 
+პირველი გაშვება ცარიელ volume-ზე:
+
+1. Postgres იქმნება `POSTGRES_PASSWORD`-ით (superuser `business_os`).
+2. როლი `business_os_app` ჯერ არ არსებობს, ამიტომ `python -m app.core.migrate_schema` superuser-ით უკავშირდება. Compose ამისთვის აწყობს `MIGRATION_DATABASE_URL`-ს `POSTGRES_PASSWORD`-ისგან. მიგრაცია ქმნის აპის როლს (`APP_DB_PASSWORD`), უფლებებს, RLS-ს, extension-ებს და materialized view-ებს.
+3. ამის შემდეგ API ეშვება `DATABASE_URL`-ზე (`business_os_app`). `uvicorn`-მდე `MIGRATION_DATABASE_URL` იშლება, რათა პროცესს superuser-ის პაროლი აღარ ჰქონდეს.
+
 ```bash
 # Root `.env` (Compose interpolation). ცარიელი ან გამოტოვებული მნიშვნელობით
 # `docker compose -f docker-compose.prod.yml` ჩერდება:
-#   POSTGRES_PASSWORD  — Postgres superuser (`business_os`)
+#   POSTGRES_PASSWORD  — Postgres superuser (`business_os`), მხოლოდ მიგრაცია
 #   APP_DB_PASSWORD    — როლი `business_os_app` (DATABASE_URL, backup, MV refresh)
 # ორი განსხვავებული ძლიერი პაროლი. APP_DB_PASSWORD-ში არ გამოიყენოთ @ : / # ? ან space.
+# % დასაშვებია — Alembic კონფიგში %%-ად იწერება.
 cp .env.example .env
 # backend/.env: APP_ENV-ს compose თავად სვამს production-ზე.
 # აუცილებელია JWT_SECRET_KEY (32+ სიმბოლო), CORS_ORIGINS=https://your-domain,
@@ -75,7 +82,7 @@ Production სტეკი:
 
 სერტიფიკატის გამოშვება (DNS + CA) ოპერატორის ნაბიჯია. კონფიგურაცია მზადაა `nginx.prod.conf`-ში; სერტიფიკატის გარეშე nginx ვერ აიწყება.
 
-არსებულ Postgres volume-ზე (პირველი init უკვე გავლილია) `POSTGRES_PASSWORD` superuser-ის პაროლს არ ცვლის — Postgres ამ ცვლადს მხოლოდ პირველ init-ზე კითხულობს. სანამ ერთხელ, superuser-ით, არ გაუშვებთ `ALTER ROLE business_os PASSWORD '...';` (იგივე მნიშვნელობა, რაც ახალ `POSTGRES_PASSWORD`-შია), superuser რჩება ძველ development პაროლზე `secret`. იმავე სესიაში, თუ როლი `business_os_app` ძველი პაროლითაა შექმნილი, migration `063` ხელახლა არ ეშვება — დააყენეთ `APP_DB_PASSWORD`-ის იგივე მნიშვნელობა: `ALTER ROLE business_os_app PASSWORD '...'`.
+არსებულ Postgres volume-ზე (პირველი init უკვე გავლილია) `POSTGRES_PASSWORD` superuser-ის პაროლს არ ცვლის — Postgres ამ ცვლადს მხოლოდ პირველ init-ზე კითხულობს, და `MIGRATION_DATABASE_URL`-იც ამ ახალ მნიშვნელობას იყენებს. სანამ ერთხელ, **ძველი** superuser პაროლით, არ გაუშვებთ `ALTER ROLE business_os PASSWORD '...';` (იგივე მნიშვნელობა, რაც ახალ `POSTGRES_PASSWORD`-შია), მიგრაცია ვერ შევა და superuser რჩება ძველ development პაროლზე `secret`. იმავე სესიაში, თუ როლი `business_os_app` ძველი პაროლითაა შექმნილი, migration `063` ხელახლა არ ეშვება — დააყენეთ `APP_DB_PASSWORD`-ის იგივე მნიშვნელობა: `ALTER ROLE business_os_app PASSWORD '...'`. შემდეგ თავიდან გაუშვით compose.
 
 Production migration-ის დროს გამორთული დატოვეთ Postgres `log_statement=ddl` ან `all`, SQLAlchemy `echo` და Alembic offline `--sql`. Migration `063`-ის `CREATE ROLE ... PASSWORD` ამ რეჟიმებში ლოგში ან გამოტანილ SQL-ში ჩანს.
 
@@ -89,7 +96,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # PostgreSQL უნდა იყოს გაშვებული (docker compose up postgres redis)
-python -m app.migrate_schema
+python -m app.core.migrate_schema
 python seed.py
 uvicorn app.main:app --reload
 ```

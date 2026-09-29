@@ -35,7 +35,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.UUID(), sa.ForeignKey("users.id"), nullable=False),
         sa.Column("pin_hash", sa.String(128), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.now()),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
     )
     op.create_index("ix_pos_cashiers_company", "pos_cashiers", ["company_id"])
 
@@ -48,7 +48,7 @@ def upgrade() -> None:
         sa.Column("terminal_id", sa.String(100), nullable=False),
         sa.Column("merchant_id", sa.String(100), nullable=True),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.now()),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
     )
     op.create_index("ix_pos_payment_terminals_company", "pos_payment_terminals", ["company_id"])
 

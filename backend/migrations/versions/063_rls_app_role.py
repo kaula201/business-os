@@ -49,10 +49,57 @@ def _app_password() -> str:
 
 
 def _dollar_quote(value: str) -> str:
+    """Quote a password so the closer cannot collide with the value.
+
+    ``$pw$secret$pw$pw$`` is parsed as the string ``secret`` plus leftover
+    ``pw$`` when the password ends in ``$pw``. Grow the tag until the
+    delimiter does not occur in the value and is not formed on the boundary
+    with the closing delimiter.
+    """
     tag = "pw"
-    while f"${tag}$" in value:
+    # Bound the loop: a tag longer than the value cannot sit inside it, and
+    # the closer's trailing ``$`` is not part of the boundary check below.
+    for _ in range(len(value) + 2):
+        delimiter = f"${tag}$"
+        if delimiter not in (value + delimiter)[:-1]:
+            return f"{delimiter}{value}{delimiter}"
         tag += "x"
-    return f"${tag}${value}${tag}$"
+    raise RuntimeError(f"Could not quote a password for role {APP_ROLE}.")
+
+
+def _create_app_role(password: str) -> None:
+    """Create the role without echoing the statement if it fails.
+
+    A colliding dollar-quote used to raise and put the password in the
+    traceback (and in the Postgres error log). The tag above avoids that
+    collision. If creation still fails, the driver exception — which embeds
+    the SQL — is discarded.
+    """
+    statement = (
+        f"CREATE ROLE {APP_ROLE} LOGIN PASSWORD {_dollar_quote(password)} "
+        "NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE"
+    )
+    bind = op.get_bind()
+    nested = bind.begin_nested()
+    try:
+        is_superuser = bind.execute(
+            text("SELECT rolsuper FROM pg_roles WHERE rolname = current_user")
+        ).scalar()
+        if is_superuser:
+            # Panic is above ERROR, so a failed statement is not written to
+            # the server log. Restored before the savepoint commits so the
+            # rest of this migration still logs real errors.
+            bind.execute(text("SELECT set_config('log_min_error_statement', 'panic', true)"))
+        bind.execute(text(statement))
+        if is_superuser:
+            bind.execute(text("SELECT set_config('log_min_error_statement', 'error', true)"))
+        nested.commit()
+    except Exception:
+        try:
+            nested.rollback()
+        except Exception:
+            pass
+        raise RuntimeError(f"Failed to create database role {APP_ROLE}.") from None
 
 
 def upgrade() -> None:
@@ -62,10 +109,7 @@ def upgrade() -> None:
         {"name": APP_ROLE},
     ).scalar()
     if not role_exists:
-        op.execute(
-            f"CREATE ROLE {APP_ROLE} LOGIN PASSWORD {_dollar_quote(_app_password())} "
-            "NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE"
-        )
+        _create_app_role(_app_password())
     # Schema + DML + DDL for the app role on the current database.
     op.execute(f"GRANT CONNECT ON DATABASE {op.get_bind().engine.url.database} TO {APP_ROLE}")
     op.execute(f"GRANT ALL ON SCHEMA public TO {APP_ROLE}")
