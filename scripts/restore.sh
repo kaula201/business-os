@@ -38,12 +38,6 @@ umask 077
 on_error() {
   status=$?
   trap - ERR
-  # The load step may have granted BYPASSRLS so view refresh can run.
-  # Drop it again when the load does not finish. Ignore a missing role.
-  if [ -n "${PGPASSWORD:-}" ] && [ -n "${PGHOST:-}" ] && [ -n "${PGUSER:-}" ]; then
-    psql -h "$PGHOST" -p "${PGPORT:-5432}" -U "$PGUSER" -d postgres -v ON_ERROR_STOP=1 -X -q \
-      -c "ALTER ROLE business_os_app NOBYPASSRLS" >/dev/null 2>&1 || true
-  fi
   echo "Restore failed (status ${status}). The target was not switched into production." >&2
   if [ "$status" -eq 0 ]; then
     status=1
@@ -226,17 +220,16 @@ run_migrate() {
 
 run_migrate --roles-only
 
-# pg_restore reloads a materialized view as its owner. Those views are owned
-# by business_os_app, and FORCE RLS rejects the refresh unless that role
-# bypasses RLS. The grant lasts only for the load. The full migrate below
-# sets NOBYPASSRLS again; the error trap does the same if the load fails.
-psql_at postgres -q -c "ALTER ROLE business_os_app BYPASSRLS"
-
+# --no-owner: the archive restores materialized-view data as the view owner.
+# That owner is business_os_app, which is subject to FORCE RLS and, on an
+# old --no-acl dump, does not yet have SELECT. Loading as the superuser lets
+# the single transaction finish. The migrate step below returns the three
+# views to business_os_app and reconciles grants. ACLs in the dump are kept.
 if [[ "$DUMP" == *.gz ]]; then
-  gunzip -c "$DUMP" | pg_restore --exit-on-error --single-transaction \
+  gunzip -c "$DUMP" | pg_restore --exit-on-error --single-transaction --no-owner \
     -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$TARGET_DB"
 else
-  pg_restore --exit-on-error --single-transaction \
+  pg_restore --exit-on-error --single-transaction --no-owner \
     -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$TARGET_DB" "$DUMP"
 fi
 

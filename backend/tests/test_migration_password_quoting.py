@@ -288,6 +288,8 @@ def test_prod_compose_scopes_backup_password_and_script_locks_dumps():
     assert "pg_dumpall" not in restore_active
     assert "--single-transaction" in restore
     assert "--exit-on-error" in restore
+    assert "--no-owner" in restore_active
+    assert "--no-acl" not in restore_active
     assert "--roles-only" in restore
     assert "--force-overwrite-nonempty" in restore
     assert "business_os|postgres|template0|template1" in restore
