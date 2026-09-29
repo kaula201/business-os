@@ -49,6 +49,7 @@ _OBJECT_PRIVILEGES = frozenset(
     {"ALL", "SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER", "USAGE"}
 )
 _SCHEMA_PRIVILEGES = frozenset({"ALL", "USAGE", "CREATE"})
+_DATABASE_PRIVILEGES = frozenset({"CONNECT", "CREATE", "TEMPORARY"})
 # Objects created by the production superuser. Default privileges are for this
 # role, which is also POSTGRES_USER in compose.
 GRANTOR_ROLE = "business_os"
@@ -64,6 +65,13 @@ def _words(values: tuple[str, ...], allowed: frozenset[str], label: str) -> str:
     if not values or any(value not in allowed for value in values):
         raise RuntimeError(f"Invalid {label}.")
     return " ".join(values)
+
+
+def _database_privileges(values: tuple[str, ...]) -> str:
+    """Comma-separated database privileges. The tuple order is the GRANT order."""
+    if not values or any(value not in _DATABASE_PRIVILEGES for value in values):
+        raise RuntimeError("Invalid database privilege.")
+    return ", ".join(values)
 
 
 def _priv(value: str, allowed: frozenset[str], label: str) -> str:
@@ -87,9 +95,13 @@ class RoleSpec:
     default_table_privileges: str
     default_sequence_privileges: str
     grant_matview_select: bool = False
-    # REFRESH CONCURRENTLY builds a temporary table. The backup role never
-    # refreshes, so it does not receive TEMPORARY.
-    grant_temporary: bool = False
+    # Database privileges re-applied on every reconcile. CONNECT is required
+    # to log in once PUBLIC loses extra rights. TEMPORARY is only for the
+    # role that owns the materialized views: REFRESH CONCURRENTLY creates a
+    # temporary table in that session.
+    # The TEMPORARY grant moves to the dedicated refresh role in #7.
+    # business_os_app loses it then.
+    database_privileges: tuple[str, ...] = ("CONNECT",)
     # When true, every reconcile revokes privileges outside this spec before
     # the grants are applied again. A dump is not a privilege source.
     revoke_excess: bool = False
@@ -102,6 +114,7 @@ class RoleSpec:
         _priv(self.sequence_privileges, _OBJECT_PRIVILEGES, "sequence privilege")
         _priv(self.default_table_privileges, _OBJECT_PRIVILEGES, "default table privilege")
         _priv(self.default_sequence_privileges, _OBJECT_PRIVILEGES, "default sequence privilege")
+        _database_privileges(self.database_privileges)
 
 
 APP_ROLE = RoleSpec(
@@ -115,7 +128,7 @@ APP_ROLE = RoleSpec(
     default_table_privileges="ALL",
     default_sequence_privileges="ALL",
     grant_matview_select=True,
-    grant_temporary=True,
+    database_privileges=("CONNECT", "TEMPORARY"),
 )
 
 # Read-only dump role. BYPASSRLS is required so pg_dump can read every tenant.
@@ -295,10 +308,10 @@ def revoke_public_schema_create_statements(
     reconcile. It runs after the spec grants.
 
     ``ALL TABLES`` in PostgreSQL 16 includes materialized views. Function
-    ``EXECUTE`` for ``PUBLIC`` is left in place.     ``CONNECT`` on the database
-    stays; ``CREATE`` and ``TEMPORARY`` do not. The app role is granted
-    ``TEMPORARY`` separately, because ``REFRESH MATERIALIZED VIEW
-    CONCURRENTLY`` creates a temporary table. The backup role is not.
+    ``EXECUTE`` for ``PUBLIC`` is left in place. ``CONNECT`` on the database
+    stays with ``PUBLIC``; ``CREATE`` and ``TEMPORARY`` do not. The app role's
+    own ``TEMPORARY`` comes from ``database_privileges`` and is re-granted
+    every run. The backup role's spec does not include it.
     Default privileges for tables and sequences are
     cleared for ``PUBLIC`` so a new table does not inherit a public grant.
     System schemas (``pg_*``, ``information_schema``) are left alone.
@@ -431,14 +444,24 @@ def grant_statements(spec: RoleSpec, database: str) -> list[str]:
     default_sequences = _priv(
         spec.default_sequence_privileges, _OBJECT_PRIVILEGES, "default sequence privilege"
     )
+    # Drop database privileges the spec does not list, then grant the spec.
+    # A dump can leave TEMPORARY on the backup role; PUBLIC's TEMPORARY is
+    # removed separately and does not cover this direct grant.
     statements = [
-        f"GRANT CONNECT ON DATABASE {database} TO {name}",
-        f"GRANT {schema} ON SCHEMA public TO {name}",
-        f"GRANT {tables} ON ALL TABLES IN SCHEMA public TO {name}",
-        f"GRANT {sequences} ON ALL SEQUENCES IN SCHEMA public TO {name}",
+        f"REVOKE {privilege} ON DATABASE {database} FROM {name}"
+        for privilege in ("CONNECT", "CREATE", "TEMPORARY")
+        if privilege not in spec.database_privileges
     ]
-    if spec.grant_temporary:
-        statements.append(f"GRANT TEMPORARY ON DATABASE {database} TO {name}")
+    statements.append(
+        f"GRANT {_database_privileges(spec.database_privileges)} ON DATABASE {database} TO {name}"
+    )
+    statements.extend(
+        [
+            f"GRANT {schema} ON SCHEMA public TO {name}",
+            f"GRANT {tables} ON ALL TABLES IN SCHEMA public TO {name}",
+            f"GRANT {sequences} ON ALL SEQUENCES IN SCHEMA public TO {name}",
+        ]
+    )
     if spec.grant_matview_select:
         statements.append(
             f"""

@@ -81,15 +81,17 @@ def test_managed_roles_are_the_app_role_and_the_backup_role():
     app_sql = "\n".join(grant_statements(APP_ROLE, "business_os"))
     assert "GRANT USAGE ON SCHEMA public TO business_os_app" in app_sql
     assert "GRANT ALL ON SCHEMA public TO business_os_app" not in app_sql
-    assert "GRANT TEMPORARY ON DATABASE business_os TO business_os_app" in app_sql
-    assert APP_ROLE.grant_temporary is True
-    assert BACKUP_ROLE.grant_temporary is False
+    assert "GRANT CONNECT, TEMPORARY ON DATABASE business_os TO business_os_app" in app_sql
+    assert APP_ROLE.database_privileges == ("CONNECT", "TEMPORARY")
+    assert BACKUP_ROLE.database_privileges == ("CONNECT",)
     assert "GRANT ALL ON ALL TABLES IN SCHEMA public TO business_os_app" in app_sql
     assert "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO business_os_app" in app_sql
     assert "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public GRANT ALL ON TABLES TO business_os_app" in app_sql
 
     backup_sql = "\n".join(grant_statements(BACKUP_ROLE, "business_os"))
     assert "GRANT CONNECT ON DATABASE business_os TO business_os_backup" in backup_sql
+    assert "REVOKE TEMPORARY ON DATABASE business_os FROM business_os_backup" in backup_sql
+    assert "GRANT TEMPORARY" not in backup_sql
     assert "GRANT USAGE ON SCHEMA public TO business_os_backup" in backup_sql
     assert "GRANT SELECT ON ALL TABLES IN SCHEMA public TO business_os_backup" in backup_sql
     assert "GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO business_os_backup" in backup_sql
@@ -347,6 +349,12 @@ def test_prod_compose_scopes_backup_password_and_script_locks_dumps():
     assert "BACKUP_DB_PASSWORD=change-me-backup-db-password" in example
     assert "BACKUP_DB_PASSWORD" not in dev
     assert "PGUSER: business_os_app" in dev
+    refresh = (root / "scripts" / "refresh_mvs.sh").read_text()
+    entry = (root / "scripts" / "mvrefresh-cron-entrypoint.sh").read_text()
+    for view in ("mv_sales_daily", "mv_receivables_aging", "mv_stock_balances"):
+        assert f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view}" in refresh
+    assert "-U business_os_app" in refresh
+    assert "refresh_mvs.sh" in entry
 
 
 def test_log_filter_masks_password_in_logged_url():
