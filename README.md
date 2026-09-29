@@ -75,7 +75,9 @@ Production სტეკი:
 
 სერტიფიკატის გამოშვება (DNS + CA) ოპერატორის ნაბიჯია. კონფიგურაცია მზადაა `nginx.prod.conf`-ში; სერტიფიკატის გარეშე nginx ვერ აიწყება.
 
-თუ Postgres volume უკვე არსებობს და როლი `business_os_app` ძველი პაროლითაა შექმნილი, migration `063` ხელახლა არ ეშვება. Superuser-ით ერთხელ დააყენეთ `APP_DB_PASSWORD`-ის იგივე მნიშვნელობა: `ALTER ROLE business_os_app PASSWORD '...'`.
+არსებულ Postgres volume-ზე (პირველი init უკვე გავლილია) `POSTGRES_PASSWORD` superuser-ის პაროლს არ ცვლის — Postgres ამ ცვლადს მხოლოდ პირველ init-ზე კითხულობს. სანამ ერთხელ, superuser-ით, არ გაუშვებთ `ALTER ROLE business_os PASSWORD '...';` (იგივე მნიშვნელობა, რაც ახალ `POSTGRES_PASSWORD`-შია), superuser რჩება ძველ development პაროლზე `secret`. იმავე სესიაში, თუ როლი `business_os_app` ძველი პაროლითაა შექმნილი, migration `063` ხელახლა არ ეშვება — დააყენეთ `APP_DB_PASSWORD`-ის იგივე მნიშვნელობა: `ALTER ROLE business_os_app PASSWORD '...'`.
+
+Production migration-ის დროს გამორთული დატოვეთ Postgres `log_statement=ddl` ან `all`, SQLAlchemy `echo` და Alembic offline `--sql`. Migration `063`-ის `CREATE ROLE ... PASSWORD` ამ რეჟიმებში ლოგში ან გამოტანილ SQL-ში ჩანს.
 
 ## ლოკალური გაშვება (Development)
 
