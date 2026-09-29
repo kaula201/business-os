@@ -91,7 +91,7 @@ Production სტეკი:
 
 `BACKUP_DB_PASSWORD` არის მხოლოდ `migrate` სერვისში (როლის პაროლის დასაყენებლად) და `backup` კონტეინერში. Backend-ში არ არის. `backup` კონტეინერს არ აქვს `POSTGRES_PASSWORD` და არც `APP_DB_PASSWORD`. Materialized view-ების `REFRESH` (`scripts/refresh_mvs.sh`) გადატანილია `mvrefresh` სერვისში, რადგან view-ების მფლობელია `business_os_app`, backup როლს კი ჩაწერა არ შეუძლია.
 
-აღდგენას აკეთებს ოპერატორი superuser-ით (`business_os`). Backup როლს restore-ის უფლება არ სჭირდება და არ აქვს. ცარიელ ბაზაში აღადგინეთ და შეამოწმეთ, სანამ production ბაზას გადააწერთ:
+აღდგენას აკეთებს ოპერატორი superuser-ით (`business_os`). Backup როლს restore-ის უფლება არ სჭირდება და არ აქვს. ცარიელ ბაზაში აღადგინეთ და შეამოწმეთ, სანამ production ბაზას გადააწერთ. აღადგინეთ მხოლოდ დასრულებული `.sql.gz` ფაილი და არასოდეს `.partial` ფაილი:
 
 ```bash
 docker exec business_os_postgres psql -U business_os -d postgres \

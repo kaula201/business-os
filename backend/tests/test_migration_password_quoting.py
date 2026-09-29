@@ -190,7 +190,15 @@ def test_prod_compose_scopes_backup_password_and_script_locks_dumps():
     )
     assert "--enable-row-security" not in active_script
     assert "umask 077" in script
+    assert "set -euo pipefail" in script
     assert "chmod 600" in script
+    assert 'PARTIAL="${TARGET}.partial"' in script
+    assert 'gzip > "$PARTIAL"' in active_script
+    assert 'gzip > "$TARGET"' not in active_script
+    assert 'mv "$PARTIAL" "$TARGET"' in active_script
+    assert "trap remove_partial ERR" in active_script
+    assert "business_os_*.sql.gz.partial" in script
+    assert "! -name '*.partial'" in script
     assert 'PGUSER="${PGUSER:-business_os_backup}"' in script
     assert "BACKUP_DB_PASSWORD=change-me-backup-db-password" in example
     assert "BACKUP_DB_PASSWORD" not in dev
