@@ -3,11 +3,20 @@
 # network. The only published ports are 80 (ACME + HTTPS redirect) and 443.
 #
 # Before the first start:
-#   1. Copy backend/.env.example to backend/.env
-#   2. Set JWT_SECRET_KEY (32+ random chars; the API refuses known placeholders)
-#   3. Set CORS_ORIGINS to the public origin, e.g. https://app.example.com
-#   4. Set SAAS_WEBHOOK_SECRET (unsigned /saas/webhook calls are rejected)
-#   5. Place TLS certs in ./certs/fullchain.pem and ./certs/privkey.pem
+#   1. Copy .env.example to .env and set POSTGRES_PASSWORD and APP_DB_PASSWORD.
+#      Compose exits if either is missing. Use two different strong passwords.
+#      APP_DB_PASSWORD is embedded in DATABASE_URL.
+#      Generate passwords with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+#      Do not use % or $ (or @ : / # ? or spaces).
+#      The one-shot migrate service connects as the superuser
+#      (MIGRATION_DATABASE_URL, built from POSTGRES_PASSWORD).
+#      The backend service never receives POSTGRES_PASSWORD or that URL.
+#      It only gets APP_DB_PASSWORD and DATABASE_URL for business_os_app.
+#   2. Copy backend/.env.example to backend/.env
+#   3. Set JWT_SECRET_KEY (32+ random chars; the API refuses known placeholders)
+#   4. Set CORS_ORIGINS to the public origin, e.g. https://app.example.com
+#   5. Set SAAS_WEBHOOK_SECRET (unsigned /saas/webhook calls are rejected)
+#   6. Place TLS certs in ./certs/fullchain.pem and ./certs/privkey.pem
 #      (Let's Encrypt or your CA — this repo does not ship a certificate)
 #
 #   docker compose -f docker-compose.prod.yml up --build
@@ -23,7 +32,7 @@ services:
     environment:
       POSTGRES_DB: business_os
       POSTGRES_USER: business_os
-      POSTGRES_PASSWORD: secret
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -42,6 +51,24 @@ services:
       timeout: 3s
       retries: 5
 
+  migrate:
+    build: ./backend
+    container_name: business_os_migrate
+    # One-shot. Exits 0 when schema upgrade finishes. The backend will not
+    # start until that happens, and this container is the only one that
+    # receives the superuser URL.
+    restart: "no"
+    env_file:
+      - ./backend/.env
+    environment:
+      APP_ENV: production
+      APP_DB_PASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
+      MIGRATION_DATABASE_URL: "postgresql+asyncpg://business_os:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/business_os"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["python", "-m", "app.core.migrate_schema"]
+
   backend:
     build: ./backend
     container_name: business_os_backend
@@ -50,15 +77,17 @@ services:
       - ./backend/.env
     environment:
       APP_ENV: production
-      DATABASE_URL: postgresql+asyncpg://business_os_app:business_os_app@postgres:5432/business_os
+      APP_DB_PASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
+      DATABASE_URL: "postgresql+asyncpg://business_os_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD}@postgres:5432/business_os"
       REDIS_URL: redis://redis:6379/0
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: >
-      sh -c "python -m app.core.migrate_schema && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
   frontend:
     build:
@@ -81,7 +110,7 @@ services:
         crond -f -l 2
       "
     environment:
-      PGPASSWORD: business_os_app
+      PGPASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
       RETENTION_DAYS: 30
     volumes:
       - ./scripts/backup.sh:/scripts/backup.sh:ro

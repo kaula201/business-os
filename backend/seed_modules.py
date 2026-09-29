@@ -1,9 +1,13 @@
 """Seed the AppModule catalog with all existing Business OS modules.
 
+Idempotent: inserts modules and role permissions that are missing.
+Does not delete ``app_modules``, ``company_modules``, or existing
+permission rows, so company toggles survive a second run.
+
 Run:  docker exec -i business_os_backend python /app/seed_modules.py
 """
 import asyncio
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from app.core.config import settings
 from app.models.module import AppModule, ModulePermission
@@ -92,84 +96,79 @@ FINANCIAL_MODULES = {"cash", "banking", "currency", "gl", "journal-entries", "tr
 OPERATIONAL_MODULES = {"clients", "orders", "invoices", "inventory", "tasks", "purchases", "suppliers", "fleet", "crm", "quotations", "price-lists", "sales-teams", "email-tracking", "subscriptions", "customer-portal", "vendor-portal", "wms", "helpdesk", "integrations", "payments", "email-calendar", "security", "automations", "email-marketing", "studio", "platform-studio", "marketplace", "field-service", "quality", "procurement", "pos", "hr"}
 
 
-async def seed_modules():
-    engine = create_async_engine(settings.DATABASE_URL, echo=False)
-    async with engine.begin() as conn:
-        await conn.execute(text("DELETE FROM module_permissions"))
-        await conn.execute(text("DELETE FROM company_modules"))
-        await conn.execute(text("DELETE FROM app_modules"))
+def permission_flags(code: str, role: str) -> dict:
+    """Default permission row for a new (module, role) pair."""
+    flags = dict(DEFAULT_PERMISSIONS[role])
+    if code in FINANCIAL_MODULES and role == User.Role.ACCOUNTANT:
+        flags["can_create"] = True
+        flags["can_edit"] = True
+    if code in FINANCIAL_MODULES and role == User.Role.MANAGER:
+        flags["can_create"] = False
+        flags["can_edit"] = False
+        flags["can_delete"] = False
+        flags["can_approve"] = False
+    if code in OPERATIONAL_MODULES and role == User.Role.MANAGER:
+        flags["can_approve"] = True
+    return flags
 
-    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    async with async_session() as session:
-        for code, name, desc, icon, route, category, sort_order, depends_on in MODULES:
-            mod = AppModule(
-                code=code,
-                name=name,
-                description=desc,
-                icon=icon,
-                route=route,
-                category=category,
-                sort_order=sort_order,
-                depends_on=depends_on,
-            )
-            session.add(mod)
-            await session.flush()
+async def seed_modules(engine=None) -> int:
+    """Insert missing catalog rows. Returns the number of modules in the catalog.
 
-            # Create default permissions for each role
-            for role, perms in DEFAULT_PERMISSIONS.items():
-                p = ModulePermission(
-                    module_id=mod.id,
-                    role=role,
-                    **perms,
-                )
-                session.add(p)
-
-            # Override: accountant gets create/edit on financial modules
-            if code in FINANCIAL_MODULES:
-                existing = await session.execute(
-                    select(ModulePermission).where(
-                        ModulePermission.module_id == mod.id,
-                        ModulePermission.role == User.Role.ACCOUNTANT,
+    ``engine`` is the caller's async engine (the migrate superuser, or omit
+    it to use ``DATABASE_URL``, which in production is ``business_os_app``).
+    """
+    own_engine = engine is None
+    if own_engine:
+        engine = create_async_engine(settings.DATABASE_URL, echo=False)
+    try:
+        async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with async_session() as session:
+            existing = {
+                code: module_id
+                for code, module_id in (await session.execute(select(AppModule.code, AppModule.id))).all()
+            }
+            present = {
+                (module_id, role)
+                for module_id, role in (
+                    await session.execute(select(ModulePermission.module_id, ModulePermission.role))
+                ).all()
+            }
+            for code, name, desc, icon, route, category, sort_order, depends_on in MODULES:
+                module_id = existing.get(code)
+                if module_id is None:
+                    module = AppModule(
+                        code=code,
+                        name=name,
+                        description=desc,
+                        icon=icon,
+                        route=route,
+                        category=category,
+                        sort_order=sort_order,
+                        depends_on=depends_on,
                     )
-                )
-                perm = existing.scalar_one_or_none()
-                if perm:
-                    perm.can_create = True
-                    perm.can_edit = True
-
-                # Financial writes are admin/accountant only: strip write
-                # permissions from manager on financial modules.
-                mgr_existing = await session.execute(
-                    select(ModulePermission).where(
-                        ModulePermission.module_id == mod.id,
-                        ModulePermission.role == User.Role.MANAGER,
+                    session.add(module)
+                    await session.flush()
+                    module_id = module.id
+                    existing[code] = module_id
+                for role in DEFAULT_PERMISSIONS:
+                    if (module_id, role) in present:
+                        continue
+                    session.add(
+                        ModulePermission(
+                            module_id=module_id,
+                            role=role,
+                            **permission_flags(code, role),
+                        )
                     )
-                )
-                mgr_perm = mgr_existing.scalar_one_or_none()
-                if mgr_perm:
-                    mgr_perm.can_create = False
-                    mgr_perm.can_edit = False
-                    mgr_perm.can_delete = False
-                    mgr_perm.can_approve = False
-
-            # Override: manager gets approve on operational modules
-            if code in OPERATIONAL_MODULES:
-                existing = await session.execute(
-                    select(ModulePermission).where(
-                        ModulePermission.module_id == mod.id,
-                        ModulePermission.role == User.Role.MANAGER,
-                    )
-                )
-                perm = existing.scalar_one_or_none()
-                if perm:
-                    perm.can_approve = True
-
-        await session.commit()
-
-    await engine.dispose()
-    print(f"✅ Seeded {len(MODULES)} modules with default permissions.")
+                    present.add((module_id, role))
+            await session.commit()
+            return len(existing)
+    finally:
+        if own_engine:
+            await engine.dispose()
 
 
 if __name__ == "__main__":
-    asyncio.run(seed_modules())
+    count = asyncio.run(seed_modules())
+    print(f"Module catalog has {count} rows.")

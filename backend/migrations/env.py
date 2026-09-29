@@ -4,15 +4,23 @@ from alembic import context
 from sqlalchemy import create_engine, pool
 
 import app.models  # noqa: F401 — register every ORM table in Base.metadata
+from app.core.alembic_version import ensure_alembic_version_width
 from app.core.config import settings
 from app.core.database import Base
+from app.core.duplicate_ddl import escape_alembic_config_value, install_duplicate_ddl_guard
+from app.core.secret_redaction import hides_password, install_log_redaction, public_migration_error
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Migrations use the superuser URL when MIGRATION_DATABASE_URL is set.
+# %% keeps a literal % in the password (ConfigParser interpolation).
+config.set_main_option(
+    "sqlalchemy.url",
+    escape_alembic_config_value(settings.migration_database_url()),
+)
 
 
 def sync_url(url: str) -> str:
@@ -32,11 +40,19 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    engine = create_engine(
-        sync_url(config.get_main_option("sqlalchemy.url")),
-        poolclass=pool.NullPool,
-    )
+    # Fresh boots create_all the current models, then replay revisions whose
+    # tables and columns are already present. Duplicate DDL is skipped;
+    # every other error still aborts. Existing databases are not stamped at
+    # head, so revisions they have not applied still run.
+    install_duplicate_ddl_guard()
+    url = sync_url(config.get_main_option("sqlalchemy.url"))
+    install_log_redaction(url)
+    engine = create_engine(url, poolclass=pool.NullPool, echo=False)
     try:
+        # Before Alembic creates or updates alembic_version. Covers a fresh
+        # upgrade and a database already stuck on revision 121.
+        with engine.begin() as connection:
+            ensure_alembic_version_width(connection)
         with engine.connect() as connection:
             context.configure(
                 connection=connection,
@@ -46,6 +62,10 @@ def run_migrations_online() -> None:
             )
             with context.begin_transaction():
                 context.run_migrations()
+    except Exception as exc:
+        if hides_password(exc, url):
+            raise public_migration_error(exc, url) from None
+        raise
     finally:
         engine.dispose()
 

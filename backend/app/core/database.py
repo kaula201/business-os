@@ -55,9 +55,10 @@ async def get_db() -> AsyncSession:
             await session.close()
 
 
-async def init_db():
+async def init_db(bind=None):
     # Import all model modules before create_all so a fresh database gets every table.
     import app.models  # noqa: F401
 
-    async with engine.begin() as conn:
+    target = bind or engine
+    async with target.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

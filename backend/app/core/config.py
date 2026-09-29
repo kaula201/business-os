@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/business_os"
+    # Optional superuser URL used only by migrate_schema / Alembic.
+    # Production compose sets this so the first boot can create business_os_app.
+    # Empty means "use DATABASE_URL" (local dev and CI).
+    MIGRATION_DATABASE_URL: str = ""
     DATABASE_ECHO: bool = False
     # Connection pool for 20-30 concurrent users / 100K+ records
     DB_POOL_SIZE: int = 10
@@ -131,6 +135,11 @@ class Settings(BaseSettings):
         self.APP_ENV = env
         self.CORS_ORIGINS = ",".join(origins)
         return self
+
+    def migration_database_url(self) -> str:
+        """URL for schema migrations. Runtime traffic stays on DATABASE_URL."""
+        configured = (self.MIGRATION_DATABASE_URL or "").strip()
+        return configured or self.DATABASE_URL
 
     def is_production(self) -> bool:
         return self.APP_ENV in PRODUCTION_ENVS

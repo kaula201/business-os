@@ -67,8 +67,8 @@ def upgrade() -> None:
     # Seed the default sellable plans (idempotent: skip if codes already exist).
     op.execute(
         """
-        INSERT INTO tenant_plans (id, code, name, amount, frequency, feature_limits, sort_order)
-        SELECT gen_random_uuid(), v.code, v.name, v.amount, 'monthly', v.feature_limits::jsonb, v.sort_order
+        INSERT INTO tenant_plans (id, code, name, amount, frequency, feature_limits, is_active, sort_order)
+        SELECT gen_random_uuid(), v.code, v.name, v.amount, 'monthly', v.feature_limits::jsonb, true, v.sort_order
         FROM (VALUES
           ('tms_starter',   'TMS Starter',    49.00,
            '{"max_drivers": 3, "max_vehicles": 5, "max_trips_month": 50, "geocoder": true, "eta": true, "live_map": true}', 1),

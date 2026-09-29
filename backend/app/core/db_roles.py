@@ -1,0 +1,281 @@
+"""Login roles reconciled by the superuser migrate step.
+
+``MANAGED_ROLES`` is the only list to edit when a later PR adds a role.
+The migrate service creates any missing role, grants the privileges on the
+spec, and rewrites the materialized-view event trigger for every spec that
+asks for it. Migration ``063`` keeps creating ``business_os_app`` itself so
+an incremental upgrade still works; it calls the same helpers with that one
+spec and does not walk ``MANAGED_ROLES``.
+
+The read-only backup role is a separate PR. Append one ``RoleSpec``; do not
+copy the ``CREATE ROLE`` / ``GRANT`` / ``ALTER DEFAULT PRIVILEGES`` SQL:
+
+    RoleSpec(
+        name="business_os_backup",
+        password_env="BACKUP_DB_PASSWORD",
+        dev_password="business_os_backup",
+        attributes=("BYPASSRLS", "NOSUPERUSER", "NOCREATEDB", "NOCREATEROLE"),
+        schema_privileges="USAGE",
+        table_privileges="SELECT",
+        sequence_privileges="SELECT",
+        default_table_privileges="SELECT",
+        default_sequence_privileges="SELECT",
+        grant_matview_select=True,
+    )
+"""
+from __future__ import annotations
+
+import os
+import re
+from dataclasses import dataclass
+
+from sqlalchemy import text
+
+_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_ATTRIBUTES = frozenset(
+    {
+        "SUPERUSER",
+        "NOSUPERUSER",
+        "BYPASSRLS",
+        "NOBYPASSRLS",
+        "CREATEDB",
+        "NOCREATEDB",
+        "CREATEROLE",
+        "NOCREATEROLE",
+        "INHERIT",
+        "NOINHERIT",
+        "REPLICATION",
+        "NOREPLICATION",
+    }
+)
+_OBJECT_PRIVILEGES = frozenset(
+    {"ALL", "SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER", "USAGE"}
+)
+_SCHEMA_PRIVILEGES = frozenset({"ALL", "USAGE", "CREATE"})
+# Objects created by the production superuser. Default privileges are for this
+# role, which is also POSTGRES_USER in compose.
+GRANTOR_ROLE = "business_os"
+
+
+def _ident(value: str, label: str) -> str:
+    if not _IDENT.fullmatch(value):
+        raise RuntimeError(f"Invalid {label}.")
+    return value
+
+
+def _words(values: tuple[str, ...], allowed: frozenset[str], label: str) -> str:
+    if not values or any(value not in allowed for value in values):
+        raise RuntimeError(f"Invalid {label}.")
+    return " ".join(values)
+
+
+def _priv(value: str, allowed: frozenset[str], label: str) -> str:
+    parts = value.split()
+    if not parts or any(part not in allowed for part in parts):
+        raise RuntimeError(f"Invalid {label}.")
+    return " ".join(parts)
+
+
+@dataclass(frozen=True)
+class RoleSpec:
+    """One login role and the privileges the migrate step must keep in place."""
+
+    name: str
+    password_env: str
+    dev_password: str
+    attributes: tuple[str, ...]
+    schema_privileges: str
+    table_privileges: str
+    sequence_privileges: str
+    default_table_privileges: str
+    default_sequence_privileges: str
+    grant_matview_select: bool = False
+
+    def __post_init__(self) -> None:
+        _ident(self.name, "role")
+        _words(self.attributes, _ATTRIBUTES, "attribute")
+        _priv(self.schema_privileges, _SCHEMA_PRIVILEGES, "schema privilege")
+        _priv(self.table_privileges, _OBJECT_PRIVILEGES, "table privilege")
+        _priv(self.sequence_privileges, _OBJECT_PRIVILEGES, "sequence privilege")
+        _priv(self.default_table_privileges, _OBJECT_PRIVILEGES, "default table privilege")
+        _priv(self.default_sequence_privileges, _OBJECT_PRIVILEGES, "default sequence privilege")
+
+
+APP_ROLE = RoleSpec(
+    name="business_os_app",
+    password_env="APP_DB_PASSWORD",
+    dev_password="business_os_app",
+    attributes=("NOSUPERUSER", "NOBYPASSRLS", "NOCREATEDB", "NOCREATEROLE"),
+    schema_privileges="ALL",
+    table_privileges="ALL",
+    sequence_privileges="ALL",
+    default_table_privileges="ALL",
+    default_sequence_privileges="ALL",
+    grant_matview_select=True,
+)
+
+# Reconciled after ``upgrade head`` when the connection is a superuser.
+# A follow-up PR appends a spec here. It does not edit migration 063.
+MANAGED_ROLES: tuple[RoleSpec, ...] = (APP_ROLE,)
+
+
+def dollar_quote(value: str, role_name: str) -> str:
+    """Quote a password so the closer cannot collide with the value.
+
+    ``$pw$secret$pw$pw$`` is parsed as the string ``secret`` plus leftover
+    ``pw$`` when the password ends in ``$pw``. Grow the tag until the
+    delimiter does not occur in the value and is not formed on the boundary
+    with the closing delimiter.
+    """
+    tag = "pw"
+    for _ in range(len(value) + 2):
+        delimiter = f"${tag}$"
+        if delimiter not in (value + delimiter)[:-1]:
+            return f"{delimiter}{value}{delimiter}"
+        tag += "x"
+    raise RuntimeError(f"Could not quote a password for role {role_name}.")
+
+
+def role_password(spec: RoleSpec) -> str:
+    password = os.environ.get(spec.password_env, "").strip()
+    if password:
+        return password
+    app_env = os.environ.get("APP_ENV", "").strip().lower()
+    if app_env in {"production", "prod"}:
+        raise RuntimeError(f"{spec.password_env} must be set when APP_ENV is production")
+    return spec.dev_password
+
+
+def create_role_if_missing(bind, spec: RoleSpec) -> None:
+    """Create ``spec`` on a sync connection. A failure does not include the SQL.
+
+    Existing roles keep their current password. Callers that are not a
+    superuser never reach this on the migrate path; Alembic still calls it
+    for ``business_os_app`` and skips the statement when the role exists.
+    """
+    exists = bind.execute(
+        text("SELECT 1 FROM pg_roles WHERE rolname = :name"),
+        {"name": spec.name},
+    ).scalar()
+    if exists:
+        return
+    statement = (
+        f"CREATE ROLE {spec.name} LOGIN PASSWORD {dollar_quote(role_password(spec), spec.name)} "
+        f"{_words(spec.attributes, _ATTRIBUTES, 'attribute')}"
+    )
+    nested = bind.begin_nested()
+    try:
+        is_superuser = bind.execute(
+            text("SELECT rolsuper FROM pg_roles WHERE rolname = current_user")
+        ).scalar()
+        if is_superuser:
+            # Panic is above ERROR, so a failed statement is not written to
+            # the server log. Restored before the savepoint commits.
+            bind.execute(text("SELECT set_config('log_min_error_statement', 'panic', true)"))
+        bind.execute(text(statement))
+        if is_superuser:
+            bind.execute(text("SELECT set_config('log_min_error_statement', 'error', true)"))
+        nested.commit()
+    except Exception:
+        try:
+            nested.rollback()
+        except Exception:
+            pass
+        raise RuntimeError(f"Failed to create database role {spec.name}.") from None
+
+
+def grant_statements(spec: RoleSpec, database: str) -> list[str]:
+    """Privilege SQL for one role. ``database`` is the current database name."""
+    name = _ident(spec.name, "role")
+    database = _ident(database, "database")
+    grantor = _ident(GRANTOR_ROLE, "grantor")
+    schema = _priv(spec.schema_privileges, _SCHEMA_PRIVILEGES, "schema privilege")
+    tables = _priv(spec.table_privileges, _OBJECT_PRIVILEGES, "table privilege")
+    sequences = _priv(spec.sequence_privileges, _OBJECT_PRIVILEGES, "sequence privilege")
+    default_tables = _priv(spec.default_table_privileges, _OBJECT_PRIVILEGES, "default table privilege")
+    default_sequences = _priv(
+        spec.default_sequence_privileges, _OBJECT_PRIVILEGES, "default sequence privilege"
+    )
+    statements = [
+        f"GRANT CONNECT ON DATABASE {database} TO {name}",
+        f"GRANT {schema} ON SCHEMA public TO {name}",
+        f"GRANT {tables} ON ALL TABLES IN SCHEMA public TO {name}",
+        f"GRANT {sequences} ON ALL SEQUENCES IN SCHEMA public TO {name}",
+    ]
+    if spec.grant_matview_select:
+        statements.append(
+            f"""
+            DO $$
+            DECLARE
+                mv text;
+            BEGIN
+                FOR mv IN
+                    SELECT c.relname
+                    FROM pg_class c
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'public' AND c.relkind = 'm'
+                LOOP
+                    EXECUTE format('GRANT SELECT ON TABLE %I TO {name}', mv);
+                END LOOP;
+            END
+            $$;
+            """
+        )
+    statements.append(
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+        f"GRANT {default_tables} ON TABLES TO {name}"
+    )
+    statements.append(
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+        f"GRANT {default_sequences} ON SEQUENCES TO {name}"
+    )
+    return statements
+
+
+def matview_event_statements(roles: tuple[RoleSpec, ...] | list[RoleSpec]) -> list[str]:
+    """Replace the matview event trigger so every listed role keeps SELECT.
+
+    ``GRANT`` on tables does not cover materialized views, and
+    ``ALTER DEFAULT PRIVILEGES`` does not either. One function grants each
+    role that set ``grant_matview_select``.
+    """
+    names = [_ident(role.name, "role") for role in roles if role.grant_matview_select]
+    if not names:
+        return [
+            "DROP EVENT TRIGGER IF EXISTS business_os_grant_matview",
+            "DROP FUNCTION IF EXISTS business_os_grant_matview()",
+        ]
+    executes = "\n".join(
+        "                EXECUTE format(\n"
+        f"                    'GRANT SELECT ON TABLE %s TO {name}',\n"
+        "                    obj.object_identity\n"
+        "                );"
+        for name in names
+    )
+    return [
+        f"""
+        CREATE OR REPLACE FUNCTION business_os_grant_matview()
+        RETURNS event_trigger
+        LANGUAGE plpgsql
+        AS $fn$
+        DECLARE
+            obj record;
+        BEGIN
+            FOR obj IN
+                SELECT object_identity
+                FROM pg_event_trigger_ddl_commands()
+                WHERE command_tag = 'CREATE MATERIALIZED VIEW'
+            LOOP
+{executes}
+            END LOOP;
+        END;
+        $fn$;
+        """,
+        "DROP EVENT TRIGGER IF EXISTS business_os_grant_matview",
+        """
+        CREATE EVENT TRIGGER business_os_grant_matview
+        ON ddl_command_end
+        WHEN TAG IN ('CREATE MATERIALIZED VIEW')
+        EXECUTE FUNCTION business_os_grant_matview()
+        """,
+    ]

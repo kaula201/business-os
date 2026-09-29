@@ -12,46 +12,49 @@ public schema (plus CREATE for Alembic), and FORCEs RLS on every
 company-scoped table so the new role is filtered by tenant.
 
 Deploy note: after this migration, DATABASE_URL (and TEST_DATABASE_URL in
-tests) must switch to business_os_app:business_os_app@... and the same role
-must be granted on the *_test databases (see skill notes).
+tests) must use the business_os_app role. Production takes that role's
+password from APP_DB_PASSWORD. Local docker-compose.yml leaves the variable
+unset and keeps its dev password. The same role must be granted on the
+*_test databases (see skill notes).
+
+If this revision already ran, it will not change an existing password.
+Set the new password as the Postgres superuser before switching DATABASE_URL:
+
+    ALTER ROLE business_os_app PASSWORD '...';
 """
 from typing import Sequence, Union
 
 from alembic import op
+
+from app.core.db_roles import (
+    APP_ROLE,
+    create_role_if_missing,
+    dollar_quote,
+    grant_statements,
+    matview_event_statements,
+)
 
 revision: str = "063_rls_app_role"
 down_revision: Union[str, None] = "062_rls_tenant_isolation"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-APP_ROLE = "business_os_app"
-APP_PASSWORD = "business_os_app"  # same value used in docker-compose DATABASE_URL
+
+def _dollar_quote(value: str) -> str:
+    """Backward-compatible wrapper. New roles use ``dollar_quote`` directly."""
+    return dollar_quote(value, APP_ROLE.name)
 
 
 def upgrade() -> None:
-    op.execute(
-        f"""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{APP_ROLE}') THEN
-                CREATE ROLE {APP_ROLE} LOGIN PASSWORD '{APP_PASSWORD}'
-                    NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
-            END IF;
-        END
-        $$;
-        """
-    )
-    # Schema + DML + DDL for the app role on the current database.
-    op.execute(f"GRANT CONNECT ON DATABASE {op.get_bind().engine.url.database} TO {APP_ROLE}")
-    op.execute(f"GRANT ALL ON SCHEMA public TO {APP_ROLE}")
-    op.execute(f"GRANT ALL ON ALL TABLES IN SCHEMA public TO {APP_ROLE}")
-    op.execute(f"GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO {APP_ROLE}")
-    op.execute(
-        f"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO {APP_ROLE}"
-    )
-    op.execute(
-        f"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO {APP_ROLE}"
-    )
+    # This revision only bootstraps the app role. Later roles are entries in
+    # MANAGED_ROLES and are created by the migrate service, not here.
+    bind = op.get_bind()
+    create_role_if_missing(bind, APP_ROLE)
+    database = bind.engine.url.database
+    for statement in grant_statements(APP_ROLE, database):
+        op.execute(statement)
+    for statement in matview_event_statements((APP_ROLE,)):
+        op.execute(statement)
     # Force RLS on every company-scoped table so the non-bypass app role is
     # always tenant-filtered (the unpinned branch of the policy keeps Alembic
     # migrations and seeds working).
@@ -77,4 +80,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(f"DROP ROLE IF EXISTS {APP_ROLE}")
+    op.execute(f"DROP ROLE IF EXISTS {APP_ROLE.name}")

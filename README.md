@@ -48,10 +48,25 @@ docker compose up --build
 
 ## Production (Docker Compose)
 
+პირველი გაშვება ცარიელ volume-ზე:
+
+1. Postgres იქმნება `POSTGRES_PASSWORD`-ით (superuser `business_os`).
+2. ცალკე one-shot სერვისი `migrate` ეშვება `python -m app.core.migrate_schema`. მხოლოდ ამ კონტეინერს აქვს `MIGRATION_DATABASE_URL` (superuser, `POSTGRES_PASSWORD`-ისგან). ის ჯერ ქმნის `vector` და `pg_trgm` extension-ებს, შემდეგ `create_all`-ით მიმდინარე ORM სქემას, stamp-ს აკეთებს მხოლოდ `001_initial`-ზე და აგრძელებს `upgrade head`-მდე. Head-ზე stamp არ ხდება: RLS, `business_os_app`, grants, materialized view-ები და seed ჩანაწერები მიგრაციებშია და მოდელებში არა, ამიტომ head-ის stamp მათ გამოტოვებდა. ცარიელ ბაზაზე უკვე არსებული სვეტი (მაგალითად `supplier_payables.credited_amount` მიგრაცია 002-ში) დუბლიკატ DDL-ად გამოტოვდება. არსებულ ბაზაზე, რომელიც head-ს ჩამორჩება, იგივე მიგრაცია რეალურად ეშვება, რადგან ის სვეტი იქ ჯერ არ არის — `create_all` მხოლოდ ცარიელ ბაზაზე ხდება. შემდეგ იქმნება `business_os_app`, უფლებები (`ALTER DEFAULT PRIVILEGES` მომავალი ცხრილებისა და sequence-ებისთვის) და RLS, და სერვისი exit 0-ით სრულდება.
+3. `backend` იწყება მხოლოდ მაშინ, როცა `migrate` წარმატებით დასრულდა (`service_completed_successfully`). Backend-ის env-ში არის მხოლოდ `APP_DB_PASSWORD` და `DATABASE_URL` (`business_os_app`). `POSTGRES_PASSWORD` და superuser URL იქ არ ხვდება — superuser `NOBYPASSRLS`-ს გვერდს აუვლიდა.
+
 ```bash
+# Root `.env` (Compose interpolation). ცარიელი ან გამოტოვებული მნიშვნელობით
+# `docker compose -f docker-compose.prod.yml` ჩერდება:
+#   POSTGRES_PASSWORD  — Postgres superuser (`business_os`), მხოლოდ migrate სერვისი
+#   APP_DB_PASSWORD    — როლი `business_os_app` (DATABASE_URL, backup, MV refresh)
+# ორი განსხვავებული ძლიერი პაროლი. გენერაცია:
+#   python -c "import secrets; print(secrets.token_urlsafe(32))"
+# ნუ გამოიყენებთ % ან $ (არც @ : / # ? და space). token_urlsafe მხოლოდ
+# ასოებს, ციფრებს, "-" და "_" იყენებს.
+cp .env.example .env
 # backend/.env: APP_ENV-ს compose თავად სვამს production-ზე.
 # აუცილებელია JWT_SECRET_KEY (32+ სიმბოლო), CORS_ORIGINS=https://your-domain,
-# SAAS_WEBHOOK_SECRET.
+# SAAS_WEBHOOK_SECRET. APP_DB_PASSWORD აქ ცარიელი დატოვეთ — prod compose root `.env`-დან სვამს.
 mkdir -p certs
 # განათავსეთ CA/Let's Encrypt სერტიფიკატები (რეპოში არ ინახება):
 #   certs/fullchain.pem
@@ -69,6 +84,10 @@ Production სტეკი:
 
 სერტიფიკატის გამოშვება (DNS + CA) ოპერატორის ნაბიჯია. კონფიგურაცია მზადაა `nginx.prod.conf`-ში; სერტიფიკატის გარეშე nginx ვერ აიწყება.
 
+არსებულ Postgres volume-ზე (პირველი init უკვე გავლილია) `POSTGRES_PASSWORD` superuser-ის პაროლს არ ცვლის — Postgres ამ ცვლადს მხოლოდ პირველ init-ზე კითხულობს, და `MIGRATION_DATABASE_URL`-იც ამ ახალ მნიშვნელობას იყენებს. სანამ ერთხელ, **ძველი** superuser პაროლით, არ გაუშვებთ `ALTER ROLE business_os PASSWORD '...';` (იგივე მნიშვნელობა, რაც ახალ `POSTGRES_PASSWORD`-შია), მიგრაცია ვერ შევა და superuser რჩება ძველ development პაროლზე `secret`. იმავე სესიაში, თუ როლი `business_os_app` ძველი პაროლითაა შექმნილი, migration `063` ხელახლა არ ეშვება — დააყენეთ `APP_DB_PASSWORD`-ის იგივე მნიშვნელობა: `ALTER ROLE business_os_app PASSWORD '...'`. შემდეგ თავიდან გაუშვით compose.
+
+Production migration-ის დროს გამორთული დატოვეთ Postgres `log_statement=ddl` ან `all`, SQLAlchemy `echo` და Alembic offline `--sql`. Migration `063`-ის `CREATE ROLE ... PASSWORD` ამ რეჟიმებში ლოგში ან გამოტანილ SQL-ში ჩანს.
+
 ## ლოკალური გაშვება (Development)
 
 ### Backend
@@ -79,7 +98,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # PostgreSQL უნდა იყოს გაშვებული (docker compose up postgres redis)
-python -m app.migrate_schema
+python -m app.core.migrate_schema
 python seed.py
 uvicorn app.main:app --reload
 ```
