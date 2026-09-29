@@ -11,6 +11,7 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 from app.core.database import init_db
+from app.core.db_roles import MANAGED_ROLES, create_role_if_missing, grant_statements, matview_event_statements
 from app.core.secret_redaction import hides_password, install_log_redaction, public_migration_error
 
 BASELINE_REVISION = "001_initial"
@@ -70,13 +71,12 @@ async def _prepare(bind) -> bool:
     return version_exists
 
 
-async def _ensure_app_grants(bind) -> None:
-    """Give business_os_app access to objects the superuser created.
+async def _ensure_managed_roles(bind) -> None:
+    """Create and grant every role in ``MANAGED_ROLES``.
 
-    ``GRANT ALL ON ALL TABLES`` does not include materialized views.
-    ``ALTER DEFAULT PRIVILEGES`` covers tables and sequences created later
-    by ``business_os`` (future migrations). Skipped when this connection is
-    not a superuser, so local dev keeps using DATABASE_URL unchanged.
+    Skipped when this connection is not a superuser, so local dev keeps using
+    ``DATABASE_URL`` unchanged. Adding a role is a new ``RoleSpec`` in that
+    tuple; this loop does not change.
     """
     async with bind.connect() as connection:
         is_super = bool(
@@ -84,53 +84,21 @@ async def _ensure_app_grants(bind) -> None:
                 text("SELECT rolsuper FROM pg_roles WHERE rolname = current_user")
             )
         )
-        role_exists = bool(
-            await connection.scalar(
-                text("SELECT 1 FROM pg_roles WHERE rolname = 'business_os_app'")
-            )
-        )
-    if not is_super or not role_exists:
+    if not is_super:
         return
+
+    def _apply(sync_conn) -> None:
+        for spec in MANAGED_ROLES:
+            create_role_if_missing(sync_conn, spec)
+        database = sync_conn.engine.url.database
+        for spec in MANAGED_ROLES:
+            for statement in grant_statements(spec, database):
+                sync_conn.execute(text(statement))
+        for statement in matview_event_statements(MANAGED_ROLES):
+            sync_conn.execute(text(statement))
+
     async with bind.begin() as connection:
-        await connection.execute(text("GRANT ALL ON ALL TABLES IN SCHEMA public TO business_os_app"))
-        await connection.execute(
-            text("GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO business_os_app")
-        )
-        await connection.execute(
-            text(
-                """
-                DO $$
-                DECLARE
-                    mv text;
-                BEGIN
-                    FOR mv IN
-                        SELECT c.relname
-                        FROM pg_class c
-                        JOIN pg_namespace n ON n.oid = c.relnamespace
-                        WHERE n.nspname = 'public' AND c.relkind = 'm'
-                    LOOP
-                        EXECUTE format(
-                            'GRANT SELECT ON TABLE %I TO business_os_app',
-                            mv
-                        );
-                    END LOOP;
-                END
-                $$;
-                """
-            )
-        )
-        await connection.execute(
-            text(
-                "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public "
-                "GRANT ALL ON TABLES TO business_os_app"
-            )
-        )
-        await connection.execute(
-            text(
-                "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public "
-                "GRANT ALL ON SEQUENCES TO business_os_app"
-            )
-        )
+        await connection.run_sync(_apply)
 
 
 async def _widen_alembic_version(bind) -> None:
@@ -160,7 +128,7 @@ def main() -> None:
             command.stamp(config, BASELINE_REVISION)
         asyncio.run(_widen_alembic_version(bind))
         command.upgrade(config, "head")
-        asyncio.run(_ensure_app_grants(bind))
+        asyncio.run(_ensure_managed_roles(bind))
     except Exception as exc:
         if hides_password(exc, url):
             raise public_migration_error(exc, url) from None

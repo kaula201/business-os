@@ -52,6 +52,46 @@ def test_migration_error_redacts_password_and_drops_the_chain():
     assert cleaned.__cause__ is None
 
 
+def test_managed_roles_list_is_only_the_app_role():
+    from app.core.db_roles import APP_ROLE, MANAGED_ROLES, grant_statements, matview_event_statements
+
+    assert [role.name for role in MANAGED_ROLES] == ["business_os_app"]
+    sql = "\n".join(grant_statements(APP_ROLE, "business_os"))
+    assert "GRANT ALL ON ALL TABLES IN SCHEMA public TO business_os_app" in sql
+    assert "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO business_os_app" in sql
+    assert "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public GRANT ALL ON TABLES TO business_os_app" in sql
+    assert "NOBYPASSRLS" in APP_ROLE.attributes
+    events = "\n".join(matview_event_statements(MANAGED_ROLES))
+    assert "GRANT SELECT ON TABLE %s TO business_os_app" in events
+    assert "business_os_backup" not in sql
+    assert "business_os_backup" not in events
+
+
+def test_a_second_role_spec_reuses_the_same_grant_sql():
+    """Not registered. A follow-up appends a spec to MANAGED_ROLES."""
+    from app.core.db_roles import MANAGED_ROLES, RoleSpec, grant_statements, matview_event_statements
+
+    extra = RoleSpec(
+        name="example_reader",
+        password_env="EXAMPLE_DB_PASSWORD",
+        dev_password="example",
+        attributes=("BYPASSRLS", "NOSUPERUSER", "NOCREATEDB", "NOCREATEROLE"),
+        schema_privileges="USAGE",
+        table_privileges="SELECT",
+        sequence_privileges="SELECT",
+        default_table_privileges="SELECT",
+        default_sequence_privileges="SELECT",
+        grant_matview_select=True,
+    )
+    assert all(role.name != extra.name for role in MANAGED_ROLES)
+    sql = "\n".join(grant_statements(extra, "business_os"))
+    assert "GRANT SELECT ON ALL TABLES IN SCHEMA public TO example_reader" in sql
+    assert "GRANT USAGE ON SCHEMA public TO example_reader" in sql
+    assert "GRANT SELECT ON TABLES TO example_reader" in sql
+    events = "\n".join(matview_event_statements((extra,)))
+    assert "GRANT SELECT ON TABLE %s TO example_reader" in events
+
+
 def test_log_filter_masks_password_in_logged_url():
     import logging
 
