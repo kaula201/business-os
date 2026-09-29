@@ -31,7 +31,7 @@ const iconMap: Record<string, any> = {
 interface NavItem { to: string; icon: any; label: string }
 
 // ── Product catalog scope (v3.0): sidebar-ში ჩანს მხოლოდ ეს მოდულები ──
-// DASH, CRM, SAL, WMS, MFG, TMS/Fleet, MNT, FIN, ACC, TASK, DOC, RPT, AI + BASE (settings)
+// DASH, CRM, SAL, WMS, MFG, TMS/Fleet, MNT, FIN, ACC, TASK, HELPDESK, DOC, RPT, AI + BASE (settings)
 const SCOPE_CODES = new Set([
   'dashboard',
   'crm', 'clients',
@@ -41,12 +41,12 @@ const SCOPE_CODES = new Set([
   'cash', 'banking', 'banking-rules', 'currency', 'customer-finance', 'supplier-finance', 'expenses', 'assets',
   'gl', 'journal-entries', 'trial-balance', 'profit-loss', 'balance-sheet', 'srs', 'budgeting',
   'analytic', 'deferred', 'accounting-periods', 'gl-recurring', 'exchange-differences', 'consolidated', 'accounting-controls',
-  'tasks', 'projects', 'documents', 'reports', 'ai', 'settings',
+  'tasks', 'projects', 'helpdesk', 'documents', 'reports', 'ai', 'settings',
 ])
 
 const DIRECT_PREFIXES = [
   '/dashboard', '/production', '/fleet', '/maintenance',
-  '/documents', '/reports', '/ai', '/settings',
+  '/helpdesk', '/documents', '/reports', '/ai', '/settings',
 ]
 
 const GROUP_DEFS: { id: string; label: string; icon: any; prefixes: string[] }[] = [
@@ -65,6 +65,7 @@ const NAV_ORDER: (string)[] = [
   '/production', '/fleet', 'maintenance',
   'finance', 'accounting',
   'tasks',
+  '/helpdesk',
   '/documents', '/reports', '/ai',
   '/settings',
 ]
