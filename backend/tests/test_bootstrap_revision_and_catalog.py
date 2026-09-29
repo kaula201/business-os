@@ -39,6 +39,26 @@ def test_catalog_seed_does_not_wipe_existing_rows():
     assert "DELETE FROM module_permissions" not in source
 
 
+def test_prod_bootstrap_does_not_call_demo_seed():
+    migrate = (BACKEND / "app" / "core" / "migrate_schema.py").read_text()
+    main = (BACKEND / "app" / "main.py").read_text()
+    compose = (BACKEND.parent / "docker-compose.prod.yml").read_text()
+    assert "from seed import" not in migrate
+    assert "import seed\n" not in migrate
+    assert "seed.seed" not in migrate
+    assert "seed.py" not in compose
+    assert "admin@demo.ge" not in migrate
+    assert "seed_modules" in main
+    assert "from seed import seed" not in main
+
+
+def test_bootstrap_reapplies_tenant_rls_after_upgrade():
+    source = (BACKEND / "app" / "core" / "migrate_schema.py").read_text()
+    assert "FORCE ROW LEVEL SECURITY" in source
+    call = source.split("def main()", 1)[1]
+    assert call.index("command.upgrade") < call.index("_ensure_tenant_rls")
+
+
 def test_helpdesk_is_in_the_module_catalog():
     source = (BACKEND / "seed_modules.py").read_text()
     catalog, _, after = source.partition("OPERATIONAL_MODULES")

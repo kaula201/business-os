@@ -66,8 +66,10 @@ async def _prepare(bind) -> bool:
         # embeddings.vector and later trigram indexes need these before DDL.
         await _extension(bind, "vector")
         await _extension(bind, "pg_trgm")
-        # Transitional bootstrap for a fresh database. The resulting schema is
-        # immediately adopted at the immutable baseline revision.
+        # create_all builds tables only. It does not create RLS policies,
+        # FORCE ROW LEVEL SECURITY, or the grants from 062/063 and later.
+        # Those run in the upgrade below, then _ensure_tenant_rls repeats
+        # them so a table create_all made early cannot miss the policy.
         await init_db(bind)
     return version_exists
 
@@ -102,6 +104,69 @@ async def _ensure_managed_roles(bind) -> None:
         await connection.run_sync(_apply)
 
 
+# Same predicate as migration 064. Unpinned sessions (login, before
+# set_config) still see rows. A pinned company sees only its own rows.
+_TENANT_RLS = """
+DO $$
+DECLARE
+    t text;
+BEGIN
+    FOR t IN
+        SELECT c.relname
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_attribute a ON a.attrelid = c.oid
+        WHERE n.nspname = 'public'
+          AND c.relkind = 'r'
+          AND a.attname = 'company_id'
+          AND NOT a.attisdropped
+        ORDER BY c.relname
+    LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS tenant_isolation ON %I', t);
+        EXECUTE format(
+            'CREATE POLICY tenant_isolation ON %I '
+            'USING ('
+            '  current_setting(''app.current_company_id'', true) IS NULL '
+            '  OR current_setting(''app.current_company_id'', true) = '''' '
+            '  OR company_id::text = current_setting(''app.current_company_id'', true)'
+            ') '
+            'WITH CHECK ('
+            '  current_setting(''app.current_company_id'', true) IS NULL '
+            '  OR current_setting(''app.current_company_id'', true) = '''' '
+            '  OR company_id::text = current_setting(''app.current_company_id'', true)'
+            ')',
+            t
+        );
+    END LOOP;
+END
+$$;
+"""
+
+
+async def _ensure_tenant_rls(bind) -> None:
+    """Re-apply tenant RLS after upgrade.
+
+    ``create_all`` does not emit policies or FORCE ROW LEVEL SECURITY.
+    Migrations 062/063 do, but only for tables that exist when they run.
+    A later migration that is skipped as a duplicate table would also skip
+    any RLS bundled with that create. This pass covers every company-scoped
+    table. It is a no-op for privileges when the connection is not a
+    superuser, so local dev is unchanged.
+    """
+    async with bind.connect() as connection:
+        is_super = bool(
+            await connection.scalar(
+                text("SELECT rolsuper FROM pg_roles WHERE rolname = current_user")
+            )
+        )
+    if not is_super:
+        return
+    async with bind.begin() as connection:
+        await connection.execute(text(_TENANT_RLS))
+
+
 async def _widen_alembic_version(bind) -> None:
     """Widen version_num before upgrade. env.py does this again on upgrade."""
     async with bind.begin() as connection:
@@ -119,6 +184,7 @@ def main() -> None:
             command.stamp(config, BASELINE_REVISION)
         asyncio.run(_widen_alembic_version(bind))
         command.upgrade(config, "head")
+        asyncio.run(_ensure_tenant_rls(bind))
         asyncio.run(_ensure_managed_roles(bind))
         # Catalog only. Does not delete company module toggles or permissions.
         from seed_modules import seed_modules
