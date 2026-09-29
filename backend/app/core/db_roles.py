@@ -87,6 +87,9 @@ class RoleSpec:
     default_table_privileges: str
     default_sequence_privileges: str
     grant_matview_select: bool = False
+    # REFRESH CONCURRENTLY builds a temporary table. The backup role never
+    # refreshes, so it does not receive TEMPORARY.
+    grant_temporary: bool = False
     # When true, every reconcile revokes privileges outside this spec before
     # the grants are applied again. A dump is not a privilege source.
     revoke_excess: bool = False
@@ -112,6 +115,7 @@ APP_ROLE = RoleSpec(
     default_table_privileges="ALL",
     default_sequence_privileges="ALL",
     grant_matview_select=True,
+    grant_temporary=True,
 )
 
 # Read-only dump role. BYPASSRLS is required so pg_dump can read every tenant.
@@ -291,9 +295,11 @@ def revoke_public_schema_create_statements(
     reconcile. It runs after the spec grants.
 
     ``ALL TABLES`` in PostgreSQL 16 includes materialized views. Function
-    ``EXECUTE`` for ``PUBLIC`` is left in place. ``CONNECT`` on the database
-    stays; ``CREATE`` and ``TEMPORARY`` do not. Neither managed role is
-    granted ``TEMPORARY``. Default privileges for tables and sequences are
+    ``EXECUTE`` for ``PUBLIC`` is left in place.     ``CONNECT`` on the database
+    stays; ``CREATE`` and ``TEMPORARY`` do not. The app role is granted
+    ``TEMPORARY`` separately, because ``REFRESH MATERIALIZED VIEW
+    CONCURRENTLY`` creates a temporary table. The backup role is not.
+    Default privileges for tables and sequences are
     cleared for ``PUBLIC`` so a new table does not inherit a public grant.
     System schemas (``pg_*``, ``information_schema``) are left alone.
     """
@@ -431,6 +437,8 @@ def grant_statements(spec: RoleSpec, database: str) -> list[str]:
         f"GRANT {tables} ON ALL TABLES IN SCHEMA public TO {name}",
         f"GRANT {sequences} ON ALL SEQUENCES IN SCHEMA public TO {name}",
     ]
+    if spec.grant_temporary:
+        statements.append(f"GRANT TEMPORARY ON DATABASE {database} TO {name}")
     if spec.grant_matview_select:
         statements.append(
             f"""

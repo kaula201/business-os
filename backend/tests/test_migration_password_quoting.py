@@ -81,7 +81,9 @@ def test_managed_roles_are_the_app_role_and_the_backup_role():
     app_sql = "\n".join(grant_statements(APP_ROLE, "business_os"))
     assert "GRANT USAGE ON SCHEMA public TO business_os_app" in app_sql
     assert "GRANT ALL ON SCHEMA public TO business_os_app" not in app_sql
-    assert "TEMPORARY" not in app_sql
+    assert "GRANT TEMPORARY ON DATABASE business_os TO business_os_app" in app_sql
+    assert APP_ROLE.grant_temporary is True
+    assert BACKUP_ROLE.grant_temporary is False
     assert "GRANT ALL ON ALL TABLES IN SCHEMA public TO business_os_app" in app_sql
     assert "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO business_os_app" in app_sql
     assert "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public GRANT ALL ON TABLES TO business_os_app" in app_sql
@@ -100,7 +102,7 @@ def test_managed_roles_are_the_app_role_and_the_backup_role():
         "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public "
         "GRANT SELECT ON SEQUENCES TO business_os_backup"
     ) in backup_sql
-    for forbidden in ("INSERT", "UPDATE", "DELETE", "TRUNCATE", "ALL"):
+    for forbidden in ("INSERT", "UPDATE", "DELETE", "TRUNCATE", "ALL", "TEMPORARY"):
         assert f"GRANT {forbidden}" not in backup_sql
 
     events = "\n".join(matview_event_statements(MANAGED_ROLES))
