@@ -120,9 +120,9 @@ async def _ensure_managed_roles(bind, *, roles_only: bool = False) -> None:
                 sync_conn.execute(text(statement))
             for statement in grant_statements(spec, database):
                 sync_conn.execute(text(statement))
-        # After the grants: GRANT ALL on the app role would otherwise put
-        # CREATE back, and a PUBLIC grant is not cleared by revoke_excess.
-        for statement in revoke_public_schema_create_statements(MANAGED_ROLES):
+        # After the grants. PUBLIC grants are not cleared by revoke_excess,
+        # and a previous ALL on the schema would otherwise leave CREATE.
+        for statement in revoke_public_schema_create_statements(database, MANAGED_ROLES):
             sync_conn.execute(text(statement))
         for statement in matview_owner_statements():
             sync_conn.execute(text(statement))

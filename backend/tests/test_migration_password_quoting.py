@@ -75,9 +75,13 @@ def test_managed_roles_are_the_app_role_and_the_backup_role():
     assert BACKUP_ROLE.grant_matview_select is True
     assert BACKUP_ROLE.revoke_excess is True
     assert APP_ROLE.revoke_excess is False
+    assert APP_ROLE.schema_privileges == "USAGE"
     assert "NOBYPASSRLS" in APP_ROLE.attributes
 
     app_sql = "\n".join(grant_statements(APP_ROLE, "business_os"))
+    assert "GRANT USAGE ON SCHEMA public TO business_os_app" in app_sql
+    assert "GRANT ALL ON SCHEMA public TO business_os_app" not in app_sql
+    assert "TEMPORARY" not in app_sql
     assert "GRANT ALL ON ALL TABLES IN SCHEMA public TO business_os_app" in app_sql
     assert "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO business_os_app" in app_sql
     assert "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public GRANT ALL ON TABLES TO business_os_app" in app_sql
@@ -203,25 +207,39 @@ def test_reconcile_resets_attributes_revokes_backup_excess_and_owns_matviews():
 
 
 def test_reconcile_revokes_public_schema_create_from_public_and_managed_roles():
-    """GRANT CREATE ON SCHEMA public TO PUBLIC must not survive migrate.
+    """PUBLIC must not keep schema CREATE, table DML, or database TEMP.
 
-    The PUBLIC acl item goes back to ``=U``. Neither managed role keeps
-    CREATE on public or on any other non-system schema.
+    After migrate, CREATE is false for business_os_backup, business_os_app,
+    and PUBLIC on schema public. INSERT granted to PUBLIC is revoked.
+    CONNECT stays. Function EXECUTE for PUBLIC is not revoked.
     """
     from app.core.db_roles import revoke_public_schema_create_statements
 
-    statements = revoke_public_schema_create_statements()
+    statements = revoke_public_schema_create_statements("business_os")
     joined = "\n".join(statements)
     assert "REVOKE CREATE ON SCHEMA public FROM PUBLIC" in statements
+    assert "REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC" in statements
+    assert "REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC" in statements
+    assert "REVOKE CREATE, TEMPORARY ON DATABASE business_os FROM PUBLIC" in statements
     assert "REVOKE CREATE ON SCHEMA public FROM business_os_backup" in statements
     assert "REVOKE CREATE ON SCHEMA public FROM business_os_app" in statements
+    assert (
+        "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public "
+        "REVOKE ALL ON TABLES FROM PUBLIC"
+    ) in statements
+    assert (
+        "ALTER DEFAULT PRIVILEGES FOR ROLE business_os_app IN SCHEMA public "
+        "REVOKE ALL ON SEQUENCES FROM PUBLIC"
+    ) in statements
     assert "REVOKE CREATE ON SCHEMA %I FROM PUBLIC" in joined
     assert "REVOKE CREATE ON SCHEMA %I FROM business_os_backup" in joined
     assert "REVOKE CREATE ON SCHEMA %I FROM business_os_app" in joined
+    assert "defaclobjtype IN ('r', 'S')" in joined
     assert "information_schema" in joined
     assert "left(n.nspname, 3) <> 'pg_'" in joined
-    assert "CONNECT" not in joined
-    assert "TEMPORARY" not in joined
+    assert "REVOKE CONNECT" not in joined
+    assert "ON FUNCTIONS FROM PUBLIC" not in joined
+    assert "GRANT TEMPORARY" not in joined
     assert "PASSWORD" not in joined
 
     source = (Path(__file__).resolve().parents[1] / "app" / "core" / "migrate_schema.py").read_text()
@@ -230,7 +248,6 @@ def test_reconcile_revokes_public_schema_create_from_public_and_managed_roles():
     )[0]
     assert fn.index("if roles_only:") < fn.index("grant_statements")
     assert fn.index("grant_statements") < fn.index("revoke_public_schema_create_statements")
-    assert "REVOKE CREATE ON DATABASE" not in source
 
 
 def test_roles_only_runs_before_alembic_and_full_migrate_reconciles_after_upgrade():

@@ -5,8 +5,10 @@ Every superuser migrate run creates a missing role, resets attributes from
 the spec, re-grants privileges, and rewrites the materialized-view event
 trigger. A spec with ``revoke_excess`` (the backup role) loses anything
 beyond that spec first, including grants a drifted dump restored. Grants to
-``PUBLIC`` are not part of a role, so the same run revokes ``CREATE`` on
-every non-system schema from ``PUBLIC`` and from each managed role. Migration
+``PUBLIC`` are not part of a role, so the same run revokes schema
+``CREATE``, table and sequence privileges, and database ``CREATE`` and
+``TEMPORARY`` from ``PUBLIC``. ``CONNECT`` and function ``EXECUTE`` stay.
+``business_os_app`` keeps ``USAGE`` on the schema, not ``CREATE``. Migration
 ``063`` keeps creating ``business_os_app`` itself so an incremental upgrade
 still works; it calls the same helpers with that one spec and does not walk
 ``MANAGED_ROLES``.
@@ -104,7 +106,7 @@ APP_ROLE = RoleSpec(
     password_env="APP_DB_PASSWORD",
     dev_password="business_os_app",
     attributes=("NOSUPERUSER", "NOBYPASSRLS", "NOCREATEDB", "NOCREATEROLE"),
-    schema_privileges="ALL",
+    schema_privileges="USAGE",
     table_privileges="ALL",
     sequence_privileges="ALL",
     default_table_privileges="ALL",
@@ -276,26 +278,44 @@ def revoke_excess_statements(spec: RoleSpec, database: str) -> list[str]:
 
 
 def revoke_public_schema_create_statements(
+    database: str,
     roles: tuple[RoleSpec, ...] | list[RoleSpec] | None = None,
 ) -> list[str]:
-    """Drop schema CREATE held by PUBLIC or by a managed non-owner role.
+    """Drop privileges ``PUBLIC`` must not keep, and schema CREATE on managed roles.
 
     ``REVOKE ALL`` on ``business_os_backup`` does not touch grants to
-    ``PUBLIC``. ``GRANT CREATE ON SCHEMA public TO PUBLIC`` leaves
-    ``nspacl`` as ``=UC``, and every login role then passes
-    ``has_schema_privilege(..., 'CREATE')``, so the backup role can
-    ``CREATE TABLE``. ``REVOKE CREATE`` does nothing when the privilege is
-    already absent, so this is safe on every full superuser reconcile.
+    ``PUBLIC``. A drifted ``GRANT CREATE ON SCHEMA public TO PUBLIC``
+    (``nspacl`` ``=UC``) or ``GRANT INSERT ON ... TO PUBLIC`` lets the
+    backup role write or run DDL. ``REVOKE`` does nothing when the
+    privilege is already absent, so this is safe on every full superuser
+    reconcile. It runs after the spec grants.
 
-    The statements run after the spec grants. ``GRANT ALL ON SCHEMA`` for
-    the app role includes CREATE; that bit is removed here so neither
-    managed role keeps CREATE on a non-system schema. Table and sequence
-    grants stay. System schemas (``pg_*``, ``information_schema``) are left
-    alone. This does not revoke ``CONNECT`` or ``TEMPORARY`` on the database.
+    ``ALL TABLES`` in PostgreSQL 16 includes materialized views. Function
+    ``EXECUTE`` for ``PUBLIC`` is left in place. ``CONNECT`` on the database
+    stays; ``CREATE`` and ``TEMPORARY`` do not. Neither managed role is
+    granted ``TEMPORARY``. Default privileges for tables and sequences are
+    cleared for ``PUBLIC`` so a new table does not inherit a public grant.
+    System schemas (``pg_*``, ``information_schema``) are left alone.
     """
+    database = _ident(database, "database")
     managed = MANAGED_ROLES if roles is None else roles
     names = [_ident(spec.name, "role") for spec in managed]
-    statements = ["REVOKE CREATE ON SCHEMA public FROM PUBLIC"]
+    grantor = _ident(GRANTOR_ROLE, "grantor")
+    app = _ident(APP_ROLE.name, "role")
+    statements = [
+        "REVOKE CREATE ON SCHEMA public FROM PUBLIC",
+        "REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC",
+        "REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC",
+        f"REVOKE CREATE, TEMPORARY ON DATABASE {database} FROM PUBLIC",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+        "REVOKE ALL ON TABLES FROM PUBLIC",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+        "REVOKE ALL ON SEQUENCES FROM PUBLIC",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {app} IN SCHEMA public "
+        "REVOKE ALL ON TABLES FROM PUBLIC",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {app} IN SCHEMA public "
+        "REVOKE ALL ON SEQUENCES FROM PUBLIC",
+    ]
     statements.extend(f"REVOKE CREATE ON SCHEMA public FROM {name}" for name in names)
     role_lines = "\n".join(
         f"                EXECUTE format('REVOKE CREATE ON SCHEMA %I FROM {name}', s);"
@@ -315,6 +335,49 @@ def revoke_public_schema_create_statements(
             LOOP
                 EXECUTE format('REVOKE CREATE ON SCHEMA %I FROM PUBLIC', s);
 {role_lines}
+            END LOOP;
+        END
+        $$;
+        """
+    )
+    # Any grantor, not only the two roles above. Skip functions so PUBLIC
+    # keeps EXECUTE. A missing schema means the default applies globally.
+    statements.append(
+        """
+        DO $$
+        DECLARE
+            rec record;
+            kind text;
+        BEGIN
+            FOR rec IN
+                SELECT n.nspname AS schema_name,
+                       r.rolname AS grantor,
+                       d.defaclobjtype
+                FROM pg_default_acl d
+                JOIN pg_roles r ON r.oid = d.defaclrole
+                LEFT JOIN pg_namespace n ON n.oid = d.defaclnamespace
+                WHERE d.defaclobjtype IN ('r', 'S')
+                  AND EXISTS (
+                      SELECT 1
+                      FROM aclexplode(d.defaclacl) AS e
+                      WHERE e.grantee = 0
+                  )
+            LOOP
+                kind := CASE rec.defaclobjtype WHEN 'r' THEN 'TABLES' ELSE 'SEQUENCES' END;
+                IF rec.schema_name IS NULL THEN
+                    EXECUTE format(
+                        'ALTER DEFAULT PRIVILEGES FOR ROLE %I REVOKE ALL ON %s FROM PUBLIC',
+                        rec.grantor,
+                        kind
+                    );
+                ELSE
+                    EXECUTE format(
+                        'ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I REVOKE ALL ON %s FROM PUBLIC',
+                        rec.grantor,
+                        rec.schema_name,
+                        kind
+                    );
+                END IF;
             END LOOP;
         END
         $$;
