@@ -58,6 +58,69 @@ async def _prepare(bind) -> bool:
     return version_exists
 
 
+async def _ensure_app_grants(bind) -> None:
+    """Give business_os_app access to objects the superuser created.
+
+    ``GRANT ALL ON ALL TABLES`` does not include materialized views.
+    ``ALTER DEFAULT PRIVILEGES`` covers tables and sequences created later
+    by ``business_os`` (future migrations). Skipped when this connection is
+    not a superuser, so local dev keeps using DATABASE_URL unchanged.
+    """
+    async with bind.connect() as connection:
+        is_super = bool(
+            await connection.scalar(
+                text("SELECT rolsuper FROM pg_roles WHERE rolname = current_user")
+            )
+        )
+        role_exists = bool(
+            await connection.scalar(
+                text("SELECT 1 FROM pg_roles WHERE rolname = 'business_os_app'")
+            )
+        )
+    if not is_super or not role_exists:
+        return
+    async with bind.begin() as connection:
+        await connection.execute(text("GRANT ALL ON ALL TABLES IN SCHEMA public TO business_os_app"))
+        await connection.execute(
+            text("GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO business_os_app")
+        )
+        await connection.execute(
+            text(
+                """
+                DO $$
+                DECLARE
+                    mv text;
+                BEGIN
+                    FOR mv IN
+                        SELECT c.relname
+                        FROM pg_class c
+                        JOIN pg_namespace n ON n.oid = c.relnamespace
+                        WHERE n.nspname = 'public' AND c.relkind = 'm'
+                    LOOP
+                        EXECUTE format(
+                            'GRANT SELECT ON TABLE %I TO business_os_app',
+                            mv
+                        );
+                    END LOOP;
+                END
+                $$;
+                """
+            )
+        )
+        await connection.execute(
+            text(
+                "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public "
+                "GRANT ALL ON TABLES TO business_os_app"
+            )
+        )
+        await connection.execute(
+            text(
+                "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public "
+                "GRANT ALL ON SEQUENCES TO business_os_app"
+            )
+        )
+
+
 async def _widen_alembic_version(bind) -> None:
     """Revision ids are longer than Alembic's default varchar(32).
 
@@ -82,9 +145,10 @@ def main() -> None:
         if not version_exists:
             command.stamp(config, BASELINE_REVISION)
         asyncio.run(_widen_alembic_version(bind))
+        command.upgrade(config, "head")
+        asyncio.run(_ensure_app_grants(bind))
     finally:
         asyncio.run(bind.dispose())
-    command.upgrade(config, "head")
 
 
 if __name__ == "__main__":

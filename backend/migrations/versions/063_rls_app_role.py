@@ -115,11 +115,68 @@ def upgrade() -> None:
     op.execute(f"GRANT ALL ON SCHEMA public TO {APP_ROLE}")
     op.execute(f"GRANT ALL ON ALL TABLES IN SCHEMA public TO {APP_ROLE}")
     op.execute(f"GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO {APP_ROLE}")
+    # ALL TABLES does not include materialized views. Grant the ones that
+    # already exist (migration 060). Later ones are covered by the event
+    # trigger below; migration 065 also transfers ownership so REFRESH works.
     op.execute(
-        f"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO {APP_ROLE}"
+        f"""
+        DO $$
+        DECLARE
+            mv text;
+        BEGIN
+            FOR mv IN
+                SELECT c.relname
+                FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relkind = 'm'
+            LOOP
+                EXECUTE format('GRANT SELECT ON TABLE %I TO {APP_ROLE}', mv);
+            END LOOP;
+        END
+        $$;
+        """
+    )
+    # Defaults apply to objects created later by the migration superuser
+    # (business_os), including tables added by revisions after this one.
+    op.execute(
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public "
+        f"GRANT ALL ON TABLES TO {APP_ROLE}"
     )
     op.execute(
-        f"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO {APP_ROLE}"
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public "
+        f"GRANT ALL ON SEQUENCES TO {APP_ROLE}"
+    )
+    op.execute(
+        f"""
+        CREATE OR REPLACE FUNCTION business_os_grant_matview()
+        RETURNS event_trigger
+        LANGUAGE plpgsql
+        AS $fn$
+        DECLARE
+            obj record;
+        BEGIN
+            FOR obj IN
+                SELECT object_identity
+                FROM pg_event_trigger_ddl_commands()
+                WHERE command_tag = 'CREATE MATERIALIZED VIEW'
+            LOOP
+                EXECUTE format(
+                    'GRANT SELECT ON TABLE %s TO {APP_ROLE}',
+                    obj.object_identity
+                );
+            END LOOP;
+        END;
+        $fn$;
+        """
+    )
+    op.execute("DROP EVENT TRIGGER IF EXISTS business_os_grant_matview")
+    op.execute(
+        """
+        CREATE EVENT TRIGGER business_os_grant_matview
+        ON ddl_command_end
+        WHEN TAG IN ('CREATE MATERIALIZED VIEW')
+        EXECUTE FUNCTION business_os_grant_matview()
+        """
     )
     # Force RLS on every company-scoped table so the non-bypass app role is
     # always tenant-filtered (the unpinned branch of the policy keeps Alembic

@@ -51,13 +51,13 @@ docker compose up --build
 პირველი გაშვება ცარიელ volume-ზე:
 
 1. Postgres იქმნება `POSTGRES_PASSWORD`-ით (superuser `business_os`).
-2. როლი `business_os_app` ჯერ არ არსებობს, ამიტომ `python -m app.core.migrate_schema` superuser-ით უკავშირდება. Compose ამისთვის აწყობს `MIGRATION_DATABASE_URL`-ს `POSTGRES_PASSWORD`-ისგან. მიგრაცია ქმნის აპის როლს (`APP_DB_PASSWORD`), უფლებებს, RLS-ს, extension-ებს და materialized view-ებს.
-3. ამის შემდეგ API ეშვება `DATABASE_URL`-ზე (`business_os_app`). `uvicorn`-მდე `MIGRATION_DATABASE_URL` იშლება, რათა პროცესს superuser-ის პაროლი აღარ ჰქონდეს.
+2. ცალკე one-shot სერვისი `migrate` ეშვება `python -m app.core.migrate_schema`. მხოლოდ ამ კონტეინერს აქვს `MIGRATION_DATABASE_URL` (superuser, `POSTGRES_PASSWORD`-ისგან). ის ქმნის `business_os_app`-ს, უფლებებს (`ALTER DEFAULT PRIVILEGES` მომავალი ცხრილებისთვის), RLS-ს, extension-ებს და materialized view-ებს, შემდეგ exit 0-ით სრულდება.
+3. `backend` იწყება მხოლოდ მაშინ, როცა `migrate` წარმატებით დასრულდა (`service_completed_successfully`). Backend-ის env-ში არის მხოლოდ `APP_DB_PASSWORD` და `DATABASE_URL` (`business_os_app`). `POSTGRES_PASSWORD` და superuser URL იქ არ ხვდება — superuser `NOBYPASSRLS`-ს გვერდს აუვლიდა.
 
 ```bash
 # Root `.env` (Compose interpolation). ცარიელი ან გამოტოვებული მნიშვნელობით
 # `docker compose -f docker-compose.prod.yml` ჩერდება:
-#   POSTGRES_PASSWORD  — Postgres superuser (`business_os`), მხოლოდ მიგრაცია
+#   POSTGRES_PASSWORD  — Postgres superuser (`business_os`), მხოლოდ migrate სერვისი
 #   APP_DB_PASSWORD    — როლი `business_os_app` (DATABASE_URL, backup, MV refresh)
 # ორი განსხვავებული ძლიერი პაროლი. APP_DB_PASSWORD-ში არ გამოიყენოთ @ : / # ? ან space.
 # % დასაშვებია — Alembic კონფიგში %%-ად იწერება.
