@@ -25,6 +25,7 @@ _PRIVILEGES = text(
         has_database_privilege('business_os_app', current_database(), 'TEMP') AS app_temp,
         has_database_privilege('business_os_backup', current_database(), 'TEMP') AS backup_temp,
         has_database_privilege('public', current_database(), 'TEMP') AS public_temp,
+        has_database_privilege('business_os_backup', current_database(), 'CREATE') AS backup_db_create,
         has_database_privilege('public', current_database(), 'CREATE') AS public_db_create,
         has_database_privilege('business_os_app', current_database(), 'CONNECT') AS app_connect,
         has_database_privilege('business_os_backup', current_database(), 'CONNECT') AS backup_connect,
@@ -43,6 +44,24 @@ _PRIVILEGES = text(
             JOIN pg_roles member ON member.oid = m.member
             WHERE member.rolname = 'business_os_backup'
         ) AS backup_any_membership
+    """
+)
+
+# App memberships stay with issue #6. Snapshot both directions: rows where
+# business_os_app is the member, and rows where it is the granted role.
+_APP_MEMBERSHIPS = text(
+    """
+    SELECT granted.rolname AS granted_role,
+           member.rolname AS member_role,
+           m.admin_option,
+           m.inherit_option,
+           m.set_option
+    FROM pg_auth_members m
+    JOIN pg_roles granted ON granted.oid = m.roleid
+    JOIN pg_roles member ON member.oid = m.member
+    WHERE member.rolname = 'business_os_app'
+       OR granted.rolname = 'business_os_app'
+    ORDER BY granted.rolname, member.rolname, m.admin_option, m.inherit_option, m.set_option
     """
 )
 
@@ -91,6 +110,7 @@ def _assert_clean(row) -> None:
     assert row.app_temp is True
     assert row.backup_temp is False
     assert row.public_temp is False
+    assert row.backup_db_create is False
     assert row.public_db_create is False
     assert row.app_connect is True
     assert row.backup_connect is True
@@ -99,14 +119,30 @@ def _assert_clean(row) -> None:
     assert row.backup_any_membership is False
 
 
+def _membership_rows(result) -> tuple:
+    return tuple(
+        (row.granted_role, row.member_role, row.admin_option, row.inherit_option, row.set_option)
+        for row in result
+    )
+
+
 async def _inject(conn) -> None:
     await conn.execute(text("GRANT INSERT ON TABLE public.companies TO business_os_backup"))
     await conn.execute(text("GRANT CREATE ON SCHEMA public TO PUBLIC"))
+    await conn.execute(text("GRANT CREATE ON SCHEMA public TO business_os_backup"))
     await conn.execute(
         text(
             """
             DO $$
             BEGIN
+                EXECUTE format(
+                    'GRANT CREATE ON DATABASE %I TO PUBLIC',
+                    current_database()
+                );
+                EXECUTE format(
+                    'GRANT CREATE ON DATABASE %I TO business_os_backup',
+                    current_database()
+                );
                 EXECUTE format(
                     'GRANT TEMPORARY ON DATABASE %I TO PUBLIC',
                     current_database()
@@ -174,10 +210,15 @@ async def test_superuser_reconcile_removes_injected_drift():
             assert dirty.backup_schema_create is True
             assert dirty.backup_temp is True
             assert dirty.public_temp is True
+            assert dirty.backup_db_create is True
+            assert dirty.public_db_create is True
             assert dirty.backup_write_all_data is True
+            async with drift.connect() as conn:
+                app_memberships = _membership_rows((await conn.execute(_APP_MEMBERSHIPS)).all())
             await _ensure_managed_roles(drift, roles_only=False)
             async with drift.connect() as conn:
                 _assert_clean((await conn.execute(_PRIVILEGES)).one())
+                assert _membership_rows((await conn.execute(_APP_MEMBERSHIPS)).all()) == app_memberships
     finally:
         await drift.dispose()
         async with admin.connect() as conn:
