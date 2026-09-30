@@ -1,27 +1,24 @@
 """Login roles reconciled by the superuser migrate step.
 
 ``MANAGED_ROLES`` is the only list to edit when a later PR adds a role.
-The migrate service creates any missing role, grants the privileges on the
-spec, and rewrites the materialized-view event trigger for every spec that
-asks for it. Migration ``063`` keeps creating ``business_os_app`` itself so
-an incremental upgrade still works; it calls the same helpers with that one
-spec and does not walk ``MANAGED_ROLES``.
+Every superuser migrate run creates a missing role, resets attributes from
+the spec, re-grants privileges, and rewrites the materialized-view event
+trigger. A spec with ``revoke_excess`` (the backup role) loses anything
+beyond that spec first, including grants a drifted dump restored. Grants to
+``PUBLIC`` are not part of a role, so the same run revokes schema
+``CREATE``, table and sequence privileges, and database ``CREATE`` and
+``TEMPORARY`` from ``PUBLIC``. ``CONNECT`` and function ``EXECUTE`` stay.
+``business_os_app`` keeps ``USAGE`` on the schema, not ``CREATE``. Migration
+``063`` keeps creating ``business_os_app`` itself so an incremental upgrade
+still works; it calls the same helpers with that one spec and does not walk
+``MANAGED_ROLES``.
 
-The read-only backup role is a separate PR. Append one ``RoleSpec``; do not
-copy the ``CREATE ROLE`` / ``GRANT`` / ``ALTER DEFAULT PRIVILEGES`` SQL:
-
-    RoleSpec(
-        name="business_os_backup",
-        password_env="BACKUP_DB_PASSWORD",
-        dev_password="business_os_backup",
-        attributes=("BYPASSRLS", "NOSUPERUSER", "NOCREATEDB", "NOCREATEROLE"),
-        schema_privileges="USAGE",
-        table_privileges="SELECT",
-        sequence_privileges="SELECT",
-        default_table_privileges="SELECT",
-        default_sequence_privileges="SELECT",
-        grant_matview_select=True,
-    )
+``BACKUP_ROLE`` (``business_os_backup``) is created only here. ``BYPASSRLS``
+can be granted by a superuser, which the migrate service is. Migration
+``063`` does not create this role. The spec is read-only: ``USAGE`` on the
+schema, ``SELECT`` on tables, sequences, and materialized views, and the
+same ``SELECT`` via ``ALTER DEFAULT PRIVILEGES`` for objects created later
+by ``business_os``. Passwords of existing roles are not changed here.
 """
 from __future__ import annotations
 
@@ -52,6 +49,7 @@ _OBJECT_PRIVILEGES = frozenset(
     {"ALL", "SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER", "USAGE"}
 )
 _SCHEMA_PRIVILEGES = frozenset({"ALL", "USAGE", "CREATE"})
+_DATABASE_PRIVILEGES = frozenset({"CONNECT", "CREATE", "TEMPORARY"})
 # Objects created by the production superuser. Default privileges are for this
 # role, which is also POSTGRES_USER in compose.
 GRANTOR_ROLE = "business_os"
@@ -67,6 +65,13 @@ def _words(values: tuple[str, ...], allowed: frozenset[str], label: str) -> str:
     if not values or any(value not in allowed for value in values):
         raise RuntimeError(f"Invalid {label}.")
     return " ".join(values)
+
+
+def _database_privileges(values: tuple[str, ...]) -> str:
+    """Comma-separated database privileges. The tuple order is the GRANT order."""
+    if not values or any(value not in _DATABASE_PRIVILEGES for value in values):
+        raise RuntimeError("Invalid database privilege.")
+    return ", ".join(values)
 
 
 def _priv(value: str, allowed: frozenset[str], label: str) -> str:
@@ -90,6 +95,16 @@ class RoleSpec:
     default_table_privileges: str
     default_sequence_privileges: str
     grant_matview_select: bool = False
+    # Database privileges re-applied on every reconcile. CONNECT is required
+    # to log in once PUBLIC loses extra rights. TEMPORARY is only for the
+    # role that owns the materialized views: REFRESH CONCURRENTLY creates a
+    # temporary table in that session.
+    # The TEMPORARY grant moves to the dedicated refresh role in #7.
+    # business_os_app loses it then.
+    database_privileges: tuple[str, ...] = ("CONNECT",)
+    # When true, every reconcile revokes privileges outside this spec before
+    # the grants are applied again. A dump is not a privilege source.
+    revoke_excess: bool = False
 
     def __post_init__(self) -> None:
         _ident(self.name, "role")
@@ -99,6 +114,7 @@ class RoleSpec:
         _priv(self.sequence_privileges, _OBJECT_PRIVILEGES, "sequence privilege")
         _priv(self.default_table_privileges, _OBJECT_PRIVILEGES, "default table privilege")
         _priv(self.default_sequence_privileges, _OBJECT_PRIVILEGES, "default sequence privilege")
+        _database_privileges(self.database_privileges)
 
 
 APP_ROLE = RoleSpec(
@@ -106,17 +122,46 @@ APP_ROLE = RoleSpec(
     password_env="APP_DB_PASSWORD",
     dev_password="business_os_app",
     attributes=("NOSUPERUSER", "NOBYPASSRLS", "NOCREATEDB", "NOCREATEROLE"),
-    schema_privileges="ALL",
+    schema_privileges="USAGE",
     table_privileges="ALL",
     sequence_privileges="ALL",
     default_table_privileges="ALL",
     default_sequence_privileges="ALL",
     grant_matview_select=True,
+    database_privileges=("CONNECT", "TEMPORARY"),
 )
 
+# Read-only dump role. BYPASSRLS is required so pg_dump can read every tenant.
+# --enable-row-security is not acceptable: it can write a partial dump.
+# LOGIN is set by create_role_if_missing. No INSERT/UPDATE/DELETE/TRUNCATE.
+BACKUP_ROLE = RoleSpec(
+    name="business_os_backup",
+    password_env="BACKUP_DB_PASSWORD",
+    dev_password="business_os_backup",
+    attributes=("BYPASSRLS", "NOSUPERUSER", "NOCREATEDB", "NOCREATEROLE"),
+    schema_privileges="USAGE",
+    table_privileges="SELECT",
+    sequence_privileges="SELECT",
+    default_table_privileges="SELECT",
+    default_sequence_privileges="SELECT",
+    grant_matview_select=True,
+    revoke_excess=True,
+)
+
+
+# REFRESH CONCURRENTLY requires the owner. Migration 065 sets this once;
+# a dump restored with --no-owner leaves the views owned by the superuser,
+# and 065 does not re-run when the dump is already at head.
+MATERIALIZED_VIEWS: tuple[str, ...] = (
+    "mv_sales_daily",
+    "mv_receivables_aging",
+    "mv_stock_balances",
+)
+
+
 # Reconciled after ``upgrade head`` when the connection is a superuser.
-# A follow-up PR appends a spec here. It does not edit migration 063.
-MANAGED_ROLES: tuple[RoleSpec, ...] = (APP_ROLE,)
+# Migration 063 does not walk this tuple and does not create BACKUP_ROLE.
+MANAGED_ROLES: tuple[RoleSpec, ...] = (APP_ROLE, BACKUP_ROLE)
 
 
 def dollar_quote(value: str, role_name: str) -> str:
@@ -184,6 +229,232 @@ def create_role_if_missing(bind, spec: RoleSpec) -> None:
         raise RuntimeError(f"Failed to create database role {spec.name}.") from None
 
 
+def attribute_statement(spec: RoleSpec) -> str:
+    """Reset login and the spec attributes. Does not change the password.
+
+    Applied on every superuser reconcile, including when the role already
+    existed. A dump cannot grant ``BYPASSRLS`` to the app role and have it
+    survive the next migrate.
+    """
+    name = _ident(spec.name, "role")
+    attributes = _words(spec.attributes, _ATTRIBUTES, "attribute")
+    return f"ALTER ROLE {name} WITH LOGIN {attributes}"
+
+
+def revoke_excess_statements(spec: RoleSpec, database: str) -> list[str]:
+    """Strip privileges that are not on ``spec``.
+
+    Only specs with ``revoke_excess`` are stripped. The app role is granted
+    ``ALL`` again instead, so a missing grant is restored without a blanket
+    revoke. Its memberships are not touched here (that stays in #6).
+    Default privileges are revoked for both the superuser and the
+    app role: restored objects may have been created by either.
+
+    Role memberships are cluster-wide and are not removed by ``REVOKE ALL
+    PRIVILEGES``. Every membership recorded in ``pg_auth_members`` is
+    revoked, including ``pg_write_all_data`` and ``pg_read_all_data``, not
+    only ``business_os`` and ``business_os_app``.
+    """
+    if not spec.revoke_excess:
+        return []
+    name = _ident(spec.name, "role")
+    database = _ident(database, "database")
+    grantor = _ident(GRANTOR_ROLE, "grantor")
+    app = _ident(APP_ROLE.name, "role")
+    return [
+        f"""
+        DO $$
+        DECLARE
+            granted text;
+        BEGIN
+            FOR granted IN
+                SELECT r.rolname
+                FROM pg_auth_members m
+                JOIN pg_roles r ON r.oid = m.roleid
+                JOIN pg_roles member ON member.oid = m.member
+                WHERE member.rolname = '{name}'
+            LOOP
+                EXECUTE format('REVOKE %I FROM {name}', granted);
+            END LOOP;
+        END
+        $$;
+        """,
+        f"REVOKE {grantor} FROM {name}",
+        f"REVOKE {app} FROM {name}",
+        f"REVOKE ALL PRIVILEGES ON DATABASE {database} FROM {name}",
+        f"REVOKE ALL PRIVILEGES ON SCHEMA public FROM {name}",
+        f"REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {name}",
+        f"REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {name}",
+        f"REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM {name}",
+        f"""
+        DO $$
+        DECLARE
+            mv text;
+        BEGIN
+            FOR mv IN
+                SELECT c.relname
+                FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relkind = 'm'
+            LOOP
+                EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE %I FROM {name}', mv);
+            END LOOP;
+        END
+        $$;
+        """,
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+        f"REVOKE ALL PRIVILEGES ON TABLES FROM {name}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+        f"REVOKE ALL PRIVILEGES ON SEQUENCES FROM {name}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+        f"REVOKE ALL PRIVILEGES ON FUNCTIONS FROM {name}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {app} IN SCHEMA public "
+        f"REVOKE ALL PRIVILEGES ON TABLES FROM {name}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {app} IN SCHEMA public "
+        f"REVOKE ALL PRIVILEGES ON SEQUENCES FROM {name}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {app} IN SCHEMA public "
+        f"REVOKE ALL PRIVILEGES ON FUNCTIONS FROM {name}",
+    ]
+
+
+def revoke_public_schema_create_statements(
+    database: str,
+    roles: tuple[RoleSpec, ...] | list[RoleSpec] | None = None,
+) -> list[str]:
+    """Drop privileges ``PUBLIC`` must not keep, and schema CREATE on managed roles.
+
+    ``REVOKE ALL`` on ``business_os_backup`` does not touch grants to
+    ``PUBLIC``. A drifted ``GRANT CREATE ON SCHEMA public TO PUBLIC``
+    (``nspacl`` ``=UC``) or ``GRANT INSERT ON ... TO PUBLIC`` lets the
+    backup role write or run DDL. ``REVOKE`` does nothing when the
+    privilege is already absent, so this is safe on every full superuser
+    reconcile. It runs after the spec grants.
+
+    ``ALL TABLES`` in PostgreSQL 16 includes materialized views. Function
+    ``EXECUTE`` for ``PUBLIC`` is left in place. ``CONNECT`` on the database
+    stays with ``PUBLIC``; ``CREATE`` and ``TEMPORARY`` do not. The app role's
+    own ``TEMPORARY`` comes from ``database_privileges`` and is re-granted
+    every run. The backup role's spec does not include it.
+    Default privileges for tables and sequences are
+    cleared for ``PUBLIC`` so a new table does not inherit a public grant.
+    System schemas (``pg_*``, ``information_schema``) are left alone.
+    """
+    database = _ident(database, "database")
+    managed = MANAGED_ROLES if roles is None else roles
+    names = [_ident(spec.name, "role") for spec in managed]
+    grantor = _ident(GRANTOR_ROLE, "grantor")
+    app = _ident(APP_ROLE.name, "role")
+    statements = [
+        "REVOKE CREATE ON SCHEMA public FROM PUBLIC",
+        "REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC",
+        "REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC",
+        f"REVOKE CREATE, TEMPORARY ON DATABASE {database} FROM PUBLIC",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+        "REVOKE ALL ON TABLES FROM PUBLIC",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+        "REVOKE ALL ON SEQUENCES FROM PUBLIC",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {app} IN SCHEMA public "
+        "REVOKE ALL ON TABLES FROM PUBLIC",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {app} IN SCHEMA public "
+        "REVOKE ALL ON SEQUENCES FROM PUBLIC",
+    ]
+    statements.extend(f"REVOKE CREATE ON SCHEMA public FROM {name}" for name in names)
+    role_lines = "\n".join(
+        f"                EXECUTE format('REVOKE CREATE ON SCHEMA %I FROM {name}', s);"
+        for name in names
+    )
+    statements.append(
+        f"""
+        DO $$
+        DECLARE
+            s text;
+        BEGIN
+            FOR s IN
+                SELECT n.nspname
+                FROM pg_namespace n
+                WHERE n.nspname <> 'information_schema'
+                  AND left(n.nspname, 3) <> 'pg_'
+            LOOP
+                EXECUTE format('REVOKE CREATE ON SCHEMA %I FROM PUBLIC', s);
+{role_lines}
+            END LOOP;
+        END
+        $$;
+        """
+    )
+    # Any grantor, not only the two roles above. Skip functions so PUBLIC
+    # keeps EXECUTE. A missing schema means the default applies globally.
+    statements.append(
+        """
+        DO $$
+        DECLARE
+            rec record;
+            kind text;
+        BEGIN
+            FOR rec IN
+                SELECT n.nspname AS schema_name,
+                       r.rolname AS grantor,
+                       d.defaclobjtype
+                FROM pg_default_acl d
+                JOIN pg_roles r ON r.oid = d.defaclrole
+                LEFT JOIN pg_namespace n ON n.oid = d.defaclnamespace
+                WHERE d.defaclobjtype IN ('r', 'S')
+                  AND EXISTS (
+                      SELECT 1
+                      FROM aclexplode(d.defaclacl) AS e
+                      WHERE e.grantee = 0
+                  )
+            LOOP
+                kind := CASE rec.defaclobjtype WHEN 'r' THEN 'TABLES' ELSE 'SEQUENCES' END;
+                IF rec.schema_name IS NULL THEN
+                    EXECUTE format(
+                        'ALTER DEFAULT PRIVILEGES FOR ROLE %I REVOKE ALL ON %s FROM PUBLIC',
+                        rec.grantor,
+                        kind
+                    );
+                ELSE
+                    EXECUTE format(
+                        'ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I REVOKE ALL ON %s FROM PUBLIC',
+                        rec.grantor,
+                        rec.schema_name,
+                        kind
+                    );
+                END IF;
+            END LOOP;
+        END
+        $$;
+        """
+    )
+    return statements
+
+
+def matview_owner_statements(owner: str | None = None) -> list[str]:
+    """Give the app role ownership of the three refresh views, if they exist."""
+    owner_name = _ident(owner or APP_ROLE.name, "role")
+    statements: list[str] = []
+    for view in MATERIALIZED_VIEWS:
+        view_name = _ident(view, "materialized view")
+        statements.append(
+            f"""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1
+                    FROM pg_class c
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'public'
+                      AND c.relname = '{view_name}'
+                      AND c.relkind = 'm'
+                ) THEN
+                    EXECUTE 'ALTER MATERIALIZED VIEW public.{view_name} OWNER TO {owner_name}';
+                END IF;
+            END
+            $$;
+            """
+        )
+    return statements
+
+
 def grant_statements(spec: RoleSpec, database: str) -> list[str]:
     """Privilege SQL for one role. ``database`` is the current database name."""
     name = _ident(spec.name, "role")
@@ -196,12 +467,24 @@ def grant_statements(spec: RoleSpec, database: str) -> list[str]:
     default_sequences = _priv(
         spec.default_sequence_privileges, _OBJECT_PRIVILEGES, "default sequence privilege"
     )
+    # Drop database privileges the spec does not list, then grant the spec.
+    # A dump can leave TEMPORARY on the backup role; PUBLIC's TEMPORARY is
+    # removed separately and does not cover this direct grant.
     statements = [
-        f"GRANT CONNECT ON DATABASE {database} TO {name}",
-        f"GRANT {schema} ON SCHEMA public TO {name}",
-        f"GRANT {tables} ON ALL TABLES IN SCHEMA public TO {name}",
-        f"GRANT {sequences} ON ALL SEQUENCES IN SCHEMA public TO {name}",
+        f"REVOKE {privilege} ON DATABASE {database} FROM {name}"
+        for privilege in ("CONNECT", "CREATE", "TEMPORARY")
+        if privilege not in spec.database_privileges
     ]
+    statements.append(
+        f"GRANT {_database_privileges(spec.database_privileges)} ON DATABASE {database} TO {name}"
+    )
+    statements.extend(
+        [
+            f"GRANT {schema} ON SCHEMA public TO {name}",
+            f"GRANT {tables} ON ALL TABLES IN SCHEMA public TO {name}",
+            f"GRANT {sequences} ON ALL SEQUENCES IN SCHEMA public TO {name}",
+        ]
+    )
     if spec.grant_matview_select:
         statements.append(
             f"""

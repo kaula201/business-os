@@ -7,8 +7,8 @@ Create Date: 2026-08-05
 The original 'business_os' role is a PostgreSQL superuser, and superusers
 (and BYPASSRLS roles) bypass Row-Level Security entirely — FORCE ROW LEVEL
 SECURITY does not apply to them. This migration creates a dedicated
-application role without superuser/BYPASSRLS, grants it full DML on the
-public schema (plus CREATE for Alembic), and FORCEs RLS on every
+application role without superuser/BYPASSRLS, grants it USAGE on the
+public schema and full DML on tables and sequences, and FORCEs RLS on every
 company-scoped table so the new role is filtered by tenant.
 
 Deploy note: after this migration, DATABASE_URL (and TEST_DATABASE_URL in

@@ -79,6 +79,9 @@ services:
         crond -f -l 2
       "
     environment:
+      # Dev has no superuser migrate step, so business_os_backup is not
+      # created here. Keep dumping and refreshing as the dev app role.
+      PGUSER: business_os_app
       PGPASSWORD: business_os_app
       RETENTION_DAYS: 30
     volumes:

@@ -3,15 +3,22 @@
 # network. The only published ports are 80 (ACME + HTTPS redirect) and 443.
 #
 # Before the first start:
-#   1. Copy .env.example to .env and set POSTGRES_PASSWORD and APP_DB_PASSWORD.
-#      Compose exits if either is missing. Use two different strong passwords.
+#   1. Copy .env.example to .env and set POSTGRES_PASSWORD, APP_DB_PASSWORD,
+#      and BACKUP_DB_PASSWORD.
+#      Compose exits if any of them is missing. Use three different strong passwords.
 #      APP_DB_PASSWORD is embedded in DATABASE_URL.
 #      Generate passwords with: python -c "import secrets; print(secrets.token_urlsafe(32))"
 #      Do not use % or $ (or @ : / # ? or spaces).
 #      The one-shot migrate service connects as the superuser
 #      (MIGRATION_DATABASE_URL, built from POSTGRES_PASSWORD).
-#      The backend service never receives POSTGRES_PASSWORD or that URL.
-#      It only gets APP_DB_PASSWORD and DATABASE_URL for business_os_app.
+#      It also receives APP_DB_PASSWORD and BACKUP_DB_PASSWORD so it can set
+#      those role passwords. On an existing volume it creates business_os_backup
+#      the next time it runs.
+#      The backend service never receives POSTGRES_PASSWORD, BACKUP_DB_PASSWORD,
+#      or the superuser URL. It only gets APP_DB_PASSWORD and DATABASE_URL
+#      for business_os_app.
+#      The backup service connects as business_os_backup. It receives
+#      BACKUP_DB_PASSWORD only — not POSTGRES_PASSWORD or APP_DB_PASSWORD.
 #   2. Copy backend/.env.example to backend/.env
 #   3. Set JWT_SECRET_KEY (32+ random chars; the API refuses known placeholders)
 #   4. Set CORS_ORIGINS to the public origin, e.g. https://app.example.com
@@ -63,7 +70,14 @@ services:
     environment:
       APP_ENV: production
       APP_DB_PASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
-      MIGRATION_DATABASE_URL: "postgresql+asyncpg://business_os:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/business_os"
+      BACKUP_DB_PASSWORD: "${BACKUP_DB_PASSWORD:?set BACKUP_DB_PASSWORD}"
+      # Restore exports MIGRATION_DATABASE_URL, DATABASE_URL, and
+      # EXPECTED_DATABASE for the target database. Without the override,
+      # `docker compose run migrate` would reconcile business_os.
+      # Migrate aborts when current_database() is not EXPECTED_DATABASE.
+      MIGRATION_DATABASE_URL: "${MIGRATION_DATABASE_URL:-postgresql+asyncpg://business_os:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/business_os}"
+      DATABASE_URL: "${DATABASE_URL:-postgresql+asyncpg://business_os:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/business_os}"
+      EXPECTED_DATABASE: "${EXPECTED_DATABASE:-business_os}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,20 +117,38 @@ services:
     image: postgres:16-alpine
     container_name: business_os_backup
     restart: unless-stopped
-    entrypoint: |
-      sh -c "
-        echo '0 3 * * * /scripts/backup.sh' > /etc/crontabs/root &&
-        echo '*/5 * * * * /scripts/refresh_mvs.sh' >> /etc/crontabs/root &&
-        crond -f -l 2
-      "
+    entrypoint: ["/scripts/backup-cron-entrypoint.sh"]
     environment:
-      PGPASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
+      PGUSER: business_os_backup
+      PGPASSWORD: "${BACKUP_DB_PASSWORD:?set BACKUP_DB_PASSWORD}"
+      BACKUP_DB_PASSWORD: "${BACKUP_DB_PASSWORD:?set BACKUP_DB_PASSWORD}"
       RETENTION_DAYS: 30
     volumes:
       - ./scripts/backup.sh:/scripts/backup.sh:ro
-      - ./scripts/refresh_mvs.sh:/scripts/refresh_mvs.sh:ro
+      - ./scripts/backup-cron-entrypoint.sh:/scripts/backup-cron-entrypoint.sh:ro
       - backup_data:/backups
     depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+  mvrefresh:
+    # Materialized-view refresh stays on business_os_app (the view owner).
+    # It is not part of the backup container: that container must not receive
+    # the application password, and business_os_backup cannot REFRESH.
+    image: postgres:16-alpine
+    container_name: business_os_mvrefresh
+    restart: unless-stopped
+    entrypoint: ["/scripts/mvrefresh-cron-entrypoint.sh"]
+    environment:
+      PGPASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
+    volumes:
+      - ./scripts/refresh_mvs.sh:/scripts/refresh_mvs.sh:ro
+      - ./scripts/mvrefresh-cron-entrypoint.sh:/scripts/mvrefresh-cron-entrypoint.sh:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
 

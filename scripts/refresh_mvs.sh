@@ -1,7 +1,9 @@
 #!/bin/bash
 # Refresh Business OS materialized views (CONCURRENTLY — non-blocking).
-# Runs from the backup container's cron every 5 minutes.
+# Production cron is the mvrefresh service (business_os_app, the view owner).
+# Dev compose still runs this from the backup container.
 # Requires unique indexes on each MV (created by migration 060).
+# The backup role cannot refresh these views: it has SELECT only.
 
 set -euo pipefail
 
