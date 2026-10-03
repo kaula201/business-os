@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import Base, TenantSession, current_company_id, get_db, install_guc_reset
 from app.core.security import hash_password
-from app.core.tenant_scope import TENANT_POLICY_PREDICATE
+from app.core.tenant_scope import TENANT_POLICY_PREDICATE, TENANT_POLICY_PREDICATE_TEXT
 from app.main import app
 from app.models.company import Company
 from app.models.user import User
@@ -96,22 +96,27 @@ async def setup_db():
         # Mirror migration 062: enable Row-Level Security on every table that
         # carries company_id, so tests exercise the same tenant isolation the
         # production database has.
-        predicate_sql = TENANT_POLICY_PREDICATE.replace("'", "''")
+        predicate_uuid_sql = TENANT_POLICY_PREDICATE.replace("'", "''")
+        predicate_text_sql = TENANT_POLICY_PREDICATE_TEXT.replace("'", "''")
         await conn.execute(text(f"""
             DO $$
             DECLARE
                 t TEXT;
+                pred TEXT;
             BEGIN
-                FOR t IN
-                    SELECT table_name
+                FOR t, pred IN
+                    SELECT table_name,
+                           CASE WHEN data_type = 'uuid' THEN '{predicate_uuid_sql}'
+                                ELSE '{predicate_text_sql}'
+                           END
                     FROM information_schema.columns
                     WHERE table_schema = 'public'
                       AND column_name = 'company_id'
                     ORDER BY table_name
                 LOOP
                     EXECUTE format(
-                        'CREATE POLICY tenant_isolation ON %I USING ({predicate_sql}) WITH CHECK ({predicate_sql})',
-                        t
+                        'CREATE POLICY tenant_isolation ON %I USING (%s) WITH CHECK (%s)',
+                        t, pred, pred
                     );
                     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
                     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);

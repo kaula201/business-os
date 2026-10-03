@@ -29,6 +29,7 @@ _PRIVILEGES = text(
         has_database_privilege('public', current_database(), 'TEMP') AS public_temp,
         has_database_privilege('business_os_backup', current_database(), 'CREATE') AS backup_db_create,
         has_database_privilege('public', current_database(), 'CREATE') AS public_db_create,
+        has_database_privilege('business_os_mvrefresh', current_database(), 'CREATE') AS mvrefresh_db_create,
         has_database_privilege('business_os_app', current_database(), 'CONNECT') AS app_connect,
         has_database_privilege('business_os_backup', current_database(), 'CONNECT') AS backup_connect,
         has_database_privilege('public', current_database(), 'CONNECT') AS public_connect,
@@ -141,6 +142,7 @@ def _assert_clean(row) -> None:
     assert row.public_temp is False
     assert row.backup_db_create is False
     assert row.public_db_create is False
+    assert row.mvrefresh_db_create is False
     assert row.app_connect is True
     assert row.backup_connect is True
     assert row.public_connect is True
@@ -369,6 +371,10 @@ async def test_superuser_reconcile_removes_injected_drift():
             assert dirty.public_db_create is True
             assert dirty.backup_write_all_data is True
             assert dirty.mvrefresh_insert_companies is True
+            assert dirty.mvrefresh_select_secret is True
+            assert dirty.mvrefresh_schema_create is True
+            assert dirty.mvrefresh_db_create is True
+            assert dirty.mvrefresh_any_membership is True
             assert dirty.app_temp is True
             async with drift.connect() as conn:
                 app_memberships = _membership_rows((await conn.execute(_APP_MEMBERSHIPS)).all())

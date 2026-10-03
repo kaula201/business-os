@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.tenant_scope import pin_tenant, system_scope
 from app.models.integration import ApiKey, Webhook, WebhookEvent
 from app.models.counterparty import CounterpartyCheck
 from app.models.user import User
@@ -375,10 +376,12 @@ async def public_status(request: Request, db: AsyncSession = Depends(get_db)):
     if not api_key:
         raise HTTPException(status_code=401, detail="X-API-Key header აუცილებელია")
     key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-    result = await db.execute(select(ApiKey).where(ApiKey.key_hash == key_hash, ApiKey.is_active == True))
-    k = result.scalar_one_or_none()
+    async with system_scope(db, "public status api key lookup"):
+        result = await db.execute(select(ApiKey).where(ApiKey.key_hash == key_hash, ApiKey.is_active == True))
+        k = result.scalar_one_or_none()
     if not k:
         raise HTTPException(status_code=401, detail="არასწორი API Key")
+    await pin_tenant(db, k.company_id)
     k.last_used_at = func.now()
     await db.commit()
     return ResponseBase(data={"status": "ok", "company_id": str(k.company_id), "scopes": k.scopes})

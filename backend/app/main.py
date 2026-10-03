@@ -8,6 +8,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from app.core.config import settings
+from app.core.database import current_route
 from app.core.limiter import limiter
 from app.api.v1.router import api_router
 from app.services.nbg_rates import nbg_scheduler_loop
@@ -83,6 +84,16 @@ async def hide_api_docs_in_production(request: Request, call_next):
     if settings.is_production() and _is_docs_path(request.url.path):
         return JSONResponse(status_code=404, content={"detail": "Not found"})
     return await call_next(request)
+
+
+@app.middleware("http")
+async def set_current_route(request: Request, call_next):
+    """Expose the current HTTP route for audit logging."""
+    token = current_route.set(f"{request.method} {request.url.path}")
+    try:
+        return await call_next(request)
+    finally:
+        current_route.reset(token)
 
 # Rate limiting
 app.add_middleware(SlowAPIMiddleware)

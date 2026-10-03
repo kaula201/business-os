@@ -1,4 +1,5 @@
 # backend/app/api/v1/endpoints/auth.py
+import logging
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional
@@ -162,20 +163,11 @@ async def login(data: UserLogin, request: Request, db: AsyncSession = Depends(ge
             ))
             await db.commit()
         else:
-            async with system_scope(db, "failed login unknown user"):
-                db.add(LoginHistory(
-                    user_id=None,
-                    company_id=None,
-                    ip_address=client_ip,
-                    user_agent=(user_agent or "")[:255],
-                    success=False,
-                    device_name=device["device_name"],
-                    os_name=device["os_name"],
-                    device_type=device["device_type"],
-                    city=city,
-                    country=country,
-                ))
-                await db.commit()
+            # Unknown email: no company to pin. Do not write a LoginHistory row
+            # under system scope; log the attempt on the audit logger instead.
+            logging.getLogger("app.audit.auth").warning(
+                "failed login unknown email from ip=%s", client_ip
+            )
         raise HTTPException(status_code=401, detail="არასწორი ელფოსტა ან პაროლი")
 
     await pin_tenant(db, user.company_id)

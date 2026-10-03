@@ -18,6 +18,9 @@ current_company_id: ContextVar[UUID | None] = ContextVar(
     "current_company_id", default=None
 )
 
+# Current HTTP route for audit logging (non-HTTP callers see None).
+current_route: ContextVar[str | None] = ContextVar("current_route", default=None)
+
 
 def _create_engine_kwargs():
     url = settings.DATABASE_URL

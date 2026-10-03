@@ -10,16 +10,22 @@ fail-closed predicate from app.core.tenant_scope: a pinned company sees only
 its own rows; an unpinned session sees zero rows and cannot insert. An
 explicit transaction-local app.rls_bypass='on' system scope is required for
 cross-tenant tooling. The downgrade restores the old fail-open policy for
-rollback compatibility.
+rollback compatibility unless ALLOW_UNSAFE_RLS_DOWNGRADE=1.
 """
+import logging
+import os
 from typing import Sequence, Union
 
 from alembic import op
 
-# Frozen copy of app.core.tenant_scope.TENANT_POLICY_PREDICATE at this revision
-# (already quote-doubled for the format() literal). A migration must not change
-# meaning when the runtime helper changes later.
-_PREDICATE = (
+# Frozen copies of app.core.tenant_scope predicates at this revision
+# (already quote-doubled for the format() literal). A migration must not
+# change meaning when the runtime helper changes later.
+_PREDICATE_UUID = (
+    "company_id = NULLIF(current_setting(''app.current_company_id'', true), '''')::uuid "
+    "OR current_setting(''app.rls_bypass'', true) = ''on''"
+)
+_PREDICATE_TEXT = (
     "company_id::text = NULLIF(current_setting(''app.current_company_id'', true), '''') "
     "OR current_setting(''app.rls_bypass'', true) = ''on''"
 )
@@ -29,14 +35,19 @@ DO $$
 DECLARE
     t text;
     p text;
+    pred text;
 BEGIN
-    FOR t IN
-        SELECT c.relname
+    FOR t, pred IN
+        SELECT c.relname,
+               CASE WHEN format_type(a.atttypid, a.atttypmod) = 'uuid'
+                    THEN '{_PREDICATE_UUID}'
+                    ELSE '{_PREDICATE_TEXT}'
+               END
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
         JOIN pg_attribute a ON a.attrelid = c.oid
         WHERE n.nspname = 'public'
-          AND c.relkind = 'r'
+          AND c.relkind IN ('r', 'p')
           AND a.attname = 'company_id'
           AND NOT a.attisdropped
         ORDER BY c.relname
@@ -59,8 +70,8 @@ BEGIN
             EXECUTE format('DROP POLICY IF EXISTS %I ON %I', p, t);
         END LOOP;
         EXECUTE format(
-            'CREATE POLICY tenant_isolation ON %I USING ({_PREDICATE}) WITH CHECK ({_PREDICATE})',
-            t
+            'CREATE POLICY tenant_isolation ON %I USING (%s) WITH CHECK (%s)',
+            t, pred, pred
         );
     END LOOP;
 END
@@ -78,6 +89,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if os.environ.get("ALLOW_UNSAFE_RLS_DOWNGRADE") != "1":
+        raise RuntimeError(
+            "unsafe downgrade: restores fail-open RLS; set ALLOW_UNSAFE_RLS_DOWNGRADE=1 to proceed"
+        )
+    logging.getLogger("app.migrations").warning(
+        "Downgrading 152_rls_fail_closed: restoring fail-open RLS policy"
+    )
     op.execute(
         """
         DO $$
@@ -90,7 +108,7 @@ def downgrade() -> None:
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 JOIN pg_attribute a ON a.attrelid = c.oid
                 WHERE n.nspname = 'public'
-                  AND c.relkind = 'r'
+                  AND c.relkind IN ('r', 'p')
                   AND a.attname = 'company_id'
                   AND NOT a.attisdropped
                 ORDER BY c.relname

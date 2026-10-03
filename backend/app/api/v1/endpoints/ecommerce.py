@@ -28,6 +28,25 @@ from app.schemas.ecommerce import (
 router = APIRouter(prefix="/ecommerce", tags=["eCommerce — ონლაინ მაღაზია"])
 
 
+def _host_without_port(host: str) -> str:
+    """Strip a port from a Host header value.
+
+    Handles IPv6 brackets: ``[::1]:8000`` and ``[::1]`` become ``::1``.
+    Plain hostnames like ``example.com:443`` become ``example.com``. A bare
+    IPv6 address without brackets is returned unchanged.
+    """
+    if host.startswith("["):
+        end = host.find("]")
+        if end != -1:
+            return host[1:end]
+        return host
+    if host.count(":") == 1:
+        name, port = host.rsplit(":", 1)
+        if port.isdigit():
+            return name
+    return host
+
+
 # ── Categories ──────────────────────────────────────────────────────────────
 
 @router.get("/categories", response_model=ResponseBase[list[EcomCategoryResponse]])
@@ -252,7 +271,7 @@ async def _resolve_storefront_company(
         )).scalar_one_or_none()
     else:
         host = request.headers.get("host", "")
-        host = host.split(":")[0].lower()
+        host = _host_without_port(host).lower()
         if not host:
             raise HTTPException(status_code=404, detail="მაღაზია ვერ მოიძებნა")
         company = (await db.execute(

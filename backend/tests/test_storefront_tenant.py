@@ -1,10 +1,19 @@
 import pytest
 from decimal import Decimal
 
+from app.api.v1.endpoints.ecommerce import _host_without_port
 from app.models.company import Company
 from app.models.ecommerce import EcomCategory, EcomProduct
 from app.models.product import Product
 
+
+
+def test_host_without_port():
+    assert _host_without_port("[::1]:8000") == "::1"
+    assert _host_without_port("[::1]") == "::1"
+    assert _host_without_port("example.com:443") == "example.com"
+    assert _host_without_port("example.com") == "example.com"
+    assert _host_without_port("::1") == "::1"
 
 
 @pytest.mark.asyncio

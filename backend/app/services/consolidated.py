@@ -7,7 +7,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import current_company_id
-from app.core.tenant_scope import pin_tenant, system_scope
+from app.core.tenant_scope import clear_tenant, pin_tenant
 from app.models.accounting_controls import ConsolidationAccountMapping, FxTranslationRate
 from app.models.company import Company
 from app.models.gl import GLAccount, JournalEntry, JournalEntryLine
@@ -95,28 +95,32 @@ async def _aggregate(
 ) -> tuple[dict[tuple[str, str, str], dict], str | None]:
     original_cid = current_company_id.get()
     mapping, rates, target = await _consolidation_context(db, company_ids, date_to, presentation_currency, fx_method)
-    # GL report aggregation is constrained by caller-derived company_ids.
-    # Run cross-company aggregation under explicit system scope.
-    async with system_scope(db, "consolidation aggregation"):
-        conditions = [
-            GLAccount.company_id.in_(company_ids),
-            GLAccount.account_type.in_(account_types),
-            JournalEntry.entry_date <= date_to,
-        ]
-        if date_from:
-            conditions.append(JournalEntry.entry_date >= date_from)
-        rows = (await db.execute(
-            select(
-                GLAccount.company_id, GLAccount.code, GLAccount.name, GLAccount.account_type,
-                func.coalesce(func.sum(JournalEntryLine.debit_amount), 0).label("total_debit"),
-                func.coalesce(func.sum(JournalEntryLine.credit_amount), 0).label("total_credit"),
-            )
-            .select_from(GLAccount)
-            .outerjoin(JournalEntryLine, JournalEntryLine.gl_account_id == GLAccount.id)
-            .outerjoin(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
-            .where(*conditions)
-            .group_by(GLAccount.company_id, GLAccount.code, GLAccount.name, GLAccount.account_type)
-        )).all()
+    rows = []
+    try:
+        # Run the same query once per verified company under its own pin,
+        # then concatenate rows. Cross-company aggregation never uses bypass.
+        for company_id in company_ids:
+            await pin_tenant(db, company_id)
+            conditions = [
+                GLAccount.company_id == company_id,
+                GLAccount.account_type.in_(account_types),
+                JournalEntry.entry_date <= date_to,
+            ]
+            if date_from:
+                conditions.append(JournalEntry.entry_date >= date_from)
+            company_rows = (await db.execute(
+                select(
+                    GLAccount.company_id, GLAccount.code, GLAccount.name, GLAccount.account_type,
+                    func.coalesce(func.sum(JournalEntryLine.debit_amount), 0).label("total_debit"),
+                    func.coalesce(func.sum(JournalEntryLine.credit_amount), 0).label("total_credit"),
+                )
+                .select_from(GLAccount)
+                .outerjoin(JournalEntryLine, JournalEntryLine.gl_account_id == GLAccount.id)
+                .outerjoin(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
+                .where(*conditions)
+                .group_by(GLAccount.company_id, GLAccount.code, GLAccount.name, GLAccount.account_type)
+            )).all()
+            rows.extend(company_rows)
 
         aggregate: dict[tuple[str, str, str], dict] = {}
         for company_id, code, name, account_type, debit, credit in rows:
@@ -133,8 +137,12 @@ async def _aggregate(
             row["total_debit"] = round(row["total_debit"], 2)
             row["total_credit"] = round(row["total_credit"], 2)
             row["balance"] = round(_balance(row["account_type"], row["total_debit"], row["total_credit"]), 2)
-    if original_cid is not None:
-        await pin_tenant(db, original_cid)
+    finally:
+        if original_cid is not None:
+            await pin_tenant(db, original_cid)
+        else:
+            await clear_tenant(db)
+            current_company_id.set(None)
     return aggregate, target
 
 
@@ -197,23 +205,28 @@ async def intercompany_balances(
     mapping, rates, target = await _consolidation_context(
         db, company_ids, as_of_date, presentation_currency, fx_method,
     )
-    async with system_scope(db, "intercompany balances aggregation"):
-        rows = (await db.execute(
-            select(
-                GLAccount.company_id, GLAccount.code, GLAccount.name, GLAccount.account_type,
-                func.coalesce(func.sum(JournalEntryLine.debit_amount), 0).label("total_debit"),
-                func.coalesce(func.sum(JournalEntryLine.credit_amount), 0).label("total_credit"),
-            )
-            .select_from(GLAccount)
-            .outerjoin(JournalEntryLine, JournalEntryLine.gl_account_id == GLAccount.id)
-            .outerjoin(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
-            .where(
-                GLAccount.company_id.in_(company_ids),
-                JournalEntry.entry_date <= as_of_date,
-            )
-            .group_by(GLAccount.company_id, GLAccount.code, GLAccount.name, GLAccount.account_type)
-        )).all()
+    rows = []
+    try:
+        for company_id in company_ids:
+            await pin_tenant(db, company_id)
+            company_rows = (await db.execute(
+                select(
+                    GLAccount.company_id, GLAccount.code, GLAccount.name, GLAccount.account_type,
+                    func.coalesce(func.sum(JournalEntryLine.debit_amount), 0).label("total_debit"),
+                    func.coalesce(func.sum(JournalEntryLine.credit_amount), 0).label("total_credit"),
+                )
+                .select_from(GLAccount)
+                .outerjoin(JournalEntryLine, JournalEntryLine.gl_account_id == GLAccount.id)
+                .outerjoin(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
+                .where(
+                    GLAccount.company_id == company_id,
+                    JournalEntry.entry_date <= as_of_date,
+                )
+                .group_by(GLAccount.company_id, GLAccount.code, GLAccount.name, GLAccount.account_type)
+            )).all()
+            rows.extend(company_rows)
 
+        # Company name lookup stays unpinned: companies has no company_id and is not RLS-scoped.
         companies = {str(c.id): c.name for c in (await db.execute(
             select(Company).where(Company.id.in_(company_ids))
         )).scalars().all()}
@@ -236,8 +249,12 @@ async def intercompany_balances(
         for code, row in sorted(by_code.items()):
             row["total"] = round(row["total"], 2)
             items.append(row)
-    if original_cid is not None:
-        await pin_tenant(db, original_cid)
+    finally:
+        if original_cid is not None:
+            await pin_tenant(db, original_cid)
+        else:
+            await clear_tenant(db)
+            current_company_id.set(None)
     return {
         "as_of_date": as_of_date, "presentation_currency": target,
         "fx_method": fx_method if target else None,

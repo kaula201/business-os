@@ -92,41 +92,42 @@ async def get_current_user_or_api_key(
     """
     api_key = request.headers.get("X-API-Key")
     if api_key:
+        key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+        # System scope only for the cross-tenant key-hash lookup. All later
+        # reads/updates happen under the key's company pin.
         async with system_scope(db, "api key auth"):
-            key_hash = hashlib.sha256(api_key.encode()).hexdigest()
             key = (await db.execute(select(ApiKey).where(ApiKey.key_hash == key_hash))).scalar_one_or_none()
-            if not key or not key.is_active:
-                raise HTTPException(status_code=401, detail="არასწორი ან გაუქმებული API გასაღები")
-            if key.expires_at and key.expires_at < datetime.utcnow():
-                raise HTTPException(status_code=401, detail="API გასაღების ვადა გასულია")
-            # API P1.8: allowed IPs (exact or CIDR)
-            client_ip = request.client.host if request.client else None
-            forwarded = request.headers.get("x-forwarded-for")
-            if forwarded:
-                client_ip = forwarded.split(",")[0].strip()
-            if key.allowed_ips:
-                allowed = _ip_allowed(client_ip, key.allowed_ips)
-                if not allowed:
-                    raise HTTPException(status_code=403, detail="IP არ არის დაშვებული ამ API გასაღებისთვის")
-            # API P1.8: rate limit (sliding window per minute)
-            now = datetime.utcnow()
-            if key.rate_window_start and (now - key.rate_window_start).total_seconds() < 60:
-                if key.rate_window_count >= key.rate_limit_per_minute:
-                    raise HTTPException(status_code=429, detail="Rate limit გადაჭარბებულია")
-                key.rate_window_count += 1
-            else:
-                key.rate_window_start = now
-                key.rate_window_count = 1
-            user = (await db.execute(select(User).where(User.id == key.user_id))).scalar_one_or_none()
-            if not user or not user.is_active:
-                raise HTTPException(status_code=401, detail="მომხმარებელი არ მოიძებნა ან დეაქტივირებულია")
-            # Ensure API key belongs to the same company as the user
-            if getattr(key, "company_id", None) is not None and key.company_id != user.company_id:
-                raise HTTPException(status_code=401, detail="არასწორი ან გაუქმებული API გასაღები")
-            key.last_used_at = now
-            await db.flush()
-        # Pin to the user's company after cross-tenant lookup
-        await pin_tenant(db, user.company_id)
+        if not key or not key.is_active:
+            raise HTTPException(status_code=401, detail="არასწორი ან გაუქმებული API გასაღები")
+        if key.expires_at and key.expires_at < datetime.utcnow():
+            raise HTTPException(status_code=401, detail="API გასაღების ვადა გასულია")
+        # API P1.8: allowed IPs (exact or CIDR)
+        client_ip = request.client.host if request.client else None
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            client_ip = forwarded.split(",")[0].strip()
+        if key.allowed_ips:
+            allowed = _ip_allowed(client_ip, key.allowed_ips)
+            if not allowed:
+                raise HTTPException(status_code=403, detail="IP არ არის დაშვებული ამ API გასაღებისთვის")
+        # API P1.8: rate limit (sliding window per minute)
+        now = datetime.utcnow()
+        if key.rate_window_start and (now - key.rate_window_start).total_seconds() < 60:
+            if key.rate_window_count >= key.rate_limit_per_minute:
+                raise HTTPException(status_code=429, detail="Rate limit გადაჭარბებულია")
+            key.rate_window_count += 1
+        else:
+            key.rate_window_start = now
+            key.rate_window_count = 1
+        await pin_tenant(db, key.company_id)
+        user = (await db.execute(select(User).where(User.id == key.user_id))).scalar_one_or_none()
+        if not user or not user.is_active:
+            raise HTTPException(status_code=401, detail="მომხმარებელი არ მოიძებნა ან დეაქტივირებულია")
+        # Ensure API key belongs to the same company as the user
+        if getattr(key, "company_id", None) is not None and key.company_id != user.company_id:
+            raise HTTPException(status_code=401, detail="არასწორი ან გაუქმებული API გასაღები")
+        key.last_used_at = now
+        await db.flush()
         # Expose the key's scopes for require_module enforcement (Odoo access rights)
         request.state.api_key_scopes = [s.strip() for s in key.scopes.split(",") if s.strip()]
         request.state.api_key_branch_id = key.branch_id

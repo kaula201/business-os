@@ -7,11 +7,16 @@ from uuid import UUID
 
 from sqlalchemy import text
 
-from app.core.database import current_company_id
+from app.core.database import current_company_id, current_route
 
 logger = logging.getLogger(__name__)
+rls_audit_logger = logging.getLogger("app.audit.rls")
 
 TENANT_POLICY_PREDICATE = (
+    "company_id = NULLIF(current_setting('app.current_company_id', true), '')::uuid "
+    "OR current_setting('app.rls_bypass', true) = 'on'"
+)
+TENANT_POLICY_PREDICATE_TEXT = (
     "company_id::text = NULLIF(current_setting('app.current_company_id', true), '') "
     "OR current_setting('app.rls_bypass', true) = 'on'"
 )
@@ -20,24 +25,30 @@ TENANT_POLICY_PREDICATE = (
 def tenant_rls_sql() -> str:
     """Return a DO block that ENABLEs+FORCEs RLS, drops other PERMISSIVE policies, and recreates tenant_isolation.
 
-    The policy is applied to every public base table (relkind 'r') that has a
-    non-dropped company_id column. It uses the fail-closed predicate from
-    TENANT_POLICY_PREDICATE for both USING and WITH CHECK.
+    The policy is applied to every public base table (relkind 'r') or
+    partitioned table (relkind 'p') that has a non-dropped company_id column.
+    UUID company_id columns use the ::uuid cast; other column types use ::text.
     """
-    predicate_sql = TENANT_POLICY_PREDICATE.replace("'", "''")
+    predicate_uuid_sql = TENANT_POLICY_PREDICATE.replace("'", "''")
+    predicate_text_sql = TENANT_POLICY_PREDICATE_TEXT.replace("'", "''")
     return f"""
 DO $$
 DECLARE
     t text;
     p text;
+    pred text;
 BEGIN
-    FOR t IN
-        SELECT c.relname
+    FOR t, pred IN
+        SELECT c.relname,
+               CASE WHEN format_type(a.atttypid, a.atttypmod) = 'uuid'
+                    THEN '{predicate_uuid_sql}'
+                    ELSE '{predicate_text_sql}'
+               END
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
         JOIN pg_attribute a ON a.attrelid = c.oid
         WHERE n.nspname = 'public'
-          AND c.relkind = 'r'
+          AND c.relkind IN ('r', 'p')
           AND a.attname = 'company_id'
           AND NOT a.attisdropped
         ORDER BY c.relname
@@ -60,8 +71,8 @@ BEGIN
             EXECUTE format('DROP POLICY IF EXISTS %I ON %I', p, t);
         END LOOP;
         EXECUTE format(
-            'CREATE POLICY tenant_isolation ON %I USING ({predicate_sql}) WITH CHECK ({predicate_sql})',
-            t
+            'CREATE POLICY tenant_isolation ON %I USING (%s) WITH CHECK (%s)',
+            t, pred, pred
         );
     END LOOP;
 END
@@ -94,6 +105,10 @@ async def system_scope(db, reason: str):
     """
     logger.debug("Entering system scope: %s", reason)
     await db.execute(text("SELECT set_config('app.rls_bypass', 'on', true)"))
+    route = current_route.get()
+    rls_audit_logger.warning(
+        "rls_bypass system_scope reason=%s route=%s", reason, route
+    )
     try:
         yield
     finally:
