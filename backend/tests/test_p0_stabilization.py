@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy import select
+from uuid import uuid4
 
 from app.models.client import Client
 from app.models.company import Company
@@ -16,7 +17,7 @@ async def test_client_create_persists_vat_and_primary_contact_and_interaction(
         json={
             "client_type": "legal",
             "name": "შპს კონტრაქტის ტესტი",
-            "identification_code": "P0-CLIENT-001",
+            "identification_code": "200040001",
             "is_vat_payer": False,
             "phone": "+995555123456",
             "email": "contact@example.ge",
@@ -96,7 +97,7 @@ async def test_order_rejects_product_from_another_company(
 ):
     second_company = Company(
         name="Other Company",
-        identification_code="OTHER-001",
+        identification_code=f"{uuid4().int % 900000000 + 100000000}",
         vat_status=True,
         currency="GEL",
     )
@@ -107,7 +108,7 @@ async def test_order_rejects_product_from_another_company(
         company_id=test_company.id,
         name="Own Client",
         client_type="legal",
-        identification_code="OWN-CLIENT-001",
+        identification_code=f"{uuid4().int % 900000000 + 100000000}",
         vat_status=True,
         status="active",
         created_by=test_admin.id,

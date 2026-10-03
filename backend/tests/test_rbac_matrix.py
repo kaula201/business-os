@@ -35,47 +35,79 @@ BASE_PERMS = {
 
 async def seed_module_catalog(db_session, company_id):
     for code in FINANCIAL_MODULES | OPERATIONAL_MODULES:
-        module = AppModule(code=code, name=code, category="test", is_active=True)
-        db_session.add(module)
-        await db_session.flush()
-        db_session.add(
-            CompanyModule(company_id=company_id, module_id=module.id, enabled=True)
-        )
-        for role, perms in BASE_PERMS.items():
-            db_session.add(
-                ModulePermission(module_id=module.id, role=role, **perms)
+        module = (
+            await db_session.execute(
+                select(AppModule).where(AppModule.code == code)
             )
+        ).scalar_one_or_none()
+        if module is None:
+            module = AppModule(code=code, name=code, category="test", is_active=True)
+            db_session.add(module)
+            await db_session.flush()
+
+        cm = (
+            await db_session.execute(
+                select(CompanyModule).where(
+                    CompanyModule.company_id == company_id,
+                    CompanyModule.module_id == module.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if cm is None:
+            db_session.add(
+                CompanyModule(company_id=company_id, module_id=module.id, enabled=True)
+            )
+
+        for role, perms in BASE_PERMS.items():
+            perm = (
+                await db_session.execute(
+                    select(ModulePermission).where(
+                        ModulePermission.module_id == module.id,
+                        ModulePermission.role == role,
+                    )
+                )
+            ).scalar_one_or_none()
+            if perm is None:
+                perm = ModulePermission(module_id=module.id, role=role, **perms)
+                db_session.add(perm)
+            else:
+                for field, value in perms.items():
+                    setattr(perm, field, value)
+
         # Overrides mirroring seed_modules.py
         if code in FINANCIAL_MODULES:
-            perm = await db_session.execute(
-                select(ModulePermission).where(
-                    ModulePermission.module_id == module.id,
-                    ModulePermission.role == User.Role.ACCOUNTANT,
+            acc_perm = (
+                await db_session.execute(
+                    select(ModulePermission).where(
+                        ModulePermission.module_id == module.id,
+                        ModulePermission.role == User.Role.ACCOUNTANT,
+                    )
                 )
-            )
-            p = perm.scalar_one()
-            p.can_create = True
-            p.can_edit = True
-            mgr = await db_session.execute(
-                select(ModulePermission).where(
-                    ModulePermission.module_id == module.id,
-                    ModulePermission.role == User.Role.MANAGER,
+            ).scalar_one()
+            acc_perm.can_create = True
+            acc_perm.can_edit = True
+            mgr_perm = (
+                await db_session.execute(
+                    select(ModulePermission).where(
+                        ModulePermission.module_id == module.id,
+                        ModulePermission.role == User.Role.MANAGER,
+                    )
                 )
-            )
-            mp = mgr.scalar_one()
-            mp.can_create = False
-            mp.can_edit = False
-            mp.can_delete = False
-            mp.can_approve = False
+            ).scalar_one()
+            mgr_perm.can_create = False
+            mgr_perm.can_edit = False
+            mgr_perm.can_delete = False
+            mgr_perm.can_approve = False
         if code in OPERATIONAL_MODULES:
-            perm = await db_session.execute(
-                select(ModulePermission).where(
-                    ModulePermission.module_id == module.id,
-                    ModulePermission.role == User.Role.MANAGER,
+            mgr_perm = (
+                await db_session.execute(
+                    select(ModulePermission).where(
+                        ModulePermission.module_id == module.id,
+                        ModulePermission.role == User.Role.MANAGER,
+                    )
                 )
-            )
-            p = perm.scalar_one()
-            p.can_approve = True
+            ).scalar_one()
+            mgr_perm.can_approve = True
     await db_session.commit()
 
 

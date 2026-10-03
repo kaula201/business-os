@@ -27,7 +27,7 @@ async def _create_quotation(client, auth_headers, discount=0, total_price=1000, 
 
 async def _make_client(client, auth_headers):
     r = await client.post("/api/v1/clients/", json={
-        "client_type": "legal", "name": "შეთავაზების კლიენტი", "identification_code": f"QT-{__import__('uuid').uuid4().hex[:6]}",
+        "client_type": "legal", "name": "შეთავაზების კლიენტი", "identification_code": "123456789",
     }, headers=auth_headers)
     return r.json()["data"]["id"]
 

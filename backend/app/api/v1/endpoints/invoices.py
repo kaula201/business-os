@@ -1,11 +1,12 @@
 """Tenant-scoped immutable customer invoice endpoints."""
 
 import io
+import logging
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,8 +15,9 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.endpoints.purchase_orders import add_audit, allocate_document_number
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.modules import is_module_enabled
 from app.core.time import utc_now
-from app.models.invoice import Invoice, InvoiceItem, InvoiceInstallment, PaymentAllocation, InvoiceNote
+from app.models.invoice import Invoice, InvoiceItem, InvoiceInstallment, PaymentAllocation, InvoiceNote, InvoicePayment
 from app.models.receivable import CustomerReceivable, CustomerPayment
 from app.models.order import Order
 from app.models.user import User
@@ -25,12 +27,15 @@ from app.schemas.invoice import (
     InvoiceDraftUpdate,
     InvoiceItemResponse,
     InvoiceListResponse,
+    InvoicePaymentCreate,
     InvoiceResponse,
 )
 from app.services.gl_hooks import post_invoice_gl
 from app.services.fiscal import resolve_fiscal_position
 from app.utils.invoice_exports import generate_invoice_docx, generate_invoice_xlsx
 from app.utils.pdf import generate_invoice_pdf
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/invoices", tags=["ინვოისები"])
 
@@ -93,6 +98,8 @@ def invoice_response(invoice: Invoice) -> InvoiceResponse:
         client_identification_code=invoice.client_identification_code,
         client_address=invoice.client_address,
         notes=invoice.notes,
+        paid_amount=float(invoice.paid_amount or 0),
+        payment_status=invoice.payment_status or "unpaid",
         download_url=f"/api/v1/invoices/{invoice.id}/download",
         items=[item_response(item) for item in invoice.items],
         created_at=invoice.created_at,
@@ -317,38 +324,50 @@ async def issue_invoice_snapshot(
         raise HTTPException(status_code=409, detail="Invoice-ს უკვე აქვს ფინანსური ჩანაწერი")
 
     invoice.status = "issued"
-    receivable = CustomerReceivable(
-        company_id=current_user.company_id,
-        invoice_id=invoice.id,
-        client_id=invoice.client_id,
-        invoice_number=invoice.invoice_number,
-        client_name=invoice.client_name,
-        currency=invoice.currency,
-        original_amount=invoice.total,
-        paid_amount=Decimal("0"),
-        credited_amount=Decimal("0"),
-        outstanding_amount=invoice.total,
-        due_date=invoice.due_date,
-        status="overdue" if invoice.due_date < date.today() else "unpaid",
-    )
-    db.add(receivable)
-    await db.flush()
-    await post_invoice_gl(
-        db, current_user.company_id, current_user,
-        invoice_id=invoice.id,
-        invoice_number=invoice.invoice_number,
-        invoice_date=invoice.invoice_date,
-        total=invoice.total,
-        vat_amount=invoice.vat_amount,
-        subtotal=invoice.subtotal,
-        tax_account_code=invoice.tax_account_code or "2200",
-    )
-    add_audit(db, current_user, "customer_receivable.created", "customer_receivable", receivable.id, {
-        "invoice_id": invoice.id,
-        "client_id": invoice.client_id,
-        "original_amount": invoice.total,
-        "due_date": invoice.due_date,
-    })
+
+    if await is_module_enabled(db, current_user.company_id, "customer-finance"):
+        receivable = CustomerReceivable(
+            company_id=current_user.company_id,
+            invoice_id=invoice.id,
+            client_id=invoice.client_id,
+            invoice_number=invoice.invoice_number,
+            client_name=invoice.client_name,
+            currency=invoice.currency,
+            original_amount=invoice.total,
+            paid_amount=Decimal("0"),
+            credited_amount=Decimal("0"),
+            outstanding_amount=invoice.total,
+            due_date=invoice.due_date,
+            status="overdue" if invoice.due_date < date.today() else "unpaid",
+        )
+        db.add(receivable)
+        await db.flush()
+        add_audit(db, current_user, "customer_receivable.created", "customer_receivable", receivable.id, {
+            "invoice_id": invoice.id,
+            "client_id": invoice.client_id,
+            "original_amount": invoice.total,
+            "due_date": invoice.due_date,
+        })
+
+    if await is_module_enabled(db, current_user.company_id, "gl"):
+        try:
+            await post_invoice_gl(
+                db, current_user.company_id, current_user,
+                invoice_id=invoice.id,
+                invoice_number=invoice.invoice_number,
+                invoice_date=invoice.invoice_date,
+                total=invoice.total,
+                vat_amount=invoice.vat_amount,
+                subtotal=invoice.subtotal,
+                tax_account_code=invoice.tax_account_code or "2200",
+            )
+        except ValueError as exc:
+            logger.warning("Invoice GL posting failed: %s", exc)
+            raise HTTPException(
+                status_code=422,
+                detail="ბუღალტრული ანგარიშები ვერ მოიძებნა — შეავსეთ ანგარიშთა გეგმა",
+            ) from exc
+
     add_audit(db, current_user, "customer_invoice.issued", "invoice", invoice.id, {
         "invoice_number": invoice.invoice_number,
         "order_id": invoice.order_id,
@@ -527,6 +546,91 @@ async def issue_invoice(
     except Exception:
         pass  # RS.ge submission is best-effort; invoice stays issued
     return ResponseBase(data=invoice_response(issued), message="Invoice დადასტურებულია")
+
+
+@router.post("/{invoice_id}/payments", response_model=ResponseBase[InvoiceResponse])
+async def record_invoice_payment(
+    invoice_id: UUID,
+    data: InvoicePaymentCreate,
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("invoices", "can_edit")),
+):
+    invoice = (
+        await db.execute(
+            select(Invoice)
+            .where(Invoice.id == invoice_id, Invoice.company_id == current_user.company_id)
+            .options(selectinload(Invoice.items))
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="ინვოისი არ მოიძებნა")
+    if invoice.status != "issued":
+        raise HTTPException(status_code=409, detail="გადახდა მხოლოდ issued ინვოისზე შეიძლება")
+
+    if idempotency_key:
+        idempotency_key = idempotency_key.strip() or None
+
+    if idempotency_key:
+        existing_payment = (
+            await db.execute(
+                select(InvoicePayment).where(
+                    InvoicePayment.company_id == current_user.company_id,
+                    InvoicePayment.invoice_id == invoice.id,
+                    InvoicePayment.idempotency_key == idempotency_key,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing_payment:
+            return ResponseBase(data=invoice_response(await load_invoice(db, invoice_id, current_user.company_id)))
+
+    if await is_module_enabled(db, current_user.company_id, "customer-finance"):
+        # FIN remains the source of truth; choose the simpler correct option:
+        # reject SAL-native payments so receivables stay consistent.
+        raise HTTPException(status_code=409, detail="გადახდა დაარეგისტრირეთ კლიენტის ფინანსებში")
+
+    payment_amount = money(data.amount)
+    if payment_amount <= 0:
+        raise HTTPException(status_code=422, detail="გადახდის თანხა უნდა იყოს დადებითი")
+
+    if data.payment_date > date.today():
+        raise HTTPException(status_code=422, detail="გადახდის თარიღი არ შეიძლება იყოს მომავალში")
+
+    paid = money(invoice.paid_amount or Decimal("0"))
+    outstanding = money(invoice.total - paid)
+    if payment_amount > outstanding:
+        raise HTTPException(status_code=422, detail="გადახდა აღემატება გადაუხდელ თანხას")
+
+    payment = InvoicePayment(
+        company_id=current_user.company_id,
+        invoice_id=invoice.id,
+        amount=payment_amount,
+        currency=invoice.currency,
+        payment_date=data.payment_date,
+        method=data.method,
+        reference=data.reference,
+        idempotency_key=idempotency_key,
+        created_by=current_user.id,
+    )
+    db.add(payment)
+    invoice.paid_amount = paid + payment_amount
+    invoice.payment_status = "paid" if invoice.paid_amount >= invoice.total else "partial"
+
+    add_audit(db, current_user, "customer_invoice.payment_recorded", "invoice", invoice.id, {
+        "invoice_number": invoice.invoice_number,
+        "amount": payment_amount,
+        "payment_date": data.payment_date.isoformat(),
+        "method": data.method,
+        "reference": data.reference,
+    })
+    await db.flush()
+    await db.commit()
+
+    # TODO: GL posting for standalone invoice payments would ideally reuse
+    # post_customer_payment_gl, but it expects CustomerReceivable/CustomerPayment
+    # ids. Skip for now; ACC users should use customer-finance for full GL.
+    return ResponseBase(data=invoice_response(await load_invoice(db, invoice_id, current_user.company_id)))
 
 
 @router.patch("/{invoice_id}/draft", response_model=ResponseBase[InvoiceResponse])

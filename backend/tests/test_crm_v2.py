@@ -16,7 +16,7 @@ pytestmark = pytest.mark.asyncio
 async def _make_client(client, auth_headers):
     r = await client.post("/api/v1/clients/", json={
         "client_type": "legal", "name": "CRM კლიენტი",
-        "identification_code": f"CRM-{uuid.uuid4().hex[:6]}",
+        "identification_code": f"{uuid.uuid4().int % 900000000 + 100000000}",
     }, headers=auth_headers)
     assert r.status_code in (200, 201), r.text
     return r.json()["data"]["id"]

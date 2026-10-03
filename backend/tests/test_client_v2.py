@@ -8,7 +8,7 @@ from app.models.invoice import Invoice
 from app.models.receivable import CustomerReceivable
 
 
-async def _create_client(client, auth_headers, name="შპს ტესტი", code="ID-001", credit_limit=None):
+async def _create_client(client, auth_headers, name="შპს ტესტი", code="200000000", credit_limit=None):
     payload = {
         "client_type": "legal",
         "name": name,
@@ -24,7 +24,7 @@ async def _create_client(client, auth_headers, name="შპს ტესტი",
 
 @pytest.mark.asyncio
 async def test_addresses_crud(client, auth_headers):
-    c = await _create_client(client, auth_headers, code="ADDR-001")
+    c = await _create_client(client, auth_headers, code="200000001")
 
     # create legal + delivery
     r = await client.post(f"/api/v1/clients/{c['id']}/addresses", json={
@@ -52,7 +52,7 @@ async def test_addresses_crud(client, auth_headers):
 
 @pytest.mark.asyncio
 async def test_groups_and_assignment(client, auth_headers):
-    c = await _create_client(client, auth_headers, code="GRP-001")
+    c = await _create_client(client, auth_headers, code="200000002")
 
     r = await client.post("/api/v1/clients/client-groups", json={"name": "VIP", "color": "#FFD700"}, headers=auth_headers)
     assert r.status_code == 200, r.text
@@ -71,8 +71,8 @@ async def test_groups_and_assignment(client, auth_headers):
 
 @pytest.mark.asyncio
 async def test_relations(client, auth_headers):
-    parent = await _create_client(client, auth_headers, name="მშობელი", code="REL-001")
-    branch = await _create_client(client, auth_headers, name="ფილიალი", code="REL-002")
+    parent = await _create_client(client, auth_headers, name="მშობელი", code="200000003")
+    branch = await _create_client(client, auth_headers, name="ფილიალი", code="200000004")
 
     r = await client.post(f"/api/v1/clients/{parent['id']}/relations", json={
         "related_client_id": branch["id"], "relation_type": "branch",
@@ -98,7 +98,7 @@ async def test_relations(client, auth_headers):
 
 @pytest.mark.asyncio
 async def test_statement(client, auth_headers, db_session, test_company):
-    c = await _create_client(client, auth_headers, code="STM-001")
+    c = await _create_client(client, auth_headers, code="200000005")
 
     # create an order + invoice directly in DB (invoice.order_id is NOT NULL)
     order = Order(
@@ -137,8 +137,8 @@ async def test_statement(client, auth_headers, db_session, test_company):
 
 @pytest.mark.asyncio
 async def test_merge_clients(client, auth_headers, db_session, test_company):
-    src = await _create_client(client, auth_headers, name="დუბლიკატი", code="MRG-001")
-    tgt = await _create_client(client, auth_headers, name="ორიგინალი", code="MRG-002")
+    src = await _create_client(client, auth_headers, name="დუბლიკატი", code="200000006")
+    tgt = await _create_client(client, auth_headers, name="ორიგინალი", code="200000007")
 
     # order + invoice on source
     order = Order(
@@ -177,7 +177,7 @@ async def test_merge_clients(client, auth_headers, db_session, test_company):
 
 @pytest.mark.asyncio
 async def test_credit_limit_enforcement(client, auth_headers):
-    c = await _create_client(client, auth_headers, code="CRL-001", credit_limit=1000)
+    c = await _create_client(client, auth_headers, code="200000008", credit_limit=1000)
 
     # order within limit → ok (590 ≤ 1000)
     r = await client.post("/api/v1/orders/", json={
