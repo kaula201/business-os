@@ -9,6 +9,9 @@ import pytest
 from sqlalchemy import func, select, text
 
 from app.models.client import Client
+from tests.conftest import AppSessionLocal
+from app.core.database import current_company_id
+from app.core.tenant_scope import clear_tenant, pin_tenant, system_scope
 
 
 @pytest.mark.asyncio
@@ -35,10 +38,8 @@ async def test_rls_blocks_cross_company_reads_without_orm_filter(
     await db_session.commit()
 
     # Pin the tenant for this transaction, exactly like get_current_user does.
-    await db_session.execute(
-        text("SELECT set_config('app.current_company_id', :cid, true)"),
-        {"cid": str(test_company.id)},
-    )
+    # pin_tenant also clears the fixture session's system scope.
+    await pin_tenant(db_session, test_company.id)
 
     # NO company filter — RLS itself must hide the other company's row.
     total = (
@@ -53,35 +54,89 @@ async def test_rls_blocks_cross_company_reads_without_orm_filter(
 
 
 @pytest.mark.asyncio
-async def test_rls_without_pin_sees_all_rows_for_tooling(
-    db_session, test_company, other_company
-):
+async def test_rls_without_pin_sees_no_rows(db_session, test_company, other_company):
     db_session.add_all([
         Client(
             company_id=test_company.id,
-            name="RLS Tooling A",
+            name="RLS No Pin A",
             client_type="legal",
-            identification_code="RLS-TOOL-A",
+            identification_code="RLS-NOPIN-A",
             status="active",
         ),
         Client(
             company_id=other_company.id,
-            name="RLS Tooling B",
+            name="RLS No Pin B",
             client_type="legal",
-            identification_code="RLS-TOOL-B",
+            identification_code="RLS-NOPIN-B",
             status="active",
         ),
     ])
     await db_session.commit()
 
-    # No pin → migrations/seeds/admin tooling keep full visibility.
-    await db_session.execute(
-        text("SELECT set_config('app.current_company_id', NULL, true)")
-    )
-    total = (
-        await db_session.execute(select(func.count()).select_from(Client))
-    ).scalar_one()
-    assert total == 2
+    # A brand-new app session with nothing pinned (no setting, no ContextVar).
+    current_company_id.set(None)
+    async with AppSessionLocal() as session:
+        total = (
+            await session.execute(select(func.count()).select_from(Client))
+        ).scalar_one()
+        assert total == 0
+
+    async with AppSessionLocal() as session:
+        # Empty-string settings also fail closed.
+        await clear_tenant(session)
+        total = (
+            await session.execute(select(func.count()).select_from(Client))
+        ).scalar_one()
+        assert total == 0
+
+        # SQL NULL settings fail closed too.
+        await session.execute(text("SELECT set_config('app.current_company_id', NULL, true)"))
+        await session.execute(text("SELECT set_config('app.rls_bypass', NULL, true)"))
+        total = (
+            await session.execute(select(func.count()).select_from(Client))
+        ).scalar_one()
+        assert total == 0
+
+    async with AppSessionLocal() as session:
+        await clear_tenant(session)
+        session.add(Client(
+            company_id=test_company.id,
+            name="RLS No Pin Insert",
+            client_type="legal",
+            identification_code="RLS-NOPIN-INSERT",
+            status="active",
+        ))
+        with pytest.raises(Exception):
+            await session.commit()
+        await session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_rls_system_scope_sees_all_rows(db_session, test_company, other_company):
+    db_session.add_all([
+        Client(
+            company_id=test_company.id,
+            name="RLS System A",
+            client_type="legal",
+            identification_code="RLS-SYSTEM-A",
+            status="active",
+        ),
+        Client(
+            company_id=other_company.id,
+            name="RLS System B",
+            client_type="legal",
+            identification_code="RLS-SYSTEM-B",
+            status="active",
+        ),
+    ])
+    await db_session.commit()
+
+    async with AppSessionLocal() as session:
+        async with system_scope(session, "test"):
+            total = (
+                await session.execute(select(func.count()).select_from(Client))
+            ).scalar_one()
+            assert total == 2
 
 
 @pytest.mark.asyncio
@@ -95,15 +150,88 @@ async def test_rls_resets_between_transactions(db_session, test_company, other_c
     ))
     await db_session.commit()
 
-    # Pin in one transaction...
-    await db_session.execute(
-        text("SELECT set_config('app.current_company_id', :cid, true)"),
-        {"cid": str(test_company.id)},
-    )
-    # ...commit ends the local scope...
+    async with AppSessionLocal() as session:
+        # Pin to company A: sees none of B's rows.
+        await pin_tenant(session, test_company.id)
+        total = (
+            await session.execute(select(func.count()).select_from(Client))
+        ).scalar_one()
+        assert total == 0
+
+        # Pin to company B: sees its own row.
+        await pin_tenant(session, other_company.id)
+        total = (
+            await session.execute(select(func.count()).select_from(Client))
+        ).scalar_one()
+        assert total == 1
+
+        # Commit ends the transaction-local scope.
+        await session.commit()
+
+    # Next transaction starts unpinned and sees zero rows.
+    async with AppSessionLocal() as session:
+        await clear_tenant(session)
+        total = (
+            await session.execute(select(func.count()).select_from(Client))
+        ).scalar_one()
+        assert total == 0
+
+
+@pytest.mark.asyncio
+async def test_rls_pin_survives_commit_but_system_scope_does_not(
+    db_session, test_company, other_company
+):
+    """Request sessions re-pin the request's tenant after commit; bypass is never re-applied."""
+    db_session.add_all([
+        Client(company_id=test_company.id, name="RLS Repin A", client_type="legal",
+               identification_code="RLS-REPIN-A", status="active"),
+        Client(company_id=other_company.id, name="RLS Repin B", client_type="legal",
+               identification_code="RLS-REPIN-B", status="active"),
+    ])
     await db_session.commit()
-    # ...next transaction starts unpinned → full visibility restored.
-    total = (
-        await db_session.execute(select(func.count()).select_from(Client))
-    ).scalar_one()
-    assert total == 1
+
+    async with AppSessionLocal() as session:
+        await pin_tenant(session, test_company.id)
+        async with system_scope(session, "test"):
+            assert (await session.execute(select(func.count()).select_from(Client))).scalar_one() == 2
+            await session.commit()
+            # New transaction: re-pinned to A, system scope gone.
+            names = (await session.execute(select(Client.name))).scalars().all()
+            assert names == ["RLS Repin A"]
+    current_company_id.set(None)
+
+
+@pytest.mark.asyncio
+async def test_tenant_rls_sql_drops_other_permissive_policies(
+    db_session, test_company, other_company
+):
+    """Permissive policies are OR-ed; a leftover fail-open policy must not survive reconcile."""
+    from app.core.tenant_scope import tenant_rls_sql
+    from tests.conftest import test_engine
+
+    db_session.add_all([
+        Client(company_id=test_company.id, name="RLS Legacy A", client_type="legal",
+               identification_code="RLS-LEGACY-A", status="active"),
+        Client(company_id=other_company.id, name="RLS Legacy B", client_type="legal",
+               identification_code="RLS-LEGACY-B", status="active"),
+    ])
+    await db_session.commit()
+    current_company_id.set(None)
+
+    async with test_engine.begin() as conn:
+        # Same shape as the pre-#7 tms_* policies from migration 149.
+        await conn.execute(text(
+            "CREATE POLICY legacy_fail_open ON clients "
+            "USING (current_setting('app.current_company_id', true) IS NULL "
+            "OR current_setting('app.current_company_id', true) = '')"
+        ))
+        leaked = (await conn.execute(text("SELECT count(*) FROM clients"))).scalar_one()
+        assert leaked == 2  # proves the leftover policy re-opens the table
+
+        await conn.execute(text(tenant_rls_sql()))
+
+        assert (await conn.execute(text("SELECT count(*) FROM clients"))).scalar_one() == 0
+        policies = (await conn.execute(text(
+            "SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'clients'"
+        ))).scalars().all()
+        assert policies == ["tenant_isolation"]

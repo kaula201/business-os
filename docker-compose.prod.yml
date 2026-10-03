@@ -4,21 +4,24 @@
 #
 # Before the first start:
 #   1. Copy .env.example to .env and set POSTGRES_PASSWORD, APP_DB_PASSWORD,
-#      and BACKUP_DB_PASSWORD.
-#      Compose exits if any of them is missing. Use three different strong passwords.
+#      BACKUP_DB_PASSWORD, and MVREFRESH_DB_PASSWORD.
+#      Compose exits if any of them is missing. Use four different strong passwords.
 #      APP_DB_PASSWORD is embedded in DATABASE_URL.
 #      Generate passwords with: python -c "import secrets; print(secrets.token_urlsafe(32))"
 #      Do not use % or $ (or @ : / # ? or spaces).
 #      The one-shot migrate service connects as the superuser
 #      (MIGRATION_DATABASE_URL, built from POSTGRES_PASSWORD).
-#      It also receives APP_DB_PASSWORD and BACKUP_DB_PASSWORD so it can set
-#      those role passwords. On an existing volume it creates business_os_backup
-#      the next time it runs.
+#      It also receives APP_DB_PASSWORD, BACKUP_DB_PASSWORD, and
+#      MVREFRESH_DB_PASSWORD so it can set those role passwords. On an existing
+#      volume it creates business_os_backup and business_os_mvrefresh the next
+#      time it runs.
 #      The backend service never receives POSTGRES_PASSWORD, BACKUP_DB_PASSWORD,
-#      or the superuser URL. It only gets APP_DB_PASSWORD and DATABASE_URL
+#      MVREFRESH_DB_PASSWORD, or the superuser URL. It only gets APP_DB_PASSWORD and DATABASE_URL
 #      for business_os_app.
 #      The backup service connects as business_os_backup. It receives
 #      BACKUP_DB_PASSWORD only — not POSTGRES_PASSWORD or APP_DB_PASSWORD.
+#      The mvrefresh service connects as business_os_mvrefresh (owner of the
+#      mv_* materialized views) and receives MVREFRESH_DB_PASSWORD only.
 #   2. Copy backend/.env.example to backend/.env
 #   3. Set JWT_SECRET_KEY (32+ random chars; the API refuses known placeholders)
 #   4. Set CORS_ORIGINS to the public origin, e.g. https://app.example.com
@@ -71,6 +74,7 @@ services:
       APP_ENV: production
       APP_DB_PASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
       BACKUP_DB_PASSWORD: "${BACKUP_DB_PASSWORD:?set BACKUP_DB_PASSWORD}"
+      MVREFRESH_DB_PASSWORD: "${MVREFRESH_DB_PASSWORD:?set MVREFRESH_DB_PASSWORD}"
       # Restore exports MIGRATION_DATABASE_URL, DATABASE_URL, and
       # EXPECTED_DATABASE for the target database. Without the override,
       # `docker compose run migrate` would reconcile business_os.
@@ -134,15 +138,15 @@ services:
         condition: service_healthy
 
   mvrefresh:
-    # Materialized-view refresh stays on business_os_app (the view owner).
+    # Materialized-view refresh runs as business_os_mvrefresh (the view owner).
     # It is not part of the backup container: that container must not receive
-    # the application password, and business_os_backup cannot REFRESH.
+    # the refresh password, and business_os_backup cannot REFRESH.
     image: postgres:16-alpine
     container_name: business_os_mvrefresh
     restart: unless-stopped
     entrypoint: ["/scripts/mvrefresh-cron-entrypoint.sh"]
     environment:
-      PGPASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
+      PGPASSWORD: "${MVREFRESH_DB_PASSWORD:?set MVREFRESH_DB_PASSWORD}"
     volumes:
       - ./scripts/refresh_mvs.sh:/scripts/refresh_mvs.sh:ro
       - ./scripts/mvrefresh-cron-entrypoint.sh:/scripts/mvrefresh-cron-entrypoint.sh:ro

@@ -1,11 +1,13 @@
 # backend/app/core/dependencies.py
 import hashlib
 from datetime import datetime
+from uuid import UUID
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from app.core.database import get_db, current_company_id
 from app.core.security import decode_token
+from app.core.tenant_scope import pin_tenant, system_scope
 from app.models.user import User
 from app.models.security import LoginHistory
 from app.models.module import AppModule, ModulePermission
@@ -28,6 +30,18 @@ async def get_current_user(
     jti = payload.get("jti")
     if not jti:
         raise HTTPException(status_code=401, detail="არასწორი ან ვადაგასული token")
+
+    company_id_raw = payload.get("company_id")
+    if not company_id_raw:
+        raise HTTPException(status_code=401, detail="არასწორი ან ვადაგასული token")
+    try:
+        claim_company_id = UUID(str(company_id_raw))
+    except ValueError:
+        raise HTTPException(status_code=401, detail="არასწორი ან ვადაგასული token")
+
+    # Pin BEFORE any tenant-scoped DB read (fail-closed)
+    await pin_tenant(db, claim_company_id)
+
     revoked = (await db.execute(
         select(LoginHistory.id).where(
             LoginHistory.session_key == jti,
@@ -45,15 +59,8 @@ async def get_current_user(
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="მომხმარებელი არ მოიძებნა ან დეაქტივირებულია")
 
-    # Row-Level Security: pin the tenant for this request's DB transaction.
-    # set_config(..., is_local=true) is the parameterized equivalent of
-    # SET LOCAL: it resets at transaction end, so pooled connections can
-    # never leak another company's scope.
-    await db.execute(
-        text("SELECT set_config('app.current_company_id', :cid, true)"),
-        {"cid": str(user.company_id)},
-    )
-    current_company_id.set(user.company_id)
+    if str(user.company_id) != str(claim_company_id):
+        raise HTTPException(status_code=401, detail="არასწორი ან ვადაგასული token")
 
     return user
 
@@ -86,7 +93,10 @@ async def get_current_user_or_api_key(
     api_key = request.headers.get("X-API-Key")
     if api_key:
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-        key = (await db.execute(select(ApiKey).where(ApiKey.key_hash == key_hash))).scalar_one_or_none()
+        # System scope only for the cross-tenant key-hash lookup. All later
+        # reads/updates happen under the key's company pin.
+        async with system_scope(db, "api key auth"):
+            key = (await db.execute(select(ApiKey).where(ApiKey.key_hash == key_hash))).scalar_one_or_none()
         if not key or not key.is_active:
             raise HTTPException(status_code=401, detail="არასწორი ან გაუქმებული API გასაღები")
         if key.expires_at and key.expires_at < datetime.utcnow():
@@ -109,16 +119,15 @@ async def get_current_user_or_api_key(
         else:
             key.rate_window_start = now
             key.rate_window_count = 1
+        await pin_tenant(db, key.company_id)
         user = (await db.execute(select(User).where(User.id == key.user_id))).scalar_one_or_none()
         if not user or not user.is_active:
             raise HTTPException(status_code=401, detail="მომხმარებელი არ მოიძებნა ან დეაქტივირებულია")
+        # Ensure API key belongs to the same company as the user
+        if getattr(key, "company_id", None) is not None and key.company_id != user.company_id:
+            raise HTTPException(status_code=401, detail="არასწორი ან გაუქმებული API გასაღები")
         key.last_used_at = now
         await db.flush()
-        await db.execute(
-            text("SELECT set_config('app.current_company_id', :cid, true)"),
-            {"cid": str(user.company_id)},
-        )
-        current_company_id.set(user.company_id)
         # Expose the key's scopes for require_module enforcement (Odoo access rights)
         request.state.api_key_scopes = [s.strip() for s in key.scopes.split(",") if s.strip()]
         request.state.api_key_branch_id = key.branch_id

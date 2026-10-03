@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.core.database import init_db
 from app.core.db_roles import (
     MANAGED_ROLES,
+    MVREFRESH_ROLE,
     attribute_statement,
     create_role_if_missing,
     grant_statements,
@@ -25,6 +26,7 @@ from app.core.db_roles import (
     revoke_excess_statements,
     revoke_public_schema_create_statements,
 )
+from app.core.tenant_scope import tenant_rls_sql
 from app.core.secret_redaction import hides_password, install_log_redaction, public_migration_error
 
 BASELINE_REVISION = "001_initial"
@@ -166,6 +168,11 @@ async def _ensure_managed_roles(bind, *, roles_only: bool = False) -> None:
         if roles_only:
             return
         database = sync_conn.engine.url.database
+        # Move matview ownership before revoke_excess/grant loops. ALTER OWNER
+        # transfers the old owner's ACL entries, so the app's SELECT-only
+        # re-grant must run after ownership has moved.
+        for statement in matview_owner_statements(MVREFRESH_ROLE.name):
+            sync_conn.execute(text(statement))
         for spec in MANAGED_ROLES:
             for statement in revoke_excess_statements(spec, database):
                 sync_conn.execute(text(statement))
@@ -175,8 +182,6 @@ async def _ensure_managed_roles(bind, *, roles_only: bool = False) -> None:
         # and a previous ALL on the schema would otherwise leave CREATE.
         for statement in revoke_public_schema_create_statements(database, MANAGED_ROLES):
             sync_conn.execute(text(statement))
-        for statement in matview_owner_statements():
-            sync_conn.execute(text(statement))
         for statement in matview_event_statements(MANAGED_ROLES):
             sync_conn.execute(text(statement))
 
@@ -184,45 +189,10 @@ async def _ensure_managed_roles(bind, *, roles_only: bool = False) -> None:
         await connection.run_sync(_apply)
 
 
-# Same predicate as migration 064. Unpinned sessions (login, before
-# set_config) still see rows. A pinned company sees only its own rows.
-_TENANT_RLS = """
-DO $$
-DECLARE
-    t text;
-BEGIN
-    FOR t IN
-        SELECT c.relname
-        FROM pg_class c
-        JOIN pg_namespace n ON n.oid = c.relnamespace
-        JOIN pg_attribute a ON a.attrelid = c.oid
-        WHERE n.nspname = 'public'
-          AND c.relkind = 'r'
-          AND a.attname = 'company_id'
-          AND NOT a.attisdropped
-        ORDER BY c.relname
-    LOOP
-        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
-        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
-        EXECUTE format('DROP POLICY IF EXISTS tenant_isolation ON %I', t);
-        EXECUTE format(
-            'CREATE POLICY tenant_isolation ON %I '
-            'USING ('
-            '  current_setting(''app.current_company_id'', true) IS NULL '
-            '  OR current_setting(''app.current_company_id'', true) = '''' '
-            '  OR company_id::text = current_setting(''app.current_company_id'', true)'
-            ') '
-            'WITH CHECK ('
-            '  current_setting(''app.current_company_id'', true) IS NULL '
-            '  OR current_setting(''app.current_company_id'', true) = '''' '
-            '  OR company_id::text = current_setting(''app.current_company_id'', true)'
-            ')',
-            t
-        );
-    END LOOP;
-END
-$$;
-"""
+# Fail-closed tenant policy: unpinned sessions see 0 rows and cannot insert.
+# app.rls_bypass='on' is an explicit transaction-local system scope used only
+# by code that legitimately needs cross-tenant access.
+_TENANT_RLS = tenant_rls_sql()
 
 
 async def _ensure_tenant_rls(bind) -> None:

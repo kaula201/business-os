@@ -1,4 +1,5 @@
 # backend/app/api/v1/endpoints/auth.py
+import logging
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional
@@ -17,6 +18,7 @@ from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse,
 from app.schemas.common import ResponseBase, MessageResponse
 from app.core.config import settings
 from app.core.dependencies import get_current_user
+from app.core.tenant_scope import pin_tenant, system_scope
 from app.core.limiter import limiter
 from app.core.totp import generate_totp_secret, verify_totp
 from jose import jwt
@@ -67,10 +69,11 @@ async def register(request: Request, data: UserCreate, db: AsyncSession = Depend
             status_code=403,
             detail="ღია რეგისტრაცია გამორთულია. მომხმარებელი უნდა დაემატოს მოწვევით.",
         )
-    # შემოწმება: email უნიკალურია
-    result = await db.execute(select(User).where(User.email == data.email))
-    if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="ელფოსტა უკვე რეგისტრირებულია")
+    # შემოწმება: email უნიკალურია (cross-tenant lookup)
+    async with system_scope(db, "register email check"):
+        result = await db.execute(select(User).where(User.email == data.email))
+        if result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="ელფოსტა უკვე რეგისტრირებულია")
 
     # კომპანიის შექმნა
     company = Company(
@@ -81,6 +84,9 @@ async def register(request: Request, data: UserCreate, db: AsyncSession = Depend
     )
     db.add(company)
     await db.flush()
+
+    # Pin tenant to the newly created company BEFORE adding the user
+    await pin_tenant(db, company.id)
 
     # მომხმარებლის შექმნა (ადმინისტრატორი)
     user = User(
@@ -113,8 +119,9 @@ async def register(request: Request, data: UserCreate, db: AsyncSession = Depend
 
 @router.post("/login", response_model=ResponseBase[TokenResponse])
 async def login(data: UserLogin, request: Request, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == data.email))
-    user = result.scalar_one_or_none()
+    async with system_scope(db, "login user lookup"):
+        result = await db.execute(select(User).where(User.email == data.email))
+        user = result.scalar_one_or_none()
 
     # Security P1.7: real client IP through proxy chain + device parsing
     from app.services.ua_parser import parse_user_agent
@@ -140,20 +147,30 @@ async def login(data: UserLogin, request: Request, db: AsyncSession = Depends(ge
 
     if not user or not verify_password(data.password, user.hashed_password):
         # Record FAILED login (even for unknown emails — track the attempt)
-        db.add(LoginHistory(
-            user_id=user.id if user else None,
-            company_id=user.company_id if user else None,
-            ip_address=client_ip,
-            user_agent=(user_agent or "")[:255],
-            success=False,
-            device_name=device["device_name"],
-            os_name=device["os_name"],
-            device_type=device["device_type"],
-            city=city,
-            country=country,
-        ))
-        await db.commit()
+        if user:
+            await pin_tenant(db, user.company_id)
+            db.add(LoginHistory(
+                user_id=user.id,
+                company_id=user.company_id,
+                ip_address=client_ip,
+                user_agent=(user_agent or "")[:255],
+                success=False,
+                device_name=device["device_name"],
+                os_name=device["os_name"],
+                device_type=device["device_type"],
+                city=city,
+                country=country,
+            ))
+            await db.commit()
+        else:
+            # Unknown email: no company to pin. Do not write a LoginHistory row
+            # under system scope; log the attempt on the audit logger instead.
+            logging.getLogger("app.audit.auth").warning(
+                "failed login unknown email from ip=%s", client_ip
+            )
         raise HTTPException(status_code=401, detail="არასწორი ელფოსტა ან პაროლი")
+
+    await pin_tenant(db, user.company_id)
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="ანგარიში დეაქტივირებულია")
@@ -223,10 +240,13 @@ async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)):
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="არასწორი refresh token")
 
-    result = await db.execute(select(User).where(User.id == payload["sub"]))
-    user = result.scalar_one_or_none()
+    async with system_scope(db, "refresh user lookup"):
+        result = await db.execute(select(User).where(User.id == payload["sub"]))
+        user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=401, detail="მომხმარებელი არ მოიძებნა")
+
+    await pin_tenant(db, user.company_id)
 
     token_data = {"sub": str(user.id), "company_id": str(user.company_id), "role": user.role}
     new_access_token = create_access_token(token_data)
@@ -248,11 +268,14 @@ async def forgot_password(
     db: AsyncSession = Depends(get_db),
 ):
     """Generate a password-reset token. In production this would be emailed."""
-    result = await db.execute(select(User).where(User.email == data.email))
-    user = result.scalar_one_or_none()
+    async with system_scope(db, "forgot-password user lookup"):
+        result = await db.execute(select(User).where(User.email == data.email))
+        user = result.scalar_one_or_none()
     if not user:
         # Don't reveal whether the email exists
         return ResponseBase(data=MessageResponse(message="თუ ელფოსტა რეგისტრირებულია, პაროლის აღდგენის ინსტრუქცია გამოგეგზავნებათ"))
+
+    await pin_tenant(db, user.company_id)
 
     token_data = {"sub": str(user.id), "type": "password_reset"}
     reset_token = create_access_token(token_data, expires_delta=timedelta(hours=1))
@@ -274,10 +297,13 @@ async def reset_password(
     if not payload or payload.get("type") != "password_reset":
         raise HTTPException(status_code=400, detail="არასწორი ან ვადაგასული token")
 
-    result = await db.execute(select(User).where(User.id == payload["sub"]))
-    user = result.scalar_one_or_none()
+    async with system_scope(db, "reset-password user lookup"):
+        result = await db.execute(select(User).where(User.id == payload["sub"]))
+        user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="მომხმარებელი არ მოიძებნა")
+
+    await pin_tenant(db, user.company_id)
 
     if len(data.new_password) < 8:
         raise HTTPException(status_code=400, detail="პაროლი უნდა შეიცავდეს მინიმუმ 8 სიმბოლოს")
@@ -301,12 +327,15 @@ async def verify_email(
     if not payload or payload.get("type") != "email_verify":
         raise HTTPException(status_code=400, detail="არასწორი ან ვადაგასული verification token")
 
-    result = await db.execute(
-        select(User).where(User.email_verification_token == token)
-    )
-    user = result.scalar_one_or_none()
+    async with system_scope(db, "verify-email user lookup"):
+        result = await db.execute(
+            select(User).where(User.email_verification_token == token)
+        )
+        user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="მომხმარებელი არ მოიძებნა")
+
+    await pin_tenant(db, user.company_id)
 
     if user.email_verified:
         return ResponseBase(data=MessageResponse(message="ელფოსტა უკვე დადასტურებულია"))
@@ -324,10 +353,13 @@ async def resend_verification(
     db: AsyncSession = Depends(get_db),
 ):
     """Resend email verification token."""
-    result = await db.execute(select(User).where(User.email == data.email))
-    user = result.scalar_one_or_none()
+    async with system_scope(db, "resend-verification user lookup"):
+        result = await db.execute(select(User).where(User.email == data.email))
+        user = result.scalar_one_or_none()
     if not user:
         return ResponseBase(data=MessageResponse(message="თუ ელფოსტა რეგისტრირებულია, verification ბმული გამოგეგზავნებათ"))
+
+    await pin_tenant(db, user.company_id)
 
     if user.email_verified:
         return ResponseBase(data=MessageResponse(message="ელფოსტა უკვე დადასტურებულია"))

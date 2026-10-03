@@ -11,6 +11,7 @@ from app.api.v1.endpoints.purchase_orders import add_audit
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.tenant_scope import pin_tenant, system_scope
 from app.core.time import utc_now
 from app.models.email_calendar import EmailMessage
 from app.models.email_marketing import EmailCampaign
@@ -253,11 +254,13 @@ async def sign_request(
 ):
     """Sign or decline a request by token + signer email (the signer acts).
     The signing token IS the authorization — no login required."""
-    req = (await db.execute(select(SignatureRequest).where(
-        SignatureRequest.signing_token == data.token,
-    ).with_for_update())).scalar_one_or_none()
+    async with system_scope(db, "signature token lookup"):
+        req = (await db.execute(select(SignatureRequest).where(
+            SignatureRequest.signing_token == data.token,
+        ).with_for_update())).scalar_one_or_none()
     if not req:
         raise HTTPException(status_code=404, detail="მოთხოვნა ვერ მოიძებნა")
+    await pin_tenant(db, req.company_id)
     if req.signer_email.lower() != data.signer_email.lower():
         raise HTTPException(status_code=403, detail="ხელმოწერის უფლება მხოლოდ მითითებულ ხელმომწერს აქვს")
     if req.status != "pending":

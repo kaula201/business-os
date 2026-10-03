@@ -18,6 +18,7 @@ from sqlalchemy import select, text
 
 from app.core.config import settings
 from app.core.database import async_session_factory
+from app.core.tenant_scope import pin_tenant
 from app.models.company import Company
 from app.models.deferred import DeferredRecognition
 from app.models.user import User
@@ -130,6 +131,7 @@ async def run_deferred_job(db, company_id, on_date, admin_user) -> dict:
 
 async def run_financial_automation_for_company(db, company_id) -> dict:
     """Run the full monthly close for one company in the provided session."""
+    await pin_tenant(db, company_id)
     admin_user = (await db.execute(
         select(User).where(User.company_id == company_id, User.role == User.Role.ADMIN)
     )).scalars().first()

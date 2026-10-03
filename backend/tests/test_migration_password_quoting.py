@@ -63,7 +63,7 @@ def test_managed_roles_are_the_app_role_and_the_backup_role():
         matview_event_statements,
     )
 
-    assert [role.name for role in MANAGED_ROLES] == ["business_os_app", "business_os_backup"]
+    assert [role.name for role in MANAGED_ROLES] == ["business_os_app", "business_os_backup", "business_os_mvrefresh"]
     assert BACKUP_ROLE.password_env == "BACKUP_DB_PASSWORD"
     assert BACKUP_ROLE.dev_password == "business_os_backup"
     assert BACKUP_ROLE.attributes == ("BYPASSRLS", "NOSUPERUSER", "NOCREATEDB", "NOCREATEROLE")
@@ -76,17 +76,19 @@ def test_managed_roles_are_the_app_role_and_the_backup_role():
     assert BACKUP_ROLE.revoke_excess is True
     assert APP_ROLE.revoke_excess is False
     assert APP_ROLE.schema_privileges == "USAGE"
+    assert APP_ROLE.grant_matview_select is False
     assert "NOBYPASSRLS" in APP_ROLE.attributes
 
     app_sql = "\n".join(grant_statements(APP_ROLE, "business_os"))
     assert "GRANT USAGE ON SCHEMA public TO business_os_app" in app_sql
     assert "GRANT ALL ON SCHEMA public TO business_os_app" not in app_sql
-    assert "GRANT CONNECT, TEMPORARY ON DATABASE business_os TO business_os_app" in app_sql
-    assert APP_ROLE.database_privileges == ("CONNECT", "TEMPORARY")
+    assert "GRANT CONNECT ON DATABASE business_os TO business_os_app" in app_sql
+    assert APP_ROLE.database_privileges == ("CONNECT",)
     assert BACKUP_ROLE.database_privileges == ("CONNECT",)
     assert "GRANT ALL ON ALL TABLES IN SCHEMA public TO business_os_app" in app_sql
     assert "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO business_os_app" in app_sql
     assert "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public GRANT ALL ON TABLES TO business_os_app" in app_sql
+    assert "REVOKE ALL PRIVILEGES ON TABLE %I FROM business_os_app" in app_sql
 
     backup_sql = "\n".join(grant_statements(BACKUP_ROLE, "business_os"))
     assert "GRANT CONNECT ON DATABASE business_os TO business_os_backup" in backup_sql
@@ -108,8 +110,9 @@ def test_managed_roles_are_the_app_role_and_the_backup_role():
         assert f"GRANT {forbidden}" not in backup_sql
 
     events = "\n".join(matview_event_statements(MANAGED_ROLES))
-    assert "GRANT SELECT ON TABLE %s TO business_os_app" in events
+    assert "GRANT SELECT ON TABLE %s TO business_os_app" not in events
     assert "GRANT SELECT ON TABLE %s TO business_os_backup" in events
+    assert "REVOKE ALL ON TABLE %s FROM business_os_app" in events
 
     migration_063 = Path(__file__).resolve().parents[1] / "migrations" / "versions" / "063_rls_app_role.py"
     source = migration_063.read_text()
@@ -189,7 +192,10 @@ def test_reconcile_resets_attributes_revokes_backup_excess_and_owns_matviews():
     revoked = "\n".join(revoke_excess_statements(BACKUP_ROLE, "business_os_restore"))
     assert "REVOKE ALL PRIVILEGES ON DATABASE business_os_restore FROM business_os_backup" in revoked
     assert "REVOKE ALL PRIVILEGES ON SCHEMA public FROM business_os_backup" in revoked
-    assert "REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM business_os_backup" in revoked
+    # Per-relation revoke that skips relations the role owns (#7: the refresh
+    # role must keep its owner rights on the matviews for REFRESH CONCURRENTLY).
+    assert "c.relowner <> (SELECT oid FROM pg_roles WHERE rolname = 'business_os_backup')" in revoked
+    assert "REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM business_os_backup" not in revoked
     assert "REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM business_os_backup" in revoked
     assert "REVOKE ALL PRIVILEGES ON TABLE %I FROM business_os_backup" in revoked
     assert "REVOKE business_os FROM business_os_backup" in revoked
@@ -209,7 +215,7 @@ def test_reconcile_resets_attributes_revokes_backup_excess_and_owns_matviews():
     owners = "\n".join(matview_owner_statements())
     assert MATERIALIZED_VIEWS == ("mv_sales_daily", "mv_receivables_aging", "mv_stock_balances")
     for view in MATERIALIZED_VIEWS:
-        assert f"ALTER MATERIALIZED VIEW public.{view} OWNER TO business_os_app" in owners
+        assert f"ALTER MATERIALIZED VIEW public.{view} OWNER TO business_os_mvrefresh" in owners
 
 
 def test_reconcile_revokes_public_schema_create_from_public_and_managed_roles():
@@ -363,7 +369,18 @@ def test_prod_compose_scopes_backup_password_and_script_locks_dumps():
     entry = (root / "scripts" / "mvrefresh-cron-entrypoint.sh").read_text()
     for view in ("mv_sales_daily", "mv_receivables_aging", "mv_stock_balances"):
         assert f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view}" in refresh
-    assert "-U business_os_app" in refresh
+    assert '-U "${PGUSER:-business_os_mvrefresh}"' in refresh
+    assert "business_os_app" not in "\n".join(
+        line for line in refresh.splitlines() if not line.strip().startswith("#")
+    )
+    # #7: the refresh password lives only in migrate and mvrefresh.
+    mvrefresh = _service_block(compose, "mvrefresh")
+    assert 'PGPASSWORD: "${MVREFRESH_DB_PASSWORD:?' in mvrefresh
+    assert "APP_DB_PASSWORD" not in mvrefresh
+    assert "MVREFRESH_DB_PASSWORD" in migrate
+    assert "MVREFRESH_DB_PASSWORD" not in backend
+    for name in ("backup", "postgres", "frontend", "nginx"):
+        assert "MVREFRESH_DB_PASSWORD" not in _service_block(compose, name)
     assert "refresh_mvs.sh" in entry
 
 

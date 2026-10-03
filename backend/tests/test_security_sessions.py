@@ -11,14 +11,42 @@ from tests.conftest import TestSessionLocal
 pytestmark = pytest.mark.asyncio
 
 
-async def test_failed_login_recorded(client, test_company):
+async def test_failed_login_unknown_email_not_recorded(client, test_company, caplog):
     r = await client.post("/api/v1/auth/login", json={"email": "no-such-user@demo.ge", "password": "wrong"})
     assert r.status_code == 401
     async with TestSessionLocal() as session:
-        rows = (await session.execute(select(LoginHistory).where(LoginHistory.success.is_(False)))).scalars().all()
+        rows = (await session.execute(
+            select(LoginHistory).where(
+                LoginHistory.success.is_(False),
+                LoginHistory.user_id.is_(None),
+            )
+        )).scalars().all()
+        assert len(rows) == 0
+
+    # The attempt is logged on app.audit.auth instead.
+    assert any(
+        record.levelname == "WARNING"
+        and record.name == "app.audit.auth"
+        and "failed login unknown email" in record.getMessage()
+        for record in caplog.records
+    )
+
+
+async def test_failed_login_known_user_recorded(client, test_admin):
+    r = await client.post("/api/v1/auth/login", json={"email": test_admin.email, "password": "wrong-password"})
+    assert r.status_code == 401
+    async with TestSessionLocal() as session:
+        rows = (await session.execute(
+            select(LoginHistory).where(
+                LoginHistory.user_id == test_admin.id,
+                LoginHistory.success.is_(False),
+            )
+        )).scalars().all()
         assert len(rows) >= 1
-        # device parsing should be populated (curl/bot UA)
-        assert rows[0].device_name is not None
+        h = rows[0]
+        assert h.user_id == test_admin.id
+        assert h.company_id == test_admin.company_id
+        assert h.device_name is not None
 
 
 async def test_login_records_device_and_session(client, auth_headers):

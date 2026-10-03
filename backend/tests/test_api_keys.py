@@ -1,4 +1,5 @@
 """API keys — Odoo JSON-2 API style: create, X-API-Key auth, rotation, revocation, bot users."""
+import hashlib
 import pytest
 from sqlalchemy import select
 
@@ -65,6 +66,38 @@ async def test_api_key_scope_enforcement(client, auth_headers, test_company, db_
     raw_wild = resp.json()["data"]["key"]
     resp = await client.get("/api/v1/helpdesk/", headers={"X-API-Key": raw_wild})
     assert resp.status_code == 200, resp.text
+
+
+async def test_public_status_api_key_auth(client, test_company, test_admin):
+    raw_key = "bos_public_status_key"
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+
+    async with TestSessionLocal() as session:
+        session.add(ApiKey(
+            company_id=test_company.id,
+            user_id=test_admin.id,
+            name="Public Status Key",
+            key_prefix=raw_key[:12],
+            key_hash=key_hash,
+            scopes="read",
+            is_active=True,
+        ))
+        await session.commit()
+
+    resp = await client.get(
+        "/api/v1/integrations/public/status",
+        headers={"X-API-Key": raw_key},
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert data["company_id"] == str(test_company.id)
+    assert data["status"] == "ok"
+
+    resp = await client.get(
+        "/api/v1/integrations/public/status",
+        headers={"X-API-Key": "unknown-key"},
+    )
+    assert resp.status_code == 401, resp.text
 
 
 async def test_bot_user(client, auth_headers, test_company, db_session):

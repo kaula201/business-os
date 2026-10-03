@@ -11,10 +11,12 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
-from sqlalchemy import text
+from sqlalchemy import event, text
+from sqlalchemy.orm import Session
 
-from app.core.database import Base, get_db
+from app.core.database import Base, TenantSession, current_company_id, get_db, install_guc_reset
 from app.core.security import hash_password
+from app.core.tenant_scope import TENANT_POLICY_PREDICATE, TENANT_POLICY_PREDICATE_TEXT
 from app.main import app
 from app.models.company import Company
 from app.models.user import User
@@ -36,15 +38,37 @@ test_engine = create_async_engine(
     echo=False,
     poolclass=NullPool,
 )
+install_guc_reset(test_engine)
+class _FixtureSession(TenantSession):
+    """Synchronous session class for fixtures/tooling only."""
+
+
+# Order matters: this fixture listener must run after TenantSession._repin_tenant.
+@event.listens_for(_FixtureSession, "after_begin")
+def _set_system_scope(session, transaction, connection):
+    """Fixtures and direct TestSessionLocal users run in system scope."""
+    connection.execute(text("SELECT set_config('app.rls_bypass', 'on', true)"))
+
+
 TestSessionLocal = async_sessionmaker(
     test_engine,
     class_=AsyncSession,
     expire_on_commit=False,
+    sync_session_class=_FixtureSession,
+)
+
+# API requests in tests exercise the real fail-closed behaviour. No bypass
+# listener is attached to this session factory.
+AppSessionLocal = async_sessionmaker(
+    test_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    sync_session_class=TenantSession,
 )
 
 
 async def override_get_db():
-    async with TestSessionLocal() as session:
+    async with AppSessionLocal() as session:
         try:
             yield session
             await session.commit()
@@ -72,35 +96,34 @@ async def setup_db():
         # Mirror migration 062: enable Row-Level Security on every table that
         # carries company_id, so tests exercise the same tenant isolation the
         # production database has.
-        await conn.execute(text(
-            """
+        predicate_uuid_sql = TENANT_POLICY_PREDICATE.replace("'", "''")
+        predicate_text_sql = TENANT_POLICY_PREDICATE_TEXT.replace("'", "''")
+        await conn.execute(text(f"""
             DO $$
             DECLARE
                 t TEXT;
+                pred TEXT;
             BEGIN
-                FOR t IN
-                    SELECT table_name
+                FOR t, pred IN
+                    SELECT table_name,
+                           CASE WHEN data_type = 'uuid' THEN '{predicate_uuid_sql}'
+                                ELSE '{predicate_text_sql}'
+                           END
                     FROM information_schema.columns
                     WHERE table_schema = 'public'
                       AND column_name = 'company_id'
                     ORDER BY table_name
                 LOOP
                     EXECUTE format(
-                        'CREATE POLICY tenant_isolation ON %I '
-                        'USING ('
-                        '  current_setting(''app.current_company_id'', true) IS NULL '
-                        '  OR current_setting(''app.current_company_id'', true) = '''' '
-                        '  OR company_id::text = current_setting(''app.current_company_id'', true)'
-                        ')',
-                        t
+                        'CREATE POLICY tenant_isolation ON %I USING (%s) WITH CHECK (%s)',
+                        t, pred, pred
                     );
                     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
                     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
                 END LOOP;
             END
             $$;
-            """
-        ))
+        """))
     yield
     async with test_engine.begin() as conn:
         await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))

@@ -410,8 +410,8 @@ export const emailMarketingApi = {
 
 // eCommerce storefront API
 export const ecommerceApi = {
-  categories: () => api.get('/ecommerce/storefront/categories'),
-  products: (params?: Record<string, unknown>) => api.get('/ecommerce/storefront/products', { params }),
+  categories: (slug?: string) => api.get(slug ? `/ecommerce/storefront/${slug}/categories` : '/ecommerce/storefront/categories'),
+  products: (params?: Record<string, unknown>, slug?: string) => api.get(slug ? `/ecommerce/storefront/${slug}/products` : '/ecommerce/storefront/products', { params }),
   adminProducts: (params?: Record<string, unknown>) => api.get('/ecommerce/products', { params }),
   createProduct: (data: Record<string, unknown>) => api.post('/ecommerce/products', data),
   createCategory: (data: Record<string, unknown>) => api.post('/ecommerce/categories', data),

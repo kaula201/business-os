@@ -15,8 +15,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import current_company_id, get_db
 from app.core.dependencies import get_current_user
+from app.core.tenant_scope import clear_tenant, pin_tenant
 from app.models.company import Company
 from app.models.consolidation_elimination import ConsolidationElimination
 from app.models.purchase import PurchaseOrder, Supplier, SupplierInvoice, SupplierPayable
@@ -37,19 +38,17 @@ async def _mirror_invoice_on_counterparty(
 ) -> None:
     """Create the mirrored supplier invoice + payable + GL on the counterparty's books.
 
-    Runs in the SAME session as the caller (so tests and live both see it), with
-    RLS temporarily lifted: the tenant policy allows rows when the session
-    company is empty, and this endpoint is admin/accountant-only. The session
-    company is restored afterwards.
+    Runs in the same session as the caller, pinned to the counterparty company.
+    The caller's original pin is restored in ``finally`` so any subsequent
+    caller-company rows are written under the correct tenant.
     """
     from app.models.user import User as U
     from app.models.warehouse import Warehouse
 
-    # Lift RLS for the mirror block (policy allows empty company), then restore.
-    await db.execute(
-        text("SELECT set_config('app.current_company_id', '', true)")
-    )
+    original_cid = current_company_id.get()
+    await db.flush()
     try:
+        await pin_tenant(db, counterparty.id)
         # counterparty's admin (or any user) as actor
         actor_cp = (await db.execute(
             select(U).where(U.company_id == counterparty.id, U.role == U.Role.ADMIN)
@@ -120,11 +119,13 @@ async def _mirror_invoice_on_counterparty(
             entry_date=inv.invoice_date, reference_id=mirror.id,
             subtotal=inv.subtotal, vat_amount=inv.vat_amount, total=inv.total,
         )
+        await db.flush()
     finally:
-        await db.execute(
-            text("SELECT set_config('app.current_company_id', :cid, true)"),
-            {"cid": str(actor.company_id)},
-        )
+        if original_cid is not None:
+            await pin_tenant(db, original_cid)
+        else:
+            await clear_tenant(db)
+            current_company_id.set(None)
 
 
 @router.post("/auto-detect-purchases", response_model=ResponseBase[dict])

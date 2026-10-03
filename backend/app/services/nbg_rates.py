@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import async_session_factory
+from app.core.tenant_scope import pin_tenant
 from app.core.time import utc_now
 from app.models.company import Company
 from app.models.currency import CurrencyRate, IntegrationSyncLog
@@ -133,6 +134,7 @@ def add_sync_log(
 
 async def _record_failure(company_id: UUID, started_at: datetime, message: str) -> None:
     async with async_session_factory() as db:
+        await pin_tenant(db, company_id)
         db.add(IntegrationSyncLog(
             company_id=company_id,
             integration="nbg",
@@ -167,6 +169,7 @@ async def run_scheduled_nbg_sync() -> dict[str, int]:
                 started_at = utc_now()
                 try:
                     async with async_session_factory() as db:
+                        await pin_tenant(db, company_id)
                         result = await apply_nbg_rates(db, company_id, payload)
                         add_sync_log(db, company_id, result, "scheduled", started_at)
                         await db.commit()

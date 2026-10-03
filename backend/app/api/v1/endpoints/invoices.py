@@ -509,17 +509,7 @@ async def issue_invoice(
         await db.commit()
     except Exception:
         await db.rollback()
-    # Refresh materialized views in a SEPARATE transaction so a failure
-    # (e.g. views missing in test DB) never aborts the invoice transaction.
-    try:
-        for view in ("mv_sales_daily", "mv_receivables_aging", "mv_stock_balances"):
-            try:
-                await db.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view}"))
-            except Exception:
-                pass
-        await db.commit()
-    except Exception:
-        await db.rollback()
+
     # Auto-submit to RS.ge (Georgia) — non-blocking: a failure here never
     # aborts the invoice. Only when RS credentials are configured.
     try:
