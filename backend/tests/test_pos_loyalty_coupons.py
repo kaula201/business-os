@@ -1,5 +1,6 @@
 """POS loyalty tiers and coupons."""
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import select
@@ -12,7 +13,7 @@ pytestmark = pytest.mark.asyncio
 
 async def _make_client(client, auth_headers) -> str:
     resp = await client.post("/api/v1/clients/", json={
-        "name": "Loyal Client", "client_type": "individual", "identification_code": "LOY-001",
+        "name": "Loyal Client", "client_type": "individual", "identification_code": f"{uuid4().int % 90000000000 + 10000000000}",
     }, headers=auth_headers)
     assert resp.status_code in (200, 201), resp.text
     return resp.json()["data"]["id"]

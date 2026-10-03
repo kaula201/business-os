@@ -9,6 +9,7 @@ Extends the E2E coverage with the lifecycle edges:
 """
 from datetime import date, timedelta
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import select
@@ -57,7 +58,7 @@ async def create_e1_sales_context(client, auth_headers, test_company, db_session
         json={
             "name": f"E1 Client {suffix}",
             "client_type": "legal",
-            "identification_code": f"E1-CLIENT-{suffix}",
+            "identification_code": f"{uuid4().int % 900000000 + 100000000}",
             "status": "active",
             "is_vat_payer": False,
         },
@@ -104,7 +105,7 @@ async def create_e1_purchase_context(client, auth_headers, test_company, db_sess
         json={
             "code": f"E1-SUP-{suffix}",
             "name": f"E1 Supplier {suffix}",
-            "identification_code": f"E1-SUP-ID-{suffix}",
+            "identification_code": f"{uuid4().int % 900000000 + 100000000}",
             "is_vat_payer": True,
             "contact_name": "E1 Supplier Contact",
             "phone": "+995500000002",
