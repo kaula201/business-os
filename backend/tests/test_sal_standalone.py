@@ -81,7 +81,7 @@ async def _set_modules(db_session, company_id, enabled_codes):
 async def _create_company(db_session, name="SAL Standalone"):
     company = Company(
         name=name,
-        identification_code="SAL-001",
+        identification_code=f"SAL-{uuid.uuid4().hex[:8]}",
         vat_status=True,
         currency="GEL",
     )
@@ -112,6 +112,27 @@ async def _create_manager_headers(client, db_session, company_id, suffix):
     return {"Authorization": f"Bearer {login.json()['data']['access_token']}"}
 
 
+async def _create_admin_headers(client, db_session, company_id, suffix):
+    email = f"sal-admin-{suffix}@test.ge"
+    user = User(
+        company_id=company_id,
+        email=email,
+        hashed_password=hash_password("admin123"),
+        full_name="SAL Admin",
+        role=User.Role.ADMIN,
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "admin123"},
+    )
+    assert login.status_code == 200, login.text
+    return {"Authorization": f"Bearer {login.json()['data']['access_token']}"}
+
+
 async def _create_sal_context(client, db_session, enabled_codes, suffix):
     company = await _create_company(db_session, f"SAL {suffix}")
     await _seed_catalog(db_session)
@@ -127,7 +148,7 @@ async def _create_client(client, headers, suffix):
         json={
             "name": f"SAL Client {suffix}",
             "client_type": "legal",
-            "identification_code": f"SAL-CLIENT-{suffix}",
+            "identification_code": "123456789",
             "vat_status": True,
             "address": "თბილისი",
             "status": "active",
@@ -332,3 +353,178 @@ async def test_is_module_enabled_missing_row_true(db_session):
 async def test_is_module_enabled_unknown_code_false(db_session):
     company = await _create_company(db_session, "Module Unit Unknown")
     assert await is_module_enabled(db_session, company.id, "module-unknown") is False
+
+
+@pytest.mark.asyncio
+async def test_cross_tenant_order_references_are_rejected(client, db_session):
+    company_a, headers_a = await _create_sal_context(client, db_session, SAL_CODES, "XA")
+    company_b, headers_b = await _create_sal_context(client, db_session, SAL_CODES, "XB")
+    client_a = await _create_client(client, headers_a, "XA")
+    client_b = await _create_client(client, headers_b, "XB")
+    product_a = await _create_product(db_session, company_a.id, "XA")
+    product_b = await _create_product(db_session, company_b.id, "XB")
+
+    resp = await client.post(
+        "/api/v1/orders/",
+        headers=headers_a,
+        json={
+            "client_id": client_b,
+            "items": [
+                {
+                    "product_id": str(product_a.id),
+                    "product_name": product_a.name,
+                    "quantity": 1,
+                    "unit_price": 10,
+                    "discount_percent": 0,
+                }
+            ],
+            "is_vat_payer": False,
+        },
+    )
+    assert resp.status_code == 404
+
+    resp = await client.post(
+        "/api/v1/orders/",
+        headers=headers_a,
+        json={
+            "client_id": client_a,
+            "items": [
+                {
+                    "product_id": str(product_b.id),
+                    "product_name": product_b.name,
+                    "quantity": 1,
+                    "unit_price": 10,
+                    "discount_percent": 0,
+                }
+            ],
+            "is_vat_payer": False,
+        },
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_cross_tenant_quotation_references_are_rejected(client, db_session):
+    company_a, headers_a = await _create_sal_context(client, db_session, SAL_CODES, "QA")
+    company_b, headers_b = await _create_sal_context(client, db_session, SAL_CODES, "QB")
+    client_a = await _create_client(client, headers_a, "QA")
+    client_b = await _create_client(client, headers_b, "QB")
+    product_a = await _create_product(db_session, company_a.id, "QA")
+    product_b = await _create_product(db_session, company_b.id, "QB")
+    today = date.today()
+    base_payload = {
+        "client_id": client_b,
+        "quotation_date": today.isoformat(),
+        "valid_until": (today + timedelta(days=30)).isoformat(),
+        "currency": "GEL",
+        "discount_percent": 0,
+        "items": [
+            {
+                "product_id": str(product_a.id),
+                "description": "x",
+                "quantity": 1,
+                "unit_price": 10,
+                "discount_percent": 0,
+                "is_optional": False,
+            }
+        ],
+    }
+    resp = await client.post("/api/v1/quotations/", headers=headers_a, json=base_payload)
+    assert resp.status_code in (400, 404, 422)
+
+    base_payload["client_id"] = client_a
+    base_payload["items"][0]["product_id"] = str(product_b.id)
+    resp = await client.post("/api/v1/quotations/", headers=headers_a, json=base_payload)
+    assert resp.status_code in (400, 404, 422)
+
+
+@pytest.mark.asyncio
+async def test_cross_tenant_invoice_reference_is_rejected(client, db_session):
+    company_a, headers_a = await _create_sal_context(client, db_session, SAL_CODES, "IA")
+    company_b, headers_b = await _create_sal_context(client, db_session, SAL_CODES, "IB")
+    client_b = await _create_client(client, headers_b, "IB")
+    product_b = await _create_product(db_session, company_b.id, "IB")
+    order_b_resp = await client.post(
+        "/api/v1/orders/",
+        headers=headers_b,
+        json={
+            "client_id": client_b,
+            "items": [
+                {
+                    "product_id": str(product_b.id),
+                    "product_name": product_b.name,
+                    "quantity": 1,
+                    "unit_price": 10,
+                    "discount_percent": 0,
+                }
+            ],
+            "is_vat_payer": False,
+        },
+    )
+    assert order_b_resp.status_code == 200
+    order_b = order_b_resp.json()["data"]
+    resp = await client.post(
+        "/api/v1/invoices/generate",
+        headers=headers_a,
+        json=invoice_payload(order_b["id"], "X"),
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_individual_identification_code_masked_in_list_and_full_for_admin(client, db_session):
+    company, _ = await _create_sal_context(client, db_session, SAL_CODES, "MASK")
+    admin_headers = await _create_admin_headers(client, db_session, company.id, "MASK")
+    resp = await client.post(
+        "/api/v1/clients/",
+        headers=admin_headers,
+        json={
+            "name": "Person Client",
+            "client_type": "individual",
+            "identification_code": "01234567890",
+            "vat_status": True,
+        },
+    )
+    assert resp.status_code in (200, 201), resp.text
+    client_data = resp.json()["data"]
+    assert client_data["identification_code"] == "01234567890"
+
+    list_resp = await client.get("/api/v1/clients/", headers=admin_headers)
+    assert list_resp.status_code == 200
+    items = list_resp.json()["data"]["items"]
+    target = next(i for i in items if i["id"] == client_data["id"])
+    assert target["identification_code"] == "012*****890"
+
+    get_resp = await client.get(f"/api/v1/clients/{client_data['id']}", headers=admin_headers)
+    assert get_resp.status_code == 200
+    assert get_resp.json()["data"]["identification_code"] == "01234567890"
+
+
+@pytest.mark.xfail(strict=False, reason="payment recording lives in FIN (customer-finance); SAL-standalone payment: follow-up")
+@pytest.mark.asyncio
+async def test_sal_standalone_payment_step_follow_up(client, db_session):
+    """Expected behaviour: after an issued invoice, a payment can be recorded.
+
+    In SAL-standalone (FIN off) there is no payment module yet, so this test
+    documents the follow-up rather than passing.
+    """
+    company, headers = await _create_sal_context(client, db_session, SAL_CODES, "PAY")
+    client_id = await _create_client(client, headers, "PAY")
+    product = await _create_product(db_session, company.id, "PAY")
+    order = await _create_order(client, headers, client_id, product)
+    confirmed = await client.patch(
+        f"/api/v1/orders/{order['id']}/status",
+        json={"status": "confirmed"},
+        headers=headers,
+    )
+    assert confirmed.status_code == 200
+    generated = await client.post(
+        "/api/v1/invoices/generate",
+        json=invoice_payload(order["id"], "PAY"),
+        headers=headers,
+    )
+    assert generated.status_code == 200
+    assert generated.json()["data"]["status"] == "issued"
+    # Payment recording should live in customer-finance; SAL-standalone has no
+    # endpoint yet.  Once FIN is enabled, this flow should record a payment.
+    assert False
