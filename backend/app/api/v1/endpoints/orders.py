@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.endpoints.invoices import ensure_completed_order_invoice, ensure_order_invoice_draft
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.modules import is_module_enabled
 from app.core.time import utc_now
 from app.models.audit import AuditLog
 from app.models.client import Client
@@ -930,16 +931,22 @@ async def change_order_status(
             detail=f"სტატუსის ცვლილება {old_status}-დან {new_status}-ზე დაუშვებელია",
         )
 
+    inventory_enabled = await is_module_enabled(db, current_user.company_id, "inventory")
+
     if new_status == OrderStatus.CONFIRMED.value:
-        await _reserve_order_stock(
-            db, order, data.warehouse_id, current_user.company_id
-        )
+        if inventory_enabled:
+            await _reserve_order_stock(
+                db, order, data.warehouse_id, current_user.company_id
+            )
     elif new_status == OrderStatus.CANCELLED.value:
-        await _release_reservations(order)
+        if inventory_enabled:
+            await _release_reservations(order)
     elif new_status == OrderStatus.SHIPPING.value:
-        await _issue_reserved_stock(db, order, current_user)
+        if inventory_enabled:
+            await _issue_reserved_stock(db, order, current_user)
     elif new_status == OrderStatus.RETURNED.value:
-        await _return_order_stock(db, order, current_user)
+        if inventory_enabled:
+            await _return_order_stock(db, order, current_user)
 
     order.status = new_status
     if new_status == OrderStatus.COMPLETED.value:

@@ -124,6 +124,11 @@ async def setup_db():
             END
             $$;
         """))
+    # Seed the module catalog so module enablement helpers can resolve module
+    # codes even for tests that do not explicitly seed AppModule rows. No
+    # CompanyModule rows are created, so the default remains enabled for all.
+    from seed_modules import seed_modules
+    await seed_modules(test_engine)
     yield
     async with test_engine.begin() as conn:
         await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))

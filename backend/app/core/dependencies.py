@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from app.core.database import get_db, current_company_id
+from app.core.modules import BASE_MODULE_CODES
 from app.core.security import decode_token
 from app.core.tenant_scope import pin_tenant, system_scope
 from app.models.user import User
@@ -189,17 +190,18 @@ def require_module(module_code: str, permission: str = "can_access"):
         if not module:
             raise HTTPException(status_code=403, detail="მოდული არ არის რეგისტრირებული")
 
-        # Check if company has this module enabled
-        from app.models.module import CompanyModule
-        cm_result = await db.execute(
-            select(CompanyModule).where(
-                CompanyModule.company_id == current_user.company_id,
-                CompanyModule.module_id == module.id,
-                CompanyModule.enabled == True,
+        # BASE modules are always enabled; everything else follows CompanyModule.
+        if module_code not in BASE_MODULE_CODES:
+            from app.models.module import CompanyModule
+            cm_result = await db.execute(
+                select(CompanyModule).where(
+                    CompanyModule.company_id == current_user.company_id,
+                    CompanyModule.module_id == module.id,
+                    CompanyModule.enabled == True,
+                )
             )
-        )
-        if not cm_result.scalar_one_or_none():
-            raise HTTPException(status_code=403, detail="მოდული გამორთულია კომპანიისთვის")
+            if not cm_result.scalar_one_or_none():
+                raise HTTPException(status_code=403, detail="მოდული გამორთულია კომპანიისთვის")
 
         # Check permission for this role
         perm_result = await db.execute(

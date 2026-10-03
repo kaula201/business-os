@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.endpoints.purchase_orders import add_audit, allocate_document_number
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.modules import is_module_enabled
 from app.core.time import utc_now
 from app.models.invoice import Invoice, InvoiceItem, InvoiceInstallment, PaymentAllocation, InvoiceNote
 from app.models.receivable import CustomerReceivable, CustomerPayment
@@ -317,38 +318,49 @@ async def issue_invoice_snapshot(
         raise HTTPException(status_code=409, detail="Invoice-ს უკვე აქვს ფინანსური ჩანაწერი")
 
     invoice.status = "issued"
-    receivable = CustomerReceivable(
-        company_id=current_user.company_id,
-        invoice_id=invoice.id,
-        client_id=invoice.client_id,
-        invoice_number=invoice.invoice_number,
-        client_name=invoice.client_name,
-        currency=invoice.currency,
-        original_amount=invoice.total,
-        paid_amount=Decimal("0"),
-        credited_amount=Decimal("0"),
-        outstanding_amount=invoice.total,
-        due_date=invoice.due_date,
-        status="overdue" if invoice.due_date < date.today() else "unpaid",
-    )
-    db.add(receivable)
-    await db.flush()
-    await post_invoice_gl(
-        db, current_user.company_id, current_user,
-        invoice_id=invoice.id,
-        invoice_number=invoice.invoice_number,
-        invoice_date=invoice.invoice_date,
-        total=invoice.total,
-        vat_amount=invoice.vat_amount,
-        subtotal=invoice.subtotal,
-        tax_account_code=invoice.tax_account_code or "2200",
-    )
-    add_audit(db, current_user, "customer_receivable.created", "customer_receivable", receivable.id, {
-        "invoice_id": invoice.id,
-        "client_id": invoice.client_id,
-        "original_amount": invoice.total,
-        "due_date": invoice.due_date,
-    })
+
+    if await is_module_enabled(db, current_user.company_id, "customer-finance"):
+        receivable = CustomerReceivable(
+            company_id=current_user.company_id,
+            invoice_id=invoice.id,
+            client_id=invoice.client_id,
+            invoice_number=invoice.invoice_number,
+            client_name=invoice.client_name,
+            currency=invoice.currency,
+            original_amount=invoice.total,
+            paid_amount=Decimal("0"),
+            credited_amount=Decimal("0"),
+            outstanding_amount=invoice.total,
+            due_date=invoice.due_date,
+            status="overdue" if invoice.due_date < date.today() else "unpaid",
+        )
+        db.add(receivable)
+        await db.flush()
+        add_audit(db, current_user, "customer_receivable.created", "customer_receivable", receivable.id, {
+            "invoice_id": invoice.id,
+            "client_id": invoice.client_id,
+            "original_amount": invoice.total,
+            "due_date": invoice.due_date,
+        })
+
+    if await is_module_enabled(db, current_user.company_id, "gl"):
+        try:
+            await post_invoice_gl(
+                db, current_user.company_id, current_user,
+                invoice_id=invoice.id,
+                invoice_number=invoice.invoice_number,
+                invoice_date=invoice.invoice_date,
+                total=invoice.total,
+                vat_amount=invoice.vat_amount,
+                subtotal=invoice.subtotal,
+                tax_account_code=invoice.tax_account_code or "2200",
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=f"ბუღალტრული ანგარიში ვერ მოიძებნა: {exc} — შეავსეთ ანგარიშთა გეგმა",
+            ) from exc
+
     add_audit(db, current_user, "customer_invoice.issued", "invoice", invoice.id, {
         "invoice_number": invoice.invoice_number,
         "order_id": invoice.order_id,
