@@ -18,6 +18,8 @@ class Company(Base):
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     website: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    storefront_slug: Mapped[str | None] = mapped_column(String(63), unique=True, nullable=True, index=True)
+    storefront_domain: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     vat_status: Mapped[bool] = mapped_column(Boolean, default=True)
     currency: Mapped[str] = mapped_column(String(3), default="GEL")

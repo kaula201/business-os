@@ -9,7 +9,8 @@ import pytest
 from sqlalchemy import func, select, text
 
 from app.models.client import Client
-from conftest import AppSessionLocal
+from tests.conftest import AppSessionLocal
+from app.core.database import current_company_id
 from app.core.tenant_scope import clear_tenant, pin_tenant, system_scope
 
 
@@ -37,10 +38,8 @@ async def test_rls_blocks_cross_company_reads_without_orm_filter(
     await db_session.commit()
 
     # Pin the tenant for this transaction, exactly like get_current_user does.
-    await db_session.execute(
-        text("SELECT set_config('app.current_company_id', :cid, true)"),
-        {"cid": str(test_company.id)},
-    )
+    # pin_tenant also clears the fixture session's system scope.
+    await pin_tenant(db_session, test_company.id)
 
     # NO company filter — RLS itself must hide the other company's row.
     total = (
@@ -73,6 +72,14 @@ async def test_rls_without_pin_sees_no_rows(db_session, test_company, other_comp
         ),
     ])
     await db_session.commit()
+
+    # A brand-new app session with nothing pinned (no setting, no ContextVar).
+    current_company_id.set(None)
+    async with AppSessionLocal() as session:
+        total = (
+            await session.execute(select(func.count()).select_from(Client))
+        ).scalar_one()
+        assert total == 0
 
     async with AppSessionLocal() as session:
         # Empty-string settings also fail closed.
@@ -168,3 +175,27 @@ async def test_rls_resets_between_transactions(db_session, test_company, other_c
             await session.execute(select(func.count()).select_from(Client))
         ).scalar_one()
         assert total == 0
+
+
+@pytest.mark.asyncio
+async def test_rls_pin_survives_commit_but_system_scope_does_not(
+    db_session, test_company, other_company
+):
+    """Request sessions re-pin the request's tenant after commit; bypass is never re-applied."""
+    db_session.add_all([
+        Client(company_id=test_company.id, name="RLS Repin A", client_type="legal",
+               identification_code="RLS-REPIN-A", status="active"),
+        Client(company_id=other_company.id, name="RLS Repin B", client_type="legal",
+               identification_code="RLS-REPIN-B", status="active"),
+    ])
+    await db_session.commit()
+
+    async with AppSessionLocal() as session:
+        await pin_tenant(session, test_company.id)
+        async with system_scope(session, "test"):
+            assert (await session.execute(select(func.count()).select_from(Client))).scalar_one() == 2
+            await session.commit()
+            # New transaction: re-pinned to A, system scope gone.
+            names = (await session.execute(select(Client.name))).scalars().all()
+            assert names == ["RLS Repin A"]
+    current_company_id.set(None)

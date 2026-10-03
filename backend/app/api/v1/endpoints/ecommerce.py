@@ -4,13 +4,15 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func, or_
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
+from sqlalchemy import and_, func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.tenant_scope import pin_tenant
+from app.models.company import Company
 from app.models.user import User
 from app.models.ecommerce import (
     EcomCart, EcomCartItem, EcomCategory, EcomContentPage, EcomOrder, EcomOrderItem,
@@ -235,14 +237,43 @@ async def delete_ecom_product(
 
 # ── Public Storefront (no auth required) ─────────────────────────────────────
 
-@router.get("/storefront/categories", response_model=ResponseBase[list[EcomCategoryResponse]])
-async def public_categories(
-    db: AsyncSession = Depends(get_db),
-):
+async def _resolve_storefront_company(
+    db: AsyncSession,
+    store_slug: str | None,
+    request: Request,
+) -> Company:
+    """Resolve a storefront by slug or request Host and pin its tenant."""
+    if store_slug is not None:
+        slug = store_slug.lower()
+        if not slug:
+            raise HTTPException(status_code=404, detail="მაღაზია ვერ მოიძებნა")
+        company = (await db.execute(
+            select(Company).where(Company.storefront_slug == slug, Company.is_active == True)
+        )).scalar_one_or_none()
+    else:
+        host = request.headers.get("host", "")
+        host = host.split(":")[0].lower()
+        if not host:
+            raise HTTPException(status_code=404, detail="მაღაზია ვერ მოიძებნა")
+        company = (await db.execute(
+            select(Company).where(Company.storefront_domain == host, Company.is_active == True)
+        )).scalar_one_or_none()
+
+    if company is None:
+        raise HTTPException(status_code=404, detail="მაღაზია ვერ მოიძებნა")
+
+    await pin_tenant(db, company.id)
+    return company
+
+
+async def _storefront_categories(company_id: UUID, db: AsyncSession) -> ResponseBase[list[EcomCategoryResponse]]:
     rows = (await db.execute(
         select(EcomCategory, func.count(EcomProduct.id).label("product_count"))
-        .outerjoin(EcomProduct, EcomProduct.category_id == EcomCategory.id)
-        .where(EcomCategory.is_active == True, EcomProduct.is_published == True)
+        .outerjoin(
+            EcomProduct,
+            and_(EcomProduct.category_id == EcomCategory.id, EcomProduct.company_id == company_id),
+        )
+        .where(EcomCategory.company_id == company_id, EcomCategory.is_active == True, EcomProduct.is_published == True)
         .group_by(EcomCategory.id)
         .order_by(EcomCategory.sort_order, EcomCategory.name)
     )).all()
@@ -254,16 +285,16 @@ async def public_categories(
     return ResponseBase(data=items)
 
 
-@router.get("/storefront/products", response_model=ResponseBase[PaginatedResponse[EcomProductResponse]])
-async def public_products(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    category_id: UUID | None = None,
-    search: str | None = None,
-    featured: bool | None = None,
-    db: AsyncSession = Depends(get_db),
-):
-    filters = [EcomProduct.is_published == True]
+async def _storefront_products(
+    company_id: UUID,
+    page: int,
+    page_size: int,
+    category_id: UUID | None,
+    search: str | None,
+    featured: bool | None,
+    db: AsyncSession,
+) -> ResponseBase[PaginatedResponse[EcomProductResponse]]:
+    filters = [EcomProduct.company_id == company_id, EcomProduct.is_published == True]
     if category_id:
         filters.append(EcomProduct.category_id == category_id)
     if featured is not None:
@@ -296,6 +327,54 @@ async def public_products(
         items=items, total=total, page=page, page_size=page_size,
         total_pages=(total + page_size - 1) // page_size,
     ))
+
+
+@router.get("/storefront/categories", response_model=ResponseBase[list[EcomCategoryResponse]])
+async def public_categories(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    company = await _resolve_storefront_company(db, None, request)
+    return await _storefront_categories(company.id, db)
+
+
+@router.get("/storefront/{store_slug}/categories", response_model=ResponseBase[list[EcomCategoryResponse]])
+async def public_categories_by_slug(
+    request: Request,
+    store_slug: str = Path(..., pattern=r"^[a-z0-9][a-z0-9-]{0,62}$"),
+    db: AsyncSession = Depends(get_db),
+):
+    company = await _resolve_storefront_company(db, store_slug, request)
+    return await _storefront_categories(company.id, db)
+
+
+@router.get("/storefront/products", response_model=ResponseBase[PaginatedResponse[EcomProductResponse]])
+async def public_products(
+    request: Request,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    category_id: UUID | None = None,
+    search: str | None = None,
+    featured: bool | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    company = await _resolve_storefront_company(db, None, request)
+    return await _storefront_products(company.id, page, page_size, category_id, search, featured, db)
+
+
+@router.get("/storefront/{store_slug}/products", response_model=ResponseBase[PaginatedResponse[EcomProductResponse]])
+async def public_products_by_slug(
+    request: Request,
+    store_slug: str = Path(..., pattern=r"^[a-z0-9][a-z0-9-]{0,62}$"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    category_id: UUID | None = None,
+    search: str | None = None,
+    featured: bool | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    company = await _resolve_storefront_company(db, store_slug, request)
+    return await _storefront_products(company.id, page, page_size, category_id, search, featured, db)
 
 
 # ── Cart & checkout ──────────────────────────────────────────────────
