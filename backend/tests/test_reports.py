@@ -199,7 +199,16 @@ async def test_reports_rejects_invalid_period_and_employee_access(
                            route="/reports", category="other", sort_order=270)
         db_session.add(module)
         await db_session.flush()
-    db_session.add(CompanyModule(company_id=test_company.id, module_id=module.id, enabled=True))
+    existing_cm = (await db_session.execute(
+        select(CompanyModule).where(
+            CompanyModule.company_id == test_company.id,
+            CompanyModule.module_id == module.id,
+        )
+    )).scalar_one_or_none()
+    if existing_cm is None:
+        db_session.add(CompanyModule(company_id=test_company.id, module_id=module.id, enabled=True))
+    else:
+        existing_cm.enabled = True
     await db_session.commit()
 
     ok = await client.get("/api/v1/reports/summary?period=30d", headers=employee_auth_headers)

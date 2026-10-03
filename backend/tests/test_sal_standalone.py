@@ -68,15 +68,23 @@ async def _seed_catalog(db_session):
 
 
 async def _set_modules(db_session, company_id, enabled_codes):
+    """Replace CompanyModule rows so only enabled_codes have rows (fail-closed)."""
     modules = (await db_session.execute(select(AppModule))).scalars().all()
+    existing_rows = (await db_session.execute(
+        select(CompanyModule).where(CompanyModule.company_id == company_id)
+    )).scalars().all()
+    existing_by_module = {row.module_id: row for row in existing_rows}
+
     for module in modules:
-        db_session.add(
-            CompanyModule(
-                company_id=company_id,
-                module_id=module.id,
-                enabled=module.code in enabled_codes,
-            )
-        )
+        if module.code not in enabled_codes:
+            if module.id in existing_by_module:
+                await db_session.delete(existing_by_module[module.id])
+            continue
+        row = existing_by_module.get(module.id)
+        if row is None:
+            db_session.add(CompanyModule(company_id=company_id, module_id=module.id, enabled=True))
+        else:
+            row.enabled = True
     await db_session.commit()
 
 
@@ -246,6 +254,45 @@ async def test_sal_base_only_full_flow(client, db_session):
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_sal_no_rows_for_fin_and_gl_confirm_no_stock_and_payment_succeeds(client, db_session):
+    enabled = SAL_CODES
+    company, headers = await _create_sal_context(client, db_session, enabled, "FAILCLOSED")
+    client_id = await _create_client(client, headers, "FAILCLOSED")
+    product = await _create_product(db_session, company.id, "FAILCLOSED")
+    order = await _create_order(client, headers, client_id, product)
+
+    confirmed = await client.patch(
+        f"/api/v1/orders/{order['id']}/status",
+        json={"status": "confirmed"},
+        headers=headers,
+    )
+    assert confirmed.status_code == 200, confirmed.text
+
+    generated = await client.post(
+        "/api/v1/invoices/generate",
+        json=invoice_payload(order["id"], "FAILCLOSED"),
+        headers=headers,
+    )
+    assert generated.status_code == 200, generated.text
+    assert generated.json()["data"]["status"] == "issued"
+
+    assert await _count(db_session, CustomerReceivable, company.id) == 0
+    assert await _count(db_session, JournalEntry, company.id) == 0
+    assert await _count(db_session, OrderFulfillment, company.id) == 0
+    assert await _count(db_session, InventoryReservation, company.id) == 0
+
+    invoice_id = generated.json()["data"]["id"]
+    resp = await client.post(
+        f"/api/v1/invoices/{invoice_id}/payments",
+        headers=headers,
+        json={"amount": 100, "payment_date": date.today().isoformat()},
+    )
+    assert resp.status_code == 200, resp.text
+    assert await _count(db_session, InvoicePayment, company.id) == 1
+
+
+@pytest.mark.asyncio
 async def test_sal_with_fin_writes_receivable_without_gl(client, db_session):
     enabled = SAL_CODES | {"customer-finance"}
     company, headers = await _create_sal_context(client, db_session, enabled, "FIN")
@@ -293,7 +340,7 @@ async def test_sal_with_acc_missing_accounts_returns_422(client, db_session):
         headers=headers,
     )
     assert response.status_code == 422, response.text
-    assert "ანგარიში" in response.json()["detail"]
+    assert "ანგარიშ" in response.json()["detail"]
 
     invoice = (
         await db_session.execute(
@@ -342,13 +389,13 @@ async def test_is_module_enabled_disabled_row_false(db_session):
 
 
 @pytest.mark.asyncio
-async def test_is_module_enabled_missing_row_true(db_session):
+async def test_is_module_enabled_missing_row_false(db_session):
     company = await _create_company(db_session, "Module Unit Missing")
     module = AppModule(code="module-b", name="Module B", category="test", is_active=True)
     db_session.add(module)
     await db_session.commit()
 
-    assert await is_module_enabled(db_session, company.id, "module-b") is True
+    assert await is_module_enabled(db_session, company.id, "module-b") is False
 
 
 @pytest.mark.asyncio
@@ -553,6 +600,43 @@ async def test_sal_base_payment_partial_and_paid(client, db_session):
 
     assert await _count(db_session, CustomerReceivable, company.id) == 0
     assert await _count(db_session, InvoicePayment, company.id) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_invoice_payment_future_date_rejected(client, db_session):
+    company, headers = await _create_sal_context(client, db_session, SAL_CODES, "FUTURE")
+    invoice = await _create_issued_invoice(client, headers, db_session, company, "FUTURE")
+    resp = await client.post(
+        f"/api/v1/invoices/{invoice['id']}/payments",
+        headers=headers,
+        json={"amount": 10, "payment_date": (date.today() + timedelta(days=1)).isoformat()},
+    )
+    assert resp.status_code == 422
+    assert await _count(db_session, InvoicePayment, company.id) == 0
+
+
+@pytest.mark.asyncio
+async def test_invoice_payment_idempotency_key_replay_creates_one_row(client, db_session):
+    company, headers = await _create_sal_context(client, db_session, SAL_CODES, "IDEM")
+    invoice = await _create_issued_invoice(client, headers, db_session, company, "IDEM")
+    payload = {"amount": 100, "payment_date": date.today().isoformat()}
+    headers_with_key = {**headers, "Idempotency-Key": "pay-idem-1"}
+
+    resp1 = await client.post(
+        f"/api/v1/invoices/{invoice['id']}/payments",
+        headers=headers_with_key,
+        json=payload,
+    )
+    assert resp1.status_code == 200, resp1.text
+
+    resp2 = await client.post(
+        f"/api/v1/invoices/{invoice['id']}/payments",
+        headers=headers_with_key,
+        json=payload,
+    )
+    assert resp2.status_code == 200, resp2.text
+    assert await _count(db_session, InvoicePayment, company.id) == 1
 
 
 @pytest.mark.asyncio

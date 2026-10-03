@@ -351,6 +351,8 @@ async def update_client(
         update_data["identification_code"] = validate_identification_code(
             update_data["identification_code"], is_person
         )
+    else:
+        validate_identification_code(client.identification_code, is_person)
     phone_supplied = "phone" in update_data
     email_supplied = "email" in update_data
     phone = update_data.pop("phone", None)

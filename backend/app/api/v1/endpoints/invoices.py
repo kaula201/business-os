@@ -1,11 +1,12 @@
 """Tenant-scoped immutable customer invoice endpoints."""
 
 import io
+import logging
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +34,8 @@ from app.services.gl_hooks import post_invoice_gl
 from app.services.fiscal import resolve_fiscal_position
 from app.utils.invoice_exports import generate_invoice_docx, generate_invoice_xlsx
 from app.utils.pdf import generate_invoice_pdf
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/invoices", tags=["ინვოისები"])
 
@@ -359,9 +362,10 @@ async def issue_invoice_snapshot(
                 tax_account_code=invoice.tax_account_code or "2200",
             )
         except ValueError as exc:
+            logger.warning("Invoice GL posting failed: %s", exc)
             raise HTTPException(
                 status_code=422,
-                detail=f"ბუღალტრული ანგარიში ვერ მოიძებნა: {exc} — შეავსეთ ანგარიშთა გეგმა",
+                detail="ბუღალტრული ანგარიშები ვერ მოიძებნა — შეავსეთ ანგარიშთა გეგმა",
             ) from exc
 
     add_audit(db, current_user, "customer_invoice.issued", "invoice", invoice.id, {
@@ -548,6 +552,7 @@ async def issue_invoice(
 async def record_invoice_payment(
     invoice_id: UUID,
     data: InvoicePaymentCreate,
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("invoices", "can_edit")),
 ):
@@ -564,6 +569,22 @@ async def record_invoice_payment(
     if invoice.status != "issued":
         raise HTTPException(status_code=409, detail="გადახდა მხოლოდ issued ინვოისზე შეიძლება")
 
+    if idempotency_key:
+        idempotency_key = idempotency_key.strip() or None
+
+    if idempotency_key:
+        existing_payment = (
+            await db.execute(
+                select(InvoicePayment).where(
+                    InvoicePayment.company_id == current_user.company_id,
+                    InvoicePayment.invoice_id == invoice.id,
+                    InvoicePayment.idempotency_key == idempotency_key,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing_payment:
+            return ResponseBase(data=invoice_response(await load_invoice(db, invoice_id, current_user.company_id)))
+
     if await is_module_enabled(db, current_user.company_id, "customer-finance"):
         # FIN remains the source of truth; choose the simpler correct option:
         # reject SAL-native payments so receivables stay consistent.
@@ -572,6 +593,9 @@ async def record_invoice_payment(
     payment_amount = money(data.amount)
     if payment_amount <= 0:
         raise HTTPException(status_code=422, detail="გადახდის თანხა უნდა იყოს დადებითი")
+
+    if data.payment_date > date.today():
+        raise HTTPException(status_code=422, detail="გადახდის თარიღი არ შეიძლება იყოს მომავალში")
 
     paid = money(invoice.paid_amount or Decimal("0"))
     outstanding = money(invoice.total - paid)
@@ -586,6 +610,7 @@ async def record_invoice_payment(
         payment_date=data.payment_date,
         method=data.method,
         reference=data.reference,
+        idempotency_key=idempotency_key,
         created_by=current_user.id,
     )
     db.add(payment)

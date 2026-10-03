@@ -66,3 +66,27 @@ async def test_create_individual_accepts_valid_identification_code(client, auth_
         },
     )
     assert resp.status_code in (200, 201), resp.text
+
+
+@pytest.mark.asyncio
+async def test_update_client_type_change_requires_new_valid_code(client, auth_headers):
+    create_resp = await client.post(
+        "/api/v1/clients/",
+        headers=auth_headers,
+        json={
+            "name": "Legal To Individual",
+            "client_type": "legal",
+            "identification_code": "123456789",
+            "is_vat_payer": True,
+        },
+    )
+    assert create_resp.status_code in (200, 201), create_resp.text
+    client_id = create_resp.json()["data"]["id"]
+
+    resp = await client.patch(
+        f"/api/v1/clients/{client_id}",
+        headers=auth_headers,
+        json={"client_type": "individual"},
+    )
+    assert resp.status_code == 422
+    assert "11" in resp.json()["detail"]

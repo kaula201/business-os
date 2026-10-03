@@ -1,4 +1,6 @@
 """Georgian business-rule validators."""
+import re
+
 from fastapi import HTTPException
 
 
@@ -12,7 +14,9 @@ def validate_identification_code(code: str, is_person: bool) -> str:
     """
     expected = 11 if is_person else 9
     label = "პირადი" if is_person else "კომპანიის"
-    if len(code) != expected or not code.isdigit():
+    code = code.strip()
+    pattern = rf"[0-9]{{{expected}}}"
+    if not re.fullmatch(pattern, code):
         raise HTTPException(
             status_code=422,
             detail=f"{label} ნომერი უნდა იყოს ზუსტად {expected} ციფრი",

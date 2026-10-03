@@ -66,6 +66,7 @@ def upgrade() -> None:
             sa.Column("payment_date", sa.Date(), nullable=False),
             sa.Column("method", sa.String(50), nullable=True),
             sa.Column("reference", sa.String(100), nullable=True),
+            sa.Column("idempotency_key", sa.String(100), nullable=True),
             sa.Column(
                 "created_by",
                 UUID(as_uuid=True),
@@ -80,11 +81,25 @@ def upgrade() -> None:
             ),
         )
 
+    if _table_exists("invoice_payments") and not _column_exists("invoice_payments", "idempotency_key"):
+        op.add_column(
+            "invoice_payments",
+            sa.Column("idempotency_key", sa.String(100), nullable=True),
+        )
+
     op.execute("ALTER TABLE invoice_payments ENABLE ROW LEVEL SECURITY")
     op.execute("ALTER TABLE invoice_payments FORCE ROW LEVEL SECURITY")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON invoice_payments")
     op.execute(
         f"CREATE POLICY tenant_isolation ON invoice_payments USING ({_TENANT_POLICY_PREDICATE}) WITH CHECK ({_TENANT_POLICY_PREDICATE})"
+    )
+
+    op.create_index(
+        "uq_invoice_payments_company_invoice_idempotency",
+        "invoice_payments",
+        ["company_id", "invoice_id", "idempotency_key"],
+        unique=True,
+        postgresql_where=text("idempotency_key IS NOT NULL"),
     )
 
     # Add default GEL currency to orders if missing.

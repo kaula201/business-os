@@ -36,3 +36,17 @@ def test_person_non_digit_raises_422():
     with pytest.raises(HTTPException) as exc:
         validate_identification_code("0123456789A", True)
     assert exc.value.status_code == 422
+
+
+def test_legal_arabic_indic_digits_rejected():
+    with pytest.raises(HTTPException):
+        validate_identification_code("٠١٢٣٤٥٦٧٨", False)
+
+
+def test_legal_surrounding_spaces_accepted_and_stripped():
+    assert validate_identification_code(" 123456789 ", False) == "123456789"
+
+
+def test_person_arabic_indic_digits_rejected():
+    with pytest.raises(HTTPException):
+        validate_identification_code("٠١٢٣٤٥٦٧٨٩٠", True)

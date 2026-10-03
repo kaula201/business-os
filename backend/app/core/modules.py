@@ -14,7 +14,7 @@ async def is_module_enabled(db: AsyncSession, company_id: UUID, code: str) -> bo
 
     BASE module codes are always enabled. For other codes, look up the active
     AppModule and then the CompanyModule row:
-    - no CompanyModule row -> True (default enabled)
+    - no CompanyModule row -> False (fail closed, #24)
     - enabled False -> False
     - enabled True -> True
     Unknown or inactive module codes -> False.
@@ -42,12 +42,17 @@ async def is_module_enabled(db: AsyncSession, company_id: UUID, code: str) -> bo
         )
     ).scalar_one_or_none()
     if company_module is None:
-        return True
+        return False
     return company_module.enabled
 
 
 async def enabled_module_codes(db: AsyncSession, company_id: UUID, codes) -> set[str]:
-    """Return the subset of ``codes`` enabled for the company in one query."""
+    """Return the subset of ``codes`` enabled for the company in one query.
+
+    BASE module codes are always enabled. For other codes, a module is enabled
+    only when an active AppModule exists and a CompanyModule row has enabled=True
+    (#24). Missing CompanyModule rows are treated as disabled.
+    """
     codes = set(codes)
     enabled = set(codes & BASE_MODULE_CODES)
     non_base = codes - BASE_MODULE_CODES
@@ -70,8 +75,6 @@ async def enabled_module_codes(db: AsyncSession, company_id: UUID, codes) -> set
     ).all()
 
     for module_code, is_enabled in rows:
-        if is_enabled is None:
-            is_enabled = True
-        if is_enabled:
+        if is_enabled is True:
             enabled.add(module_code)
     return enabled
