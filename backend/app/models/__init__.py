@@ -19,7 +19,7 @@ from app.models.order import (
 )
 from app.models.product import Product, ProductCategory, ProductVariant, ProductImage, StockMovement
 from app.models.task import Task, TaskComment, TaskAttachment, TaskHistory, TaskReminder, TaskDependency
-from app.models.invoice import Invoice, InvoiceItem, InvoiceInstallment, PaymentAllocation, InvoiceNote
+from app.models.invoice import Invoice, InvoiceItem, InvoiceInstallment, PaymentAllocation, InvoiceNote, InvoicePayment
 from app.models.receivable import (
     CustomerReceivable,
     CustomerPayment,
@@ -162,7 +162,7 @@ from app.models.embedding import Embedding
 __all__ = [
     "Company", "User", "DashboardLayout", "Client", "ClientAddress", "ClientGroupDef", "ClientRelation", "Contract", "Leave", "Order", "OrderItem", "OrderStatusHistory", "OrderFulfillment", "OrderReturn",
  "InventoryReservation", "DocumentSequence",
-    "Product", "ProductCategory", "ProductVariant", "ProductImage", "StockMovement", "Task", "TaskComment", "TaskAttachment", "TaskHistory", "TaskReminder", "TaskDependency", "Invoice", "InvoiceItem", "InvoiceInstallment", "PaymentAllocation", "InvoiceNote",
+    "Product", "ProductCategory", "ProductVariant", "ProductImage", "StockMovement", "Task", "TaskComment", "TaskAttachment", "TaskHistory", "TaskReminder", "TaskDependency", "Invoice", "InvoiceItem", "InvoiceInstallment", "PaymentAllocation", "InvoiceNote", "InvoicePayment",
     "CustomerReceivable", "CustomerPayment", "CustomerPaymentReversal", "CustomerCreditNote", "CustomerBankReconciliation", "CustomerBankReconciliationReversal",
     "Warehouse", "InventoryBalance", "InventoryMovement", "WarehouseZone", "ZoneBalance", "InventoryCount", "InventoryCountLine", "MetricDefinition", "AuditLog",
     "ProductBatch", "ProductSerial", "UoM", "UoMConversion", "WarehouseReorderRule", "PutawayStrategy", "CycleCountSchedule", "ConsignmentStock",

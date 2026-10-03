@@ -19,6 +19,13 @@ class InvoiceGenerate(BaseModel):
         return self
 
 
+class InvoicePaymentCreate(BaseModel):
+    amount: Decimal = Field(..., gt=0)
+    payment_date: date
+    method: str | None = Field(None, max_length=50)
+    reference: str | None = Field(None, max_length=100)
+
+
 class InvoiceDraftItemUpdate(BaseModel):
     product_name: str = Field(..., min_length=1, max_length=255)
     quantity: Decimal = Field(..., gt=0)
@@ -88,6 +95,8 @@ class InvoiceResponse(BaseModel):
     client_identification_code: str
     client_address: str
     notes: str | None
+    paid_amount: float
+    payment_status: str
     download_url: str
     items: list[InvoiceItemResponse]
     created_at: datetime

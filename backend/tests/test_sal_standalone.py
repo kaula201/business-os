@@ -6,17 +6,19 @@ work with only BASE modules. Client registry is BASE master data.
 import uuid
 from datetime import date, timedelta
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.core.modules import is_module_enabled
 from app.core.security import hash_password
+from app.core.tenant_scope import TENANT_POLICY_PREDICATE
 from app.models.company import Company
 from app.models.gl import JournalEntry
-from app.models.invoice import Invoice
+from app.models.invoice import Invoice, InvoicePayment
 from app.models.module import AppModule, CompanyModule, ModulePermission
-from app.models.order import InventoryReservation, OrderFulfillment
+from app.models.order import InventoryReservation, Order, OrderFulfillment
 from app.models.product import Product
 from app.models.receivable import CustomerReceivable
 from app.models.user import User
@@ -500,31 +502,207 @@ async def test_individual_identification_code_masked_in_list_and_full_for_admin(
     assert get_resp.json()["data"]["identification_code"] == "01234567890"
 
 
-@pytest.mark.xfail(strict=False, reason="payment recording lives in FIN (customer-finance); SAL-standalone payment: follow-up")
-@pytest.mark.asyncio
-async def test_sal_standalone_payment_step_follow_up(client, db_session):
-    """Expected behaviour: after an issued invoice, a payment can be recorded.
-
-    In SAL-standalone (FIN off) there is no payment module yet, so this test
-    documents the follow-up rather than passing.
-    """
-    company, headers = await _create_sal_context(client, db_session, SAL_CODES, "PAY")
-    client_id = await _create_client(client, headers, "PAY")
-    product = await _create_product(db_session, company.id, "PAY")
+async def _create_issued_invoice(client, headers, db_session, company, suffix):
+    client_id = await _create_client(client, headers, suffix)
+    product = await _create_product(db_session, company.id, suffix)
     order = await _create_order(client, headers, client_id, product)
     confirmed = await client.patch(
         f"/api/v1/orders/{order['id']}/status",
         json={"status": "confirmed"},
         headers=headers,
     )
-    assert confirmed.status_code == 200
+    assert confirmed.status_code == 200, confirmed.text
     generated = await client.post(
         "/api/v1/invoices/generate",
-        json=invoice_payload(order["id"], "PAY"),
+        json=invoice_payload(order["id"], suffix),
         headers=headers,
     )
-    assert generated.status_code == 200
-    assert generated.json()["data"]["status"] == "issued"
-    # Payment recording should live in customer-finance; SAL-standalone has no
-    # endpoint yet.  Once FIN is enabled, this flow should record a payment.
-    assert False
+    assert generated.status_code == 200, generated.text
+    return generated.json()["data"]
+
+
+@pytest.mark.asyncio
+async def test_sal_base_payment_partial_and_paid(client, db_session):
+    company, headers = await _create_sal_context(client, db_session, SAL_CODES, "PAY")
+    invoice = await _create_issued_invoice(client, headers, db_session, company, "PAY")
+    invoice_id = invoice["id"]
+
+    base_payment = {"amount": 100, "payment_date": date.today().isoformat()}
+    resp = await client.post(
+        f"/api/v1/invoices/{invoice_id}/payments", headers=headers, json=base_payment
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert data["paid_amount"] == 100.0
+    assert data["payment_status"] == "partial"
+
+    resp2 = await client.post(
+        f"/api/v1/invoices/{invoice_id}/payments", headers=headers, json=base_payment
+    )
+    assert resp2.status_code == 200, resp2.text
+    data2 = resp2.json()["data"]
+    assert data2["paid_amount"] == 200.0
+    assert data2["payment_status"] == "paid"
+
+    overpay = await client.post(
+        f"/api/v1/invoices/{invoice_id}/payments",
+        headers=headers,
+        json={"amount": 0.01, "payment_date": date.today().isoformat()},
+    )
+    assert overpay.status_code == 422
+
+    assert await _count(db_session, CustomerReceivable, company.id) == 0
+    assert await _count(db_session, InvoicePayment, company.id) == 2
+
+
+@pytest.mark.asyncio
+async def test_sal_fin_payment_rejected_use_fin(client, db_session):
+    enabled = SAL_CODES | {"customer-finance"}
+    company, headers = await _create_sal_context(client, db_session, enabled, "FINPAY")
+    invoice = await _create_issued_invoice(client, headers, db_session, company, "FINPAY")
+
+    resp = await client.post(
+        f"/api/v1/invoices/{invoice['id']}/payments",
+        headers=headers,
+        json={"amount": 10, "payment_date": date.today().isoformat()},
+    )
+    assert resp.status_code == 409
+    assert "კლიენტის ფინანსებში" in resp.json()["detail"]
+    assert await _count(db_session, InvoicePayment, company.id) == 0
+    assert await _count(db_session, CustomerReceivable, company.id) == 1
+
+
+@pytest.mark.asyncio
+async def test_cross_tenant_invoice_payment_is_rejected(client, db_session):
+    company_a, headers_a = await _create_sal_context(client, db_session, SAL_CODES, "TPA")
+    company_b, headers_b = await _create_sal_context(client, db_session, SAL_CODES, "TPB")
+    invoice = await _create_issued_invoice(client, headers_a, db_session, company_a, "TPA")
+
+    resp = await client.post(
+        f"/api/v1/invoices/{invoice['id']}/payments",
+        headers=headers_b,
+        json={"amount": 1, "payment_date": date.today().isoformat()},
+    )
+    assert resp.status_code == 404
+    assert await _count(db_session, InvoicePayment, company_b.id) == 0
+
+
+@pytest.mark.asyncio
+async def test_invoice_payments_has_tenant_isolation_rls(db_session):
+    result = await db_session.execute(text("""
+        SELECT pol.policyname, c.relforcerowsecurity
+        FROM pg_policies pol
+        JOIN pg_class c ON c.relname = pol.tablename AND c.relnamespace = 'public'::regnamespace
+        WHERE pol.schemaname = 'public'
+          AND pol.tablename = 'invoice_payments'
+          AND pol.policyname = 'tenant_isolation'
+    """))
+    row = result.first()
+    assert row is not None
+    assert row.policyname == "tenant_isolation"
+    assert row.relforcerowsecurity is True
+
+
+def test_invoice_payments_migration_has_rls_and_predicate():
+    migration_file = Path(__file__).resolve().parents[1] / "migrations" / "versions" / "154_invoice_payments.py"
+    source = migration_file.read_text()
+    assert "FORCE ROW LEVEL SECURITY" in source
+    assert TENANT_POLICY_PREDICATE in source
+
+
+@pytest.mark.asyncio
+async def test_order_and_invoice_default_currency_gel(client, db_session):
+    company, headers = await _create_sal_context(client, db_session, SAL_CODES, "GEL")
+    client_id = await _create_client(client, headers, "GEL")
+    product = await _create_product(db_session, company.id, "GEL")
+    order = await _create_order(client, headers, client_id, product)
+
+    order_obj = await db_session.get(Order, uuid.UUID(order["id"]))
+    assert order_obj.currency == "GEL"
+
+    confirmed = await client.patch(
+        f"/api/v1/orders/{order['id']}/status",
+        json={"status": "confirmed"},
+        headers=headers,
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    generated = await client.post(
+        "/api/v1/invoices/generate",
+        json=invoice_payload(order["id"], "GEL"),
+        headers=headers,
+    )
+    assert generated.status_code == 200, generated.text
+    assert generated.json()["data"]["currency"] == "GEL"
+
+
+@pytest.mark.asyncio
+async def test_quotation_default_currency_gel(client, db_session):
+    company, headers = await _create_sal_context(client, db_session, SAL_CODES, "QTGEL")
+    client_id = await _create_client(client, headers, "QTGEL")
+    product = await _create_product(db_session, company.id, "QTGEL")
+    today = date.today()
+    payload = {
+        "client_id": client_id,
+        "quotation_date": today.isoformat(),
+        "valid_until": (today + timedelta(days=30)).isoformat(),
+        "discount_percent": 0,
+        "items": [
+            {
+                "product_id": str(product.id),
+                "description": "x",
+                "quantity": 1,
+                "unit_price": 10,
+                "discount_percent": 0,
+                "is_optional": False,
+            }
+        ],
+    }
+    resp = await client.post("/api/v1/quotations/", headers=headers, json=payload)
+    assert resp.status_code in (200, 201), resp.text
+    assert resp.json()["data"]["currency"] == "GEL"
+
+
+@pytest.mark.asyncio
+async def test_invoice_vat_18_line_rounding(client, db_session):
+    company, headers = await _create_sal_context(client, db_session, SAL_CODES, "VAT18")
+    client_id = await _create_client(client, headers, "VAT18")
+    product = await _create_product(db_session, company.id, "VAT18")
+    items = [
+        {
+            "product_id": str(product.id),
+            "product_name": product.name,
+            "quantity": 1,
+            "unit_price": 0.10,
+            "discount_percent": 0,
+        }
+        for _ in range(3)
+    ]
+    order_resp = await client.post(
+        "/api/v1/orders/",
+        headers=headers,
+        json={"client_id": client_id, "items": items, "is_vat_payer": True},
+    )
+    assert order_resp.status_code == 200, order_resp.text
+    order = order_resp.json()["data"]
+
+    confirmed = await client.patch(
+        f"/api/v1/orders/{order['id']}/status",
+        json={"status": "confirmed"},
+        headers=headers,
+    )
+    assert confirmed.status_code == 200, confirmed.text
+
+    generated = await client.post(
+        "/api/v1/invoices/generate",
+        json=invoice_payload(order["id"], "VAT18"),
+        headers=headers,
+    )
+    assert generated.status_code == 200, generated.text
+    data = generated.json()["data"]
+
+    # rounding rule needs verification (RS.ge): each line VAT is rounded to 2
+    # decimals with ROUND_HALF_UP before summing; 0.10*18% = 0.018 -> 0.02.
+    assert data["subtotal"] == 0.30
+    assert data["vat_amount"] == 0.06
+    assert data["total"] == 0.36
+    assert [item["vat_amount"] for item in data["items"]] == [0.02, 0.02, 0.02]
