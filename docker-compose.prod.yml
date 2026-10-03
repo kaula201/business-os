@@ -4,21 +4,24 @@
 #
 # Before the first start:
 #   1. Copy .env.example to .env and set POSTGRES_PASSWORD, APP_DB_PASSWORD,
-#      and BACKUP_DB_PASSWORD.
-#      Compose exits if any of them is missing. Use three different strong passwords.
+#      BACKUP_DB_PASSWORD, and MVREFRESH_DB_PASSWORD.
+#      Compose exits if any of them is missing. Use four different strong passwords.
 #      APP_DB_PASSWORD is embedded in DATABASE_URL.
 #      Generate passwords with: python -c "import secrets; print(secrets.token_urlsafe(32))"
 #      Do not use % or $ (or @ : / # ? or spaces).
 #      The one-shot migrate service connects as the superuser
 #      (MIGRATION_DATABASE_URL, built from POSTGRES_PASSWORD).
-#      It also receives APP_DB_PASSWORD and BACKUP_DB_PASSWORD so it can set
-#      those role passwords. On an existing volume it creates business_os_backup
-#      the next time it runs.
+#      It also receives APP_DB_PASSWORD, BACKUP_DB_PASSWORD, and
+#      MVREFRESH_DB_PASSWORD so it can set those role passwords. On an existing
+#      volume it creates business_os_backup and business_os_mvrefresh the next
+#      time it runs.
 #      The backend service never receives POSTGRES_PASSWORD, BACKUP_DB_PASSWORD,
-#      or the superuser URL. It only gets APP_DB_PASSWORD and DATABASE_URL
+#      MVREFRESH_DB_PASSWORD, or the superuser URL. It only gets APP_DB_PASSWORD and DATABASE_URL
 #      for business_os_app.
 #      The backup service connects as business_os_backup. It receives
 #      BACKUP_DB_PASSWORD only — not POSTGRES_PASSWORD or APP_DB_PASSWORD.
+#      The mvrefresh service connects as business_os_mvrefresh (owner of the
+#      mv_* materialized views) and receives MVREFRESH_DB_PASSWORD only.
 #   2. Copy backend/.env.example to backend/.env
 #   3. Set JWT_SECRET_KEY (32+ random chars; the API refuses known placeholders)
 #   4. Set CORS_ORIGINS to the public origin, e.g. https://app.example.com

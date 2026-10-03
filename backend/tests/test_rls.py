@@ -199,3 +199,39 @@ async def test_rls_pin_survives_commit_but_system_scope_does_not(
             names = (await session.execute(select(Client.name))).scalars().all()
             assert names == ["RLS Repin A"]
     current_company_id.set(None)
+
+
+@pytest.mark.asyncio
+async def test_tenant_rls_sql_drops_other_permissive_policies(
+    db_session, test_company, other_company
+):
+    """Permissive policies are OR-ed; a leftover fail-open policy must not survive reconcile."""
+    from app.core.tenant_scope import tenant_rls_sql
+    from tests.conftest import test_engine
+
+    db_session.add_all([
+        Client(company_id=test_company.id, name="RLS Legacy A", client_type="legal",
+               identification_code="RLS-LEGACY-A", status="active"),
+        Client(company_id=other_company.id, name="RLS Legacy B", client_type="legal",
+               identification_code="RLS-LEGACY-B", status="active"),
+    ])
+    await db_session.commit()
+    current_company_id.set(None)
+
+    async with test_engine.begin() as conn:
+        # Same shape as the pre-#7 tms_* policies from migration 149.
+        await conn.execute(text(
+            "CREATE POLICY legacy_fail_open ON clients "
+            "USING (current_setting('app.current_company_id', true) IS NULL "
+            "OR current_setting('app.current_company_id', true) = '')"
+        ))
+        leaked = (await conn.execute(text("SELECT count(*) FROM clients"))).scalar_one()
+        assert leaked == 2  # proves the leftover policy re-opens the table
+
+        await conn.execute(text(tenant_rls_sql()))
+
+        assert (await conn.execute(text("SELECT count(*) FROM clients"))).scalar_one() == 0
+        policies = (await conn.execute(text(
+            "SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'clients'"
+        ))).scalars().all()
+        assert policies == ["tenant_isolation"]

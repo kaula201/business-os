@@ -28,6 +28,7 @@ _FAIL_CLOSED = f"""
 DO $$
 DECLARE
     t text;
+    p text;
 BEGIN
     FOR t IN
         SELECT c.relname
@@ -43,6 +44,20 @@ BEGIN
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
         EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
         EXECUTE format('DROP POLICY IF EXISTS tenant_isolation ON %I', t);
+        -- Permissive policies are OR-ed: any other permissive policy (for
+        -- example the fail-open tms_* policies from migration 149) would
+        -- re-open the table. tenant_isolation is the only permissive policy
+        -- allowed on a company_id table; restrictive policies are kept.
+        FOR p IN
+            SELECT pol.policyname
+            FROM pg_policies pol
+            WHERE pol.schemaname = 'public'
+              AND pol.tablename = t
+              AND pol.policyname <> 'tenant_isolation'
+              AND pol.permissive = 'PERMISSIVE'
+        LOOP
+            EXECUTE format('DROP POLICY IF EXISTS %I ON %I', p, t);
+        END LOOP;
         EXECUTE format(
             'CREATE POLICY tenant_isolation ON %I USING ({_PREDICATE}) WITH CHECK ({_PREDICATE})',
             t

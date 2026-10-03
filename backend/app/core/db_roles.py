@@ -478,7 +478,7 @@ def matview_owner_statements(owner: str | None = None) -> list[str]:
 
     The dedicated refresh role owns them; the caller passes MVREFRESH_ROLE.name.
     """
-    owner_name = _ident(owner or APP_ROLE.name, "role")
+    owner_name = _ident(owner or MVREFRESH_ROLE.name, "role")
     statements: list[str] = []
     for view in MATERIALIZED_VIEWS:
         view_name = _ident(view, "materialized view")
