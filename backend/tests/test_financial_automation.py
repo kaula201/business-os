@@ -1,6 +1,7 @@
 """Scheduled financial automation — full monthly close for one company."""
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import select
@@ -45,7 +46,7 @@ async def _seed_deferred(test_company) -> None:
         await s.flush()
         # two due periods (past months) and one future (next month) — date-agnostic
         # (test was written when today was 2026-08 with Jul/Aug due + Sep future)
-        today = date.today()
+        today = datetime.now(ZoneInfo("Asia/Tbilisi")).date()
         # past: two months before current month
         y2, m2 = (today.year - 1, 12) if today.month <= 2 else (today.year, today.month - 2)
         y1, m1 = (today.year - 1, 12) if today.month == 1 else (today.year, today.month - 1)
