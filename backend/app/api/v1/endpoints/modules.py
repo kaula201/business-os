@@ -18,7 +18,7 @@ from typing import Optional
 from uuid import UUID
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, require_admin
+from app.core.dependencies import get_current_user, get_current_user_or_api_key, require_admin, require_module
 from app.models.user import User
 from app.models.module import AppModule, CompanyModule, ModulePermission
 from app.schemas.module import (
@@ -131,9 +131,14 @@ async def toggle_company_module(
     module_id: UUID,
     data: CompanyModuleUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module("settings", "can_edit")),
 ):
     """Enable or disable a module for the current company."""
+    # Only tenant admins may toggle company modules.
+    # Tenant self-enablement of paid modules is tracked in epic #12.
+    if current_user.role != User.Role.ADMIN:
+        raise HTTPException(status_code=403, detail="მხოლოდ ადმინისტრატორს შეუძლია")
+
     # Verify module exists and is active
     mod_result = await db.execute(
         select(AppModule).where(AppModule.id == module_id, AppModule.is_active == True)
@@ -162,7 +167,9 @@ async def toggle_company_module(
 
     await db.flush()
     await db.refresh(cm)
-    return ResponseBase(data=CompanyModuleResponse.model_validate(cm))
+    return ResponseBase(data=CompanyModuleResponse.model_validate(
+        {k: v for k, v in cm.__dict__.items() if k != "_sa_instance_state"}
+    ))
 
 
 @router.get("/{module_id}", response_model=ResponseBase[AppModuleWithPermissions])
