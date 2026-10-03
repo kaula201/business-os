@@ -9,6 +9,8 @@ import pytest
 from sqlalchemy import func, select, text
 
 from app.models.client import Client
+from conftest import AppSessionLocal
+from app.core.tenant_scope import clear_tenant, pin_tenant, system_scope
 
 
 @pytest.mark.asyncio
@@ -53,35 +55,81 @@ async def test_rls_blocks_cross_company_reads_without_orm_filter(
 
 
 @pytest.mark.asyncio
-async def test_rls_without_pin_sees_all_rows_for_tooling(
-    db_session, test_company, other_company
-):
+async def test_rls_without_pin_sees_no_rows(db_session, test_company, other_company):
     db_session.add_all([
         Client(
             company_id=test_company.id,
-            name="RLS Tooling A",
+            name="RLS No Pin A",
             client_type="legal",
-            identification_code="RLS-TOOL-A",
+            identification_code="RLS-NOPIN-A",
             status="active",
         ),
         Client(
             company_id=other_company.id,
-            name="RLS Tooling B",
+            name="RLS No Pin B",
             client_type="legal",
-            identification_code="RLS-TOOL-B",
+            identification_code="RLS-NOPIN-B",
             status="active",
         ),
     ])
     await db_session.commit()
 
-    # No pin → migrations/seeds/admin tooling keep full visibility.
-    await db_session.execute(
-        text("SELECT set_config('app.current_company_id', NULL, true)")
-    )
-    total = (
-        await db_session.execute(select(func.count()).select_from(Client))
-    ).scalar_one()
-    assert total == 2
+    async with AppSessionLocal() as session:
+        # Empty-string settings also fail closed.
+        await clear_tenant(session)
+        total = (
+            await session.execute(select(func.count()).select_from(Client))
+        ).scalar_one()
+        assert total == 0
+
+        # SQL NULL settings fail closed too.
+        await session.execute(text("SELECT set_config('app.current_company_id', NULL, true)"))
+        await session.execute(text("SELECT set_config('app.rls_bypass', NULL, true)"))
+        total = (
+            await session.execute(select(func.count()).select_from(Client))
+        ).scalar_one()
+        assert total == 0
+
+    async with AppSessionLocal() as session:
+        await clear_tenant(session)
+        session.add(Client(
+            company_id=test_company.id,
+            name="RLS No Pin Insert",
+            client_type="legal",
+            identification_code="RLS-NOPIN-INSERT",
+            status="active",
+        ))
+        with pytest.raises(Exception):
+            await session.commit()
+        await session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_rls_system_scope_sees_all_rows(db_session, test_company, other_company):
+    db_session.add_all([
+        Client(
+            company_id=test_company.id,
+            name="RLS System A",
+            client_type="legal",
+            identification_code="RLS-SYSTEM-A",
+            status="active",
+        ),
+        Client(
+            company_id=other_company.id,
+            name="RLS System B",
+            client_type="legal",
+            identification_code="RLS-SYSTEM-B",
+            status="active",
+        ),
+    ])
+    await db_session.commit()
+
+    async with AppSessionLocal() as session:
+        async with system_scope(session, "test"):
+            total = (
+                await session.execute(select(func.count()).select_from(Client))
+            ).scalar_one()
+            assert total == 2
 
 
 @pytest.mark.asyncio
@@ -95,15 +143,28 @@ async def test_rls_resets_between_transactions(db_session, test_company, other_c
     ))
     await db_session.commit()
 
-    # Pin in one transaction...
-    await db_session.execute(
-        text("SELECT set_config('app.current_company_id', :cid, true)"),
-        {"cid": str(test_company.id)},
-    )
-    # ...commit ends the local scope...
-    await db_session.commit()
-    # ...next transaction starts unpinned → full visibility restored.
-    total = (
-        await db_session.execute(select(func.count()).select_from(Client))
-    ).scalar_one()
-    assert total == 1
+    async with AppSessionLocal() as session:
+        # Pin to company A: sees none of B's rows.
+        await pin_tenant(session, test_company.id)
+        total = (
+            await session.execute(select(func.count()).select_from(Client))
+        ).scalar_one()
+        assert total == 0
+
+        # Pin to company B: sees its own row.
+        await pin_tenant(session, other_company.id)
+        total = (
+            await session.execute(select(func.count()).select_from(Client))
+        ).scalar_one()
+        assert total == 1
+
+        # Commit ends the transaction-local scope.
+        await session.commit()
+
+    # Next transaction starts unpinned and sees zero rows.
+    async with AppSessionLocal() as session:
+        await clear_tenant(session)
+        total = (
+            await session.execute(select(func.count()).select_from(Client))
+        ).scalar_one()
+        assert total == 0

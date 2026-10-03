@@ -43,7 +43,32 @@ _PRIVILEGES = text(
             FROM pg_auth_members m
             JOIN pg_roles member ON member.oid = m.member
             WHERE member.rolname = 'business_os_backup'
-        ) AS backup_any_membership
+        ) AS backup_any_membership,
+        has_table_privilege('business_os_mvrefresh', 'companies', 'INSERT') AS mvrefresh_insert_companies,
+        has_table_privilege('business_os_mvrefresh', 'secret_table', 'SELECT') AS mvrefresh_select_secret,
+        has_table_privilege('business_os_mvrefresh', 'invoices', 'SELECT') AS mvrefresh_select_invoices,
+        has_schema_privilege('business_os_mvrefresh', 'public', 'CREATE') AS mvrefresh_schema_create,
+        has_database_privilege('business_os_mvrefresh', current_database(), 'TEMP') AS mvrefresh_temp,
+        has_database_privilege('business_os_mvrefresh', current_database(), 'CONNECT') AS mvrefresh_connect,
+        EXISTS (
+            SELECT 1
+            FROM pg_auth_members m
+            JOIN pg_roles member ON member.oid = m.member
+            WHERE member.rolname = 'business_os_mvrefresh'
+        ) AS mvrefresh_any_membership,
+        (
+            SELECT pg_get_userbyid(c.relowner)
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public' AND c.relname = 'mv_sales_daily' AND c.relkind = 'm'
+        ) AS mv_owner,
+        has_table_privilege('business_os_app', 'mv_sales_daily', 'SELECT') AS app_mv_select,
+        has_table_privilege('business_os_app', 'mv_sales_daily', 'INSERT') AS app_mv_insert,
+        (SELECT rolbypassrls FROM pg_roles WHERE rolname = 'business_os_mvrefresh') AS mvrefresh_bypassrls,
+        (SELECT rolsuper FROM pg_roles WHERE rolname = 'business_os_mvrefresh') AS mvrefresh_super,
+        (SELECT rolcreatedb FROM pg_roles WHERE rolname = 'business_os_mvrefresh') AS mvrefresh_createdb,
+        (SELECT rolcreaterole FROM pg_roles WHERE rolname = 'business_os_mvrefresh') AS mvrefresh_createrole,
+        (SELECT rolinherit FROM pg_roles WHERE rolname = 'business_os_mvrefresh') AS mvrefresh_inherit
     """
 )
 
@@ -59,8 +84,10 @@ _APP_MEMBERSHIPS = text(
     FROM pg_auth_members m
     JOIN pg_roles granted ON granted.oid = m.roleid
     JOIN pg_roles member ON member.oid = m.member
-    WHERE member.rolname = 'business_os_app'
-       OR granted.rolname = 'business_os_app'
+    WHERE (member.rolname = 'business_os_app'
+           OR granted.rolname = 'business_os_app')
+      -- revoke_excess roles lose every membership; that is asserted separately.
+      AND member.rolname NOT IN ('business_os_backup', 'business_os_mvrefresh')
     ORDER BY granted.rolname, member.rolname, m.admin_option, m.inherit_option, m.set_option
     """
 )
@@ -107,7 +134,7 @@ def _assert_clean(row) -> None:
     assert row.app_schema_create is False
     assert row.public_schema_create is False
     assert row.app_usage is True
-    assert row.app_temp is True
+    assert row.app_temp is False
     assert row.backup_temp is False
     assert row.public_temp is False
     assert row.backup_db_create is False
@@ -117,6 +144,21 @@ def _assert_clean(row) -> None:
     assert row.public_connect is True
     assert row.backup_write_all_data is False
     assert row.backup_any_membership is False
+    assert row.mvrefresh_insert_companies is False
+    assert row.mvrefresh_select_secret is False
+    assert row.mvrefresh_select_invoices is True
+    assert row.mvrefresh_schema_create is False
+    assert row.mvrefresh_temp is True
+    assert row.mvrefresh_connect is True
+    assert row.mvrefresh_any_membership is False
+    assert row.mv_owner == 'business_os_mvrefresh'
+    assert row.app_mv_select is True
+    assert row.app_mv_insert is False
+    assert row.mvrefresh_bypassrls is True
+    assert row.mvrefresh_super is False
+    assert row.mvrefresh_createdb is False
+    assert row.mvrefresh_createrole is False
+    assert row.mvrefresh_inherit is False
 
 
 def _membership_rows(result) -> tuple:
@@ -130,6 +172,9 @@ async def _inject(conn) -> None:
     await conn.execute(text("GRANT INSERT ON TABLE public.companies TO business_os_backup"))
     await conn.execute(text("GRANT CREATE ON SCHEMA public TO PUBLIC"))
     await conn.execute(text("GRANT CREATE ON SCHEMA public TO business_os_backup"))
+    await conn.execute(text("GRANT CREATE ON SCHEMA public TO business_os_mvrefresh"))
+    await conn.execute(text("GRANT INSERT ON TABLE public.companies TO business_os_mvrefresh"))
+    await conn.execute(text("GRANT SELECT ON TABLE public.secret_table TO business_os_mvrefresh"))
     await conn.execute(
         text(
             """
@@ -144,11 +189,19 @@ async def _inject(conn) -> None:
                     current_database()
                 );
                 EXECUTE format(
+                    'GRANT CREATE ON DATABASE %I TO business_os_mvrefresh',
+                    current_database()
+                );
+                EXECUTE format(
                     'GRANT TEMPORARY ON DATABASE %I TO PUBLIC',
                     current_database()
                 );
                 EXECUTE format(
                     'GRANT TEMPORARY ON DATABASE %I TO business_os_backup',
+                    current_database()
+                );
+                EXECUTE format(
+                    'GRANT TEMPORARY ON DATABASE %I TO business_os_app',
                     current_database()
                 );
             END
@@ -157,6 +210,29 @@ async def _inject(conn) -> None:
         )
     )
     await conn.execute(text("GRANT pg_write_all_data TO business_os_backup"))
+    await conn.execute(text("GRANT pg_write_all_data TO business_os_mvrefresh"))
+    await conn.execute(text("GRANT business_os_app TO business_os_mvrefresh"))
+    await conn.execute(
+        text(
+            """
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1
+                    FROM pg_class c
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'public'
+                      AND c.relname = 'mv_sales_daily'
+                      AND c.relkind = 'm'
+                      AND pg_get_userbyid(c.relowner) <> 'business_os_app'
+                ) THEN
+                    EXECUTE 'GRANT INSERT ON TABLE public.mv_sales_daily TO business_os_app';
+                END IF;
+            END
+            $$;
+            """
+        )
+    )
 
 
 async def test_superuser_reconcile_removes_injected_drift():
@@ -197,6 +273,48 @@ async def test_superuser_reconcile_removes_injected_drift():
                     """
                 )
             )
+            await conn.execute(
+                text(
+                    """
+                    CREATE TABLE invoices (
+                        id uuid PRIMARY KEY,
+                        company_id uuid NOT NULL,
+                        invoice_date date,
+                        status text,
+                        total numeric
+                    )
+                    """
+                )
+            )
+            await conn.execute(
+                text(
+                    """
+                    CREATE TABLE secret_table (
+                        id uuid PRIMARY KEY,
+                        company_id uuid NOT NULL
+                    )
+                    """
+                )
+            )
+            await conn.execute(
+                text(
+                    """
+                    CREATE MATERIALIZED VIEW mv_sales_daily AS
+                    SELECT company_id, invoice_date AS day, count(*) AS invoice_count,
+                           sum(total) AS total_amount
+                    FROM invoices
+                    GROUP BY company_id, invoice_date
+                    """
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_mv_sales_daily ON mv_sales_daily (company_id, day)"
+                )
+            )
+            await conn.execute(
+                text("ALTER MATERIALIZED VIEW mv_sales_daily OWNER TO business_os_app")
+            )
         await _ensure_managed_roles(drift, roles_only=False)
 
         for _ in range(2):
@@ -213,6 +331,8 @@ async def test_superuser_reconcile_removes_injected_drift():
             assert dirty.backup_db_create is True
             assert dirty.public_db_create is True
             assert dirty.backup_write_all_data is True
+            assert dirty.mvrefresh_insert_companies is True
+            assert dirty.app_temp is True
             async with drift.connect() as conn:
                 app_memberships = _membership_rows((await conn.execute(_APP_MEMBERSHIPS)).all())
             await _ensure_managed_roles(drift, roles_only=False)
@@ -229,6 +349,18 @@ async def test_superuser_reconcile_removes_injected_drift():
                     BEGIN
                         IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'business_os_backup') THEN
                             EXECUTE 'REVOKE pg_write_all_data FROM business_os_backup';
+                        END IF;
+                        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'business_os_mvrefresh') THEN
+                            EXECUTE 'REVOKE pg_write_all_data FROM business_os_mvrefresh';
+                            IF EXISTS (
+                                SELECT 1 FROM pg_auth_members m
+                                JOIN pg_roles granted ON granted.oid = m.roleid
+                                JOIN pg_roles member ON member.oid = m.member
+                                WHERE member.rolname = 'business_os_mvrefresh'
+                                  AND granted.rolname = 'business_os_app'
+                            ) THEN
+                                EXECUTE 'REVOKE business_os_app FROM business_os_mvrefresh';
+                            END IF;
                         END IF;
                     END
                     $$;

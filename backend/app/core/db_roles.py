@@ -95,11 +95,15 @@ class RoleSpec:
     default_table_privileges: str
     default_sequence_privileges: str
     grant_matview_select: bool = False
+    # When non-empty, table privileges are granted only on these public
+    # tables and no ALL TABLES / ALL SEQUENCES / ALTER DEFAULT PRIVILEGES
+    # grants are emitted.
+    source_tables: tuple[str, ...] = ()
     # Database privileges re-applied on every reconcile. CONNECT is required
     # to log in once PUBLIC loses extra rights. TEMPORARY is only for the
     # role that owns the materialized views: REFRESH CONCURRENTLY creates a
     # temporary table in that session.
-    # The TEMPORARY grant moves to the dedicated refresh role in #7.
+    # The TEMPORARY grant belongs to the dedicated refresh role in #7.
     # business_os_app loses it then.
     database_privileges: tuple[str, ...] = ("CONNECT",)
     # When true, every reconcile revokes privileges outside this spec before
@@ -114,6 +118,8 @@ class RoleSpec:
         _priv(self.sequence_privileges, _OBJECT_PRIVILEGES, "sequence privilege")
         _priv(self.default_table_privileges, _OBJECT_PRIVILEGES, "default table privilege")
         _priv(self.default_sequence_privileges, _OBJECT_PRIVILEGES, "default sequence privilege")
+        for table in self.source_tables:
+            _ident(table, "source table")
         _database_privileges(self.database_privileges)
 
 
@@ -128,7 +134,7 @@ APP_ROLE = RoleSpec(
     default_table_privileges="ALL",
     default_sequence_privileges="ALL",
     grant_matview_select=True,
-    database_privileges=("CONNECT", "TEMPORARY"),
+    database_privileges=("CONNECT",),
 )
 
 # Read-only dump role. BYPASSRLS is required so pg_dump can read every tenant.
@@ -149,6 +155,27 @@ BACKUP_ROLE = RoleSpec(
 )
 
 
+# Dedicated materialized-view refresh role. Owns the three matviews and has
+# SELECT only on the three source tables. BYPASSRLS lets it read every
+# tenant's source rows for the cross-tenant aggregate refresh. The last three
+# default-privilege fields are ignored because source_tables is set.
+MVREFRESH_ROLE = RoleSpec(
+    name="business_os_mvrefresh",
+    password_env="MVREFRESH_DB_PASSWORD",
+    dev_password="business_os_mvrefresh",
+    attributes=("BYPASSRLS", "NOSUPERUSER", "NOCREATEDB", "NOCREATEROLE", "NOINHERIT"),
+    schema_privileges="USAGE",
+    table_privileges="SELECT",
+    sequence_privileges="SELECT",
+    default_table_privileges="SELECT",
+    default_sequence_privileges="SELECT",
+    grant_matview_select=False,
+    source_tables=("invoices", "customer_receivables", "inventory_balances"),
+    database_privileges=("CONNECT", "TEMPORARY"),
+    revoke_excess=True,
+)
+
+
 # REFRESH CONCURRENTLY requires the owner. Migration 065 sets this once;
 # a dump restored with --no-owner leaves the views owned by the superuser,
 # and 065 does not re-run when the dump is already at head.
@@ -161,7 +188,7 @@ MATERIALIZED_VIEWS: tuple[str, ...] = (
 
 # Reconciled after ``upgrade head`` when the connection is a superuser.
 # Migration 063 does not walk this tuple and does not create BACKUP_ROLE.
-MANAGED_ROLES: tuple[RoleSpec, ...] = (APP_ROLE, BACKUP_ROLE)
+MANAGED_ROLES: tuple[RoleSpec, ...] = (APP_ROLE, BACKUP_ROLE, MVREFRESH_ROLE)
 
 
 def dollar_quote(value: str, role_name: str) -> str:
@@ -283,7 +310,24 @@ def revoke_excess_statements(spec: RoleSpec, database: str) -> list[str]:
         f"REVOKE {app} FROM {name}",
         f"REVOKE ALL PRIVILEGES ON DATABASE {database} FROM {name}",
         f"REVOKE ALL PRIVILEGES ON SCHEMA public FROM {name}",
-        f"REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {name}",
+        f"""
+        DO $$
+        DECLARE
+            rel text;
+        BEGIN
+            FOR rel IN
+                SELECT c.relname
+                FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public'
+                  AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+                  AND c.relowner <> (SELECT oid FROM pg_roles WHERE rolname = '{name}')
+            LOOP
+                EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE %I FROM {name}', rel);
+            END LOOP;
+        END
+        $$;
+        """,
         f"REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {name}",
         f"REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM {name}",
         f"""
@@ -296,6 +340,7 @@ def revoke_excess_statements(spec: RoleSpec, database: str) -> list[str]:
                 FROM pg_class c
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public' AND c.relkind = 'm'
+                  AND c.relowner <> (SELECT oid FROM pg_roles WHERE rolname = '{name}')
             LOOP
                 EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE %I FROM {name}', mv);
             END LOOP;
@@ -429,7 +474,10 @@ def revoke_public_schema_create_statements(
 
 
 def matview_owner_statements(owner: str | None = None) -> list[str]:
-    """Give the app role ownership of the three refresh views, if they exist."""
+    """Give the specified role ownership of the three refresh views, if they exist.
+
+    The dedicated refresh role owns them; the caller passes MVREFRESH_ROLE.name.
+    """
     owner_name = _ident(owner or APP_ROLE.name, "role")
     statements: list[str] = []
     for view in MATERIALIZED_VIEWS:
@@ -478,13 +526,37 @@ def grant_statements(spec: RoleSpec, database: str) -> list[str]:
     statements.append(
         f"GRANT {_database_privileges(spec.database_privileges)} ON DATABASE {database} TO {name}"
     )
-    statements.extend(
-        [
-            f"GRANT {schema} ON SCHEMA public TO {name}",
-            f"GRANT {tables} ON ALL TABLES IN SCHEMA public TO {name}",
-            f"GRANT {sequences} ON ALL SEQUENCES IN SCHEMA public TO {name}",
-        ]
-    )
+    statements.append(f"GRANT {schema} ON SCHEMA public TO {name}")
+    if spec.source_tables:
+        # Only the explicitly listed source tables. No ALL TABLES, no
+        # ALL SEQUENCES, and no ALTER DEFAULT PRIVILEGES grants.
+        for table in spec.source_tables:
+            statements.append(
+                f"""
+                DO $$
+                BEGIN
+                    IF to_regclass('public.{table}') IS NOT NULL THEN
+                        EXECUTE 'GRANT {tables} ON TABLE public.{table} TO {name}';
+                    END IF;
+                END
+                $$;
+                """
+            )
+    else:
+        statements.extend(
+            [
+                f"GRANT {tables} ON ALL TABLES IN SCHEMA public TO {name}",
+                f"GRANT {sequences} ON ALL SEQUENCES IN SCHEMA public TO {name}",
+            ]
+        )
+        statements.append(
+            f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+            f"GRANT {default_tables} ON TABLES TO {name}"
+        )
+        statements.append(
+            f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
+            f"GRANT {default_sequences} ON SEQUENCES TO {name}"
+        )
     if spec.grant_matview_select:
         statements.append(
             f"""
@@ -497,21 +569,15 @@ def grant_statements(spec: RoleSpec, database: str) -> list[str]:
                     FROM pg_class c
                     JOIN pg_namespace n ON n.oid = c.relnamespace
                     WHERE n.nspname = 'public' AND c.relkind = 'm'
+                      AND c.relowner <> (SELECT oid FROM pg_roles WHERE rolname = '{name}')
                 LOOP
+                    EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE %I FROM {name}', mv);
                     EXECUTE format('GRANT SELECT ON TABLE %I TO {name}', mv);
                 END LOOP;
             END
             $$;
             """
         )
-    statements.append(
-        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
-        f"GRANT {default_tables} ON TABLES TO {name}"
-    )
-    statements.append(
-        f"ALTER DEFAULT PRIVILEGES FOR ROLE {grantor} IN SCHEMA public "
-        f"GRANT {default_sequences} ON SEQUENCES TO {name}"
-    )
     return statements
 
 

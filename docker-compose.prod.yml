@@ -71,6 +71,7 @@ services:
       APP_ENV: production
       APP_DB_PASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
       BACKUP_DB_PASSWORD: "${BACKUP_DB_PASSWORD:?set BACKUP_DB_PASSWORD}"
+      MVREFRESH_DB_PASSWORD: "${MVREFRESH_DB_PASSWORD:?set MVREFRESH_DB_PASSWORD}"
       # Restore exports MIGRATION_DATABASE_URL, DATABASE_URL, and
       # EXPECTED_DATABASE for the target database. Without the override,
       # `docker compose run migrate` would reconcile business_os.
@@ -134,15 +135,15 @@ services:
         condition: service_healthy
 
   mvrefresh:
-    # Materialized-view refresh stays on business_os_app (the view owner).
+    # Materialized-view refresh runs as business_os_mvrefresh (the view owner).
     # It is not part of the backup container: that container must not receive
-    # the application password, and business_os_backup cannot REFRESH.
+    # the refresh password, and business_os_backup cannot REFRESH.
     image: postgres:16-alpine
     container_name: business_os_mvrefresh
     restart: unless-stopped
     entrypoint: ["/scripts/mvrefresh-cron-entrypoint.sh"]
     environment:
-      PGPASSWORD: "${APP_DB_PASSWORD:?set APP_DB_PASSWORD}"
+      PGPASSWORD: "${MVREFRESH_DB_PASSWORD:?set MVREFRESH_DB_PASSWORD}"
     volumes:
       - ./scripts/refresh_mvs.sh:/scripts/refresh_mvs.sh:ro
       - ./scripts/mvrefresh-cron-entrypoint.sh:/scripts/mvrefresh-cron-entrypoint.sh:ro

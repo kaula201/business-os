@@ -1,7 +1,7 @@
 #!/bin/sh
-# REFRESH MATERIALIZED VIEW runs as business_os_app (the owner).
+# REFRESH MATERIALIZED VIEW runs as business_os_mvrefresh (the owner).
 # This container is separate from backup so the dump role's environment
-# never receives the application password.
+# never receives the refresh password.
 set -eu
 umask 077
 
