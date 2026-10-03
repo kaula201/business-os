@@ -3,7 +3,8 @@ from contextvars import ContextVar
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import event
+from sqlalchemy.orm import DeclarativeBase, Session
 from sqlalchemy import text
 from app.core.config import settings
 
@@ -32,10 +33,35 @@ def _create_engine_kwargs():
 
 
 engine = create_async_engine(settings.DATABASE_URL, **_create_engine_kwargs())
+
+
+class TenantSession(Session):
+    """Sync session class behind every application AsyncSession.
+
+    RLS fails closed (#7): ``app.current_company_id`` is transaction-local, so
+    a ``commit()`` in the middle of a request would otherwise leave the next
+    transaction unpinned (zero rows). After every BEGIN the tenant pinned for
+    this request/task (the ``current_company_id`` ContextVar, set only by
+    ``app.core.tenant_scope.pin_tenant``) is applied again. ``app.rls_bypass``
+    is never re-applied: a system scope ends at commit.
+    """
+
+
+@event.listens_for(TenantSession, "after_begin")
+def _repin_tenant(session, transaction, connection) -> None:
+    company_id = current_company_id.get()
+    if company_id is not None:
+        connection.execute(
+            text("SELECT set_config('app.current_company_id', :cid, true)"),
+            {"cid": str(company_id)},
+        )
+
+
 async_session_factory = async_sessionmaker(
     engine,
     class_=AsyncSession,
     expire_on_commit=False,
+    sync_session_class=TenantSession,
 )
 
 

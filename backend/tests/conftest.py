@@ -14,7 +14,7 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy import event, text
 from sqlalchemy.orm import Session
 
-from app.core.database import Base, get_db
+from app.core.database import Base, TenantSession, current_company_id, get_db
 from app.core.security import hash_password
 from app.core.tenant_scope import TENANT_POLICY_PREDICATE
 from app.main import app
@@ -38,7 +38,7 @@ test_engine = create_async_engine(
     echo=False,
     poolclass=NullPool,
 )
-class _FixtureSession(Session):
+class _FixtureSession(TenantSession):
     """Synchronous session class for fixtures/tooling only."""
 
 
@@ -61,6 +61,7 @@ AppSessionLocal = async_sessionmaker(
     test_engine,
     class_=AsyncSession,
     expire_on_commit=False,
+    sync_session_class=TenantSession,
 )
 
 

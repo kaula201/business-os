@@ -474,14 +474,11 @@ async def refresh_views(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Manually refresh materialized views (mv_sales_daily, mv_receivables_aging, mv_stock_balances)."""
-    for view in ("mv_sales_daily", "mv_receivables_aging", "mv_stock_balances"):
-        try:
-            await db.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view}"))
-        except Exception:
-            pass
-    await db.commit()
-    return ResponseBase(data={"refreshed": True}, message="Materialized views განახლდა")
+    """Manual refresh is no longer performed by the app; the mvrefresh service handles it."""
+    return ResponseBase(
+        data={"refreshed": False, "scheduled": True},
+        message="მატერიალიზებული ხედები განახლდება დაგეგმილი mvrefresh სერვისის მიერ"
+    )
 
 
 # ── REQ-DASH: server-side layout + filtered metrics (10/10 gap closure) ──────

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import create_access_token, create_refresh_token, decode_token, verify_password
+from app.core.tenant_scope import pin_tenant, system_scope
 from app.core.time import utc_now
 from app.models.procurement import RFQ, RFQLine, SupplierPriceList
 from app.models.purchase import PurchaseOrder, Supplier, SupplierInvoice
@@ -53,11 +54,13 @@ async def get_vendor_user(
     payload = decode_token(token)
     if not payload or not payload.get("vendor"):
         raise HTTPException(status_code=401, detail="არასწორი ან ვადაგასული სესია")
-    row = (await db.execute(
-        select(VendorPortalUser).where(VendorPortalUser.id == payload["sub"])
-    )).scalar_one_or_none()
+    async with system_scope(db, "vendor token lookup"):
+        row = (await db.execute(
+            select(VendorPortalUser).where(VendorPortalUser.id == payload["sub"])
+        )).scalar_one_or_none()
     if not row or row.status != "active":
         raise HTTPException(status_code=401, detail="ანგარიში არააქტიურია")
+    await pin_tenant(db, row.company_id)
     return row
 
 
@@ -66,13 +69,16 @@ async def vendor_login(
     data: VendorLoginIn,
     db: AsyncSession = Depends(get_db),
 ):
-    row = (await db.execute(
-        select(VendorPortalUser).where(VendorPortalUser.email == data.email)
-    )).scalar_one_or_none()
+    async with system_scope(db, "vendor login lookup"):
+        row = (await db.execute(
+            select(VendorPortalUser).where(VendorPortalUser.email == data.email)
+        )).scalar_one_or_none()
     if not row or not row.hashed_password or not verify_password(data.password, row.hashed_password):
         raise HTTPException(status_code=401, detail="არასწორი ელფოსტა ან პაროლი")
     if row.status != "active":
         raise HTTPException(status_code=403, detail="ანგარიში დეაქტივირებულია")
+
+    await pin_tenant(db, row.company_id)
 
     row.last_login_at = utc_now()
     await db.flush()

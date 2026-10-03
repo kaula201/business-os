@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_admin
+from app.core.tenant_scope import pin_tenant, system_scope
 from app.core.time import utc_now
 from app.models.saas import TenantPlan, TenantSubscription
 from app.models.user import User
@@ -372,6 +373,8 @@ async def saas_webhook(
         cid = UUID(str(company_id))
     except ValueError:
         raise HTTPException(status_code=400, detail="არასწორი company_id")
+
+    await pin_tenant(db, cid)
 
     sub = (await db.execute(
         select(TenantSubscription).where(TenantSubscription.company_id == cid)

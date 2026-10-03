@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.tenant_scope import pin_tenant, system_scope
 from app.models.company import Company
 from app.models.consolidation_elimination import ConsolidationElimination
 from app.models.purchase import PurchaseOrder, Supplier, SupplierInvoice, SupplierPayable
@@ -45,11 +46,7 @@ async def _mirror_invoice_on_counterparty(
     from app.models.user import User as U
     from app.models.warehouse import Warehouse
 
-    # Lift RLS for the mirror block (policy allows empty company), then restore.
-    await db.execute(
-        text("SELECT set_config('app.current_company_id', '', true)")
-    )
-    try:
+    async with system_scope(db, "consolidation mirror counterparty"):
         # counterparty's admin (or any user) as actor
         actor_cp = (await db.execute(
             select(U).where(U.company_id == counterparty.id, U.role == U.Role.ADMIN)
@@ -120,11 +117,7 @@ async def _mirror_invoice_on_counterparty(
             entry_date=inv.invoice_date, reference_id=mirror.id,
             subtotal=inv.subtotal, vat_amount=inv.vat_amount, total=inv.total,
         )
-    finally:
-        await db.execute(
-            text("SELECT set_config('app.current_company_id', :cid, true)"),
-            {"cid": str(actor.company_id)},
-        )
+    await pin_tenant(db, actor.company_id)
 
 
 @router.post("/auto-detect-purchases", response_model=ResponseBase[dict])

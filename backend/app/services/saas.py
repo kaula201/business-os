@@ -9,6 +9,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.tenant_scope import system_scope
 from app.models.saas import TenantSubscription
 
 # A tenant with no subscription row is treated as "unlimited" — this preserves
@@ -70,44 +71,45 @@ async def run_daily_billing(db: AsyncSession) -> dict:
     can be scheduled. Returns counters. Uses a PostgreSQL advisory lock to stay
     safe under multiple workers.
     """
-    from datetime import date as _date
-    from app.core.time import utc_now
+    async with system_scope(db, "platform billing pass"):
+        from datetime import date as _date
+        from app.core.time import utc_now
 
-    today = _date.today()
-    expired = billed = 0
+        today = _date.today()
+        expired = billed = 0
 
-    lapsed = (await db.execute(
-        select(TenantSubscription).where(
-            TenantSubscription.status == "trial",
-            TenantSubscription.trial_ends_at.isnot(None),
-            TenantSubscription.trial_ends_at < today,
-        )
-    )).scalars().all()
-    for sub in lapsed:
-        sub.status = "expired"
-        sub.end_date = sub.trial_ends_at
-        expired += 1
+        lapsed = (await db.execute(
+            select(TenantSubscription).where(
+                TenantSubscription.status == "trial",
+                TenantSubscription.trial_ends_at.isnot(None),
+                TenantSubscription.trial_ends_at < today,
+            )
+        )).scalars().all()
+        for sub in lapsed:
+            sub.status = "expired"
+            sub.end_date = sub.trial_ends_at
+            expired += 1
 
-    due = (await db.execute(
-        select(TenantSubscription).where(
-            TenantSubscription.status == "active",
-            TenantSubscription.next_billing_date.isnot(None),
-            TenantSubscription.next_billing_date <= today,
-        )
-    )).scalars().all()
-    for sub in due:
-        sub.last_billed_at = utc_now()
-        nbd = sub.next_billing_date or today
-        if sub.frequency == "yearly":
-            sub.next_billing_date = nbd.replace(year=nbd.year + 1)
-        elif nbd.month == 12:
-            sub.next_billing_date = nbd.replace(year=nbd.year + 1, month=1)
-        else:
-            sub.next_billing_date = nbd.replace(month=nbd.month + 1)
-        billed += 1
+        due = (await db.execute(
+            select(TenantSubscription).where(
+                TenantSubscription.status == "active",
+                TenantSubscription.next_billing_date.isnot(None),
+                TenantSubscription.next_billing_date <= today,
+            )
+        )).scalars().all()
+        for sub in due:
+            sub.last_billed_at = utc_now()
+            nbd = sub.next_billing_date or today
+            if sub.frequency == "yearly":
+                sub.next_billing_date = nbd.replace(year=nbd.year + 1)
+            elif nbd.month == 12:
+                sub.next_billing_date = nbd.replace(year=nbd.year + 1, month=1)
+            else:
+                sub.next_billing_date = nbd.replace(month=nbd.month + 1)
+            billed += 1
 
-    await db.commit()
-    return {"expired_trials": expired, "billed": billed, "due": len(due)}
+        await db.commit()
+        return {"expired_trials": expired, "billed": billed, "due": len(due)}
 
 
 SAAS_BILLING_ADVISORY_LOCK_KEY = 2026092702

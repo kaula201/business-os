@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.endpoints.purchase_orders import add_audit
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.tenant_scope import pin_tenant, system_scope
 from app.core.time import utc_now
 from app.models.approval import ApprovalRequest
 from app.models.client import Client
@@ -414,11 +415,13 @@ async def portal_respond(
     db: AsyncSession = Depends(get_db),
 ):
     """Client-facing endpoint — no auth, token-based. Accept or reject a quotation."""
-    q = (await db.execute(
-        select(Quotation).options(selectinload(Quotation.items)).where(Quotation.portal_token == portal_token)
-    )).scalar_one_or_none()
+    async with system_scope(db, "portal token lookup"):
+        q = (await db.execute(
+            select(Quotation).options(selectinload(Quotation.items)).where(Quotation.portal_token == portal_token)
+        )).scalar_one_or_none()
     if not q:
         raise HTTPException(status_code=404, detail="შემოთავაზება ვერ მოიძებნა")
+    await pin_tenant(db, q.company_id)
     if q.status != "sent":
         raise HTTPException(status_code=400, detail="შემოთავაზება აღარ არის sent სტატუსში")
 

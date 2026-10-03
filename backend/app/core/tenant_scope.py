@@ -83,7 +83,12 @@ async def system_scope(db, reason: str):
     try:
         yield
     finally:
-        await db.execute(text("SELECT set_config('app.rls_bypass', '', true)"))
+        try:
+            await db.execute(text("SELECT set_config('app.rls_bypass', '', true)"))
+        except Exception:  # noqa: BLE001
+            # Only reachable when the transaction is already aborted; the
+            # transaction-local setting disappears with its rollback.
+            logger.debug("Could not clear system scope (transaction aborted)")
 
 
 async def read_tenant_matview(db, view: str) -> list:
