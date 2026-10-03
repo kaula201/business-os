@@ -133,7 +133,7 @@ APP_ROLE = RoleSpec(
     sequence_privileges="ALL",
     default_table_privileges="ALL",
     default_sequence_privileges="ALL",
-    grant_matview_select=True,
+    grant_matview_select=False,
     database_privileges=("CONNECT",),
 )
 
@@ -578,29 +578,65 @@ def grant_statements(spec: RoleSpec, database: str) -> list[str]:
             $$;
             """
         )
+    elif not spec.source_tables:
+        statements.append(
+            f"""
+            DO $$
+            DECLARE
+                mv text;
+            BEGIN
+                FOR mv IN
+                    SELECT c.relname
+                    FROM pg_class c
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'public' AND c.relkind = 'm'
+                      AND c.relowner <> (SELECT oid FROM pg_roles WHERE rolname = '{name}')
+                LOOP
+                    EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE %I FROM {name}', mv);
+                END LOOP;
+            END
+            $$;
+            """
+        )
     return statements
 
 
 def matview_event_statements(roles: tuple[RoleSpec, ...] | list[RoleSpec]) -> list[str]:
-    """Replace the matview event trigger so every listed role keeps SELECT.
+    """Replace the matview event trigger with the configured per-role grants.
 
     ``GRANT`` on tables does not cover materialized views, and
-    ``ALTER DEFAULT PRIVILEGES`` does not either. One function grants each
-    role that set ``grant_matview_select``.
+    ``ALTER DEFAULT PRIVILEGES`` does not either. One function applies the
+    correct action for each role: roles with ``grant_matview_select`` receive
+    SELECT, while no-source_tables roles with ``grant_matview_select=False``
+    get an immediate REVOKE ALL to remove the default-privilege grant.
     """
-    names = [_ident(role.name, "role") for role in roles if role.grant_matview_select]
-    if not names:
+    grant_names = [_ident(role.name, "role") for role in roles if role.grant_matview_select]
+    revoke_names = [
+        _ident(role.name, "role")
+        for role in roles
+        if not role.grant_matview_select and not role.source_tables
+    ]
+    if not grant_names and not revoke_names:
         return [
             "DROP EVENT TRIGGER IF EXISTS business_os_grant_matview",
             "DROP FUNCTION IF EXISTS business_os_grant_matview()",
         ]
-    executes = "\n".join(
-        "                EXECUTE format(\n"
-        f"                    'GRANT SELECT ON TABLE %s TO {name}',\n"
-        "                    obj.object_identity\n"
-        "                );"
-        for name in names
-    )
+    execute_lines = []
+    for name in grant_names:
+        execute_lines.append(
+            "                EXECUTE format(\n"
+            f"                    'GRANT SELECT ON TABLE %s TO {name}',\n"
+            "                    obj.object_identity\n"
+            "                );"
+        )
+    for name in revoke_names:
+        execute_lines.append(
+            "                EXECUTE format(\n"
+            f"                    'REVOKE ALL ON TABLE %s FROM {name}',\n"
+            "                    obj.object_identity\n"
+            "                );"
+        )
+    executes = "\n".join(execute_lines)
     return [
         f"""
         CREATE OR REPLACE FUNCTION business_os_grant_matview()

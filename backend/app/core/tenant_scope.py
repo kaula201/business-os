@@ -8,7 +8,6 @@ from uuid import UUID
 from sqlalchemy import text
 
 from app.core.database import current_company_id
-from app.core.db_roles import MATERIALIZED_VIEWS
 
 logger = logging.getLogger(__name__)
 
@@ -106,19 +105,4 @@ async def system_scope(db, reason: str):
             logger.debug("Could not clear system scope (transaction aborted)")
 
 
-async def read_tenant_matview(db, view: str) -> list:
-    """Read one materialized view for the currently pinned tenant.
 
-    ``view`` must be in app.core.db_roles.MATERIALIZED_VIEWS. An unpinned
-    session returns [] even inside system_scope because the query still
-    applies the current_company_id predicate.
-    """
-    if view not in MATERIALIZED_VIEWS:
-        raise ValueError(f"Unknown materialized view: {view}")
-    result = await db.execute(
-        text(
-            f"SELECT * FROM {view} "
-            "WHERE company_id::text = NULLIF(current_setting('app.current_company_id', true), '')"
-        )
-    )
-    return result.mappings().all()

@@ -76,6 +76,7 @@ def test_managed_roles_are_the_app_role_and_the_backup_role():
     assert BACKUP_ROLE.revoke_excess is True
     assert APP_ROLE.revoke_excess is False
     assert APP_ROLE.schema_privileges == "USAGE"
+    assert APP_ROLE.grant_matview_select is False
     assert "NOBYPASSRLS" in APP_ROLE.attributes
 
     app_sql = "\n".join(grant_statements(APP_ROLE, "business_os"))
@@ -87,6 +88,7 @@ def test_managed_roles_are_the_app_role_and_the_backup_role():
     assert "GRANT ALL ON ALL TABLES IN SCHEMA public TO business_os_app" in app_sql
     assert "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO business_os_app" in app_sql
     assert "ALTER DEFAULT PRIVILEGES FOR ROLE business_os IN SCHEMA public GRANT ALL ON TABLES TO business_os_app" in app_sql
+    assert "REVOKE ALL PRIVILEGES ON TABLE %I FROM business_os_app" in app_sql
 
     backup_sql = "\n".join(grant_statements(BACKUP_ROLE, "business_os"))
     assert "GRANT CONNECT ON DATABASE business_os TO business_os_backup" in backup_sql
@@ -108,8 +110,9 @@ def test_managed_roles_are_the_app_role_and_the_backup_role():
         assert f"GRANT {forbidden}" not in backup_sql
 
     events = "\n".join(matview_event_statements(MANAGED_ROLES))
-    assert "GRANT SELECT ON TABLE %s TO business_os_app" in events
+    assert "GRANT SELECT ON TABLE %s TO business_os_app" not in events
     assert "GRANT SELECT ON TABLE %s TO business_os_backup" in events
+    assert "REVOKE ALL ON TABLE %s FROM business_os_app" in events
 
     migration_063 = Path(__file__).resolve().parents[1] / "migrations" / "versions" / "063_rls_app_role.py"
     source = migration_063.read_text()

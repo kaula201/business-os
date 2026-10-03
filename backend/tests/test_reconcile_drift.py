@@ -11,6 +11,8 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
+from app.core.db_roles import MATERIALIZED_VIEWS
+
 DRIFT_DATABASE = "business_os_reconcile_test"
 
 _PRIVILEGES = text(
@@ -152,7 +154,7 @@ def _assert_clean(row) -> None:
     assert row.mvrefresh_connect is True
     assert row.mvrefresh_any_membership is False
     assert row.mv_owner == 'business_os_mvrefresh'
-    assert row.app_mv_select is True
+    assert row.app_mv_select is False
     assert row.app_mv_insert is False
     assert row.mvrefresh_bypassrls is True
     assert row.mvrefresh_super is False
@@ -227,6 +229,7 @@ async def _inject(conn) -> None:
                       AND pg_get_userbyid(c.relowner) <> 'business_os_app'
                 ) THEN
                     EXECUTE 'GRANT INSERT ON TABLE public.mv_sales_daily TO business_os_app';
+                    EXECUTE 'GRANT SELECT ON TABLE public.mv_sales_daily TO business_os_app';
                 END IF;
             END
             $$;
@@ -315,6 +318,40 @@ async def test_superuser_reconcile_removes_injected_drift():
             await conn.execute(
                 text("ALTER MATERIALIZED VIEW mv_sales_daily OWNER TO business_os_app")
             )
+            await conn.execute(
+                text(
+                    """
+                    CREATE MATERIALIZED VIEW mv_receivables_aging AS
+                    SELECT DISTINCT company_id
+                    FROM invoices
+                    """
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_mv_receivables_aging ON mv_receivables_aging (company_id)"
+                )
+            )
+            await conn.execute(
+                text("ALTER MATERIALIZED VIEW mv_receivables_aging OWNER TO business_os_app")
+            )
+            await conn.execute(
+                text(
+                    """
+                    CREATE MATERIALIZED VIEW mv_stock_balances AS
+                    SELECT DISTINCT company_id
+                    FROM invoices
+                    """
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_mv_stock_balances ON mv_stock_balances (company_id)"
+                )
+            )
+            await conn.execute(
+                text("ALTER MATERIALIZED VIEW mv_stock_balances OWNER TO business_os_app")
+            )
         await _ensure_managed_roles(drift, roles_only=False)
 
         for _ in range(2):
@@ -339,6 +376,15 @@ async def test_superuser_reconcile_removes_injected_drift():
             async with drift.connect() as conn:
                 _assert_clean((await conn.execute(_PRIVILEGES)).one())
                 assert _membership_rows((await conn.execute(_APP_MEMBERSHIPS)).all()) == app_memberships
+                for view in MATERIALIZED_VIEWS:
+                    for priv in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"):
+                        has_priv = await conn.scalar(
+                            text(
+                                "SELECT has_table_privilege('business_os_app', :view, :priv)"
+                            ),
+                            {"view": view, "priv": priv},
+                        )
+                        assert has_priv is False, f"{view} {priv} still granted"
     finally:
         await drift.dispose()
         async with admin.connect() as conn:

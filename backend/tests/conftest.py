@@ -14,7 +14,7 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy import event, text
 from sqlalchemy.orm import Session
 
-from app.core.database import Base, TenantSession, current_company_id, get_db
+from app.core.database import Base, TenantSession, current_company_id, get_db, install_guc_reset
 from app.core.security import hash_password
 from app.core.tenant_scope import TENANT_POLICY_PREDICATE
 from app.main import app
@@ -38,10 +38,12 @@ test_engine = create_async_engine(
     echo=False,
     poolclass=NullPool,
 )
+install_guc_reset(test_engine)
 class _FixtureSession(TenantSession):
     """Synchronous session class for fixtures/tooling only."""
 
 
+# Order matters: this fixture listener must run after TenantSession._repin_tenant.
 @event.listens_for(_FixtureSession, "after_begin")
 def _set_system_scope(session, transaction, connection):
     """Fixtures and direct TestSessionLocal users run in system scope."""

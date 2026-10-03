@@ -17,12 +17,7 @@ from sqlalchemy.pool import NullPool
 
 from app.core.db_roles import MVREFRESH_ROLE, role_password
 from app.core.migrate_schema import _ensure_managed_roles
-from app.core.tenant_scope import (
-    clear_tenant,
-    pin_tenant,
-    read_tenant_matview,
-    tenant_rls_sql,
-)
+from app.core.tenant_scope import clear_tenant, tenant_rls_sql
 
 TEST_DATABASE = "business_os_mv_test"
 
@@ -272,26 +267,19 @@ async def test_matview_refresh_role_can_refresh_and_app_cannot():
                         {"company_id": company_a},
                     )
 
-            # Unpinned app reads see zero matview rows.
-            async with app_engine.begin() as conn:
-                await clear_tenant(conn)
-                for view in ("mv_sales_daily", "mv_receivables_aging", "mv_stock_balances"):
-                    rows = await read_tenant_matview(conn, view)
-                    assert rows == []
-
-            # Pinned A sees only A rows; pinned B sees only B rows.
+            # App role has no SELECT on any matview after the reconcile.
             for view in ("mv_sales_daily", "mv_receivables_aging", "mv_stock_balances"):
-                async with app_engine.begin() as conn:
-                    await pin_tenant(conn, company_a)
-                    rows = await read_tenant_matview(conn, view)
-                    assert rows
-                    assert all(row["company_id"] == company_a for row in rows)
+                with pytest.raises(Exception):
+                    async with app_engine.begin() as conn:
+                        await conn.execute(text(f"SELECT 1 FROM {view} LIMIT 1"))
 
-                async with app_engine.begin() as conn:
-                    await pin_tenant(conn, company_b)
-                    rows = await read_tenant_matview(conn, view)
-                    assert rows
-                    assert all(row["company_id"] == company_b for row in rows)
+            async with drift.connect() as conn:
+                for view in ("mv_sales_daily", "mv_receivables_aging", "mv_stock_balances"):
+                    has_select = await conn.scalar(
+                        text("SELECT has_table_privilege('business_os_app', :view, 'SELECT')"),
+                        {"view": view},
+                    )
+                    assert has_select is False
 
             # Unpinned app reads see zero source rows.
             async with app_engine.begin() as conn:
