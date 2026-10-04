@@ -18,6 +18,7 @@ from typing import Optional
 from uuid import UUID
 
 from app.core.database import get_db
+from app.core.modules import BASE_MODULE_CODES
 from app.core.dependencies import get_current_user, get_current_user_or_api_key, require_admin, require_module
 from app.models.user import User
 from app.models.module import AppModule, CompanyModule, ModulePermission
@@ -110,7 +111,7 @@ async def get_company_modules(
     result: list[CompanyModuleStatus] = []
     for mod in all_modules:
         cm = company_modules.get(mod.id)
-        enabled = cm.enabled if cm else True  # default enabled
+        enabled = True if mod.code in BASE_MODULE_CODES else bool(cm and cm.enabled)  # #24: missing row = disabled
 
         perm_result = await db.execute(
             select(ModulePermission).where(ModulePermission.module_id == mod.id)
