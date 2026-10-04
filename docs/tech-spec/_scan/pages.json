@@ -1154,7 +1154,7 @@
  {
   "module_code": "Dashboard",
   "file": "frontend/src/pages/DashboardPage.tsx",
-  "lines": 709,
+  "lines": 722,
   "buttons": [
    {
     "label": "მორგება",
@@ -1339,7 +1339,7 @@
  {
   "module_code": "DriverApp",
   "file": "frontend/src/pages/DriverAppPage.tsx",
-  "lines": 283,
+  "lines": 296,
   "buttons": [
    {
     "label": "დახურვა",
@@ -6571,7 +6571,7 @@
  {
   "module_code": "Tms",
   "file": "frontend/src/pages/TmsPage.tsx",
-  "lines": 518,
+  "lines": 849,
   "buttons": [
    {
     "label": "მიწოდების მოთხოვნა",
@@ -6581,6 +6581,26 @@
    {
     "label": "რეისის შექმნა",
     "on_click": "() => { setTripModal(true) }",
+    "disabled": false
+   },
+   {
+    "label": "რეისები CSV",
+    "on_click": "() => doExport('trips')",
+    "disabled": false
+   },
+   {
+    "label": "ანალიტიკა CSV",
+    "on_click": "() => doExport('analytics')",
+    "disabled": false
+   },
+   {
+    "label": "ფრეიტ-ინვოისები CSV",
+    "on_click": "() => doExport('freight')",
+    "disabled": false
+   },
+   {
+    "label": "ფრეიტ-ინვოისები",
+    "on_click": "() => setShowInvoices(true)",
     "disabled": false
    },
    {
@@ -6596,6 +6616,56 @@
    {
     "label": "ლაივ რუკა",
     "on_click": "() => setTab('map')",
+    "disabled": false
+   },
+   {
+    "label": "მძღოლები",
+    "on_click": "() => setTab('drivers')",
+    "disabled": false
+   },
+   {
+    "label": "გამოწერა",
+    "on_click": "() => setTab('billing')",
+    "disabled": false
+   },
+   {
+    "label": "მიმდინარე პლანი",
+    "on_click": "() => subscribeMutation.mutate(p.code)",
+    "disabled": true
+   },
+   {
+    "label": "გადახდა და გააქტიურება",
+    "on_click": "() => activateMutation.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "განახლება",
+    "on_click": "() => reactivateMutation.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "გამოწერის გაუქმება",
+    "on_click": "() => cancelMutation.mutate()",
+    "disabled": true
+   },
+   {
+    "label": "მძღოლის დამატება",
+    "on_click": "() => setDriverModal(true)",
+    "disabled": false
+   },
+   {
+    "label": "გაუქმება",
+    "on_click": "() => setDriverModal(false)",
+    "disabled": false
+   },
+   {
+    "label": "შენახვა",
+    "on_click": "() => createDriver.mutate(driverForm)",
+    "disabled": true
+   },
+   {
+    "label": "×",
+    "on_click": "() => setLastPlan(null)",
     "disabled": false
    },
    {

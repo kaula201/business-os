@@ -2983,6 +2983,30 @@
   "routes": [
    {
     "method": "GET",
+    "path": "/drivers",
+    "full_path": "/fleet/tms/drivers",
+    "function": "list_drivers",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/drivers",
+    "full_path": "/fleet/tms/drivers",
+    "function": "create_driver",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/drivers/me",
+    "full_path": "/fleet/tms/drivers/me",
+    "function": "my_driver_profile",
+    "doc": "The driver account's own profile + their assigned open trips.",
+    "auth": false
+   },
+   {
+    "method": "GET",
     "path": "/delivery-requests",
     "full_path": "/fleet/tms/delivery-requests",
     "function": "list_delivery_requests",
@@ -3163,6 +3187,14 @@
     "full_path": "/fleet/tms/trips/{trip_id}/live-position",
     "function": "live_position",
     "doc": "REQ-TMS-04: latest GPS position for a trip's live view.",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/geocode",
+    "full_path": "/fleet/tms/geocode",
+    "function": "geocode",
+    "doc": "Resolve an address to (lat, lng) via OSM Nominatim (no API key). Graceful: returns null coordinates on failure/not-found — never an error.",
     "auth": false
    },
    {
@@ -8655,6 +8687,92 @@
     "full_path": "/reports/pivot",
     "function": "pivot_report",
     "doc": "Pivot-style aggregation: revenue/expenses grouped by month, branch, product or manager.",
+    "auth": false
+   }
+  ]
+ },
+ {
+  "file": "backend/app/api/v1/endpoints/saas.py",
+  "prefix": "/saas",
+  "routes": [
+   {
+    "method": "GET",
+    "path": "/plans",
+    "full_path": "/saas/plans",
+    "function": "list_plans",
+    "doc": "Public plan catalog (authenticated) — active plans ordered by sort_order.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/plans",
+    "full_path": "/saas/plans",
+    "function": "create_plan",
+    "doc": "",
+    "auth": true
+   },
+   {
+    "method": "GET",
+    "path": "/entitlement",
+    "full_path": "/saas/entitlement",
+    "function": "my_entitlement",
+    "doc": "The current company's entitlement: plan, status, feature limits, active flag.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/subscribe",
+    "full_path": "/saas/subscribe",
+    "function": "subscribe",
+    "doc": "(Re)subscribe the current company to a plan (starts or resets a trial).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/cancel",
+    "full_path": "/saas/cancel",
+    "function": "cancel",
+    "doc": "Self-serve cancel: mark the current subscription cancelled (churn).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/activate",
+    "full_path": "/saas/activate",
+    "function": "activate",
+    "doc": "Convert a trial (or reactivate past_due/expired) into an active subscription. Simulates a successful payment capture. In production this endpoint is the client-side confirmation step after a PSP check",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/billing/run",
+    "full_path": "/saas/billing/run",
+    "function": "run_billing",
+    "doc": "Platform billing scheduler (operator-triggered; cron-able). 1. Trials past trial_ends_at → expired (no payment captured). 2. Active subs due (next_billing_date <= today) → simulated charge, advance cy",
+    "auth": true
+   },
+   {
+    "method": "POST",
+    "path": "/reactivate",
+    "full_path": "/saas/reactivate",
+    "function": "reactivate",
+    "doc": "Re-activate an expired/past_due subscription with a new payment (simulated).",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/checkout",
+    "full_path": "/saas/checkout",
+    "function": "create_checkout",
+    "doc": "Create a checkout session for the current company's pending subscription. Returns a `payment_reference` + `gateway`: - \"stripe\": a Stripe PaymentIntent `client_secret` (when STRIPE_SECRET_KEY set) - \"",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/webhook",
+    "full_path": "/saas/webhook",
+    "function": "saas_webhook",
+    "doc": "Provider payment webhook. Confirms a payment and activates the subscription. Signature: `X-Saas-Signature` = HMAC-SHA256(body) when SAAS_WEBHOOK_SECRET is set (idempotent via `provider_ref`). When no ",
     "auth": false
    }
   ]
