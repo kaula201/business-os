@@ -57,7 +57,7 @@ async def test_campaign_send_with_client_ids(client, auth_headers):
         c = await client.post("/api/v1/clients/", json={
             "client_type": "legal",
             "name": f"Client-{uuid.uuid4().hex[:6]}",
-            "identification_code": f"ID-{uuid.uuid4().hex[:8]}",
+            "identification_code": f"{uuid.uuid4().int % 900000000 + 100000000}",
             "email": f"c{i}@test.ge",
         }, headers=auth_headers)
         assert c.status_code in (200, 201), c.text

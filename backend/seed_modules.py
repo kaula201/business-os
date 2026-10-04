@@ -52,7 +52,7 @@ MODULES = [
     ("banking-rules",  "შეჯერების წესები",        "Reconciliation rules",      "Landmark",         "/banking-rules", "finance",   115,  "banking"),
     ("inventory-valuation","მარაგების შეფასება", "WAC valuation",             "Package",          "/inventory-valuation","operations",55, "inventory"),
     ("quotations",     "კომერციული შემოთავაზებები","Quotations (convert to order)", "FileText",      "/quotations",    "sales",     45,  "clients"),
-    ("price-lists",    "ფასების სიები",            "Price lists & payment terms","Tags",           "/price-lists",   "sales",     46,  "products"),
+    ("price-lists",    "ფასების სიები",            "Price lists & payment terms","Tags",           "/price-lists",   "sales",     46,  None),
     ("sales-teams",    "გაყიდვების გუნდები",       "Teams, targets, commissions","Users",          "/sales-teams",   "sales",     47,  None),
     ("email-tracking", "ელ.ფოსტა და ხელმოწერები",  "Email tracking & e-signature","Mail",          "/email-tracking","sales",     48,  None),
     ("subscriptions",  "გამოწერები",               "Recurring subscriptions",     "RefreshCw",       "/subscriptions", "sales",     49,  "invoices"),

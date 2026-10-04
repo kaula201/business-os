@@ -10,7 +10,7 @@ from app.models.receivable import CustomerReceivable, CustomerPayment
 
 async def _make_client(client, auth_headers):
     r = await client.post("/api/v1/clients/", json={
-        "client_type": "legal", "name": "ინვოისის კლიენტი", "identification_code": f"INV-{uuid4().hex[:6]}",
+        "client_type": "legal", "name": "ინვოისის კლიენტი", "identification_code": f"{uuid4().int % 900000000 + 100000000}",
     }, headers=auth_headers)
     return r.json()["data"]["id"]
 

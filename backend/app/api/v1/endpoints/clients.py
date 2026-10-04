@@ -9,8 +9,9 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.georgia import validate_identification_code
 from app.core.time import utc_now
-from app.models.client import Client, ClientStatus, Contact, Interaction, ClientAddress, ClientGroupDef, ClientRelation, client_groups
+from app.models.client import Client, ClientStatus, ClientType, Contact, Interaction, ClientAddress, ClientGroupDef, ClientRelation, client_groups
 from app.models.accounting_controls import FiscalPosition
 from app.models.user import User
 from app.models.invoice import Invoice
@@ -60,14 +61,23 @@ async def validate_fiscal_position(db: AsyncSession, fiscal_position_id: UUID | 
         raise HTTPException(status_code=422, detail="Fiscal Position არ მოიძებნა ან ამ კომპანიის არაა")
 
 
-def build_client_response(client: Client) -> ClientResponse:
+def build_client_response(client: Client, full_identification: bool = True) -> ClientResponse:
     primary = primary_contact(client)
+    identification_code = client.identification_code
+    if (
+        not full_identification
+        and client.client_type == ClientType.INDIVIDUAL.value
+        and len(identification_code) == 11
+    ):
+        identification_code = (
+            identification_code[:3] + "*****" + identification_code[-3:]
+        )
     return ClientResponse(
         id=client.id,
         company_id=client.company_id,
         client_type=client.client_type,
         name=client.name,
-        identification_code=client.identification_code,
+        identification_code=identification_code,
         is_vat_payer=client.vat_status,
         fiscal_position_id=client.fiscal_position_id,
         address=client.address,
@@ -123,13 +133,18 @@ async def list_clients(
     items = []
     for client in clients:
         primary = primary_contact(client)
+        identification_code = client.identification_code
+        if client.client_type == ClientType.INDIVIDUAL.value and len(identification_code) == 11:
+            identification_code = (
+                identification_code[:3] + "*****" + identification_code[-3:]
+            )
         items.append(
             ClientListResponse(
                 id=client.id,
                 company_id=client.company_id,
                 name=client.name,
                 client_type=client.client_type,
-                identification_code=client.identification_code,
+                identification_code=identification_code,
                 is_vat_payer=client.vat_status,
                 address=client.address,
                 phone=primary.phone if primary else None,
@@ -222,7 +237,16 @@ async def get_client(
     client = result.unique().scalar_one_or_none()
     if not client:
         raise HTTPException(status_code=404, detail="კლიენტი არ მოიძებნა")
-    return ResponseBase(data=build_client_response(client))
+
+    can_view_full = current_user.role == User.Role.ADMIN
+    if not can_view_full:
+        try:
+            await require_module("clients", "can_edit")(db=db, current_user=current_user)
+            can_view_full = True
+        except HTTPException as exc:
+            if exc.status_code != 403:
+                raise
+    return ResponseBase(data=build_client_response(client, full_identification=can_view_full))
 
 
 @router.post("/", response_model=ResponseBase[ClientResponse])
@@ -231,6 +255,11 @@ async def create_client(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    is_person = data.client_type == ClientType.INDIVIDUAL
+    data.identification_code = validate_identification_code(
+        data.identification_code, is_person
+    )
+
     existing = await db.execute(
         select(Client).where(
             Client.company_id == current_user.company_id,
@@ -316,6 +345,14 @@ async def update_client(
         raise HTTPException(status_code=404, detail="კლიენტი არ მოიძებნა")
 
     update_data = data.model_dump(exclude_unset=True)
+    client_type = update_data.get("client_type", client.client_type)
+    is_person = client_type == ClientType.INDIVIDUAL or client_type == ClientType.INDIVIDUAL.value
+    if "identification_code" in update_data:
+        update_data["identification_code"] = validate_identification_code(
+            update_data["identification_code"], is_person
+        )
+    else:
+        validate_identification_code(client.identification_code, is_person)
     phone_supplied = "phone" in update_data
     email_supplied = "email" in update_data
     phone = update_data.pop("phone", None)

@@ -101,7 +101,7 @@ async def test_segment_pricing(client, auth_headers, db_session, test_company):
     # client in VIP segment
     cid = (await client.post("/api/v1/clients/", json={
         "client_type": "legal", "name": "VIP კლიენტი",
-        "identification_code": f"VIP-{__import__('uuid').uuid4().hex[:6]}",
+        "identification_code": f"{__import__('uuid').uuid4().int % 900000000 + 100000000}",
     }, headers=auth_headers)).json()["data"]["id"]
     from sqlalchemy import text
     await db_session.execute(text(
@@ -117,7 +117,7 @@ async def test_segment_pricing(client, auth_headers, db_session, test_company):
     # non-VIP client → general price
     cid2 = (await client.post("/api/v1/clients/", json={
         "client_type": "legal", "name": "ჩვეულებრივი კლიენტი",
-        "identification_code": f"GEN-{__import__('uuid').uuid4().hex[:6]}",
+        "identification_code": f"{__import__('uuid').uuid4().int % 900000000 + 100000000}",
     }, headers=auth_headers)).json()["data"]["id"]
     r3 = await client.get(f"/api/v1/price-lists/resolve?product_id={pid}&quantity=1&client_id={cid2}", headers=auth_headers)
     assert r3.status_code == 200, r3.text

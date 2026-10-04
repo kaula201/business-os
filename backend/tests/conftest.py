@@ -11,7 +11,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
-from sqlalchemy import event, text
+from sqlalchemy import event, select, text
 from sqlalchemy.orm import Session
 
 from app.core.database import Base, TenantSession, current_company_id, get_db, install_guc_reset
@@ -19,7 +19,24 @@ from app.core.security import hash_password
 from app.core.tenant_scope import TENANT_POLICY_PREDICATE, TENANT_POLICY_PREDICATE_TEXT
 from app.main import app
 from app.models.company import Company
+from app.models.module import AppModule, CompanyModule
 from app.models.user import User
+
+
+async def enable_all_modules(session, company_id):
+    """Explicitly enable every active catalog module for a test tenant."""
+    modules = (await session.execute(select(AppModule).where(AppModule.is_active.is_(True)))).scalars().all()
+    for module in modules:
+        row = (await session.execute(select(CompanyModule).where(
+            CompanyModule.company_id == company_id,
+            CompanyModule.module_id == module.id,
+        ))).scalar_one_or_none()
+        if row is None:
+            session.add(CompanyModule(company_id=company_id, module_id=module.id, enabled=True))
+        else:
+            row.enabled = True
+    await session.commit()
+
 
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
@@ -124,6 +141,11 @@ async def setup_db():
             END
             $$;
         """))
+    # Seed the module catalog so module enablement helpers can resolve module
+    # codes even for tests that do not explicitly seed AppModule rows. No
+    # CompanyModule rows are created, so the default remains enabled for all.
+    from seed_modules import seed_modules
+    await seed_modules(test_engine)
     yield
     async with test_engine.begin() as conn:
         await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
@@ -159,7 +181,7 @@ async def test_company(setup_db):
         # Seed default GL accounts so GL posting hooks work
         from app.services.gl_posting import seed_default_accounts
         await seed_default_accounts(session, company.id)
-        await session.commit()
+        await enable_all_modules(session, company.id)
         return company
 
 
@@ -229,6 +251,7 @@ async def other_company(setup_db):
         session.add(company)
         await session.commit()
         await session.refresh(company)
+        await enable_all_modules(session, company.id)
         return company
 
 

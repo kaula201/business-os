@@ -189,12 +189,26 @@ async def test_reports_rejects_invalid_period_and_employee_access(
 
     # Seed the reports module + company enablement so require_module resolves for a
     # non-admin (employee) caller. Default fallback grants employee can_access.
+    # The module may already exist from the global catalog seed, so reuse it.
     from app.models.module import AppModule, CompanyModule
-    module = AppModule(code="reports", name="რეპორტები", description="", icon="BarChart3",
-                       route="/reports", category="other", sort_order=270)
-    db_session.add(module)
-    await db_session.flush()
-    db_session.add(CompanyModule(company_id=test_company.id, module_id=module.id, enabled=True))
+    module = (await db_session.execute(
+        select(AppModule).where(AppModule.code == "reports")
+    )).scalar_one_or_none()
+    if module is None:
+        module = AppModule(code="reports", name="რეპორტები", description="", icon="BarChart3",
+                           route="/reports", category="other", sort_order=270)
+        db_session.add(module)
+        await db_session.flush()
+    existing_cm = (await db_session.execute(
+        select(CompanyModule).where(
+            CompanyModule.company_id == test_company.id,
+            CompanyModule.module_id == module.id,
+        )
+    )).scalar_one_or_none()
+    if existing_cm is None:
+        db_session.add(CompanyModule(company_id=test_company.id, module_id=module.id, enabled=True))
+    else:
+        existing_cm.enabled = True
     await db_session.commit()
 
     ok = await client.get("/api/v1/reports/summary?period=30d", headers=employee_auth_headers)

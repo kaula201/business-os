@@ -7,7 +7,7 @@ from app.models.order import Order, OrderFulfillment, OrderItem, OrderReturn
 
 async def _make_client(client, auth_headers):
     r = await client.post("/api/v1/clients/", json={
-        "client_type": "legal", "name": "შეკვეთის კლიენტი", "identification_code": f"ORD-{uuid4().hex[:6]}",
+        "client_type": "legal", "name": "შეკვეთის კლიენტი", "identification_code": f"{uuid4().int % 900000000 + 100000000}",
     }, headers=auth_headers)
     return r.json()["data"]["id"]
 
@@ -80,7 +80,7 @@ async def test_drop_shipping(client, auth_headers, db_session, test_company):
     o = await _make_order(client, auth_headers, cid)
 
     from app.models.purchase import Supplier
-    sup = Supplier(company_id=test_company.id, name="მიმწოდებელი", code="SUP-001", identification_code="SUP-001")
+    sup = Supplier(company_id=test_company.id, name="მიმწოდებელი", code="SUP-001", identification_code=f"{uuid4().int % 900000000 + 100000000}")
     db_session.add(sup)
     await db_session.commit()
 

@@ -7,6 +7,7 @@ whole chain stays consistent: stock cost, GL entries, and P&L amounts.
 """
 from datetime import date, timedelta
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import select
@@ -53,7 +54,7 @@ async def create_cogs_context(client, auth_headers, test_company, db_session, su
         json={
             "code": f"COGS-SUP-{suffix}",
             "name": f"COGS Supplier {suffix}",
-            "identification_code": f"COGS-SUP-{suffix}",
+            "identification_code": f"{uuid4().int % 900000000 + 100000000}",
             "is_vat_payer": True,
             "contact_name": "COGS Contact",
             "phone": "+995500000004",
@@ -69,7 +70,7 @@ async def create_cogs_context(client, auth_headers, test_company, db_session, su
         json={
             "name": f"COGS Client {suffix}",
             "client_type": "legal",
-            "identification_code": f"COGS-CLIENT-{suffix}",
+            "identification_code": f"{uuid4().int % 900000000 + 100000000}",
             "status": "active",
             "is_vat_payer": False,
         },

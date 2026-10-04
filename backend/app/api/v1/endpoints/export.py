@@ -1,5 +1,5 @@
 """Export endpoints — Excel downloads for all modules."""
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -17,6 +17,18 @@ from app.utils.excel import export_clients, export_products, export_orders, expo
 import io
 
 router = APIRouter(prefix="/export", tags=["ექსპორტი"])
+
+# Mass export downloads whole datasets (including personal identification codes).
+# That is a bulk-read action, not a plain read: employees and accountants must not
+# be able to pull the full client/product/order/task tables out of the system.
+EXPORT_ALLOWED_ROLES = (User.Role.ADMIN, User.Role.MANAGER)
+
+
+def require_export_role(current_user: User = Depends(get_current_user)) -> User:
+    """Bulk dataset export is limited to administrator and manager roles."""
+    if current_user.role not in EXPORT_ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="მონაცემთა ექსპორტის უფლება არ გაქვთ")
+    return current_user
 
 
 def _stream_response(data: bytes, filename: str):
@@ -37,6 +49,7 @@ async def download_clients(
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("reports", "can_access")),
+    _export_role: User = Depends(require_export_role),
 ):
     """Export clients to Excel."""
     query = select(Client).where(Client.company_id == str(current_user.company_id), Client.deleted_at.is_(None))
@@ -69,6 +82,7 @@ async def download_products(
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("reports", "can_access")),
+    _export_role: User = Depends(require_export_role),
 ):
     """Export products to Excel."""
     query = select(Product).where(
@@ -104,6 +118,7 @@ async def download_orders(
     status: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("reports", "can_access")),
+    _export_role: User = Depends(require_export_role),
 ):
     """Export orders to Excel."""
     query = select(Order).where(Order.company_id == str(current_user.company_id)).options(
@@ -135,6 +150,7 @@ async def download_tasks(
     status: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("reports", "can_access")),
+    _export_role: User = Depends(require_export_role),
 ):
     """Export tasks to Excel."""
     query = select(Task).where(Task.company_id == str(current_user.company_id)).options(

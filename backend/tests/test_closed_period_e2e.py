@@ -6,6 +6,7 @@ GL/cash/expense paths already covered by unit tests.
 """
 from datetime import date, timedelta
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import select
@@ -52,7 +53,7 @@ async def create_e2_sales_context(client, auth_headers, test_company, db_session
         json={
             "name": f"E2 Client {suffix}",
             "client_type": "legal",
-            "identification_code": f"E2-CLIENT-{suffix}",
+            "identification_code": f"{uuid4().int % 900000000 + 100000000}",
             "status": "active",
             "is_vat_payer": False,
         },
@@ -247,7 +248,7 @@ async def test_closed_period_blocks_supplier_payment(
         json={
             "code": "E2-SUP-LOCK",
             "name": "E2 Supplier Lock",
-            "identification_code": "E2-SUP-LOCK-ID",
+            "identification_code": f"{uuid4().int % 900000000 + 100000000}",
             "is_vat_payer": True,
             "contact_name": "E2 Contact",
             "phone": "+995500000003",

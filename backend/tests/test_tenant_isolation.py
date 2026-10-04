@@ -47,7 +47,7 @@ async def test_clients_are_isolated_between_companies(
         json={
             "client_type": "legal",
             "name": "Other Company Client",
-            "identification_code": "OTHER-CLIENT-001",
+            "identification_code": "200020001",
             "is_vat_payer": True,
         },
         headers=other_auth_headers,
