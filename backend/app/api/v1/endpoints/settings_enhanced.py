@@ -6,6 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.modules import BASE_MODULE_CODES
 from app.core.dependencies import get_current_user, require_module
 from app.models.user import User
 from app.models.company import Company
@@ -68,9 +69,12 @@ async def list_all_modules(
 
     items = []
     for mod, cm in rows:
+        # Same definition of enabled as modules.py and require_module (#24):
+        # BASE is always on, a missing CompanyModule row means disabled.
+        enabled = True if mod.code in BASE_MODULE_CODES else bool(cm and cm.enabled)
         items.append(ModuleManagementResponse(
             module_id=mod.id, code=mod.code, name=mod.name,
-            enabled=cm.enabled if cm else True,
+            enabled=enabled,
         ))
 
     return ResponseBase(data=items)
