@@ -105,6 +105,13 @@ async def register(request: Request, data: UserCreate, db: AsyncSession = Depend
     db.add(user)
     await db.flush()
 
+    # #24: give the new company its BASE entitlements. A company with no
+    # company_modules rows used to read as "every module enabled" in the UI while
+    # guards denied non-admins on every paid module.
+    from app.core.modules import seed_base_company_modules
+
+    await seed_base_company_modules(db, company.id)
+
     # Token-ები
     token_data = {"sub": str(user.id), "company_id": str(company.id), "role": user.role}
     access_token = create_access_token(token_data)

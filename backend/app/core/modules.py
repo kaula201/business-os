@@ -78,3 +78,54 @@ async def enabled_module_codes(db: AsyncSession, company_id: UUID, codes) -> set
         if is_enabled is True:
             enabled.add(module_code)
     return enabled
+
+
+async def seed_base_company_modules(db: AsyncSession, company_id: UUID) -> int:
+    """Give a brand-new company exactly its BASE entitlements (#24 item 1).
+
+    ``POST /auth/register`` created a company with no ``company_modules`` rows at
+    all, which the UI used to read as "every module enabled" while guards denied
+    non-admins on every paid module. Now that a missing row means disabled, a new
+    company must be given its BASE rows explicitly.
+
+    Idempotent: existing rows are left untouched, so calling it twice is safe and
+    an operator's manual enable/disable is never overwritten.
+    """
+    from sqlalchemy import insert
+
+    base_modules = (
+        await db.execute(
+            select(AppModule.id).where(
+                AppModule.code.in_(BASE_MODULE_CODES),
+                AppModule.is_active == True,
+            )
+        )
+    ).scalars().all()
+    if not base_modules:
+        return 0
+
+    existing = set(
+        (
+            await db.execute(
+                select(CompanyModule.module_id).where(
+                    CompanyModule.company_id == company_id,
+                    CompanyModule.module_id.in_(base_modules),
+                )
+            )
+        ).scalars()
+    )
+    missing = [module_id for module_id in base_modules if module_id not in existing]
+    if not missing:
+        return 0
+
+    # company_modules is RLS-protected; register runs pinned to the new company,
+    # so the insert already satisfies the policy.
+    await db.execute(
+        insert(CompanyModule).values(
+            [
+                {"company_id": company_id, "module_id": module_id, "enabled": True}
+                for module_id in missing
+            ]
+        )
+    )
+    return len(missing)
