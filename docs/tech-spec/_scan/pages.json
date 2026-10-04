@@ -1288,7 +1288,7 @@
  {
   "module_code": "Documents",
   "file": "frontend/src/pages/DocumentsPage.tsx",
-  "lines": 182,
+  "lines": 189,
   "buttons": [
    {
     "label": "დოკუმენტის დამატება",
@@ -1328,7 +1328,7 @@
    },
    {
     "method": "POST",
-    "path": "/documents/"
+    "path": "/documents/upload"
    },
    {
     "method": "DELETE",
@@ -2250,7 +2250,7 @@
  {
   "module_code": "Helpdesk",
   "file": "frontend/src/pages/HelpdeskPage.tsx",
-  "lines": 826,
+  "lines": 839,
   "buttons": [
    {
     "label": "შენახვა",
@@ -2289,12 +2289,12 @@
    },
    {
     "label": "შენახვა",
-    "on_click": "() => helpdeskApi.createTeam(teamForm).then(() => { setTeamOpen(false); setTeamForm({ name: '', description: '' }); help",
+    "on_click": "() => { setError('') helpdeskApi.createTeam(teamForm).then(() => { setTeamOpen(false); setTeamForm({ name: '', descripti",
     "disabled": true
    },
    {
     "label": "შენახვა",
-    "on_click": "() => { const stages = pipelineForm.stages.split('\\n').map(s => s.trim()).filter(Boolean) helpdeskApi.createPipeline({ n",
+    "on_click": "() => { setError('') const stages = pipelineForm.stages.split('\\n').map(s => s.trim()).filter(Boolean) helpdeskApi.creat",
     "disabled": true
    },
    {
@@ -3149,7 +3149,7 @@
  {
   "module_code": "Login",
   "file": "frontend/src/pages/LoginPage.tsx",
-  "lines": 160,
+  "lines": 186,
   "buttons": [
    {
     "label": "შესვლა",
@@ -5716,7 +5716,7 @@
  {
   "module_code": "Security",
   "file": "frontend/src/pages/SecurityPage.tsx",
-  "lines": 312,
+  "lines": 339,
   "buttons": [
    {
     "label": "გამორთვა",
@@ -5727,6 +5727,11 @@
     "label": "ჩართვა",
     "on_click": "() => setup2fa.mutate()",
     "disabled": false
+   },
+   {
+    "label": "დაადასტურეთ კოდი",
+    "on_click": "() => confirm2fa.mutate()",
+    "disabled": true
    },
    {
     "label": "გაუქმება",

@@ -488,7 +488,7 @@
     "path": "/reset-password",
     "full_path": "/auth/reset-password",
     "function": "reset_password",
-    "doc": "Reset password using a valid reset token.",
+    "doc": "Reset password using a valid reset token sent in the JSON body (never the query string).",
     "auth": false
    },
    {
@@ -520,7 +520,15 @@
     "path": "/2fa/setup",
     "full_path": "/auth/2fa/setup",
     "function": "two_fa_setup",
-    "doc": "Generate a TOTP secret for the user (sandbox: returns the secret to display).",
+    "doc": "Generate a TOTP secret. 2FA stays off until /2fa/confirm accepts a valid code.",
+    "auth": false
+   },
+   {
+    "method": "POST",
+    "path": "/2fa/confirm",
+    "full_path": "/auth/2fa/confirm",
+    "function": "two_fa_confirm",
+    "doc": "Enable 2FA only after the user proves they can generate a valid TOTP code.",
     "auth": false
    },
    {
@@ -560,7 +568,7 @@
     "path": "/logout",
     "full_path": "/auth/logout",
     "function": "logout",
-    "doc": "Logout — revoke the current session.",
+    "doc": "Logout — revoke the current access token (jti denylist via login_history).",
     "auth": false
    },
    {
@@ -1826,7 +1834,7 @@
     "path": "/refresh-views",
     "full_path": "/dashboard/refresh-views",
     "function": "refresh_views",
-    "doc": "Manually refresh materialized views (mv_sales_daily, mv_receivables_aging, mv_stock_balances).",
+    "doc": "Manual refresh is no longer performed by the app; the mvrefresh service handles it.",
     "auth": false
    },
    {
@@ -2072,6 +2080,14 @@
     "auth": false
    },
    {
+    "method": "POST",
+    "path": "/upload",
+    "full_path": "/documents/upload",
+    "function": "upload_document",
+    "doc": "Store an uploaded file under the server storage root. The client does not choose the path.",
+    "auth": false
+   },
+   {
     "method": "GET",
     "path": "/{doc_id}",
     "full_path": "/documents/{doc_id}",
@@ -2258,7 +2274,7 @@
     "path": "/products/{product_id}",
     "full_path": "/ecommerce/products/{product_id}",
     "function": "delete_ecom_product",
-    "doc": "",
+    "doc": "Resolve a storefront by slug or request Host and pin its tenant.",
     "auth": false
    },
    {
@@ -2271,9 +2287,25 @@
    },
    {
     "method": "GET",
+    "path": "/storefront/{store_slug}/categories",
+    "full_path": "/ecommerce/storefront/{store_slug}/categories",
+    "function": "public_categories_by_slug",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
     "path": "/storefront/products",
     "full_path": "/ecommerce/storefront/products",
     "function": "public_products",
+    "doc": "",
+    "auth": false
+   },
+   {
+    "method": "GET",
+    "path": "/storefront/{store_slug}/products",
+    "full_path": "/ecommerce/storefront/{store_slug}/products",
+    "function": "public_products_by_slug",
     "doc": "",
     "auth": false
    },
@@ -8772,7 +8804,7 @@
     "path": "/webhook",
     "full_path": "/saas/webhook",
     "function": "saas_webhook",
-    "doc": "Provider payment webhook. Confirms a payment and activates the subscription. Signature: `X-Saas-Signature` = HMAC-SHA256(body) when SAAS_WEBHOOK_SECRET is set (idempotent via `provider_ref`). When no ",
+    "doc": "Provider payment webhook. Confirms a payment and activates the subscription. Signature: `X-Saas-Signature` = HMAC-SHA256(body). SAAS_WEBHOOK_SECRET is required unless APP_ENV is development, test, or ",
     "auth": false
    }
   ]
