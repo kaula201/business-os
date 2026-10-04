@@ -8,21 +8,70 @@ from app.core.security import hash_password
 
 
 async def seed_toggle_modules(db_session, company_id):
-    """Seed settings module (with can_edit for manager) and a target paid module."""
-    settings = AppModule(code="settings", name="Settings", category="test", is_active=True)
-    paid = AppModule(code="paid_leave", name="Paid Leave", category="test", is_active=True)
-    db_session.add_all([settings, paid])
+    """Seed settings module (with can_edit for manager) and a target paid module.
+
+    Tolerant of an already-seeded catalog: conftest's setup_db runs
+    ``seed_modules``, so ``settings`` normally exists before this helper. The
+    helper only adds what is missing and reuses existing rows, so it stays
+    correct whether or not the catalog was seeded.
+    """
+    existing = {
+        module.code: module
+        for module in (
+            await db_session.execute(
+                select(AppModule).where(AppModule.code.in_(["settings", "paid_leave"]))
+            )
+        ).scalars()
+    }
+
+    settings = existing.get("settings")
+    if settings is None:
+        settings = AppModule(code="settings", name="Settings", category="test", is_active=True)
+        db_session.add(settings)
+    paid = existing.get("paid_leave")
+    if paid is None:
+        paid = AppModule(code="paid_leave", name="Paid Leave", category="test", is_active=True)
+        db_session.add(paid)
     await db_session.flush()
 
-    db_session.add(CompanyModule(company_id=company_id, module_id=paid.id, enabled=True))
-    db_session.add(CompanyModule(company_id=company_id, module_id=settings.id, enabled=True))
+    for module in (paid, settings):
+        row = (
+            await db_session.execute(
+                select(CompanyModule).where(
+                    CompanyModule.company_id == company_id,
+                    CompanyModule.module_id == module.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            db_session.add(
+                CompanyModule(company_id=company_id, module_id=module.id, enabled=True)
+            )
+        else:
+            row.enabled = True
+
     for role in (User.Role.ADMIN, User.Role.MANAGER, User.Role.EMPLOYEE):
         can_edit = role in (User.Role.ADMIN, User.Role.MANAGER)
-        db_session.add(
-            ModulePermission(module_id=settings.id, role=role, can_access=True, can_edit=can_edit)
-        )
+        perm = (
+            await db_session.execute(
+                select(ModulePermission).where(
+                    ModulePermission.module_id == settings.id,
+                    ModulePermission.role == role,
+                )
+            )
+        ).scalar_one_or_none()
+        if perm is None:
+            db_session.add(
+                ModulePermission(
+                    module_id=settings.id, role=role, can_access=True, can_edit=can_edit
+                )
+            )
+        else:
+            perm.can_access = True
+            perm.can_edit = can_edit
     await db_session.commit()
     return paid.id
+
 
 
 async def create_headers(client, db_session, company_id, email: str, role: str):
