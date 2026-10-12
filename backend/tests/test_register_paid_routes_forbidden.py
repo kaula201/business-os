@@ -14,6 +14,7 @@ PAID_ROUTES = [
     # shadows it (422), so the SAL invoice list is used instead.
     ("invoices", "/api/v1/invoices/"),
     ("helpdesk", "/api/v1/helpdesk/"),
+    ("accounting-controls", "/api/v1/accounting-controls/fiscal-positions"),  # FIN
     ("inventory", "/api/v1/wms/batches"),
     ("gl", "/api/v1/gl/analytics"),
 ]
@@ -134,3 +135,38 @@ async def test_base_route_still_allowed_for_admin(client):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200, resp.text
+
+
+@pytest.mark.asyncio
+async def test_inactive_paid_module_is_403_for_admin(client):
+    """An inactive (is_active=false) registered module is closed for every role,
+    admin included; the admin pass-through only covers codes absent from the catalog."""
+    import os
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    suffix = uuid.uuid4().hex[:8]
+    token, _, _ = await _register_user(
+        client, f"admin_{suffix}@test.ge", "password123", "Admin", f"Company {suffix}"
+    )
+    hdr = {"Authorization": f"Bearer {token}"}
+    engine = create_async_engine(os.environ["TEST_SUPERUSER_DATABASE_URL"])
+    try:
+        async with engine.begin() as conn:
+            helpdesk_id = (await conn.execute(
+                text("SELECT id FROM app_modules WHERE code = 'helpdesk'")
+            )).scalar_one()
+        r = await client.post(
+            f"/api/v1/modules/company/{helpdesk_id}/toggle", json={"enabled": True}, headers=hdr
+        )
+        assert r.status_code == 200, r.text
+        assert (await client.get("/api/v1/helpdesk/", headers=hdr)).status_code == 200
+
+        async with engine.begin() as conn:
+            await conn.execute(text("UPDATE app_modules SET is_active = false WHERE code = 'helpdesk'"))
+        r = await client.get("/api/v1/helpdesk/", headers=hdr)
+        assert r.status_code == 403, r.text
+    finally:
+        async with engine.begin() as conn:
+            await conn.execute(text("UPDATE app_modules SET is_active = true WHERE code = 'helpdesk'"))
+        await engine.dispose()
