@@ -641,7 +641,7 @@ async def allocation_suggestion(
 @router.get("/uoms", response_model=ResponseBase)
 async def list_uoms(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     rows = (
         await db.execute(
@@ -658,7 +658,7 @@ async def list_uoms(
 async def create_uom(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     import uuid as _uuid
     uom = UoM(
@@ -675,7 +675,7 @@ async def create_uom(
 async def create_uom_conversion(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     import uuid as _uuid
     conv = UoMConversion(
@@ -691,7 +691,7 @@ async def create_uom_conversion(
 @router.get("/uom-conversions", response_model=ResponseBase)
 async def list_uom_conversions(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     rows = (
         await db.execute(
@@ -708,7 +708,7 @@ async def list_uom_conversions(
 async def convert_uom(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     """Convert quantity between UoMs using stored conversion factors."""
     from_uom_id = UUID(payload["from_uom_id"])
@@ -734,7 +734,7 @@ async def convert_uom(
 @router.get("/reorder-rules", response_model=ResponseBase)
 async def list_reorder_rules(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     rows = (
         await db.execute(
@@ -753,7 +753,7 @@ async def list_reorder_rules(
 async def upsert_reorder_rule(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     import uuid as _uuid
     rule = (
@@ -783,7 +783,7 @@ async def upsert_reorder_rule(
 @router.get("/reorder/suggestions", response_model=ResponseBase)
 async def reorder_suggestions(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     """Warehouse-specific reorder suggestions: balance < min → suggest reorder qty."""
     rules = (
@@ -821,7 +821,7 @@ async def reorder_suggestions(
 @router.get("/putaway-strategies", response_model=ResponseBase)
 async def list_putaway_strategies(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     rows = (
         await db.execute(
@@ -841,7 +841,7 @@ async def list_putaway_strategies(
 async def create_putaway_strategy(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     import uuid as _uuid
     strat = PutawayStrategy(
@@ -861,7 +861,7 @@ async def create_putaway_strategy(
 async def suggest_putaway(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     """Directed putaway: find best zone for a product on receipt."""
     product_id = UUID(payload["product_id"])
@@ -885,7 +885,7 @@ async def suggest_putaway(
 @router.get("/cycle-count-schedules", response_model=ResponseBase)
 async def list_cycle_count_schedules(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     rows = (
         await db.execute(
@@ -906,7 +906,7 @@ async def list_cycle_count_schedules(
 async def create_cycle_count_schedule(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     import uuid as _uuid
     from datetime import timedelta
@@ -927,7 +927,7 @@ async def create_cycle_count_schedule(
 @router.get("/consignment-stock", response_model=ResponseBase)
 async def list_consignment_stock(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     rows = (
         await db.execute(
@@ -946,7 +946,7 @@ async def list_consignment_stock(
 async def upsert_consignment_stock(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     import uuid as _uuid
     stock = (
@@ -976,7 +976,7 @@ async def upsert_consignment_stock(
 @router.get("/stock-aging", response_model=ResponseBase)
 async def stock_aging(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     """Stock aging: days since last movement per product+warehouse."""
     from datetime import date
@@ -1008,7 +1008,7 @@ async def stock_aging(
 async def expiry_alerts(
     days: int = Query(default=30, ge=1, le=365),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     """Expiry alerts: batches expiring within N days (default 30)."""
     from datetime import timedelta
@@ -1033,7 +1033,7 @@ async def expiry_alerts(
 @router.get("/abc-xyz", response_model=ResponseBase)
 async def abc_xyz_classification(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     """ABC/XYZ classification: list products with their classes."""
     products = (
@@ -1052,7 +1052,7 @@ async def abc_xyz_classification(
 async def set_abc_xyz(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     """Set ABC/XYZ class + quarantine for a product."""
     product = (
@@ -1084,7 +1084,7 @@ async def set_abc_xyz(
 async def create_wave(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     """Wave/batch picking: create wave, optionally attach pick lists."""
     import uuid as _uuid
@@ -1131,7 +1131,7 @@ async def create_wave(
 @router.get("/waves", response_model=ResponseBase)
 async def list_waves(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     rows = (
         await db.execute(
@@ -1151,7 +1151,7 @@ async def list_waves(
 async def complete_wave(
     wave_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     from app.core.time import utc_now
     wave = (
@@ -1173,7 +1173,7 @@ async def complete_wave(
 async def create_cross_dock_order(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     import uuid as _uuid
     from app.models.order import DocumentSequence
@@ -1213,7 +1213,7 @@ async def create_cross_dock_order(
 @router.get("/cross-dock-orders", response_model=ResponseBase)
 async def list_cross_dock_orders(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     rows = (
         await db.execute(
@@ -1233,7 +1233,7 @@ async def list_cross_dock_orders(
 async def create_shipment(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     import uuid as _uuid
     from app.models.order import DocumentSequence
@@ -1273,7 +1273,7 @@ async def create_shipment(
 @router.get("/shipments", response_model=ResponseBase)
 async def list_shipments(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     rows = (
         await db.execute(
@@ -1294,7 +1294,7 @@ async def list_shipments(
 async def ship_shipment(
     shipment_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     from app.core.time import utc_now
     ship = (
@@ -1315,7 +1315,7 @@ async def ship_shipment(
 @router.get("/lot-zone-balances", response_model=ResponseBase)
 async def list_lot_zone_balances(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     rows = (
         await db.execute(
@@ -1332,7 +1332,7 @@ async def list_lot_zone_balances(
 async def upsert_lot_zone_balance(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     import uuid as _uuid
     bal = (
@@ -1359,7 +1359,7 @@ async def upsert_lot_zone_balance(
 async def parse_gs1_barcode(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("warehouse", "can_access")),
+    current_user: User = Depends(require_module("wms", "can_access")),
 ):
     """GS1 barcode parsing: (01)GTIN(10)batch(17)expiry(21)serial — FNC1-separated."""
     import re

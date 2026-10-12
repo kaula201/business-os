@@ -29,7 +29,7 @@ async def list_quality_checks(
     product_id: UUID | None = None,
     status: str | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("quality-control", "can_access")),
+    current_user: User = Depends(require_module("quality", "can_access")),
 ):
     query = select(QualityCheck).where(QualityCheck.company_id == current_user.company_id)
     if product_id:
@@ -55,7 +55,7 @@ async def list_quality_checks(
 async def get_quality_check(
     check_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("quality-control", "can_access")),
+    current_user: User = Depends(require_module("quality", "can_access")),
 ):
     result = await db.execute(
         select(QualityCheck).where(
@@ -73,7 +73,7 @@ async def get_quality_check(
 async def create_quality_check(
     data: QualityCheckCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("quality-control", "can_create")),
+    current_user: User = Depends(require_module("quality", "can_create")),
 ):
     check = QualityCheck(
         company_id=current_user.company_id,
@@ -94,7 +94,7 @@ async def update_quality_check(
     check_id: UUID,
     data: QualityCheckUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("quality-control", "can_edit")),
+    current_user: User = Depends(require_module("quality", "can_edit")),
 ):
     result = await db.execute(
         select(QualityCheck).where(
@@ -116,7 +116,7 @@ async def update_quality_check(
 async def delete_quality_check(
     check_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("quality-control", "can_delete")),
+    current_user: User = Depends(require_module("quality", "can_delete")),
 ):
     result = await db.execute(
         select(QualityCheck).where(

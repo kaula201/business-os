@@ -27,7 +27,7 @@ async def list_messages(
     sender_type: Optional[str] = None,
     status: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("live-chat", "can_access")),
+    current_user: User = Depends(require_module("helpdesk", "can_access")),
 ):
     query = select(ChatMessage).where(ChatMessage.company_id == current_user.company_id)
     if sender_type:
@@ -57,7 +57,7 @@ async def list_messages(
 async def get_message(
     message_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("live-chat", "can_access")),
+    current_user: User = Depends(require_module("helpdesk", "can_access")),
 ):
     result = await db.execute(
         select(ChatMessage).where(
@@ -75,7 +75,7 @@ async def get_message(
 async def create_message(
     data: ChatMessageCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("live-chat", "can_create")),
+    current_user: User = Depends(require_module("helpdesk", "can_create")),
 ):
     message = ChatMessage(
         company_id=current_user.company_id,
@@ -96,7 +96,7 @@ async def create_message(
 async def delete_message(
     message_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("live-chat", "can_delete")),
+    current_user: User = Depends(require_module("helpdesk", "can_delete")),
 ):
     result = await db.execute(
         select(ChatMessage).where(

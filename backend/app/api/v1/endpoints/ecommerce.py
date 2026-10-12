@@ -403,7 +403,7 @@ async def public_products_by_slug(
 async def create_cart(
     data: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module("ecommerce")),
 ):
     cart = EcomCart(
         company_id=current_user.company_id,
@@ -420,7 +420,7 @@ async def add_cart_item(
     cart_id: UUID,
     data: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module("ecommerce")),
 ):
     cart = (await db.execute(
         select(EcomCart).where(EcomCart.id == cart_id, EcomCart.company_id == current_user.company_id)
@@ -447,7 +447,7 @@ async def add_cart_item(
 async def get_cart(
     cart_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module("ecommerce")),
 ):
     cart = (await db.execute(
         select(EcomCart).where(EcomCart.id == cart_id, EcomCart.company_id == current_user.company_id)
@@ -468,7 +468,7 @@ async def get_cart(
 @router.get("/orders", response_model=ResponseBase[list[dict]])
 async def list_orders(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module("ecommerce")),
 ):
     rows = (await db.execute(
         select(EcomOrder).where(EcomOrder.company_id == current_user.company_id).order_by(EcomOrder.created_at.desc()).limit(50)
@@ -558,7 +558,7 @@ async def create_shipping_rule(
 async def calculate_shipping(
     data: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module("ecommerce")),
 ):
     """Shipping calculation: flat rate, free above threshold, weight-based."""
     subtotal = Decimal(str(data.get("subtotal", 0)))
@@ -598,7 +598,7 @@ async def calculate_shipping(
 async def validate_promo(
     data: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module("ecommerce")),
 ):
     """Validate a promo code against subtotal; returns discount amount."""
     code = data.get("code", "").upper()
@@ -636,7 +636,7 @@ async def checkout(
     cart_id: UUID,
     data: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module("ecommerce")),
 ):
     """Convert cart to an e-commerce order. When Stripe is configured the
     charge is attempted for real; otherwise the order is created as 'paid'
@@ -780,7 +780,7 @@ async def add_tracking(
 async def get_tracking(
     order_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module("ecommerce")),
 ):
     order = (await db.execute(
         select(EcomOrder).where(EcomOrder.id == order_id, EcomOrder.company_id == current_user.company_id)
@@ -801,7 +801,7 @@ async def request_return(
     order_id: UUID,
     data: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module("ecommerce")),
 ):
     """დაბრუნება: client requests a return/refund."""
     order = (await db.execute(

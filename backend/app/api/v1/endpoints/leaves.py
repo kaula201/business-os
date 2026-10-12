@@ -27,7 +27,7 @@ async def list_leaves(
     status: Optional[str] = None,
     employee_id: Optional[UUID] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("leaves", "can_access")),
+    current_user: User = Depends(require_module("hr", "can_access")),
 ):
     query = select(Leave).where(
         Leave.company_id == current_user.company_id
@@ -61,7 +61,7 @@ async def list_leaves(
 async def get_leave(
     leave_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("leaves", "can_access")),
+    current_user: User = Depends(require_module("hr", "can_access")),
 ):
     result = await db.execute(
         select(Leave).where(
@@ -79,7 +79,7 @@ async def get_leave(
 async def create_leave(
     data: LeaveCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("leaves", "can_create")),
+    current_user: User = Depends(require_module("hr", "can_create")),
 ):
     days = data.days
     if days is None:
@@ -105,7 +105,7 @@ async def update_leave(
     leave_id: UUID,
     data: LeaveUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("leaves", "can_edit")),
+    current_user: User = Depends(require_module("hr", "can_edit")),
 ):
     result = await db.execute(
         select(Leave).where(
@@ -131,7 +131,7 @@ async def approve_leave(
     leave_id: UUID,
     data: LeaveApprove,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("leaves", "can_edit")),
+    current_user: User = Depends(require_module("hr", "can_edit")),
 ):
     result = await db.execute(
         select(Leave).where(
@@ -158,7 +158,7 @@ async def approve_leave(
 async def delete_leave(
     leave_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("leaves", "can_delete")),
+    current_user: User = Depends(require_module("hr", "can_delete")),
 ):
     result = await db.execute(
         select(Leave).where(
