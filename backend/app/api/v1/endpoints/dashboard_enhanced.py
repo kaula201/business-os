@@ -4,12 +4,13 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.modules import is_module_enabled
 from app.models.user import User
 from app.models.order import Order, OrderStatus, OrderFulfillment
 from app.models.client import Client
@@ -75,58 +76,89 @@ async def extended_kpis(
     month_start = datetime.combine(today.replace(day=1), datetime.min.time())
     now = utc_now()
 
+    orders_on = await is_module_enabled(db, company_id, "orders")
+    invoices_on = await is_module_enabled(db, company_id, "invoices")
+    crm_on = await is_module_enabled(db, company_id, "crm")
+    hr_on = await is_module_enabled(db, company_id, "hr")
+    tasks_on = await is_module_enabled(db, company_id, "tasks")
+    inventory_on = await is_module_enabled(db, company_id, "inventory")
+
     # Revenue
-    total_rev = (await db.execute(
-        select(func.coalesce(func.sum(Order.total), 0))
-        .where(Order.company_id == company_id, Order.status == OrderStatus.COMPLETED.value)
-    )).scalar()
-    month_rev = (await db.execute(
-        select(func.coalesce(func.sum(Order.total), 0))
-        .where(Order.company_id == company_id, Order.status == OrderStatus.COMPLETED.value, Order.created_at >= month_start)
-    )).scalar()
+    if orders_on:  # revenue here is summed from completed orders
+        total_rev = (await db.execute(
+            select(func.coalesce(func.sum(Order.total), 0))
+            .where(Order.company_id == company_id, Order.status == OrderStatus.COMPLETED.value)
+        )).scalar()
+        month_rev = (await db.execute(
+            select(func.coalesce(func.sum(Order.total), 0))
+            .where(Order.company_id == company_id, Order.status == OrderStatus.COMPLETED.value, Order.created_at >= month_start)
+        )).scalar()
+    else:
+        total_rev = 0
+        month_rev = 0
 
     # Orders
-    total_orders = (await db.execute(select(func.count(Order.id)).where(Order.company_id == company_id))).scalar()
-    month_orders = (await db.execute(select(func.count(Order.id)).where(Order.company_id == company_id, Order.created_at >= month_start))).scalar()
+    if orders_on:
+        total_orders = (await db.execute(select(func.count(Order.id)).where(Order.company_id == company_id))).scalar()
+        month_orders = (await db.execute(select(func.count(Order.id)).where(Order.company_id == company_id, Order.created_at >= month_start))).scalar()
+    else:
+        total_orders = 0
+        month_orders = 0
 
-    # Clients
+    # Clients (BASE - no gate)
     total_clients = (await db.execute(select(func.count(Client.id)).where(Client.company_id == company_id, Client.deleted_at.is_(None)))).scalar()
     new_clients = (await db.execute(select(func.count(Client.id)).where(Client.company_id == company_id, Client.created_at >= month_start, Client.deleted_at.is_(None)))).scalar()
 
     # CRM
-    open_leads = (await db.execute(select(func.count(CRMLead.id)).where(CRMLead.company_id == company_id, CRMLead.status.notin_(["converted", "unqualified"])))).scalar()
-    pipeline = (await db.execute(
-        select(func.coalesce(func.sum(CRMOpportunity.amount), 0))
-        .where(CRMOpportunity.company_id == company_id, CRMOpportunity.stage.notin_(["won", "lost"]))
-    )).scalar()
+    if crm_on:
+        open_leads = (await db.execute(select(func.count(CRMLead.id)).where(CRMLead.company_id == company_id, CRMLead.status.notin_(["converted", "unqualified"])))).scalar()
+        pipeline = (await db.execute(
+            select(func.coalesce(func.sum(CRMOpportunity.amount), 0))
+            .where(CRMOpportunity.company_id == company_id, CRMOpportunity.stage.notin_(["won", "lost"]))
+        )).scalar()
+    else:
+        open_leads = 0
+        pipeline = 0
 
     # HR
-    active_emp = (await db.execute(select(func.count(Employee.id)).where(Employee.company_id == company_id, Employee.status == Employee.Status.ACTIVE))).scalar()
+    if hr_on:
+        active_emp = (await db.execute(select(func.count(Employee.id)).where(Employee.company_id == company_id, Employee.status == Employee.Status.ACTIVE))).scalar()
+    else:
+        active_emp = 0
 
     # Tasks
-    overdue = (await db.execute(
-        select(func.count(Task.id)).where(Task.company_id == company_id, Task.due_date < now, Task.status.notin_(["done", "cancelled"]))
-    )).scalar()
+    if tasks_on:
+        overdue = (await db.execute(
+            select(func.count(Task.id)).where(Task.company_id == company_id, Task.due_date < now, Task.status.notin_(["done", "cancelled"]))
+        )).scalar()
+    else:
+        overdue = 0
 
-    # Low stock (canonical: sum of warehouse balances)
-    stock_total = (
-        select(func.coalesce(func.sum(InventoryBalance.quantity), 0))
-        .where(
-            InventoryBalance.company_id == company_id,
-            InventoryBalance.product_id == Product.id,
+    # Low stock (product counts are BASE, but stock quantities need inventory module)
+    if inventory_on:
+        stock_total = (
+            select(func.coalesce(func.sum(InventoryBalance.quantity), 0))
+            .where(
+                InventoryBalance.company_id == company_id,
+                InventoryBalance.product_id == Product.id,
+            )
+            .correlate(Product)
+            .scalar_subquery()
         )
-        .correlate(Product)
-        .scalar_subquery()
-    )
-    low_stock = (await db.execute(
-        select(func.count(Product.id)).where(Product.company_id == company_id, stock_total <= Product.min_stock, Product.is_active == True)
-    )).scalar()
+        low_stock = (await db.execute(
+            select(func.count(Product.id)).where(Product.company_id == company_id, stock_total <= Product.min_stock, Product.is_active == True)
+        )).scalar()
+    else:
+        low_stock = 0
 
     # Unpaid invoices
-    unpaid = (await db.execute(
-        select(func.coalesce(func.sum(Invoice.total), 0))
-        .where(Invoice.company_id == company_id, Invoice.status == "issued")
-    )).scalar()
+    if invoices_on:
+        unpaid = (await db.execute(
+            select(func.coalesce(func.sum(Invoice.total), 0))
+            .where(Invoice.company_id == company_id, Invoice.status == "issued")
+        )).scalar()
+    else:
+        unpaid = 0
 
     return ResponseBase(data=ExtendedKPIs(
         total_revenue=Decimal(str(total_rev or 0)),
@@ -158,24 +190,37 @@ async def quick_actions(
     company_id = current_user.company_id
     now = utc_now()
 
-    overdue = (await db.execute(
-        select(func.count(Task.id)).where(Task.company_id == company_id, Task.due_date < now, Task.status.notin_(["done", "cancelled"]))
-    )).scalar() or 0
+    tasks_on = await is_module_enabled(db, company_id, "tasks")
+    inventory_on = await is_module_enabled(db, company_id, "inventory")
+    crm_on = await is_module_enabled(db, company_id, "crm")
 
-    stock_total_qa = (
-        select(func.coalesce(func.sum(InventoryBalance.quantity), 0))
-        .where(
-            InventoryBalance.company_id == company_id,
-            InventoryBalance.product_id == Product.id,
+    if tasks_on:
+        overdue = (await db.execute(
+            select(func.count(Task.id)).where(Task.company_id == company_id, Task.due_date < now, Task.status.notin_(["done", "cancelled"]))
+        )).scalar() or 0
+    else:
+        overdue = 0
+
+    if inventory_on:
+        stock_total_qa = (
+            select(func.coalesce(func.sum(InventoryBalance.quantity), 0))
+            .where(
+                InventoryBalance.company_id == company_id,
+                InventoryBalance.product_id == Product.id,
+            )
+            .correlate(Product)
+            .scalar_subquery()
         )
-        .correlate(Product)
-        .scalar_subquery()
-    )
-    low_stock = (await db.execute(
-        select(func.count(Product.id)).where(Product.company_id == company_id, stock_total_qa <= Product.min_stock, Product.is_active == True)
-    )).scalar() or 0
+        low_stock = (await db.execute(
+            select(func.count(Product.id)).where(Product.company_id == company_id, stock_total_qa <= Product.min_stock, Product.is_active == True)
+        )).scalar() or 0
+    else:
+        low_stock = 0
 
-    new_leads = (await db.execute(select(func.count(CRMLead.id)).where(CRMLead.company_id == company_id, CRMLead.status == "new"))).scalar() or 0
+    if crm_on:
+        new_leads = (await db.execute(select(func.count(CRMLead.id)).where(CRMLead.company_id == company_id, CRMLead.status == "new"))).scalar() or 0
+    else:
+        new_leads = 0
 
     return ResponseBase(data=[
         QuickAction(id="new_order", label="ახალი შეკვეთა", description="გაყიდვის შეკვეთის შექმნა", icon="Plus", route="/orders"),
@@ -195,6 +240,9 @@ async def export_dashboard_summary(
     current_user: User = Depends(require_module("dashboard", "can_access")),
 ):
     company_id = current_user.company_id
+    orders_on = await is_module_enabled(db, company_id, "orders")
+    if not orders_on:
+        raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
     today = date.today()
     month_start = datetime.combine(today.replace(day=1), datetime.min.time())
 
@@ -309,22 +357,31 @@ async def aging_summary(
     """AR/AP aging: outstanding receivables and payables by due-date bucket."""
     company_id = current_user.company_id
     report_currency = await _report_currency(db, company_id, currency)
-    ar = (await db.execute(
-        select(CustomerReceivable.due_date, CustomerReceivable.outstanding_amount)
-        .where(
-            CustomerReceivable.company_id == company_id,
-            CustomerReceivable.currency == report_currency,
-            CustomerReceivable.outstanding_amount > 0,
-        )
-    )).all()
-    ap = (await db.execute(
-        select(SupplierPayable.due_date, SupplierPayable.outstanding_amount)
-        .where(
-            SupplierPayable.company_id == company_id,
-            SupplierPayable.currency_code == report_currency,
-            SupplierPayable.outstanding_amount > 0,
-        )
-    )).all()
+
+    customer_finance_on = await is_module_enabled(db, company_id, "customer-finance")
+    supplier_finance_on = await is_module_enabled(db, company_id, "supplier-finance")
+
+    ar = []
+    ap = []
+
+    if customer_finance_on:
+        ar = (await db.execute(
+            select(CustomerReceivable.due_date, CustomerReceivable.outstanding_amount)
+            .where(
+                CustomerReceivable.company_id == company_id,
+                CustomerReceivable.currency == report_currency,
+                CustomerReceivable.outstanding_amount > 0,
+            )
+        )).all()
+    if supplier_finance_on:
+        ap = (await db.execute(
+            select(SupplierPayable.due_date, SupplierPayable.outstanding_amount)
+            .where(
+                SupplierPayable.company_id == company_id,
+                SupplierPayable.currency_code == report_currency,
+                SupplierPayable.outstanding_amount > 0,
+            )
+        )).all()
 
     ar_total = sum((Decimal(str(r.outstanding_amount)) for r in ar), Decimal("0"))
     ap_total = sum((Decimal(str(r.outstanding_amount)) for r in ap), Decimal("0"))
@@ -356,52 +413,59 @@ async def cash_flow(
     today = date.today()
     six_months_ago = _month_offset(today, 5)
 
-    customer_payments = (await db.execute(
-        select(
-            func.date_trunc("month", CustomerPayment.payment_date).label("month"),
-            func.sum(CustomerPayment.amount),
-        )
-        .join(
-            CustomerReceivable,
-            CustomerReceivable.id == CustomerPayment.receivable_id,
-        )
-        .outerjoin(
-            CustomerPaymentReversal,
-            CustomerPaymentReversal.payment_id == CustomerPayment.id,
-        )
-        .where(
-            CustomerPayment.company_id == company_id,
-            CustomerPayment.status == "active",
-            CustomerPaymentReversal.id.is_(None),
-            CustomerReceivable.currency == report_currency,
-            CustomerPayment.payment_date >= six_months_ago,
-        )
-        .group_by("month")
-        .order_by("month")
-    )).all()
+    customer_finance_on = await is_module_enabled(db, company_id, "customer-finance")
+    supplier_finance_on = await is_module_enabled(db, company_id, "supplier-finance")
 
-    supplier_payments = (await db.execute(
-        select(
-            func.date_trunc("month", SupplierPayment.payment_date).label("month"),
-            func.sum(SupplierPayment.amount),
-        )
-        .join(
-            SupplierPayable,
-            SupplierPayable.id == SupplierPayment.supplier_payable_id,
-        )
-        .outerjoin(
-            SupplierPaymentReversal,
-            SupplierPaymentReversal.supplier_payment_id == SupplierPayment.id,
-        )
-        .where(
-            SupplierPayment.company_id == company_id,
-            SupplierPaymentReversal.id.is_(None),
-            SupplierPayable.currency_code == report_currency,
-            SupplierPayment.payment_date >= six_months_ago,
-        )
-        .group_by("month")
-        .order_by("month")
-    )).all()
+    customer_payments = []
+    supplier_payments = []
+
+    if customer_finance_on:
+        customer_payments = (await db.execute(
+            select(
+                func.date_trunc("month", CustomerPayment.payment_date).label("month"),
+                func.sum(CustomerPayment.amount),
+            )
+            .join(
+                CustomerReceivable,
+                CustomerReceivable.id == CustomerPayment.receivable_id,
+            )
+            .outerjoin(
+                CustomerPaymentReversal,
+                CustomerPaymentReversal.payment_id == CustomerPayment.id,
+            )
+            .where(
+                CustomerPayment.company_id == company_id,
+                CustomerPayment.status == "active",
+                CustomerPaymentReversal.id.is_(None),
+                CustomerReceivable.currency == report_currency,
+                CustomerPayment.payment_date >= six_months_ago,
+            )
+            .group_by("month")
+            .order_by("month")
+        )).all()
+    if supplier_finance_on:
+        supplier_payments = (await db.execute(
+            select(
+                func.date_trunc("month", SupplierPayment.payment_date).label("month"),
+                func.sum(SupplierPayment.amount),
+            )
+            .join(
+                SupplierPayable,
+                SupplierPayable.id == SupplierPayment.supplier_payable_id,
+            )
+            .outerjoin(
+                SupplierPaymentReversal,
+                SupplierPaymentReversal.supplier_payment_id == SupplierPayment.id,
+            )
+            .where(
+                SupplierPayment.company_id == company_id,
+                SupplierPaymentReversal.id.is_(None),
+                SupplierPayable.currency_code == report_currency,
+                SupplierPayment.payment_date >= six_months_ago,
+            )
+            .group_by("month")
+            .order_by("month")
+        )).all()
 
     inflow_map = {r.month.strftime("%Y-%m"): Decimal(str(r.sum or 0)) for r in customer_payments}
     outflow_map = {r.month.strftime("%Y-%m"): Decimal(str(r.sum or 0)) for r in supplier_payments}
@@ -439,6 +503,9 @@ async def drill_down(
     rows: list[DrillDownRow] = []
 
     if entity == "ar":
+        customer_finance_on = await is_module_enabled(db, company_id, "customer-finance")
+        if not customer_finance_on:
+            raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
         result = await db.execute(
             select(CustomerReceivable)
             .where(
@@ -465,7 +532,10 @@ async def drill_down(
                 due_date=r.due_date.isoformat(), outstanding=r.outstanding_amount,
                 days_overdue=max(days, 0), status=r.status, currency=r.currency,
             ))
-    else:
+    else:  # entity == "ap"
+        supplier_finance_on = await is_module_enabled(db, company_id, "supplier-finance")
+        if not supplier_finance_on:
+            raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
         result = await db.execute(
             select(
                 SupplierPayable.id,
@@ -808,6 +878,9 @@ async def kpi_drill_down(
             wh_uuid = None
 
     if kpi_key == "revenue":
+        invoices_on = await is_module_enabled(db, cid, "invoices")
+        if not invoices_on:
+            raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
         # Canonical revenue = issued invoices (same source as summary KPI)
         rows = (await db.execute(
             select(Invoice).where(
@@ -823,6 +896,9 @@ async def kpi_drill_down(
         return ResponseBase(data=KpiDrillDownResponse(kpi="revenue", title="შემოსავალი — გაცემული ინვოისები", rows=data, total=total))
 
     if kpi_key == "orders":
+        orders_on = await is_module_enabled(db, cid, "orders")
+        if not orders_on:
+            raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
         scope = [Order.company_id == cid, Order.status.notin_([OrderStatus.COMPLETED.value, OrderStatus.CANCELLED.value]), Order.created_at >= period_start_ts]
         if owner_uuid:
             scope.append(Order.assigned_to == owner_uuid)
@@ -841,6 +917,7 @@ async def kpi_drill_down(
         return ResponseBase(data=KpiDrillDownResponse(kpi="orders", title="მიმდინარე შეკვეთები", rows=data, total=total))
 
     if kpi_key == "clients":
+        # BASE - no gate
         rows = (await db.execute(
             select(Client).where(Client.company_id == cid, Client.deleted_at.is_(None))
             .order_by(Client.created_at.desc()).limit(limit)
@@ -850,6 +927,9 @@ async def kpi_drill_down(
         return ResponseBase(data=KpiDrillDownResponse(kpi="clients", title="ბოლო დამატებული კლიენტები", rows=data, total=total))
 
     if kpi_key == "tasks":
+        tasks_on = await is_module_enabled(db, cid, "tasks")
+        if not tasks_on:
+            raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
         rows = (await db.execute(
             select(Task).where(Task.company_id == cid, Task.due_date < utc_now(), Task.status.notin_(["done", "cancelled"]))
             .order_by(Task.due_date.asc()).limit(limit)
@@ -859,6 +939,9 @@ async def kpi_drill_down(
         return ResponseBase(data=KpiDrillDownResponse(kpi="tasks", title="დაგვიანებული დავალებები", rows=data, total=total))
 
     if kpi_key == "leads":
+        crm_on = await is_module_enabled(db, cid, "crm")
+        if not crm_on:
+            raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
         rows = (await db.execute(
             select(CRMLead).where(CRMLead.company_id == cid, CRMLead.status.notin_(["converted", "unqualified"]))
             .order_by(CRMLead.created_at.desc()).limit(limit)
@@ -868,6 +951,9 @@ async def kpi_drill_down(
         return ResponseBase(data=KpiDrillDownResponse(kpi="leads", title="ღია ლიდები", rows=data, total=total))
 
     if kpi_key == "low_stock":
+        inventory_on = await is_module_enabled(db, cid, "inventory")
+        if not inventory_on:
+            raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
         stock_total = (
             select(func.coalesce(func.sum(InventoryBalance.quantity), 0))
             .where(InventoryBalance.company_id == cid, InventoryBalance.product_id == Product.id)
@@ -882,6 +968,9 @@ async def kpi_drill_down(
         return ResponseBase(data=KpiDrillDownResponse(kpi="low_stock", title="დეფიციტური პროდუქტები", rows=data, total=total))
 
     if kpi_key == "delayed_shipments":
+        orders_on = await is_module_enabled(db, cid, "orders")
+        if not orders_on:
+            raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
         rows = (await db.execute(
             select(Order).where(
                 Order.company_id == cid,
@@ -895,6 +984,9 @@ async def kpi_drill_down(
         return ResponseBase(data=KpiDrillDownResponse(kpi="delayed_shipments", title="დაგვიანებული მიწოდება", rows=data, total=total))
 
     if kpi_key == "production_backlog":
+        production_on = await is_module_enabled(db, cid, "production")
+        if not production_on:
+            raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
         rows = (await db.execute(
             select(WorkOrder).where(
                 WorkOrder.company_id == cid,
@@ -908,6 +1000,9 @@ async def kpi_drill_down(
         return ResponseBase(data=KpiDrillDownResponse(kpi="production_backlog", title="წარმოების ჩამორჩენა", rows=data, total=total))
 
     if kpi_key == "fleet_unavailable":
+        fleet_on = await is_module_enabled(db, cid, "fleet")
+        if not fleet_on:
+            raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
         rows = (await db.execute(
             select(Vehicle).where(
                 Vehicle.company_id == cid,
@@ -921,6 +1016,9 @@ async def kpi_drill_down(
         return ResponseBase(data=KpiDrillDownResponse(kpi="fleet_unavailable", title="ავტოპარკის მიუწვდომლობა", rows=data, total=total))
 
     if kpi_key == "maintenance_critical":
+        maintenance_on = await is_module_enabled(db, cid, "maintenance")
+        if not maintenance_on:
+            raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
         rows = (await db.execute(
             select(MaintenanceOrder).where(
                 MaintenanceOrder.company_id == cid,
@@ -933,6 +1031,9 @@ async def kpi_drill_down(
         return ResponseBase(data=KpiDrillDownResponse(kpi="maintenance_critical", title="კრიტიკული მოვლა", rows=data, total=total))
 
     if kpi_key == "approvals_pending":
+        approvals_on = await is_module_enabled(db, cid, "approvals")
+        if not approvals_on:
+            raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
         rows = (await db.execute(
             select(ApprovalRequest).where(
                 ApprovalRequest.company_id == cid,
@@ -944,6 +1045,9 @@ async def kpi_drill_down(
         return ResponseBase(data=KpiDrillDownResponse(kpi="approvals_pending", title="დასამტკიცებელი რიგი", rows=data, total=total))
 
     if kpi_key == "otif_rate":
+        orders_on = await is_module_enabled(db, cid, "orders")
+        if not orders_on:
+            raise HTTPException(status_code=403, detail="მოდული არ არის ჩართული")
         due = int((await db.execute(select(func.count(Order.id)).where(
             Order.company_id == cid, Order.delivery_date.isnot(None),
             Order.delivery_date < utc_now(), Order.status.notin_([OrderStatus.CANCELLED.value, OrderStatus.DRAFT.value]),

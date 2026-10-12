@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.module import AppModule, CompanyModule
 
-BASE_MODULE_CODES = frozenset({"settings", "clients"})
+# "dashboard" joined BASE in #52; its paid-module widgets are gated per module.
+BASE_MODULE_CODES = frozenset({"settings", "clients", "dashboard"})
 
 
 async def is_module_enabled(db: AsyncSession, company_id: UUID, code: str) -> bool:

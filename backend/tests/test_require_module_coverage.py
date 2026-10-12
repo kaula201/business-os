@@ -50,8 +50,22 @@ ALLOWLIST_PREFIXES = (
     "/api/v1/vendor-auth/",           # vendor portal own auth
     "/api/v1/ecommerce/storefront/",  # public storefront
     "/api/v1/search",                 # BASE; per-section module filtering in search.py
+    "/api/v1/dashboard/",             # BASE (#52 decision); paid widgets gated per module in dashboard*.py
+    "/api/v1/api-keys/",              # BASE (#52 decision)
 )
+
+# Products catalog (name, price, VAT, categories, variants, images) is BASE (#52
+# decision); stock routes in the same router stay under inventory.
+PRODUCTS_PREFIX = "/api/v1/products/"
+PRODUCTS_INVENTORY_PATHS = {"/api/v1/products/adjust-stock", "/api/v1/products/stock-movements"}
 ALLOWLIST_EXACT = {"/", "/health"}
+
+# Routes that can never be reached because an earlier route shadows them
+# (pre-existing on main, reported separately). The request would hit the
+# shadowing route instead, so the 403 check would test the wrong endpoint.
+SHADOWED = {
+    ("GET", "/api/v1/products/stock-movements"),  # shadowed by GET /products/{product_id} (422)
+}
 
 # Pre-existing 500s unrelated to entitlement; the entitled-router smoke test
 # picks another route of the same router. Reported separately.
@@ -66,6 +80,8 @@ ROUTES = [r for r in app.routes if isinstance(r, APIRoute)]
 
 def is_allowlisted(path: str) -> bool:
     if path in ALLOWLIST_EXACT:
+        return True
+    if path.startswith(PRODUCTS_PREFIX) and path not in PRODUCTS_INVENTORY_PATHS:
         return True
     return any(path.startswith(prefix) for prefix in ALLOWLIST_PREFIXES)
 
@@ -146,6 +162,8 @@ async def test_base_only_company_gets_403_on_every_guarded_route(client, role):
         path = route.path
         if set(codes).issubset(set(BASE_MODULE_CODES)):
             continue  # base modules are allowed
+        if (method, path) in SHADOWED:
+            continue
         concrete_path = concrete(path)
         json_body = {} if method in ("POST", "PUT", "PATCH") else None
         response = await client.request(method, concrete_path, headers=headers, json=json_body)
@@ -201,3 +219,34 @@ async def test_entitled_company_reaches_each_guarded_router(client, auth_headers
             failures.append((path, method, response.status_code))
 
     assert failures == [], f"Entitled company got unexpected status: {failures}"
+
+
+@pytest.mark.asyncio
+async def test_base_only_company_gets_base_dashboard_products_and_api_keys(client):
+    """#52 decisions: dashboard, product catalog and API keys are BASE; paid widgets are neutral."""
+    suffix = uuid.uuid4().hex[:8]
+    token, _, _ = await _register_user(
+        client, f"base_{suffix}@example.com", "password123", "Base User", f"Base {suffix}"
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+
+    for path in ("/api/v1/dashboard/summary", "/api/v1/products/", "/api/v1/api-keys/"):
+        resp = await client.get(path, headers=headers)
+        assert resp.status_code == 200, (path, resp.status_code, resp.text[:200])
+
+    kpi = (await client.get("/api/v1/dashboard/summary", headers=headers)).json()["data"]["kpi"]
+    for key in ("active_orders", "total_revenue", "receivables_outstanding", "payables_outstanding",
+                "stock_value", "pipeline_value", "production_backlog", "fleet_unavailable"):
+        assert not kpi.get(key), (key, kpi.get(key))
+
+    # Paid-module drill-down stays closed.
+    resp = await client.get("/api/v1/dashboard/kpi-detail/orders", headers=headers)
+    assert resp.status_code in (403, 404), resp.text[:200]
+
+    # Initial stock needs the inventory module.
+    resp = await client.post(
+        "/api/v1/products/",
+        json={"name": f"P {suffix}", "sku": f"SKU-{suffix}", "sale_price": 10, "current_stock": 5},
+        headers=headers,
+    )
+    assert resp.status_code in (403, 422), resp.text[:200]
