@@ -13,11 +13,11 @@ branch_labels = None
 depends_on = None
 
 # (code, depends_on) pairs that must be cleared if they still point to the old bundle dependency
+# production->inventory (MFG->WMS) is intentionally kept; it moves to #22.
 EDGES = (
     ("maintenance", "production"),
     ("supplier-finance", "suppliers"),
     ("customer-finance", "invoices"),
-    ("production", "inventory"),
 )
 
 

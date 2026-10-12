@@ -45,8 +45,11 @@ BUNDLES = {
     "AI": {"ai"},
 }
 
-# Known exception: helpdesk depends on tasks (issue #9)
-KNOWN_EXCEPTIONS = {("helpdesk", "tasks")}
+# Known cross-bundle exceptions, each tracked by its own issue
+KNOWN_EXCEPTIONS = {
+    ("helpdesk", "tasks"),  # #9
+    ("production", "inventory"),  # MFG->WMS, moves to #22
+}
 
 
 def _module_map():
@@ -112,7 +115,7 @@ def test_depends_on_respects_bundle_boundaries():
 
 
 def test_known_exceptions_still_exist_in_modules():
-    """Ensure KNOWN_EXCEPTIONS edges are still present (remove when issue #9 is fixed)."""
+    """Ensure KNOWN_EXCEPTIONS edges are still present (remove each when its issue, #9 or #22, is fixed)."""
     mod_map = _module_map()
     missing = []
     for code, dep in KNOWN_EXCEPTIONS:
