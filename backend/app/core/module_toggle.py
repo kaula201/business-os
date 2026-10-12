@@ -50,12 +50,12 @@ async def set_company_module_enabled(
     Loads an active AppModule, then updates or creates the corresponding
     CompanyModule row. Returns the AppModule and the CompanyModule after flush/refresh.
     """
-    result = await db.execute(
-        select(AppModule).where(AppModule.id == module_id, AppModule.is_active == True)
-    )
+    result = await db.execute(select(AppModule).where(AppModule.id == module_id))
     mod = result.scalar_one_or_none()
     if mod is None:
-        raise HTTPException(status_code=404, detail="მოდული არ მოიძებნა ან არააქტიურია")
+        raise HTTPException(status_code=404, detail="მოდული არ მოიძებნა")
+    if not mod.is_active:
+        raise HTTPException(status_code=403, detail="მოდული არააქტიურია")
 
     result = await db.execute(
         select(CompanyModule).where(

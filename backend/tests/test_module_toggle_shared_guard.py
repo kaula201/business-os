@@ -3,6 +3,8 @@ import pytest
 from sqlalchemy import select
 from tests.test_module_toggle_auth import seed_toggle_modules, create_headers
 from app.models.module import AppModule, CompanyModule
+from app.models.platform import CustomRole
+from app.models.user import User
 
 
 async def _enabled(db_session, company_id, module_id):
@@ -63,7 +65,7 @@ async def test_admin_can_toggle_via_settings_path(
 
 
 @pytest.mark.asyncio
-async def test_inactive_module_404_on_both_paths(
+async def test_inactive_module_403_on_both_paths(
     client, db_session, test_company, auth_headers
 ):
     inactive_mod = AppModule(
@@ -82,7 +84,7 @@ async def test_inactive_module_404_on_both_paths(
         json={"enabled": False},
         headers=auth_headers,
     )
-    assert resp_a.status_code == 404
+    assert resp_a.status_code == 403
 
     # Path B: /settings/modules/toggle
     resp_b = await client.post(
@@ -90,7 +92,7 @@ async def test_inactive_module_404_on_both_paths(
         json={"module_id": str(inactive_mod.id), "enabled": False},
         headers=auth_headers,
     )
-    assert resp_b.status_code == 404
+    assert resp_b.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -154,3 +156,52 @@ async def test_api_key_with_bearer_still_forbidden(
         headers=headers,
     )
     assert resp.status_code == 403
+
+
+async def _assert_403_on_both_paths(client, db_session, company_id, module_id, headers):
+    resp_a = await client.post(
+        f"/api/v1/modules/company/{module_id}/toggle",
+        json={"enabled": False},
+        headers=headers,
+    )
+    assert resp_a.status_code == 403, resp_a.text
+    resp_b = await client.post(
+        "/api/v1/settings/modules/toggle",
+        json={"module_id": str(module_id), "enabled": False},
+        headers=headers,
+    )
+    assert resp_b.status_code == 403, resp_b.text
+    assert await _enabled(db_session, company_id, module_id) is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("role", ["manager", "driver", "employee", "accountant"])
+async def test_non_admin_roles_403_on_both_paths(client, db_session, test_company, role):
+    module_id = await seed_toggle_modules(db_session, test_company.id)
+    headers = await create_headers(
+        client, db_session, test_company.id, f"{role}-both@test.ge", role
+    )
+    await _assert_403_on_both_paths(client, db_session, test_company.id, module_id, headers)
+
+
+@pytest.mark.asyncio
+async def test_custom_role_with_settings_can_edit_403_on_both_paths(
+    client, db_session, test_company
+):
+    module_id = await seed_toggle_modules(db_session, test_company.id)
+    custom = CustomRole(
+        company_id=test_company.id,
+        name="Settings editor",
+        permissions={"settings": {"can_access": True, "can_create": True, "can_edit": True, "can_delete": True}},
+    )
+    db_session.add(custom)
+    await db_session.commit()
+    headers = await create_headers(
+        client, db_session, test_company.id, "custom-settings@test.ge", "manager"
+    )
+    user = (await db_session.execute(
+        select(User).where(User.email == "custom-settings@test.ge")
+    )).scalar_one()
+    user.custom_role_id = custom.id
+    await db_session.commit()
+    await _assert_403_on_both_paths(client, db_session, test_company.id, module_id, headers)
