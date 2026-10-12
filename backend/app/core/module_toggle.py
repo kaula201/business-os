@@ -1,12 +1,17 @@
 """Shared module-toggle guard and write path (#41)."""
+import json
 from uuid import UUID
+
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.modules import BASE_MODULE_CODES
 from app.models.user import User
 from app.models.module import AppModule, CompanyModule
+from app.models.audit import AuditLog
 
 
 async def require_module_toggler(request: Request, db: AsyncSession = Depends(get_db)) -> User:
@@ -42,7 +47,9 @@ async def set_company_module_enabled(
     db: AsyncSession,
     company_id: UUID,
     module_id: UUID,
-    enabled: bool
+    enabled: bool,
+    *,
+    actor: User
 ) -> tuple[AppModule, CompanyModule]:
     """
     Central helper to enable/disable a module for a company (issue #41).
@@ -57,6 +64,9 @@ async def set_company_module_enabled(
     if not mod.is_active:
         raise HTTPException(status_code=403, detail="მოდული არააქტიურია")
 
+    if mod.code in BASE_MODULE_CODES and enabled is False:
+        raise HTTPException(status_code=409, detail="საბაზო მოდულის გამორთვა შეუძლებელია")
+
     result = await db.execute(
         select(CompanyModule).where(
             CompanyModule.company_id == company_id,
@@ -65,11 +75,28 @@ async def set_company_module_enabled(
     )
     cm = result.scalar_one_or_none()
 
+    old_value = cm.enabled if cm is not None else None
+
     if cm is None:
         cm = CompanyModule(company_id=company_id, module_id=module_id, enabled=enabled)
         db.add(cm)
     else:
         cm.enabled = enabled
+
+    audit = AuditLog(
+        company_id=company_id,
+        user_id=actor.id,
+        user_name=actor.full_name,
+        action="module.enabled" if enabled else "module.disabled",
+        entity_type="company_module",
+        entity_id=mod.id,
+        entity_label=mod.code,
+        field_name="enabled",
+        old_value=str(old_value).lower() if old_value is not None else None,
+        new_value="true" if enabled else "false",
+        details=json.dumps({"module_code": mod.code}),
+    )
+    db.add(audit)
 
     await db.flush()
     await db.refresh(cm)
