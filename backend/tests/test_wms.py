@@ -276,6 +276,10 @@ async def test_wms_tenant_isolation(client, auth_headers, test_company, db_sessi
     )
     assert injected.status_code == 404, injected.text
 
+    # #24: a company owns only modules it has rows for, admin included.
+    from tests.conftest import enable_all_modules
+    await enable_all_modules(db_session, other.id)
+
     other_headers = await create_user_headers(
         client, db_session, other.id, "wms-other@test.ge", "admin"
     )

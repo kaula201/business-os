@@ -184,6 +184,11 @@ def require_module(module_code: str, permission: str = "can_access"):
         )
         module = mod_result.scalar_one_or_none()
         if not module:
+            # Admin keeps its previous behaviour on codes missing from the
+            # catalog (catalog coverage is epic #12); entitlement below only
+            # applies to registered modules.
+            if current_user.role == User.Role.ADMIN:
+                return current_user
             raise HTTPException(status_code=403, detail="მოდული არ არის რეგისტრირებული")
 
         # BASE modules are always enabled; everything else follows CompanyModule.
