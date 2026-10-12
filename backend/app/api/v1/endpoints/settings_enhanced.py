@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.modules import BASE_MODULE_CODES
 from app.core.dependencies import get_current_user, require_module
+from app.core.module_toggle import require_module_toggler, set_company_module_enabled
 from app.models.user import User
 from app.models.company import Company
 from app.models.module import AppModule, CompanyModule
@@ -84,29 +85,19 @@ async def list_all_modules(
 async def toggle_module(
     data: ModuleToggleRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("settings", "can_edit")),
+    current_user: User = Depends(require_module_toggler)
 ):
-    mod = (await db.execute(select(AppModule).where(AppModule.id == data.module_id))).scalar_one_or_none()
-    if not mod:
-        raise HTTPException(status_code=404, detail="მოდული არ მოიძებნა")
-
-    cm = (await db.execute(
-        select(CompanyModule).where(
-            CompanyModule.company_id == current_user.company_id,
-            CompanyModule.module_id == data.module_id,
+    mod, cm = await set_company_module_enabled(
+        db, current_user.company_id, data.module_id, data.enabled
+    )
+    return ResponseBase(
+        data=ModuleManagementResponse(
+            module_id=mod.id,
+            code=mod.code,
+            name=mod.name,
+            enabled=cm.enabled
         )
-    )).scalar_one_or_none()
-
-    if cm:
-        cm.enabled = data.enabled
-    else:
-        cm = CompanyModule(company_id=current_user.company_id, module_id=data.module_id, enabled=data.enabled)
-        db.add(cm)
-
-    await db.flush()
-    return ResponseBase(data=ModuleManagementResponse(
-        module_id=mod.id, code=mod.code, name=mod.name, enabled=data.enabled,
-    ))
+    )
 
 
 # ── Email Config ─────────────────────────────────────────────────────────────
