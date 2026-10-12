@@ -268,6 +268,10 @@ async def test_credit_note_permissions_and_tenant_isolation(
     db_session.add(other_company)
     await db_session.commit()
     await db_session.refresh(other_company)
+    # #52: entitle the other tenant so this asserts isolation (404), not 403.
+    from tests.conftest import TestSessionLocal, enable_all_modules
+    async with TestSessionLocal() as session:
+        await enable_all_modules(session, other_company.id)
     other_admin_headers = await create_user_headers(
         client, db_session, other_company.id, "other-admin@test.ge", User.Role.ADMIN
     )

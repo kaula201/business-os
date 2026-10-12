@@ -92,6 +92,10 @@ async def test_marketplace_tenant_isolation(client, auth_headers, test_company):
                  role=User.Role.ADMIN, is_active=True)
         session.add(u)
         await session.commit()
+        # #52: the other tenant must own the module so the check below tests
+        # tenant isolation, not the missing entitlement.
+        from tests.conftest import enable_all_modules
+        await enable_all_modules(session, other.id)
 
     login = await client.post("/api/v1/auth/login", json={"email": "other@test.ge", "password": "admin123"})
     other_headers = {"Authorization": f"Bearer {login.json()['data']['access_token']}"}

@@ -21,6 +21,9 @@ from app.services.rs_ge import RSGeClient, RSGeError
 from app.services.srs_open_data import CounterpartyUnreachable, SrsOpenDataClient
 
 router = APIRouter(prefix="/integrations", tags=["ინტეგრაციები"])
+# #52: token/API-key authenticated public endpoints. Included in router.py
+# without the module guard (the paid-module router above is guarded).
+public_router = APIRouter(prefix="/integrations", tags=["ინტეგრაციები"])
 
 
 def require_finance_role(user: User) -> None:
@@ -369,7 +372,7 @@ async def retry_failed_events(
 
 # ── Public API (API key auth) ─────────────────────────────────────────────────
 
-@router.get("/public/status")
+@public_router.get("/public/status")
 async def public_status(request: Request, db: AsyncSession = Depends(get_db)):
     """Public endpoint authenticated via X-API-Key header."""
     api_key = request.headers.get("X-API-Key", "")

@@ -183,9 +183,11 @@ api_router.include_router(recurring.router, dependencies=[Depends(require_module
 api_router.include_router(bank_rules.router, dependencies=[Depends(require_module("banking-rules"))])
 api_router.include_router(inventory_valuation.router, dependencies=[Depends(require_module("inventory-valuation"))])
 api_router.include_router(consolidated.router, dependencies=[Depends(require_module("consolidated"))])
+api_router.include_router(quotations.public_router)  # public (token / API key), see #52
 api_router.include_router(quotations.router, dependencies=[Depends(require_module("quotations"))])
 api_router.include_router(price_lists.router, dependencies=[Depends(require_module("price-lists"))])
 api_router.include_router(sales_teams.router, dependencies=[Depends(require_module("sales-teams"))])
+api_router.include_router(email_tracking.public_router)  # public (token / API key), see #52
 api_router.include_router(email_tracking.router, dependencies=[Depends(require_module("email-tracking"))])
 api_router.include_router(gl_enhanced.router)
 api_router.include_router(exchange_differences.router, dependencies=[Depends(require_module("exchange-differences"))])
@@ -194,6 +196,7 @@ api_router.include_router(currency.router, dependencies=[Depends(require_module(
 api_router.include_router(fleet.router, dependencies=[Depends(require_module("fleet"))])
 api_router.include_router(fleet_enhanced.router)
 api_router.include_router(fleet_tms.router, dependencies=[Depends(require_module("fleet"))])
+api_router.include_router(integrations.public_router)  # public (token / API key), see #52
 api_router.include_router(integrations.router, dependencies=[Depends(require_module("integrations"))])
 api_router.include_router(cash.router, dependencies=[Depends(require_module("cash"))])
 api_router.include_router(assets.router, dependencies=[Depends(require_module("assets"))])

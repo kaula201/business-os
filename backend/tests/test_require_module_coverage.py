@@ -53,6 +53,13 @@ ALLOWLIST_PREFIXES = (
     "/api/v1/dashboard/",             # BASE (#52 decision); paid widgets gated per module in dashboard*.py
     "/api/v1/api-keys/",              # BASE (#52 decision)
 )
+# Public endpoints inside paid routers: authenticated by a portal/signing token
+# or by the API key itself, so they live on each file's public_router.
+ALLOWLIST_EXACT_PUBLIC = {
+    "/api/v1/quotations/portal/{portal_token}",
+    "/api/v1/signature-requests/sign",
+    "/api/v1/integrations/public/status",
+}
 
 # Products catalog (name, price, VAT, categories, variants, images) is BASE (#52
 # decision); stock routes in the same router stay under inventory.
@@ -79,7 +86,7 @@ ROUTES = [r for r in app.routes if isinstance(r, APIRoute)]
 
 
 def is_allowlisted(path: str) -> bool:
-    if path in ALLOWLIST_EXACT:
+    if path in ALLOWLIST_EXACT or path in ALLOWLIST_EXACT_PUBLIC:
         return True
     if path.startswith(PRODUCTS_PREFIX) and path not in PRODUCTS_INVENTORY_PATHS:
         return True
@@ -130,7 +137,7 @@ def test_allowlist_entries_are_used():
         if not any(r.path.startswith(prefix) for r in ROUTES):
             unused_prefixes.append(prefix)
     unused_exact = []
-    for exact in ALLOWLIST_EXACT:
+    for exact in ALLOWLIST_EXACT | ALLOWLIST_EXACT_PUBLIC:
         if not any(r.path == exact for r in ROUTES):
             unused_exact.append(exact)
     assert unused_prefixes == [] and unused_exact == [], (
