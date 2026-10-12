@@ -15,6 +15,8 @@ RLS stays fail-closed: each company is pinned with a transaction-local
 app.current_company_id; app.rls_bypass is not used. Idempotent.
 """
 
+import logging
+
 from alembic import op
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
@@ -24,6 +26,8 @@ revision = "155_backfill_base_company_modules"
 down_revision = "154_invoice_payments"
 branch_labels = None
 depends_on = None
+
+logger = logging.getLogger("alembic.runtime.migration")
 
 # Base module codes that are always enabled for every company.
 # Frozen here intentionally; do not import application code.
@@ -87,7 +91,13 @@ def backfill_base_company_modules(bind: Connection) -> int:
 
 def upgrade():
     bind = op.get_bind()
-    backfill_base_company_modules(bind)
+    inserted_total = backfill_base_company_modules(bind)
+    company_count = bind.execute(text("SELECT count(*) FROM companies")).scalar()
+    logger.info(
+        "155_backfill_base_company_modules: inserted_total=%s company_count=%s",
+        inserted_total,
+        company_count,
+    )
 
 
 def downgrade():
