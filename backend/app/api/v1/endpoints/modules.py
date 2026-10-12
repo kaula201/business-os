@@ -20,6 +20,7 @@ from uuid import UUID
 from app.core.database import get_db
 from app.core.modules import BASE_MODULE_CODES
 from app.core.dependencies import get_current_user, get_current_user_or_api_key, require_admin, require_module
+from app.core.module_toggle import require_module_toggler, set_company_module_enabled
 from app.models.user import User
 from app.models.module import AppModule, CompanyModule, ModulePermission
 from app.schemas.module import (
@@ -132,45 +133,16 @@ async def toggle_company_module(
     module_id: UUID,
     data: CompanyModuleUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("settings", "can_edit")),
+    current_user: User = Depends(require_module_toggler)
 ):
-    """Enable or disable a module for the current company."""
-    # Only tenant admins may toggle company modules.
-    # Tenant self-enablement of paid modules is tracked in epic #12.
-    if current_user.role != User.Role.ADMIN:
-        raise HTTPException(status_code=403, detail="მხოლოდ ადმინისტრატორს შეუძლია")
-
-    # Verify module exists and is active
-    mod_result = await db.execute(
-        select(AppModule).where(AppModule.id == module_id, AppModule.is_active == True)
+    mod, cm = await set_company_module_enabled(
+        db, current_user.company_id, module_id, data.enabled
     )
-    if not mod_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="მოდული არ მოიძებნა ან არააქტიურია")
-
-    # Find or create CompanyModule row
-    cm_result = await db.execute(
-        select(CompanyModule).where(
-            CompanyModule.company_id == current_user.company_id,
-            CompanyModule.module_id == module_id,
+    return ResponseBase(
+        data=CompanyModuleResponse.model_validate(
+            {k: v for k, v in cm.__dict__.items() if k != "_sa_instance_state"}
         )
     )
-    cm = cm_result.scalar_one_or_none()
-
-    if cm:
-        cm.enabled = data.enabled
-    else:
-        cm = CompanyModule(
-            company_id=current_user.company_id,
-            module_id=module_id,
-            enabled=data.enabled,
-        )
-        db.add(cm)
-
-    await db.flush()
-    await db.refresh(cm)
-    return ResponseBase(data=CompanyModuleResponse.model_validate(
-        {k: v for k, v in cm.__dict__.items() if k != "_sa_instance_state"}
-    ))
 
 
 @router.get("/{module_id}", response_model=ResponseBase[AppModuleWithPermissions])
