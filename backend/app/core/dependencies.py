@@ -178,17 +178,20 @@ def require_module(module_code: str, permission: str = "can_access"):
             if not (module_ok or granular_ok):
                 raise HTTPException(status_code=403, detail=f"API გასაღებს არ აქვს წვდომა მოდულზე: {module_code}.{action}")
 
-        # Admin always has full access
-        if current_user.role == User.Role.ADMIN:
-            return current_user
-
         # Find the module
         mod_result = await db.execute(
-            select(AppModule).where(AppModule.code == module_code, AppModule.is_active == True)
+            select(AppModule).where(AppModule.code == module_code)
         )
         module = mod_result.scalar_one_or_none()
         if not module:
+            # Admin keeps its previous behaviour only on codes entirely missing
+            # from the catalog (catalog coverage is epic #12).
+            if current_user.role == User.Role.ADMIN:
+                return current_user
             raise HTTPException(status_code=403, detail="მოდული არ არის რეგისტრირებული")
+        if not module.is_active:
+            # A registered but inactive module is closed for every role, admin included.
+            raise HTTPException(status_code=403, detail="მოდული არააქტიურია")
 
         # BASE modules are always enabled; everything else follows CompanyModule.
         if module_code not in BASE_MODULE_CODES:
@@ -202,6 +205,11 @@ def require_module(module_code: str, permission: str = "can_access"):
             )
             if not cm_result.scalar_one_or_none():
                 raise HTTPException(status_code=403, detail="მოდული გამორთულია კომპანიისთვის")
+
+        # Admin has full role permissions, but only on modules the company owns
+        # (#24 / REQ-PKG): the entitlement check above applies to admins too.
+        if current_user.role == User.Role.ADMIN:
+            return current_user
 
         # Check permission for this role
         perm_result = await db.execute(
