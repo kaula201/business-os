@@ -25,7 +25,7 @@ async def list_job_postings(
     page_size: int = Query(20, ge=1, le=100),
     status: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("recruitment", "can_access")),
+    current_user: User = Depends(require_module("hr", "can_access")),
 ):
     query = select(JobPosting).where(
         JobPosting.company_id == current_user.company_id
@@ -57,7 +57,7 @@ async def list_job_postings(
 async def get_job_posting(
     job_posting_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("recruitment", "can_access")),
+    current_user: User = Depends(require_module("hr", "can_access")),
 ):
     result = await db.execute(
         select(JobPosting).where(
@@ -75,7 +75,7 @@ async def get_job_posting(
 async def create_job_posting(
     data: JobPostingCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("recruitment", "can_create")),
+    current_user: User = Depends(require_module("hr", "can_create")),
 ):
     posting = JobPosting(
         company_id=current_user.company_id,
@@ -99,7 +99,7 @@ async def update_job_posting(
     job_posting_id: UUID,
     data: JobPostingUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("recruitment", "can_edit")),
+    current_user: User = Depends(require_module("hr", "can_edit")),
 ):
     result = await db.execute(
         select(JobPosting).where(
@@ -124,7 +124,7 @@ async def update_job_posting(
 async def delete_job_posting(
     job_posting_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_module("recruitment", "can_delete")),
+    current_user: User = Depends(require_module("hr", "can_delete")),
 ):
     result = await db.execute(
         select(JobPosting).where(

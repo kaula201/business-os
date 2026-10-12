@@ -30,6 +30,9 @@ from app.schemas.email_tracking import (
 from app.services.email_service import send_email_smtp, smtp_configured
 
 router = APIRouter(tags=["კომუნიკაცია"])
+# #52: token/API-key authenticated public endpoints. Included in router.py
+# without the module guard (the paid-module router above is guarded).
+public_router = APIRouter(tags=["კომუნიკაცია"])
 
 
 # ── Email tracking ───────────────────────────────────────────────────────────
@@ -247,7 +250,7 @@ async def resend_signature_request(
     return ResponseBase(data={"id": str(req.id), "resend": True}, message="მოწვევა ხელახლა გაიგზავნა")
 
 
-@router.post("/signature-requests/sign", response_model=ResponseBase[SignatureRequestResponse])
+@public_router.post("/signature-requests/sign", response_model=ResponseBase[SignatureRequestResponse])
 async def sign_request(
     data: SignatureSignRequest,
     db: AsyncSession = Depends(get_db),

@@ -34,6 +34,9 @@ from app.schemas.sales_tools import (
 )
 
 router = APIRouter(prefix="/quotations", tags=["კომერციული შემოთავაზებები"])
+# #52: token/API-key authenticated public endpoints. Included in router.py
+# without the module guard (the paid-module router above is guarded).
+public_router = APIRouter(prefix="/quotations", tags=["კომერციული შემოთავაზებები"])
 
 
 def money(v) -> Decimal:
@@ -408,7 +411,7 @@ async def generate_portal_token(
     return ResponseBase(data={"portal_token": q.portal_token, "portal_url": f"/portal/quotations/{q.portal_token}"})
 
 
-@router.post("/portal/{portal_token}", response_model=ResponseBase[dict])
+@public_router.post("/portal/{portal_token}", response_model=ResponseBase[dict])
 async def portal_respond(
     portal_token: str,
     data: PortalRespondRequest,

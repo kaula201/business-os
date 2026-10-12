@@ -78,6 +78,10 @@ MODULES = [
     ("fleet",         "ავტოპარკი",          "Vehicle fleet management",        "Car",              "/fleet",         "fleet",     260,  None),
     ("reports",       "რეპორტები",           "Reports & analytics",             "BarChart3",        "/reports",       "other",     270,  None),
     ("ai",            "AI ასისტენტი",       "AI chat & RAG",                   "Bot",              "/ai",            "other",     280,  None),
+    # #52: codes already used by require_module but missing from the catalog.
+    ("ecommerce",     "ელ. კომერცია",       "Online store, cart, checkout",     "Store",            "/ecommerce",     "sales",     300,  None),
+    ("contracts",     "ხელშეკრულებები",     "Contracts",                        "FileText",         "/contracts",     "sales",     301,  None),
+    ("approvals",     "დამტკიცებები",       "Approval requests",                "BadgeCheck",       "/approvals",     "operations",302,  None),
     ("settings",      "პარამეტრები",         "Company settings",                "Settings",         "/settings",      "other",     290,  None),
 ]
 

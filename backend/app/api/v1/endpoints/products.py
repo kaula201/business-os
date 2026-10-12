@@ -8,6 +8,7 @@ from uuid import UUID
 from decimal import Decimal
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.modules import is_module_enabled
 from app.models.user import User
 from app.models.product import (
     Product, ProductCategory, ProductVariant, ProductImage, StockMovement
@@ -383,6 +384,9 @@ async def create_product(
     initial_stock = Decimal(str(data.current_stock))
     default_warehouse = None
     if initial_stock > 0:
+        # #52: the product catalog is BASE, stock belongs to the inventory module.
+        if not await is_module_enabled(db, current_user.company_id, "inventory"):
+            raise HTTPException(status_code=403, detail="საწყობის მოდული არ არის ჩართული")
         default_warehouse = (
             await db.execute(
                 select(Warehouse).where(
@@ -1057,7 +1061,7 @@ async def list_stock_movements(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module("inventory")),
 ):
     query = (
         select(StockMovement)
