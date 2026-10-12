@@ -136,7 +136,7 @@ async def toggle_company_module(
     current_user: User = Depends(require_module_toggler)
 ):
     mod, cm = await set_company_module_enabled(
-        db, current_user.company_id, module_id, data.enabled
+        db, current_user.company_id, module_id, data.enabled, actor=current_user
     )
     return ResponseBase(
         data=CompanyModuleResponse.model_validate(
