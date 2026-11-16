@@ -205,3 +205,187 @@ class BOMCostBreakdown(BaseModel):
     total_overhead_cost: Decimal
     total_cost: Decimal
     unit_cost: Decimal
+
+
+# ── Production 2.0: routing / operations / capacity / consumption / scrap / genealogy / MRP / downtime ──
+
+class RoutingBase(BaseModel):
+    code: str = Field(min_length=1, max_length=50)
+    name: str = Field(min_length=1, max_length=255)
+    product_id: UUID
+    is_active: bool = True
+    notes: Optional[str] = None
+
+
+class RoutingCreate(RoutingBase):
+    pass
+
+
+class RoutingOperationCreate(BaseModel):
+    work_center_id: Optional[UUID] = None
+    sequence: int = 1
+    name: str = Field(min_length=1, max_length=255)
+    standard_time_minutes: Decimal = Field(default=Decimal("0"), max_digits=10, decimal_places=2)
+    setup_minutes: Decimal = Field(default=Decimal("0"), max_digits=10, decimal_places=2)
+    hourly_rate: Decimal = Field(default=Decimal("0"), max_digits=14, decimal_places=2)
+
+
+class RoutingOperationResponse(RoutingOperationCreate):
+    id: UUID
+    company_id: UUID
+    routing_id: UUID
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class RoutingResponse(RoutingBase):
+    id: UUID
+    company_id: UUID
+    created_at: datetime
+    operations: list[RoutingOperationResponse] = []
+    model_config = {"from_attributes": True}
+
+
+class WorkOrderOperationStart(BaseModel):
+    work_center_id: Optional[UUID] = None
+    notes: Optional[str] = None
+
+
+class WorkOrderOperationComplete(BaseModel):
+    actual_minutes: Decimal = Field(..., max_digits=10, decimal_places=2)
+    notes: Optional[str] = None
+
+
+class WorkOrderOperationResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    work_order_id: UUID
+    sequence: int
+    name: str
+    work_center_id: Optional[UUID]
+    standard_minutes: Decimal
+    actual_minutes: Decimal
+    actual_labor_cost: Decimal
+    status: str
+    started_at: Optional[datetime]
+    finished_at: Optional[datetime]
+    notes: Optional[str]
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class WorkOrderConsumptionCreate(BaseModel):
+    product_id: UUID
+    warehouse_id: UUID
+    quantity: Decimal = Field(..., gt=0, max_digits=18, decimal_places=3)
+    unit_cost: Decimal = Field(default=Decimal("0"), max_digits=14, decimal_places=2)
+    notes: Optional[str] = None
+
+
+class WorkOrderConsumptionResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    work_order_id: UUID
+    product_id: UUID
+    warehouse_id: UUID
+    quantity: Decimal
+    unit_cost: Decimal
+    total_cost: Decimal
+    is_backflush: bool
+    consumed_at: datetime
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class WorkOrderWipResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    work_order_id: UUID
+    material_cost: Decimal
+    labor_cost: Decimal
+    overhead_cost: Decimal
+    total_cost: Decimal
+    estimated_cost: Decimal
+    variance: Decimal
+    created_at: datetime
+    updated_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class WorkOrderScrapCreate(BaseModel):
+    product_id: UUID
+    quantity: Decimal = Field(..., gt=0, max_digits=18, decimal_places=3)
+    kind: str = "scrap"  # scrap | by_product
+    unit_cost: Decimal = Field(default=Decimal("0"), max_digits=14, decimal_places=2)
+    notes: Optional[str] = None
+
+
+class WorkOrderScrapResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    work_order_id: UUID
+    product_id: UUID
+    quantity: Decimal
+    kind: str
+    unit_cost: Decimal
+    total_value: Decimal
+    notes: Optional[str]
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class GenealogyCreate(BaseModel):
+    finished_lot: Optional[str] = None
+    finished_serial: Optional[str] = None
+    component_product_id: UUID
+    component_lot: Optional[str] = None
+    component_serial: Optional[str] = None
+    quantity: Decimal = Field(default=Decimal("1"), max_digits=18, decimal_places=3)
+
+
+class GenealogyResponse(BaseModel):
+    id: UUID
+    company_id: UUID
+    work_order_id: UUID
+    finished_product_id: UUID
+    finished_lot: Optional[str]
+    finished_serial: Optional[str]
+    component_product_id: UUID
+    component_lot: Optional[str]
+    component_serial: Optional[str]
+    quantity: Decimal
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class MrpRunResponse(BaseModel):
+    generated: int
+    make_suggestions: int
+    buy_suggestions: int
+    suggestions: list[dict] = []
+
+
+class DowntimeWindowCreate(BaseModel):
+    work_center_id: UUID
+    start_time: datetime
+    end_time: datetime
+    downtime_type: str = "maintenance"  # maintenance | break | breakdown
+    notes: Optional[str] = None
+
+
+class DowntimeWindowResponse(DowntimeWindowCreate):
+    id: UUID
+    company_id: UUID
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class CapacityResponse(BaseModel):
+    work_center_id: UUID
+    work_center_code: str
+    work_center_name: str
+    capacity_per_shift: Decimal
+    scheduled_operations_minutes: Decimal
+    available_minutes: Decimal
+    utilization_percent: Decimal
+    downtime_minutes: Decimal

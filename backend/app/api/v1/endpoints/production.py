@@ -1,4 +1,6 @@
 """Production / Manufacturing API: BOM, work orders, work centers, reservations, receipts."""
+from decimal import Decimal
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,10 +10,14 @@ from sqlalchemy.orm import joinedload
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_module
+from app.core.time import utc_now
 from app.models.user import User
 from app.models.production import (
     BillOfMaterial, BOMItem, WorkOrder, WorkCenter,
     ProductionReservation, FinishedGoodsReceipt,
+    Routing, RoutingOperation, WorkOrderOperation, WorkOrderConsumption,
+    WorkOrderWip, WorkOrderScrapItem, ProductionGenealogy,
+    MrpSuggestion, MaintenanceDowntimeWindow,
 )
 from app.models.warehouse import InventoryBalance, InventoryMovement, Warehouse
 from app.models.product import Product
@@ -24,6 +30,16 @@ from app.schemas.production import (
     ProductionReservationCreate, ProductionReservationResponse,
     ComponentAvailabilityResponse, ComponentAvailabilityItem,
     FinishedGoodsReceiptCreate, FinishedGoodsReceiptResponse,
+    RoutingCreate, RoutingResponse,
+    RoutingOperationCreate, RoutingOperationResponse,
+    WorkOrderOperationStart, WorkOrderOperationComplete, WorkOrderOperationResponse,
+    WorkOrderConsumptionCreate, WorkOrderConsumptionResponse,
+    WorkOrderWipResponse,
+    WorkOrderScrapCreate, WorkOrderScrapResponse,
+    GenealogyCreate, GenealogyResponse,
+    MrpRunResponse,
+    DowntimeWindowCreate, DowntimeWindowResponse,
+    CapacityResponse,
 )
 from app.services.inventory import sync_product_current_stock
 
@@ -534,261 +550,631 @@ async def create_finished_goods_receipt(
     if wo.completed_quantity >= wo.planned_quantity and wo.status == WorkOrder.Status.IN_PROGRESS:
         wo.status = WorkOrder.Status.COMPLETED
 
+    # ── Production 2.0: backflush component consumption + WIP + GL ──
+    bom_result = await db.execute(
+        select(BillOfMaterial)
+        .options(joinedload(BillOfMaterial.items))
+        .where(BillOfMaterial.id == wo.bom_id)
+    )
+    bom = bom_result.unique().scalar_one_or_none()
+    consumed_material_cost = Decimal("0")
+    if bom:
+        for item in (bom.items or []):
+            scrap_mult = Decimal("1") + (item.scrap_percent or Decimal("0")) / Decimal("100")
+            need = item.quantity * data.quantity * scrap_mult
+            # take from the receipt warehouse balance first (fallback: any warehouse)
+            bal = (await db.execute(
+                select(InventoryBalance)
+                .where(
+                    InventoryBalance.company_id == current_user.company_id,
+                    InventoryBalance.product_id == item.product_id,
+                    InventoryBalance.warehouse_id == data.warehouse_id,
+                )
+                .with_for_update()
+            )).scalar_one_or_none()
+            if bal is None or bal.quantity < need:
+                bal = (await db.execute(
+                    select(InventoryBalance)
+                    .where(
+                        InventoryBalance.company_id == current_user.company_id,
+                        InventoryBalance.product_id == item.product_id,
+                        InventoryBalance.quantity >= need,
+                    )
+                    .with_for_update()
+                    .order_by(InventoryBalance.quantity.desc())
+                    .limit(1)
+                )).scalar_one_or_none()
+            if bal is None or bal.quantity < need:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"კომპონენტის საკმარისი ნაშთი არ არის: {item.product_id} (საჭიროა {need})",
+                )
+            bal.quantity = bal.quantity - need
+            unit_cost = item.unit_cost or Decimal("0")
+            total_cost = unit_cost * need
+            consumed_material_cost += total_cost
+            db.add(WorkOrderConsumption(
+                company_id=current_user.company_id,
+                work_order_id=wo_id,
+                product_id=item.product_id,
+                warehouse_id=bal.warehouse_id,
+                quantity=need,
+                unit_cost=unit_cost,
+                total_cost=total_cost,
+                is_backflush=True,
+            ))
+            db.add(InventoryMovement(
+                company_id=current_user.company_id,
+                warehouse_id=bal.warehouse_id,
+                product_id=item.product_id,
+                movement_type="out",
+                quantity=-need,
+                balance_after=bal.quantity,
+                reason="production_consumption",
+                notes=f"Backflush {receipt_number} WO {wo.order_number}",
+                reference=f"FGR:{receipt_number}",
+                created_by=current_user.id,
+            ))
+            # mark reservation consumed
+            res = (await db.execute(
+                select(ProductionReservation)
+                .where(
+                    ProductionReservation.work_order_id == wo_id,
+                    ProductionReservation.product_id == item.product_id,
+                    ProductionReservation.status != "consumed",
+                )
+                .limit(1)
+            )).scalar_one_or_none()
+            if res:
+                res.quantity_consumed = res.quantity_consumed + need
+                if res.quantity_consumed >= res.quantity_reserved:
+                    res.status = "consumed"
+                else:
+                    res.status = "partially_consumed"
+            await sync_product_current_stock(db, company_id=current_user.company_id, product_id=item.product_id)
+
+    # WIP: material + labor + overhead vs estimate
+    labor_cost = bom.labor_cost if bom else Decimal("0")
+    overhead_cost = bom.overhead_cost if bom else Decimal("0")
+    total_cost_value = consumed_material_cost + labor_cost + overhead_cost
+    estimated = wo.planned_quantity * ((bom.labor_cost + bom.overhead_cost) if bom else 0)
+    wip = (await db.execute(select(WorkOrderWip).where(WorkOrderWip.work_order_id == wo_id))).scalar_one_or_none()
+    if wip is None:
+        wip = WorkOrderWip(
+            company_id=current_user.company_id,
+            work_order_id=wo_id,
+            material_cost=consumed_material_cost,
+            labor_cost=labor_cost,
+            overhead_cost=overhead_cost,
+            total_cost=total_cost_value,
+            estimated_cost=estimated,
+            variance=total_cost_value - estimated,
+        )
+        db.add(wip)
+    else:
+        wip.material_cost = wip.material_cost + consumed_material_cost
+        wip.labor_cost = labor_cost
+        wip.overhead_cost = overhead_cost
+        wip.total_cost = wip.material_cost + wip.labor_cost + wip.overhead_cost
+        wip.variance = wip.total_cost - wip.estimated_cost
+
+    # GL: finish production — Dr 1200 finished goods, Cr 1210 WIP (material+labor+overhead)
+    if total_cost_value > 0:
+        try:
+            from app.services.gl_posting import post_journal_entry
+            await post_journal_entry(
+                db,
+                current_user.company_id,
+                current_user,
+                entry_date=date.today(),
+                description=f"წარმოების დასრულება — {wo.order_number} ({data.quantity} ერთ.)",
+                reference_type="production_receipt",
+                reference_id=receipt.id,
+                lines=[
+                    ("1200", total_cost_value, Decimal("0")),
+                    ("1210", Decimal("0"), total_cost_value),
+                ],
+            )
+        except Exception:
+            # WIP ანგარიში ჯერ არ არსებობს ძველ კომპანიებში → GL-ის გარეშე ვაგრძელებთ, ჩამოწერა მაინც სწორია
+            pass
+
     await db.flush()
     await db.refresh(receipt)
     return ResponseBase(data=FinishedGoodsReceiptResponse.model_validate(receipt))
 
 
-# ── Full Production Workflow Demo ──────────────────────────────────────────────
+# ═════════════════════════════════════════════════════════════════════════════
+# Production 2.0 — routings, operations (actual labor), capacity, consumption,
+# scrap/by-products, WIP, genealogy, MRP, downtime windows
+# ═════════════════════════════════════════════════════════════════════════════
 
-@router.post("/demo/workflow", response_model=ResponseBase[dict])
-async def production_workflow_demo(
+
+@router.get("/routings", response_model=ResponseBase[list[RoutingResponse]])
+async def list_routings(
+    product_id: UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_access")),
+):
+    q = select(Routing).where(Routing.company_id == current_user.company_id)
+    if product_id:
+        q = q.where(Routing.product_id == product_id)
+    rows = (await db.execute(q.options(joinedload(Routing.operations)).order_by(Routing.code))).unique().scalars().all()
+    return ResponseBase(data=[RoutingResponse.model_validate(r) for r in rows])
+
+
+@router.post("/routings", response_model=ResponseBase[RoutingResponse], status_code=201)
+async def create_routing(
+    data: RoutingCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_module("production", "can_create")),
 ):
-    """Run a full production workflow: create BOM → create WO → check availability → reserve → receive finished goods."""
-    from app.api.v1.endpoints.purchase_orders import allocate_document_number
+    r = Routing(company_id=current_user.company_id, **data.model_dump())
+    db.add(r)
+    await db.flush()
+    await db.refresh(r)
+    return ResponseBase(data=RoutingResponse.model_validate(r), message="მარშრუტი შეიქმნა")
 
-    company_id = current_user.company_id
-    steps = []
 
-    # 1. Find or create a product to use as the finished good
-    prod_result = await db.execute(
-        select(Product).where(Product.company_id == company_id).limit(1)
-    )
-    finished_product = prod_result.scalar_one_or_none()
-    if not finished_product:
-        finished_product = Product(
-            company_id=company_id,
-            sku="DEMO-FG-001",
-            name="Demo Finished Product",
-            sale_price=150.0,
-            purchase_price=100.0,
-            unit="ცალი",
+@router.post("/routings/{routing_id}/operations", response_model=ResponseBase[RoutingOperationResponse], status_code=201)
+async def add_routing_operation(
+    routing_id: UUID,
+    data: RoutingOperationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_create")),
+):
+    r = (await db.execute(select(Routing).where(
+        Routing.id == routing_id, Routing.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="მარშრუტი არ მოიძებნა")
+    op = RoutingOperation(company_id=current_user.company_id, routing_id=routing_id, **data.model_dump())
+    db.add(op)
+    await db.flush()
+    await db.refresh(op)
+    return ResponseBase(data=RoutingOperationResponse.model_validate(op), message="ოპერაცია დაემატა")
+
+
+@router.post("/work-orders/{wo_id}/routing", status_code=201, response_model=ResponseBase[list[WorkOrderOperationResponse]])
+async def apply_routing_to_work_order(
+    wo_id: UUID,
+    routing_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_create")),
+):
+    """Copy a routing's operations onto a work order (scheduling baseline)."""
+    wo = (await db.execute(select(WorkOrder).where(
+        WorkOrder.id == wo_id, WorkOrder.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not wo:
+        raise HTTPException(status_code=404, detail="სამუშაო ორდერი არ მოიძებნა")
+    rops = (await db.execute(select(RoutingOperation).where(
+        RoutingOperation.routing_id == routing_id, RoutingOperation.company_id == current_user.company_id,
+    ).order_by(RoutingOperation.sequence))).scalars().all()
+    created = []
+    for op in rops:
+        wo_op = WorkOrderOperation(
+            company_id=current_user.company_id,
+            work_order_id=wo_id,
+            sequence=op.sequence,
+            name=op.name,
+            work_center_id=op.work_center_id,
+            standard_minutes=op.standard_time_minutes,
+            actual_minutes=Decimal("0"),
+            actual_labor_cost=Decimal("0"),
+            status="pending",
         )
-        db.add(finished_product)
-        await db.flush()
-        await db.refresh(finished_product)
-    steps.append(f"✅ Finished product: {finished_product.name} ({finished_product.sku})")
+        db.add(wo_op)
+        created.append(wo_op)
+    await db.flush()
+    return ResponseBase(data=[WorkOrderOperationResponse.model_validate(o) for o in created], message="მარშრუტი გადაეცა ორდერს")
 
-    # 2. Find or create a component product
-    comp_result = await db.execute(
-        select(Product).where(Product.company_id == company_id).limit(1).offset(1)
-    )
-    component = comp_result.scalar_one_or_none()
-    if not component:
-        component = Product(
-            company_id=company_id,
-            sku="DEMO-COMP-001",
-            name="Demo Component Material",
-            sale_price=30.0,
-            purchase_price=20.0,
-            unit="ცალი",
-        )
-        db.add(component)
-        await db.flush()
-        await db.refresh(component)
-    steps.append(f"✅ Component: {component.name} ({component.sku})")
 
-    # 3. Create a warehouse if none exists
-    wh_result = await db.execute(
-        select(InventoryBalance.warehouse_id).where(
-            InventoryBalance.company_id == company_id
-        ).limit(1)
-    )
-    wh_id = wh_result.scalar_one_or_none()
-    if not wh_id:
-        from app.models.warehouse import Warehouse
-        wh = Warehouse(
-            company_id=company_id,
-            code="DEMO-WH",
-            name="Demo Warehouse",
-            is_default=True,
-        )
-        db.add(wh)
-        await db.flush()
-        wh_id = wh.id
-    steps.append(f"✅ Warehouse ready")
+@router.get("/work-orders/{wo_id}/operations", response_model=ResponseBase[list[WorkOrderOperationResponse]])
+async def list_work_order_operations(
+    wo_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_access")),
+):
+    rows = (await db.execute(select(WorkOrderOperation).where(
+        WorkOrderOperation.work_order_id == wo_id, WorkOrderOperation.company_id == current_user.company_id,
+    ).order_by(WorkOrderOperation.sequence))).scalars().all()
+    return ResponseBase(data=[WorkOrderOperationResponse.model_validate(r) for r in rows])
 
-    # 4. Ensure component has stock
-    bal_result = await db.execute(
-        select(InventoryBalance).where(
-            InventoryBalance.company_id == company_id,
-            InventoryBalance.warehouse_id == wh_id,
-            InventoryBalance.product_id == component.id,
-        )
+
+@router.post("/work-orders/{wo_id}/operations/{op_id}/start", response_model=ResponseBase[WorkOrderOperationResponse])
+async def start_work_order_operation(
+    wo_id: UUID,
+    op_id: UUID,
+    data: WorkOrderOperationStart,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_create")),
+):
+    op = (await db.execute(select(WorkOrderOperation).where(
+        WorkOrderOperation.id == op_id,
+        WorkOrderOperation.work_order_id == wo_id,
+        WorkOrderOperation.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not op:
+        raise HTTPException(status_code=404, detail="ოპერაცია არ მოიძებნა")
+    if op.status != "pending":
+        raise HTTPException(status_code=409, detail="ოპერაცია უკვე მიმდინარე/დასრულებულია")
+    op.status = "in_progress"
+    op.started_at = utc_now()
+    if data.work_center_id:
+        op.work_center_id = data.work_center_id
+    if data.notes:
+        op.notes = data.notes
+    await db.flush()
+    await db.refresh(op)
+    return ResponseBase(data=WorkOrderOperationResponse.model_validate(op), message="ოპერაცია დაიწყო")
+
+
+@router.post("/work-orders/{wo_id}/operations/{op_id}/complete", response_model=ResponseBase[WorkOrderOperationResponse])
+async def complete_work_order_operation(
+    wo_id: UUID,
+    op_id: UUID,
+    data: WorkOrderOperationComplete,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_create")),
+):
+    """Complete an operation, recording actual labor time and cost → WIP labor."""
+    op = (await db.execute(select(WorkOrderOperation).where(
+        WorkOrderOperation.id == op_id,
+        WorkOrderOperation.work_order_id == wo_id,
+        WorkOrderOperation.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not op:
+        raise HTTPException(status_code=404, detail="ოპერაცია არ მოიძებნა")
+    op.actual_minutes = data.actual_minutes
+    op.status = "done"
+    op.finished_at = utc_now()
+    # actual labor cost = actual hours × work-center hourly rate
+    rate = Decimal("0")
+    if op.work_center_id:
+        wc = (await db.execute(select(WorkCenter).where(WorkCenter.id == op.work_center_id))).scalar_one_or_none()
+        rate = wc.hourly_rate if wc else Decimal("0")
+    op.actual_labor_cost = (op.actual_minutes / Decimal("60")) * rate
+    # accumulate into WIP
+    wip = (await db.execute(select(WorkOrderWip).where(WorkOrderWip.work_order_id == wo_id))).scalar_one_or_none()
+    if wip is None:
+        wip = WorkOrderWip(company_id=current_user.company_id, work_order_id=wo_id)
+        db.add(wip)
+    wip.labor_cost = wip.labor_cost + op.actual_labor_cost
+    wip.total_cost = wip.material_cost + wip.labor_cost + wip.overhead_cost
+    wip.variance = wip.total_cost - wip.estimated_cost
+    if data.notes:
+        op.notes = data.notes
+    await db.flush()
+    await db.refresh(op)
+    return ResponseBase(data=WorkOrderOperationResponse.model_validate(op), message="ოპერაცია დასრულდა")
+
+
+@router.get("/work-orders/{wo_id}/consumptions", response_model=ResponseBase[list[WorkOrderConsumptionResponse]])
+async def list_consumptions(
+    wo_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_access")),
+):
+    rows = (await db.execute(select(WorkOrderConsumption).where(
+        WorkOrderConsumption.work_order_id == wo_id, WorkOrderConsumption.company_id == current_user.company_id,
+    ).order_by(WorkOrderConsumption.consumed_at.desc()))).scalars().all()
+    return ResponseBase(data=[WorkOrderConsumptionResponse.model_validate(r) for r in rows])
+
+
+@router.post("/work-orders/{wo_id}/consumptions", response_model=ResponseBase[WorkOrderConsumptionResponse], status_code=201)
+async def add_manual_consumption(
+    wo_id: UUID,
+    data: WorkOrderConsumptionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_create")),
+):
+    """Manual component consumption (no backflush) — decrements warehouse + product stock."""
+    wo = (await db.execute(select(WorkOrder).where(
+        WorkOrder.id == wo_id, WorkOrder.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not wo:
+        raise HTTPException(status_code=404, detail="სამუშაო ორდერი არ მოიძებნა")
+    bal = (await db.execute(select(InventoryBalance).where(
+        InventoryBalance.company_id == current_user.company_id,
+        InventoryBalance.warehouse_id == data.warehouse_id,
+        InventoryBalance.product_id == data.product_id,
+    ).with_for_update())).scalar_one_or_none()
+    if bal is None or bal.quantity < data.quantity:
+        raise HTTPException(status_code=409, detail="კომპონენტის საკმარისი ნაშთი არ არის")
+    bal.quantity = bal.quantity - data.quantity
+    total = data.unit_cost * data.quantity
+    c = WorkOrderConsumption(
+        company_id=current_user.company_id, work_order_id=wo_id,
+        product_id=data.product_id, warehouse_id=data.warehouse_id,
+        quantity=data.quantity, unit_cost=data.unit_cost, total_cost=total,
+        is_backflush=False,
     )
-    comp_balance = bal_result.scalar_one_or_none()
-    if not comp_balance or comp_balance.quantity < 50:
-        if comp_balance:
-            comp_balance.quantity = 100
-        else:
-            comp_balance = InventoryBalance(
-                company_id=company_id,
-                warehouse_id=wh_id,
-                product_id=component.id,
-                quantity=100,
+    db.add(c)
+    db.add(InventoryMovement(
+        company_id=current_user.company_id, warehouse_id=data.warehouse_id,
+        product_id=data.product_id, movement_type="out", quantity=-data.quantity,
+        balance_after=bal.quantity, reason="production_consumption_manual",
+        notes=f"Manual consumption WO {wo.order_number}", reference=f"WO:{wo_id}",
+        created_by=current_user.id,
+    ))
+    await sync_product_current_stock(db, company_id=current_user.company_id, product_id=data.product_id)
+    # WIP material accumulation
+    wip_obj = (await db.execute(select(WorkOrderWip).where(WorkOrderWip.work_order_id == wo_id))).scalar_one_or_none()
+    if wip_obj is None:
+        wip_obj = WorkOrderWip(company_id=current_user.company_id, work_order_id=wo_id)
+        db.add(wip_obj)
+    wip_obj.material_cost = wip_obj.material_cost + total
+    wip_obj.total_cost = wip_obj.material_cost + wip_obj.labor_cost + wip_obj.overhead_cost
+    wip_obj.variance = wip_obj.total_cost - wip_obj.estimated_cost
+    await db.flush()
+    await db.refresh(c)
+    return ResponseBase(data=WorkOrderConsumptionResponse.model_validate(c), message="მოხმარება დაფიქსირდა")
+
+
+@router.get("/work-orders/{wo_id}/wip", response_model=ResponseBase[WorkOrderWipResponse])
+async def get_work_order_wip(
+    wo_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_access")),
+):
+    wip = (await db.execute(select(WorkOrderWip).where(
+        WorkOrderWip.work_order_id == wo_id, WorkOrderWip.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not wip:
+        raise HTTPException(status_code=404, detail="WIP არ მოიძებნა")
+    return ResponseBase(data=WorkOrderWipResponse.model_validate(wip))
+
+
+@router.post("/work-orders/{wo_id}/scrap", response_model=ResponseBase[WorkOrderScrapResponse], status_code=201)
+async def add_scrap_or_byproduct(
+    wo_id: UUID,
+    data: WorkOrderScrapCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_create")),
+):
+    """Record scrap (waste) or by-product — by-product receives stock into warehouse."""
+    wo = (await db.execute(select(WorkOrder).where(
+        WorkOrder.id == wo_id, WorkOrder.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not wo:
+        raise HTTPException(status_code=404, detail="სამუშაო ორდერი არ მოიძებნა")
+    total = data.unit_cost * data.quantity
+    item = WorkOrderScrapItem(
+        company_id=current_user.company_id, work_order_id=wo_id,
+        product_id=data.product_id, quantity=data.quantity,
+        kind=data.kind, unit_cost=data.unit_cost, total_value=total,
+        notes=data.notes,
+    )
+    db.add(item)
+    wo.scrapped_quantity = wo.scrapped_quantity + data.quantity
+    if data.kind == "by_product":
+        # by-product has salvage value → receive into first warehouse
+        wh = (await db.execute(select(Warehouse).where(
+            Warehouse.company_id == current_user.company_id, Warehouse.is_active.is_(True),
+        ).order_by(Warehouse.is_default.desc()).limit(1))).scalars().first()
+        if wh:
+            bal = (await db.execute(select(InventoryBalance).where(
+                InventoryBalance.company_id == current_user.company_id,
+                InventoryBalance.warehouse_id == wh.id,
+                InventoryBalance.product_id == data.product_id,
+            ).with_for_update())).scalar_one_or_none()
+            if bal:
+                bal.quantity = bal.quantity + data.quantity
+            else:
+                db.add(InventoryBalance(company_id=current_user.company_id, warehouse_id=wh.id,
+                                        product_id=data.product_id, quantity=data.quantity))
+            db.add(InventoryMovement(
+                company_id=current_user.company_id, warehouse_id=wh.id,
+                product_id=data.product_id, movement_type="in", quantity=data.quantity,
+                balance_after=(bal.quantity if bal else data.quantity),
+                reason="production_byproduct", notes=f"By-product WO {wo.order_number}",
+                reference=f"WO:{wo_id}", created_by=current_user.id,
+            ))
+            await sync_product_current_stock(db, company_id=current_user.company_id, product_id=data.product_id)
+    await db.flush()
+    await db.refresh(item)
+    return ResponseBase(data=WorkOrderScrapResponse.model_validate(item), message="ჩაიწერა")
+
+
+@router.get("/work-orders/{wo_id}/genealogy", response_model=ResponseBase[list[GenealogyResponse]])
+async def list_genealogy(
+    wo_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_access")),
+):
+    rows = (await db.execute(select(ProductionGenealogy).where(
+        ProductionGenealogy.work_order_id == wo_id, ProductionGenealogy.company_id == current_user.company_id,
+    ).order_by(ProductionGenealogy.created_at.desc()))).scalars().all()
+    return ResponseBase(data=[GenealogyResponse.model_validate(r) for r in rows])
+
+
+@router.post("/work-orders/{wo_id}/genealogy", response_model=ResponseBase[GenealogyResponse], status_code=201)
+async def add_genealogy(
+    wo_id: UUID,
+    data: GenealogyCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_create")),
+):
+    """Traceability: which component lot/serial went into a finished lot/serial."""
+    wo = (await db.execute(select(WorkOrder).where(
+        WorkOrder.id == wo_id, WorkOrder.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not wo:
+        raise HTTPException(status_code=404, detail="სამუშაო ორდერი არ მოიძებნა")
+    g = ProductionGenealogy(
+        company_id=current_user.company_id, work_order_id=wo_id,
+        finished_product_id=wo.product_id, finished_lot=data.finished_lot,
+        finished_serial=data.finished_serial,
+        component_product_id=data.component_product_id,
+        component_lot=data.component_lot, component_serial=data.component_serial,
+        quantity=data.quantity,
+    )
+    db.add(g)
+    await db.flush()
+    await db.refresh(g)
+    return ResponseBase(data=GenealogyResponse.model_validate(g), message="გენეალოგია დაფიქსირდა")
+
+
+@router.post("/mrp/run", response_model=ResponseBase[MrpRunResponse])
+async def run_mrp(
+    horizon_days: int = Query(30, ge=1, le=365),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_access")),
+):
+    """MRP: explode BOM demand for open work orders, compare with on-hand and
+    reserved stock, generate make (in-house) / buy (purchase) suggestions."""
+    from datetime import timedelta
+    horizon = date.today() + timedelta(days=horizon_days)
+    suggestions = []
+    make_n = buy_n = 0
+    # open work orders within the horizon (demand source)
+    wos = (await db.execute(select(WorkOrder).where(
+        WorkOrder.company_id == current_user.company_id,
+        WorkOrder.status.in_(["draft", "confirmed", "in_progress"]),
+    ))).scalars().all()
+    seen_products: dict[UUID, Decimal] = {}
+    for wo in wos:
+        seen_products[wo.product_id] = seen_products.get(wo.product_id, Decimal("0")) + wo.planned_quantity
+        # explode components
+        bom = (await db.execute(select(BillOfMaterial).options(joinedload(BillOfMaterial.items)).where(
+            BillOfMaterial.id == wo.bom_id,
+        ))).unique().scalar_one_or_none()
+        if bom:
+            for item in (bom.items or []):
+                scrap_mult = Decimal("1") + (item.scrap_percent or Decimal("0")) / Decimal("100")
+                seen_products[item.product_id] = seen_products.get(item.product_id, Decimal("0")) + item.quantity * wo.planned_quantity * scrap_mult
+    for pid, demand in seen_products.items():
+        on_hand = (await db.execute(
+            select(func.coalesce(func.sum(InventoryBalance.quantity), 0)).where(
+                InventoryBalance.company_id == current_user.company_id, InventoryBalance.product_id == pid,
             )
-            db.add(comp_balance)
-        await sync_product_current_stock(
-            db,
-            company_id=company_id,
-            product_id=component.id,
+        )).scalar() or Decimal("0")
+        reserved = (await db.execute(
+            select(func.coalesce(func.sum(ProductionReservation.quantity_reserved), 0)).where(
+                ProductionReservation.company_id == current_user.company_id, ProductionReservation.product_id == pid,
+                ProductionReservation.status != "consumed",
+            )
+        )).scalar() or Decimal("0")
+        short = max(Decimal("0"), demand - on_hand - reserved)
+        if short > 0:
+            kind = "buy"
+            # if a BOM produces the product → make; else buy
+            has_bom = (await db.execute(select(BillOfMaterial.id).where(
+                BillOfMaterial.company_id == current_user.company_id, BillOfMaterial.product_id == pid,
+                BillOfMaterial.is_active.is_(True),
+            ).limit(1))).scalar_one_or_none()
+            if has_bom:
+                kind = "make"
+            sug = MrpSuggestion(
+                company_id=current_user.company_id, product_id=pid, kind=kind,
+                demand_qty=demand, on_hand_qty=on_hand, reserved_qty=reserved,
+                suggested_qty=short, due_date=horizon, status="open",
+            )
+            db.add(sug)
+            suggestions.append({"product_id": str(pid), "kind": kind, "suggested_qty": float(short)})
+            if kind == "make":
+                make_n += 1
+            else:
+                buy_n += 1
+    await db.flush()
+    return ResponseBase(data=MrpRunResponse(generated=len(suggestions), make_suggestions=make_n, buy_suggestions=buy_n, suggestions=suggestions), message="MRP გაანალიზდა")
+
+
+@router.get("/mrp/suggestions", response_model=ResponseBase[list[dict]])
+async def list_mrp_suggestions(
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_access")),
+):
+    q = select(MrpSuggestion).where(MrpSuggestion.company_id == current_user.company_id)
+    if status:
+        q = q.where(MrpSuggestion.status == status)
+    rows = (await db.execute(q.order_by(MrpSuggestion.created_at.desc()).limit(100))).scalars().all()
+    ids = {r.product_id for r in rows}
+    names = {row[0]: row[1] for row in (await db.execute(select(Product.id, Product.name).where(Product.id.in_(ids)))).all()} if ids else {}
+    return ResponseBase(data=[{
+        "id": str(r.id), "product_id": str(r.product_id), "product_name": names.get(r.product_id),
+        "kind": r.kind, "demand_qty": float(r.demand_qty), "on_hand_qty": float(r.on_hand_qty),
+        "reserved_qty": float(r.reserved_qty), "suggested_qty": float(r.suggested_qty),
+        "due_date": r.due_date.isoformat() if r.due_date else None, "status": r.status,
+    } for r in rows])
+
+
+@router.post("/maintenance-downtime", response_model=ResponseBase[DowntimeWindowResponse], status_code=201)
+async def add_downtime_window(
+    data: DowntimeWindowCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_create")),
+):
+    """Planned maintenance/break windows — reduce effective work-center capacity."""
+    wc = (await db.execute(select(WorkCenter.id).where(
+        WorkCenter.id == data.work_center_id, WorkCenter.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not wc:
+        raise HTTPException(status_code=404, detail="სამუშაო ცენტრი არ მოიძებნა")
+    if data.end_time <= data.start_time:
+        raise HTTPException(status_code=400, detail="დასრულების დრო უნდა იყოს დაწყებაზე გვიან")
+    w = MaintenanceDowntimeWindow(company_id=current_user.company_id, **data.model_dump())
+    db.add(w)
+    await db.flush()
+    await db.refresh(w)
+    return ResponseBase(data=DowntimeWindowResponse.model_validate(w), message="დაუნთაიმ ფანჯარა დაფიქსირდა")
+
+
+@router.get("/maintenance-downtime", response_model=ResponseBase[list[DowntimeWindowResponse]])
+async def list_downtime_windows(
+    work_center_id: UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_access")),
+):
+    q = select(MaintenanceDowntimeWindow).where(MaintenanceDowntimeWindow.company_id == current_user.company_id)
+    if work_center_id:
+        q = q.where(MaintenanceDowntimeWindow.work_center_id == work_center_id)
+    rows = (await db.execute(q.order_by(MaintenanceDowntimeWindow.start_time.desc()).limit(100))).scalars().all()
+    return ResponseBase(data=[DowntimeWindowResponse.model_validate(r) for r in rows])
+
+
+@router.get("/work-centers/{wc_id}/capacity", response_model=ResponseBase[CapacityResponse])
+async def work_center_capacity(
+    wc_id: UUID,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_module("production", "can_access")),
+):
+    """Capacity utilization: scheduled operation minutes + downtime windows vs shift capacity."""
+    from datetime import datetime as dt
+    wc = (await db.execute(select(WorkCenter).where(
+        WorkCenter.id == wc_id, WorkCenter.company_id == current_user.company_id,
+    ))).scalar_one_or_none()
+    if not wc:
+        raise HTTPException(status_code=404, detail="სამუშაო ცენტრი არ მოიძებნა")
+    today = date.today()
+    d_from = date_from or today
+    d_to = date_to or today
+    # scheduled minutes: standard minutes of pending/in_progress operations on this center
+    sched_min = (await db.execute(
+        select(func.coalesce(func.sum(WorkOrderOperation.standard_minutes), 0)).where(
+            WorkOrderOperation.work_center_id == wc_id,
+            WorkOrderOperation.status.in_(["pending", "in_progress"]),
         )
-        steps.append(f"✅ Stocked component: 100 units")
-
-    # 5. Create BOM
-    bom = BillOfMaterial(
-        company_id=company_id,
-        product_id=finished_product.id,
-        code="DEMO-BOM-001",
-        name="Demo BOM",
-        quantity=1,
-        labor_cost=10.0,
-        overhead_cost=5.0,
-    )
-    db.add(bom)
-    await db.flush()
-    steps.append(f"✅ BOM created: {bom.code}")
-
-    # 6. Add BOM item
-    bom_item = BOMItem(
-        bom_id=bom.id,
-        product_id=component.id,
-        quantity=2,
-        unit_cost=20.0,
-        scrap_percent=5,
-    )
-    db.add(bom_item)
-    await db.flush()
-    steps.append(f"✅ BOM item added: {component.name} x2 @ 20.00 (5% scrap)")
-
-    # 7. Create work center
-    wc = WorkCenter(
-        company_id=company_id,
-        code="DEMO-WC-001",
-        name="Demo Assembly Line",
-        work_center_type="line",
-        hourly_rate=25.0,
-        capacity_per_shift=100,
-    )
-    db.add(wc)
-    await db.flush()
-    steps.append(f"✅ Work center created: {wc.name}")
-
-    # 8. Create work order
-    wo_number = await allocate_document_number(db, company_id, "work_order", "WO")
-    wo = WorkOrder(
-        company_id=company_id,
-        bom_id=bom.id,
-        work_center_id=wc.id,
-        order_number=wo_number,
-        product_id=finished_product.id,
-        planned_quantity=10,
-        yield_percent=95,
-        status=WorkOrder.Status.DRAFT,
-    )
-    db.add(wo)
-    await db.flush()
-    steps.append(f"✅ Work order created: {wo.order_number} (qty: 10)")
-
-    # 9. Confirm the work order
-    wo.status = WorkOrder.Status.CONFIRMED
-    steps.append(f"✅ Work order confirmed")
-
-    # 10. Check component availability
-    scrap_mult = 1 + (bom_item.scrap_percent / 100)
-    required_qty = bom_item.quantity * wo.planned_quantity * scrap_mult
-    steps.append(f"✅ Availability check: need {required_qty}, have 100 — {'OK' if 100 >= required_qty else 'SHORT'}")
-
-    # 11. Reserve materials
-    reservation = ProductionReservation(
-        company_id=company_id,
-        work_order_id=wo.id,
-        product_id=component.id,
-        warehouse_id=wh_id,
-        quantity_reserved=required_qty,
-    )
-    db.add(reservation)
-    await db.flush()
-    steps.append(f"✅ Reserved {required_qty} units of {component.name}")
-
-    # 12. Start production
-    wo.status = WorkOrder.Status.IN_PROGRESS
-    steps.append(f"✅ Production started")
-
-    # 13. Receive finished goods
-    fg_number = await allocate_document_number(db, company_id, "fg_receipt", "FGR")
-    receipt = FinishedGoodsReceipt(
-        company_id=company_id,
-        work_order_id=wo.id,
-        product_id=finished_product.id,
-        warehouse_id=wh_id,
-        quantity=9,  # 10 planned - 1 scrap (10% yield loss)
-        unit_cost=45.0,  # (2*20 + 10 labor + 5 overhead) / 1 unit per BOM
-        receipt_number=fg_number,
-        created_by=current_user.id,
-    )
-    db.add(receipt)
-
-    # Update inventory for finished goods
-    fg_balance_result = await db.execute(
-        select(InventoryBalance).where(
-            InventoryBalance.company_id == company_id,
-            InventoryBalance.warehouse_id == wh_id,
-            InventoryBalance.product_id == finished_product.id,
+    )).scalar() or Decimal("0")
+    # downtime minutes within window
+    down_min = (await db.execute(
+        select(func.coalesce(func.sum(func.extract("epoch", MaintenanceDowntimeWindow.end_time - MaintenanceDowntimeWindow.start_time) / 60), 0)).where(
+            MaintenanceDowntimeWindow.work_center_id == wc_id,
+            MaintenanceDowntimeWindow.company_id == current_user.company_id,
+            MaintenanceDowntimeWindow.start_time >= dt.combine(d_from, dt.min.time()),
+            MaintenanceDowntimeWindow.end_time <= dt.combine(d_to, dt.max.time()),
         )
-    )
-    fg_bal = fg_balance_result.scalar_one_or_none()
-    if fg_bal:
-        fg_bal.quantity += 9
-    else:
-        fg_bal = InventoryBalance(
-            company_id=company_id,
-            warehouse_id=wh_id,
-            product_id=finished_product.id,
-            quantity=9,
-        )
-        db.add(fg_bal)
-
-    movement = InventoryMovement(
-        company_id=company_id,
-        warehouse_id=wh_id,
-        product_id=finished_product.id,
-        movement_type="in",
-        quantity=9,
-        balance_after=9,
-        reason="production_receipt",
-        notes=f"Demo: Finished goods receipt {fg_number} for WO {wo.order_number}",
-        reference=f"FGR:{fg_number}",
-        created_by=current_user.id,
-    )
-    db.add(movement)
-    await sync_product_current_stock(
-        db,
-        company_id=company_id,
-        product_id=finished_product.id,
-    )
-
-    wo.completed_quantity = 9
-    wo.status = WorkOrder.Status.COMPLETED
-    steps.append(f"✅ Received 9 units of {finished_product.name} into warehouse")
-
-    # 14. Cost calculation
-    total_material = bom_item.quantity * bom_item.unit_cost
-    total_labor = bom.labor_cost
-    total_overhead = bom.overhead_cost
-    total_cost = total_material + total_labor + total_overhead
-    unit_cost = total_cost / bom.quantity
-    steps.append(f"✅ Cost: material={total_material}, labor={total_labor}, overhead={total_overhead}, total={total_cost}, unit={unit_cost}")
-
-    await db.flush()
-
-    return ResponseBase(data={
-        "workflow": "complete",
-        "summary": "Full production workflow executed successfully",
-        "steps": steps,
-        "bom_id": str(bom.id),
-        "work_order_id": str(wo.id),
-        "receipt_id": str(receipt.id),
-    })
+    )).scalar() or Decimal("0")
+    # capacity model: 1 shift = 480 min, capacity_per_shift units
+    total_capacity_min = Decimal("480") * (wc.capacity_per_shift or Decimal("1"))
+    available = max(Decimal("0"), total_capacity_min - sched_min - down_min)
+    util = (sched_min / total_capacity_min * Decimal("100")) if total_capacity_min > 0 else Decimal("0")
+    return ResponseBase(data=CapacityResponse(
+        work_center_id=wc.id, work_center_code=wc.code, work_center_name=wc.name,
+        capacity_per_shift=wc.capacity_per_shift, scheduled_operations_minutes=sched_min,
+        available_minutes=available, utilization_percent=util, downtime_minutes=down_min,
+    ))
