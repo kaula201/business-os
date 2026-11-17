@@ -4556,6 +4556,14 @@
     "auth": false
    },
    {
+    "method": "POST",
+    "path": "/{invoice_id}/payments",
+    "full_path": "/invoices/{invoice_id}/payments",
+    "function": "record_invoice_payment",
+    "doc": "",
+    "auth": false
+   },
+   {
     "method": "PATCH",
     "path": "/{invoice_id}/draft",
     "full_path": "/invoices/{invoice_id}/draft",
@@ -5900,7 +5908,7 @@
     "path": "/company/{module_id}/toggle",
     "full_path": "/modules/company/{module_id}/toggle",
     "function": "toggle_company_module",
-    "doc": "Enable or disable a module for the current company.",
+    "doc": "",
     "auth": false
    },
    {
