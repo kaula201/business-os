@@ -40,23 +40,22 @@ WATCH_PATHS = [
 
 
 def git_hash() -> str:
-    """Hash of the watched source tree (git ls-files + content)."""
-    cmd = ["git", "-C", str(ROOT), "ls-files", "--", *WATCH_PATHS]
+    # Content hash of the watched tree — identical to the git post-commit hook.
+    # Uses blob SHAs from the git index, so it is stable across commits and changes
+    # ONLY when watched source content changes (mtime hashing caused a regen loop).
+    cmd = ["git", "-C", str(ROOT), "ls-files", "-s", "--", *WATCH_PATHS]
     files = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    names = [f for f in files.stdout.splitlines() if f]
-    if not names:
-        return "empty"
-    # hash file list + mtimes + sizes (fast, no content read)
-    import hashlib
-    h = hashlib.sha256()
-    for name in sorted(names):
-        p = ROOT / name
-        try:
-            st = p.stat()
-            h.update(f"{name}:{st.st_mtime_ns}:{st.st_size}\n".encode())
-        except FileNotFoundError:
+    entries = []
+    for line in files.stdout.splitlines():
+        parts = line.split()
+        if len(parts) < 4:
             continue
-    return h.hexdigest()[:16]
+        entries.append(f"{parts[1]} {parts[3]}")
+    if not entries:
+        return "empty"
+    import hashlib
+    payload = "\n".join(sorted(entries)) + "\n"
+    return hashlib.sha1(payload.encode()).hexdigest()[:16]
 
 
 def main() -> int:
